@@ -59,7 +59,7 @@ const fetchOddsAPI = async (url) => {
 };
 
 const getGamesForDate = async (dateLabel, dateValue) => {
-  const games = await fetchSportsData(`${STATS_BASE}/GamesByDate/${dateValue}`);
+  const games = await fetchSportsData(`${STATS_BASE}/GamesByDate/${dateValue}?key=${SPORTS_KEY}`);
   const events = await fetchOddsAPI(`${ODDS_BASE}/events?apiKey=${ODDS_KEY}`);
 
   return (games || []).map((game) => {
