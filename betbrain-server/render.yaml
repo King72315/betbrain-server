@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: betbrain-api
+    env: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install
+    startCommand: node server.js
+    autoDeploy: true
