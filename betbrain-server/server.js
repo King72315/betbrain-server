@@ -172,6 +172,8 @@ async function fetchProjections(daysAhead = 0) {
   const date = formatDate(dateForDaysAhead(daysAhead));
   const url = `https://api.sportsdata.io/api/nba/fantasy/json/PlayerGameProjectionStatsByDate/${date}?key=${API_KEY}`;
   const data = await fetchJson(url);
+  console.log("PROJECTION URL:", url);
+console.log("PROJECTION RESPONSE:", JSON.stringify(data).slice(0, 500));
   return Array.isArray(data) ? data : [];
 }
 
