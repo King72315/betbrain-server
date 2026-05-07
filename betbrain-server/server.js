@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.SPORTS_KEY;
 const ODDS_KEY = process.env.ODDS_KEY;
 
@@ -150,10 +150,11 @@ async function fetchJson(url) {
 
 async function fetchGames(daysAhead = 0) {
   const date = formatDate(dateForDaysAhead(daysAhead));
-  const url = `https://api.sportsdata.io/api/nba/odds/json/GamesByDate/${date}?key=${API_KEY}`;
+  const url = `https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/${date}?key=${API_KEY}`;
   const data = await fetchJson(url);
   return Array.isArray(data) ? data : [];
 }
+
 
 async function fetchPlayers() {
   const url = `https://api.sportsdata.io/api/nba/fantasy/json/Players?key=${API_KEY}`;
