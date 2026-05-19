@@ -4,225 +4,149 @@ function num(value) {
 }
 
 function avg(values = []) {
-  const nums = values
-    .map(num)
-    .filter((v) => Number.isFinite(v));
-
+  const nums = values.map(num).filter(Number.isFinite);
   if (!nums.length) return 0;
-
-  return (
-    nums.reduce((sum, value) => sum + value, 0) /
-    nums.length
-  );
+  return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 }
 
-function buildOpportunityScore({
+export function buildOpportunityScore({
   last5 = [],
   projection = {},
   seasonAverage = 0,
-  isPlayoff = true
+  isPlayoff = true,
 }) {
-  const recentMinutes =
-    avg(last5.map((g) => g.minutes));
+  const recentMinutes = avg(last5.map((g) => g.minutes));
+  const recentFGA = avg(last5.map((g) => g.fga));
+  const recentFTA = avg(last5.map((g) => g.fta));
+  const recentPoints = avg(last5.map((g) => g.points));
 
-  const recentFGA =
-    avg(last5.map((g) => g.fga));
-
-  const recentFTA =
-    avg(last5.map((g) => g.fta));
-
-  const recentPoints =
-    avg(last5.map((g) => g.points));
-
-  const recent3 =
-    last5.slice(0, 3);
-
-  const recent3Minutes =
-    avg(recent3.map((g) => g.minutes));
-
-  const recent3FGA =
-    avg(recent3.map((g) => g.fga));
-
-  const projectedMinutes =
-    num(
-      projection.Minutes ||
+  const projectedMinutes = num(
+    projection.Minutes ||
       projection.ProjectedMinutes ||
-      projection.Min ||
+      projection.MinutesPlayed ||
       0
-    );
+  );
 
-  const projectedFGA =
-    num(
-      projection.FieldGoalsAttempted ||
+  const projectedFGA = num(
+    projection.FieldGoalsAttempted ||
       projection.FGA ||
       projection.ProjectedFGA ||
       0
-    );
+  );
 
-  const projectedFTA =
-    num(
-      projection.FreeThrowsAttempted ||
+  const projectedFTA = num(
+    projection.FreeThrowsAttempted ||
       projection.FTA ||
       projection.ProjectedFTA ||
       0
-    );
+  );
 
-  const shotVolume =
-    recentFGA + recentFTA * 0.44;
+  const minutes = recentMinutes || projectedMinutes;
+  const fga = recentFGA || projectedFGA;
+  const fta = recentFTA || projectedFTA;
 
-  const projectedShotVolume =
-    projectedFGA + projectedFTA * 0.44;
+  const shotVolume = fga + fta * 0.44;
 
   let score = 50;
   const reasons = [];
   const risks = [];
 
-  // Minutes = opportunity foundation
-  if (recentMinutes >= 36) {
-    score += 18;
-    reasons.push("Elite recent minutes");
-  } else if (recentMinutes >= 32) {
-    score += 14;
-    reasons.push("Strong recent minutes");
-  } else if (recentMinutes >= 28) {
-    score += 8;
-    reasons.push("Solid recent minutes");
-  } else if (recentMinutes >= 24) {
-    score += 3;
-    reasons.push("Playable minutes");
-  } else {
-    score -= 12;
-    risks.push("Low recent minutes");
+  if (!minutes || !fga) {
+    risks.push("Incomplete opportunity data");
   }
 
-  // Playoff minutes matter more
-  if (isPlayoff && recentMinutes >= 34) {
-    score += 6;
+  if (minutes >= 36) {
+    score += 22;
+    reasons.push("Elite minutes");
+  } else if (minutes >= 32) {
+    score += 18;
+    reasons.push("Strong minutes");
+  } else if (minutes >= 28) {
+    score += 11;
+    reasons.push("Solid minutes");
+  } else if (minutes >= 24) {
+    score += 5;
+    reasons.push("Playable minutes");
+  } else if (minutes > 0) {
+    score -= 12;
+    risks.push("Low minutes");
+  }
+
+  if (isPlayoff && minutes >= 34) {
+    score += 7;
     reasons.push("Trusted playoff rotation");
   }
 
-  // Recent 3 trend
-  if (recent3Minutes >= recentMinutes + 3) {
-    score += 5;
-    reasons.push("Minutes trending up");
-  } else if (recent3Minutes <= recentMinutes - 3) {
-    score -= 6;
-    risks.push("Minutes trending down");
-  }
-
-  // Shot attempts = scoring opportunity
-  if (recentFGA >= 20) {
-    score += 18;
+  if (fga >= 20) {
+    score += 22;
     reasons.push("Elite shot volume");
-  } else if (recentFGA >= 16) {
-    score += 14;
+  } else if (fga >= 16) {
+    score += 17;
     reasons.push("Strong shot volume");
-  } else if (recentFGA >= 13) {
-    score += 8;
+  } else if (fga >= 13) {
+    score += 11;
     reasons.push("Good shot volume");
-  } else if (recentFGA >= 10) {
-    score += 3;
-    reasons.push("Acceptable shot volume");
-  } else {
-    score -= 12;
-    risks.push("Low shot attempts");
-  }
-
-  // Recent 3 FGA trend
-  if (recent3FGA >= recentFGA + 2) {
+  } else if (fga >= 10) {
     score += 5;
-    reasons.push("Shot attempts trending up");
-  } else if (recent3FGA <= recentFGA - 2) {
-    score -= 6;
-    risks.push("Shot attempts trending down");
+    reasons.push("Playable shot volume");
+  } else if (fga > 0) {
+    score -= 12;
+    risks.push("Low shot volume");
   }
 
-  // Free throws create safer scoring floors
-  if (recentFTA >= 8) {
+  if (fta >= 8) {
     score += 10;
     reasons.push("Elite free throw floor");
-  } else if (recentFTA >= 6) {
+  } else if (fta >= 6) {
     score += 7;
     reasons.push("Strong free throw floor");
-  } else if (recentFTA >= 4) {
+  } else if (fta >= 4) {
     score += 4;
     reasons.push("Useful free throw floor");
-  } else if (recentFTA < 2) {
-    score -= 8;
+  } else if (fta > 0 && fta < 2) {
+    score -= 4;
     risks.push("Weak free throw floor");
   }
 
-  // Projection support
-  if (projectedMinutes >= 34) {
-    score += 6;
-    reasons.push("Projection supports heavy minutes");
-  } else if (projectedMinutes > 0 && projectedMinutes < 26) {
-    score -= 8;
-    risks.push("Projection shows limited minutes");
+  const minutesList = last5.map((g) => num(g.minutes)).filter((v) => v > 0);
+
+  if (minutesList.length >= 3) {
+    const max = Math.max(...minutesList);
+    const min = Math.min(...minutesList);
+    const range = max - min;
+
+    if (range <= 6 && minutes >= 26) {
+      score += 8;
+      reasons.push("Stable role");
+    } else if (range >= 14) {
+      score -= 10;
+      risks.push("Unstable minutes");
+    } else if (range >= 10) {
+      score -= 5;
+      risks.push("Some role volatility");
+    }
   }
 
-  if (projectedShotVolume >= 18) {
-    score += 6;
-    reasons.push("Projection supports shot volume");
-  } else if (
-    projectedShotVolume > 0 &&
-    projectedShotVolume < 10
-  ) {
-    score -= 7;
-    risks.push("Projection shows low shot volume");
-  }
-
-  // Role stability
-  const minutesList =
-    last5.map((g) => num(g.minutes));
-
-  const maxMinutes =
-    minutesList.length ? Math.max(...minutesList) : 0;
-
-  const minMinutes =
-    minutesList.length ? Math.min(...minutesList) : 0;
-
-  const minutesRange =
-    maxMinutes - minMinutes;
-
-  if (minutesRange <= 6 && recentMinutes >= 26) {
-    score += 8;
-    reasons.push("Stable role");
-  } else if (minutesRange >= 14) {
-    score -= 12;
-    risks.push("Unstable role/minutes");
-  } else if (minutesRange >= 10) {
-    score -= 6;
-    risks.push("Some role volatility");
-  }
-
-  // Scoring involvement compared to season
-  if (seasonAverage && recentPoints >= seasonAverage + 3) {
-    score += 5;
+  if (seasonAverage && recentPoints && recentPoints >= seasonAverage + 3) {
+    score += 4;
     reasons.push("Recent scoring above season level");
   }
 
-  if (seasonAverage && recentPoints <= seasonAverage - 4) {
-    score -= 5;
+  if (seasonAverage && recentPoints && recentPoints <= seasonAverage - 4) {
+    score -= 4;
     risks.push("Recent scoring below season level");
   }
 
-  const finalScore =
-    Math.max(0, Math.min(100, Math.round(score)));
+  const opportunityScore = Math.max(0, Math.min(100, Math.round(score)));
 
   return {
-    opportunityScore: finalScore,
-    recentMinutes: Number(recentMinutes.toFixed(1)),
-    recentFGA: Number(recentFGA.toFixed(1)),
-    recentFTA: Number(recentFTA.toFixed(1)),
-    shotVolume: Number(shotVolume.toFixed(1)),
-    recentPoints: Number(recentPoints.toFixed(1)),
-    reasons,
-    risks
+    opportunityScore,
+    recentMinutes: Number(num(minutes).toFixed(1)),
+    recentFGA: Number(num(fga).toFixed(1)),
+    recentFTA: Number(num(fta).toFixed(1)),
+    recentPoints: Number(num(recentPoints).toFixed(1)),
+    shotVolume: Number(num(shotVolume).toFixed(1)),
+    reasons: [...new Set(reasons)],
+    risks: [...new Set(risks)],
   };
 }
-
-export {
-    buildOpportunityScore
-};
-

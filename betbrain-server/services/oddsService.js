@@ -16,42 +16,42 @@ function normalizeTeam(value = "") {
   const v = String(value).toLowerCase();
 
   const map = {
-  "atlanta hawks": "atl",
-  "boston celtics": "bos",
-  "brooklyn nets": "bkn",
-  "charlotte hornets": "cha",
-  "chicago bulls": "chi",
-  "cleveland cavaliers": "cle",
-  "dallas mavericks": "dal",
-  "denver nuggets": "den",
-  "detroit pistons": "det",
-  "golden state warriors": "gs",
-  "houston rockets": "hou",
-  "indiana pacers": "ind",
-  "los angeles clippers": "lac",
-  "los angeles lakers": "lal",
-  "memphis grizzlies": "mem",
-  "miami heat": "mia",
-  "milwaukee bucks": "mil",
-  "minnesota timberwolves": "min",
-  "new orleans pelicans": "no",
-  "new york knicks": "ny",
-  "oklahoma city thunder": "okc",
-  "orlando magic": "orl",
-  "philadelphia 76ers": "phi",
-  "phoenix suns": "phx",
-  "portland trail blazers": "por",
-  "sacramento kings": "sac",
-  "san antonio spurs": "sa",
-  "toronto raptors": "tor",
-  "utah jazz": "uta",
-  "washington wizards": "was",
+    "atlanta hawks": "atl",
+    "boston celtics": "bos",
+    "brooklyn nets": "bkn",
+    "charlotte hornets": "cha",
+    "chicago bulls": "chi",
+    "cleveland cavaliers": "cle",
+    "dallas mavericks": "dal",
+    "denver nuggets": "den",
+    "detroit pistons": "det",
+    "golden state warriors": "gs",
+    "houston rockets": "hou",
+    "indiana pacers": "ind",
+    "los angeles clippers": "lac",
+    "los angeles lakers": "lal",
+    "memphis grizzlies": "mem",
+    "miami heat": "mia",
+    "milwaukee bucks": "mil",
+    "minnesota timberwolves": "min",
+    "new orleans pelicans": "no",
+    "new york knicks": "ny",
+    "oklahoma city thunder": "okc",
+    "orlando magic": "orl",
+    "philadelphia 76ers": "phi",
+    "phoenix suns": "phx",
+    "portland trail blazers": "por",
+    "sacramento kings": "sac",
+    "san antonio spurs": "sa",
+    "toronto raptors": "tor",
+    "utah jazz": "uta",
+    "washington wizards": "was",
 
-  nyk: "ny",
-  sas: "sa",
-  gsw: "gs",
-  nop: "no",
-};
+    nyk: "ny",
+    sas: "sa",
+    gsw: "gs",
+    nop: "no",
+  };
 
   return map[v] || clean(v);
 }
@@ -72,11 +72,11 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
     } catch (err) {
       console.log(`${label} ATTEMPT ${attempt} FAILED:`, err.message);
 
-      if (attempt === 3) {
-        return null;
-      }
+      if (attempt === 3) return null;
 
-      await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+      await new Promise((resolve) =>
+        setTimeout(resolve, attempt * 1500)
+      );
     }
   }
 
@@ -162,43 +162,92 @@ export async function fetchPointsPropsForEvent(eventId) {
   return props;
 }
 
+function average(arr = []) {
+  if (!arr.length) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function chooseMainLine(lines = []) {
+  if (!lines.length) return null;
+
+  const sorted = [...lines].sort((a, b) => a - b);
+
+  const middle = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 1) {
+    return sorted[middle];
+  }
+
+  return Number(
+    ((sorted[middle - 1] + sorted[middle]) / 2).toFixed(1)
+  );
+}
+
 export function buildConsensusPointProps(rawProps = []) {
-  const grouped = {};
+  const byPlayer = {};
 
   for (const prop of rawProps) {
-    const key = `${prop.playerKey}-${prop.line}`;
+    const key = prop.playerKey;
 
-    if (!grouped[key]) {
-      grouped[key] = {
+    if (!byPlayer[key]) {
+      byPlayer[key] = {
         player: prop.player,
         playerKey: prop.playerKey,
-        line: prop.line,
-        overs: [],
-        unders: [],
+        allLines: [],
         books: new Set(),
+        oversByLine: {},
+        undersByLine: {},
       };
     }
 
-    grouped[key].books.add(prop.sportsbook);
+    byPlayer[key].allLines.push(prop.line);
+    byPlayer[key].books.add(prop.sportsbook);
 
-    if (prop.side === "Over") grouped[key].overs.push(prop.odds);
-    if (prop.side === "Under") grouped[key].unders.push(prop.odds);
+    if (!byPlayer[key].oversByLine[prop.line]) {
+      byPlayer[key].oversByLine[prop.line] = [];
+    }
+
+    if (!byPlayer[key].undersByLine[prop.line]) {
+      byPlayer[key].undersByLine[prop.line] = [];
+    }
+
+    if (prop.side === "Over") {
+      byPlayer[key].oversByLine[prop.line].push(prop.odds);
+    }
+
+    if (prop.side === "Under") {
+      byPlayer[key].undersByLine[prop.line].push(prop.odds);
+    }
   }
 
-  return Object.values(grouped).map((item) => {
-    const avg = (arr) =>
-      arr.length
-        ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
-        : null;
+  return Object.values(byPlayer)
+    .map((item) => {
+      const mainLine = chooseMainLine(item.allLines);
 
-    return {
-      player: item.player,
-      playerKey: item.playerKey,
-      stat: "Points",
-      line: item.line,
-      overOdds: avg(item.overs),
-      underOdds: avg(item.unders),
-      bookCount: item.books.size,
-    };
-  });
+      if (mainLine === null) return null;
+
+      const availableLines = [...new Set(item.allLines)];
+
+      const closestLine =
+        availableLines.sort(
+          (a, b) => Math.abs(a - mainLine) - Math.abs(b - mainLine)
+        )[0];
+
+      return {
+        player: item.player,
+        playerKey: item.playerKey,
+        stat: "Points",
+        line: Number(closestLine),
+        overOdds:
+          item.oversByLine[closestLine]
+            ? Math.round(average(item.oversByLine[closestLine]))
+            : null,
+        underOdds:
+          item.undersByLine[closestLine]
+            ? Math.round(average(item.undersByLine[closestLine]))
+            : null,
+        bookCount: item.books.size,
+      };
+    })
+    .filter(Boolean);
 }

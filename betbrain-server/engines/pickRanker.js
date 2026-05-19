@@ -1,5 +1,5 @@
-function clean(value) {
-  return String(value || "")
+function clean(value = "") {
+  return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -17,13 +17,11 @@ function rankByWinProbability(picks = []) {
   });
 }
 
-function chooseBestSidePerPlayer(picks = []) {
+function chooseBestPickPerPlayer(picks = []) {
   const best = new Map();
 
   for (const pick of rankByWinProbability(picks)) {
-    const key = clean(
-      `${pick.player}-${pick.team}-${pick.line}`
-    );
+    const key = clean(`${pick.player}-${pick.team}`);
 
     if (!best.has(key)) {
       best.set(key, pick);
@@ -33,64 +31,36 @@ function chooseBestSidePerPlayer(picks = []) {
   return Array.from(best.values());
 }
 
-function buildTopPicksForGame({
-  game = {},
-  picks = []
-}) {
-  const homeTeam =
-    game.homeTeam || game.home || game.HomeTeam;
-
-  const awayTeam =
-    game.awayTeam || game.away || game.AwayTeam;
+function buildTopPicksForGame({ game = {}, picks = [] }) {
+  const homeTeam = game.homeTeam || game.home || game.HomeTeam;
+  const awayTeam = game.awayTeam || game.away || game.AwayTeam;
 
   const cleanHome = clean(homeTeam);
   const cleanAway = clean(awayTeam);
 
-  const cleanPicks =
-    chooseBestSidePerPlayer(picks);
+  const uniquePicks = chooseBestPickPerPlayer(picks);
 
-  const homePicks =
-    rankByWinProbability(
-      cleanPicks.filter(
-        (p) => clean(p.team) === cleanHome
-      )
-    ).slice(0, 2);
+  const homePicks = rankByWinProbability(
+    uniquePicks.filter((p) => clean(p.team) === cleanHome)
+  ).slice(0, 2);
 
-  const awayPicks =
-    rankByWinProbability(
-      cleanPicks.filter(
-        (p) => clean(p.team) === cleanAway
-      )
-    ).slice(0, 2);
-
-  const combined =
-    rankByWinProbability([
-      ...awayPicks,
-      ...homePicks
-    ]);
+  const awayPicks = rankByWinProbability(
+    uniquePicks.filter((p) => clean(p.team) === cleanAway)
+  ).slice(0, 2);
 
   return {
-    gameId:
-      game.id || game.gameId || game.GameID || "",
-    game:
-      game.game ||
-      `${awayTeam} vs ${homeTeam}`,
+    gameId: game.id || game.gameId || game.GameID || "",
+    game: game.game || `${awayTeam} vs ${homeTeam}`,
     homeTeam,
     awayTeam,
     time: game.time || game.DateTime || "",
-    picks: combined,
+    picks: rankByWinProbability([...awayPicks, ...homePicks]),
     homePicks,
-    awayPicks
+    awayPicks,
   };
 }
 
-function buildSlateTopPicks(gamesWithPicks = []) {
-  return gamesWithPicks.map((item) =>
-    buildTopPicksForGame(item)
-  );
-}
-
 export {
-    buildSlateTopPicks, buildTopPicksForGame, chooseBestSidePerPlayer, rankByWinProbability
+    buildTopPicksForGame, chooseBestPickPerPlayer, rankByWinProbability
 };
 

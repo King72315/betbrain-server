@@ -4,88 +4,28 @@ function num(value) {
 }
 
 function avg(values = []) {
-  const nums = values
-    .map(num)
-    .filter((v) => Number.isFinite(v));
-
+  const nums = values.map(num).filter(Number.isFinite);
   if (!nums.length) return 0;
-
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 }
 
-function calculateHitRate(values = [], line = 0, side = "Over") {
-  const nums = values
-    .map(num)
-    .filter((v) => Number.isFinite(v));
+function hitRate(values = [], line = 0, side = "Over") {
+  if (!values.length) return null;
 
-  if (!nums.length) return 0;
-
-  const hits = nums.filter((v) =>
-    side === "Over" ? v >= line : v <= line
+  const hits = values.filter((v) =>
+    side === "Over" ? num(v) > line : num(v) < line
   ).length;
 
-  return hits / nums.length;
+  return hits / values.length;
 }
 
-function buildProjection({
-  line = 0,
-  seasonAverage = 0,
-  sportsProjection = 0,
-  last5Profile = {},
-  matchupProfile = {},
-  opportunity = {},
-  playoff = {}
-}) {
-  const last5Avg =
-    num(last5Profile.avgPoints);
-
-  const matchupAvg =
-    num(matchupProfile.avgPoints);
-
-  const opportunityScore =
-    num(opportunity.opportunityScore);
-
-  let projection = 0;
-  let weightTotal = 0;
-
-  function addWeighted(value, weight) {
-    if (!value || value <= 0) return;
-
-    projection += value * weight;
-    weightTotal += weight;
-  }
-
-  addWeighted(line, 0.20);
-  addWeighted(seasonAverage, 0.15);
-  addWeighted(sportsProjection, 0.20);
-  addWeighted(last5Avg, 0.30);
-
-  if (matchupAvg > 0) {
-    addWeighted(matchupAvg, 0.15);
-  }
-
-  if (weightTotal > 0) {
-    projection = projection / weightTotal;
-  } else {
-    projection = line;
-  }
-
-  if (opportunityScore >= 80) {
-    projection += 1.8;
-  } else if (opportunityScore >= 70) {
-    projection += 1.1;
-  } else if (opportunityScore <= 45) {
-    projection -= 1.8;
-  } else if (opportunityScore <= 55) {
-    projection -= 0.9;
-  }
-
-  projection += num(playoff.playoffAdjustment) * 0.35;
-
-  return Number(projection.toFixed(1));
+function strengthFromProbability(probability) {
+  if (probability >= 75) return "Elite";
+  if (probability >= 68) return "Strong";
+  return "Lean";
 }
 
-function buildWinProbability({
+export function buildWinProbability({
   player = "",
   team = "",
   opponent = "",
@@ -99,107 +39,103 @@ function buildWinProbability({
   opportunity = {},
   playoff = {},
   overOdds = null,
-  underOdds = null
+  underOdds = null,
 }) {
-  const last5Points =
-    last5.map((g) => num(g.points));
+  const last5Points = last5.map((g) => num(g.points));
+  const matchupPoints = matchupGames.map((g) => num(g.points));
 
-  const matchupPoints =
-    matchupGames.map((g) => num(g.points));
+  const last5Average = avg(last5Points);
+  const matchupAverage = avg(matchupPoints);
 
-  const last5Avg =
-    avg(last5Points);
+  const recentHitRate = hitRate(last5Points, line, side);
+  const matchupHitRate = hitRate(matchupPoints, line, side);
 
-  const matchupAvg =
-    avg(matchupPoints);
+  const opportunityScore = num(opportunity.opportunityScore);
+  const playoffAdjustment = num(playoff.playoffAdjustment);
 
-  const last5HitRate =
-    calculateHitRate(last5Points, line, side);
+  const projectionValues = [];
+  const projectionWeights = [];
 
-  const matchupHitRate =
-    matchupPoints.length
-      ? calculateHitRate(matchupPoints, line, side)
-      : null;
+  function addProjection(value, weight) {
+    const v = num(value);
+    if (v > 0) {
+      projectionValues.push(v * weight);
+      projectionWeights.push(weight);
+    }
+  }
 
-  const last5Profile = {
-    avgPoints: last5Avg
-  };
+  addProjection(last5Average,0.45);
+addProjection(seasonAverage,0.25);
+addProjection(sportsProjection,0.15);
+addProjection(matchupAverage,0.15);
 
-  const matchupProfile = {
-    avgPoints: matchupAvg
-  };
+  if (matchupAverage > 0) {
+    addProjection(matchupAverage, 0.15);
+  }
 
-  const projection = buildProjection({
-    line,
-    seasonAverage,
-    sportsProjection,
-    last5Profile,
-    matchupProfile,
-    opportunity,
-    playoff
-  });
+  let projection =
+    projectionWeights.length > 0
+      ? projectionValues.reduce((a, b) => a + b, 0) /
+        projectionWeights.reduce((a, b) => a + b, 0)
+      : line;
 
-  const edge =
-    side === "Over"
-      ? projection - line
-      : line - projection;
+  if (opportunityScore >= 85) projection += 2.2;
+  else if (opportunityScore >= 75) projection += 1.5;
+  else if (opportunityScore >= 65) projection += 0.8;
+  else if (opportunityScore <= 45) projection -= 1.8;
+
+  projection += playoffAdjustment * 0.3;
+  projection = Number(projection.toFixed(1));
+
+  const rawEdge =
+    side === "Over" ? projection - line : line - projection;
 
   let probability = 50;
-
   const reasons = [];
   const risks = [];
 
-  // Opportunity is the strongest layer
-  const oppScore =
-    num(opportunity.opportunityScore);
-
-  if (oppScore >= 85) {
-    probability += 16;
+  if (opportunityScore >= 85) {
+    probability += 18;
     reasons.push("Elite opportunity");
-  } else if (oppScore >= 75) {
-    probability += 12;
+  } else if (opportunityScore >= 75) {
+    probability += 14;
     reasons.push("Strong opportunity");
-  } else if (oppScore >= 65) {
-    probability += 7;
+  } else if (opportunityScore >= 65) {
+    probability += 9;
     reasons.push("Good opportunity");
-  } else if (oppScore >= 55) {
-    probability += 2;
+  } else if (opportunityScore >= 55) {
+    probability += 4;
     reasons.push("Playable opportunity");
   } else {
-    probability -= 10;
+    probability -= 9;
     risks.push("Weak opportunity");
   }
 
-  // Projection edge
-  if (edge >= 6) {
+  if (rawEdge >= 6) {
     probability += 12;
     reasons.push("Strong projection edge");
-  } else if (edge >= 4) {
+  } else if (rawEdge >= 4) {
     probability += 8;
     reasons.push("Good projection edge");
-  } else if (edge >= 2.5) {
-    probability += 5;
-    reasons.push("Moderate projection edge");
-  } else if (edge >= 1.2) {
-    probability += 2;
+  } else if (rawEdge >= 2) {
+    probability += 4;
     reasons.push("Small projection edge");
-  } else if (edge < 0) {
-    probability -= 12;
+  } else if (rawEdge < 0) {
+    probability -= 10;
     risks.push("Projection does not support pick");
   }
 
-  // Last 5 scoring support
-  if (last5.length >= 5) {
-    if (last5HitRate >= 0.8) {
-      probability += 10;
-      reasons.push("Hit 4/5 recent games");
-    } else if (last5HitRate >= 0.6) {
-      probability += 6;
-      reasons.push("Hit 3/5 recent games");
-    } else if (last5HitRate <= 0.2) {
+  if (recentHitRate !== null) {
+    if (recentHitRate >= 0.8) {
+      probability += 9;
+      reasons.push("Strong recent hit rate");
+    } else if (recentHitRate >= 0.6) {
+      probability += 5;
+      reasons.push("Positive recent hit rate");
+    } else if (recentHitRate <= 0.2) {
       probability -= 8;
-      risks.push("Missed 4/5 recent games");
-    } else if (last5HitRate <= 0.4) {
+      risks.push("Poor recent hit rate");
+    } else if (recentHitRate <= 0.4) {
       probability -= 4;
       risks.push("Weak recent hit rate");
     }
@@ -207,20 +143,15 @@ function buildWinProbability({
     risks.push("Limited Last 5 data");
   }
 
-  // Matchup support, if available
   if (matchupHitRate !== null) {
     if (matchupHitRate >= 0.67) {
-      probability += 6;
+      probability += 5;
       reasons.push("Positive matchup history");
     } else if (matchupHitRate <= 0.33) {
-      probability -= 5;
+      probability -= 4;
       risks.push("Weak matchup history");
     }
   }
-
-  // Playoff adjustment
-  const playoffAdjustment =
-    num(playoff.playoffAdjustment);
 
   if (playoffAdjustment >= 5) {
     probability += 5;
@@ -229,49 +160,36 @@ function buildWinProbability({
     probability += 3;
     reasons.push("Positive playoff context");
   } else if (playoffAdjustment <= -5) {
-    probability -= 6;
+    probability -= 5;
     risks.push("Bad playoff context");
   } else if (playoffAdjustment <= -2) {
     probability -= 3;
     risks.push("Negative playoff context");
   }
 
-  // Sportsbook odds signal
-  const pickOdds =
-    side === "Over" ? overOdds : underOdds;
+  const pickOdds = side === "Over" ? overOdds : underOdds;
 
   if (pickOdds !== null && pickOdds !== undefined) {
     const odds = num(pickOdds);
 
     if (odds <= -150) {
-      probability += 4;
+      probability += 3;
       reasons.push("Sportsbook price supports side");
     } else if (odds <= -125) {
       probability += 2;
       reasons.push("Slight sportsbook support");
     } else if (odds >= 130) {
-      probability -= 4;
-      risks.push("Sportsbook price is plus-money risk");
+      probability -= 3;
+      risks.push("Plus-money risk");
     }
   }
 
-  // Add engine reasons/risks
   reasons.push(...(opportunity.reasons || []));
   reasons.push(...(playoff.reasons || []));
   risks.push(...(opportunity.risks || []));
   risks.push(...(playoff.risks || []));
 
-  // Keep honest probability range without fake role caps
-  const finalProbability =
-    Math.max(40, Math.min(88, Math.round(probability)));
-
-  let strength = "Lean";
-
-  if (finalProbability >= 75) {
-    strength = "Elite";
-  } else if (finalProbability >= 68) {
-    strength = "Strong";
-  }
+  const finalProbability = Math.max(35, Math.min(88, Math.round(probability)));
 
   return {
     player,
@@ -283,33 +201,20 @@ function buildWinProbability({
     side,
     line,
     projection,
-    edge: Number(Math.abs(edge).toFixed(1)),
+    edge: Number(Math.abs(rawEdge).toFixed(1)),
     winProbability: finalProbability,
     confidence: finalProbability,
-    strength,
+    strength: strengthFromProbability(finalProbability),
     seasonAverage: Number(num(seasonAverage).toFixed(1)),
     sportsProjection: Number(num(sportsProjection).toFixed(1)),
-    last5Average: Number(last5Avg.toFixed(1)),
-    matchupAverage:
-      matchupPoints.length
-        ? Number(matchupAvg.toFixed(1))
-        : null,
+    last5Average: Number(last5Average.toFixed(1)),
+    matchupAverage: matchupPoints.length ? Number(matchupAverage.toFixed(1)) : null,
     last5HitRate:
-      last5.length
-        ? Number((last5HitRate * 100).toFixed(0))
-        : null,
+      recentHitRate !== null ? Math.round(recentHitRate * 100) : null,
     matchupHitRate:
-      matchupHitRate !== null
-        ? Number((matchupHitRate * 100).toFixed(0))
-        : null,
-    opportunityScore:
-      opportunity.opportunityScore || 0,
+      matchupHitRate !== null ? Math.round(matchupHitRate * 100) : null,
+    opportunityScore,
     reasons: [...new Set(reasons)].slice(0, 6),
-    risks: [...new Set(risks)].slice(0, 5)
+    risks: [...new Set(risks)].slice(0, 5),
   };
 }
-
-export {
-    buildWinProbability
-};
-

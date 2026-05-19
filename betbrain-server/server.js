@@ -95,11 +95,8 @@ async function buildPicksForDay(daysAhead = 0) {
       continue;
     }
 
-    const rawProps =
-      await fetchPointsPropsForEvent(oddsEvent.id);
-
-    const props =
-      buildConsensusPointProps(rawProps);
+    const rawProps = await fetchPointsPropsForEvent(oddsEvent.id);
+    const props = buildConsensusPointProps(rawProps);
 
     const builtPicks = [];
 
@@ -121,72 +118,60 @@ async function buildPicksForDay(daysAhead = 0) {
       const projectionData =
         projectionMap.get(clean(playerName)) || {};
 
-      const seasonAverage =
-        getSeasonPoints(playerName, seasonMap);
+      const seasonAverage = getSeasonPoints(playerName, seasonMap);
+      const sportsProjection = getProjectionPoints(playerName, projectionMap);
 
-      const sportsProjection =
-        getProjectionPoints(playerName, projectionMap);
+      const last5 = await fetchLast5(playerName);
+      const matchupGames = await fetchLast3VsOpponent(playerName, opponent);
+      const last5Profile = summarizeScoringProfile(last5);
 
-      const last5 =
-        await fetchLast5(playerName);
+      const opportunity = buildOpportunityScore({
+        last5,
+        projection: projectionData,
+        seasonAverage,
+        isPlayoff: true,
+      });
 
-      const matchupGames =
-        await fetchLast3VsOpponent(playerName, opponent);
+      const playoff = buildPlayoffContext({
+        last5,
+        matchupGames,
+        line: prop.line,
+        opportunityScore: opportunity.opportunityScore,
+      });
 
-      const last5Profile =
-        summarizeScoringProfile(last5);
+      const overPick = buildWinProbability({
+        player: playerName,
+        team,
+        opponent,
+        game: game.game,
+        line: prop.line,
+        side: "Over",
+        seasonAverage,
+        sportsProjection,
+        last5,
+        matchupGames,
+        opportunity,
+        playoff,
+        overOdds: prop.overOdds,
+        underOdds: prop.underOdds,
+      });
 
-      const opportunity =
-        buildOpportunityScore({
-          last5,
-          projection: projectionData,
-          seasonAverage,
-          isPlayoff: true,
-        });
-
-      const playoff =
-        buildPlayoffContext({
-          last5,
-          matchupGames,
-          line: prop.line,
-          opportunityScore: opportunity.opportunityScore,
-        });
-
-      const overPick =
-        buildWinProbability({
-          player: playerName,
-          team,
-          opponent,
-          game: game.game,
-          line: prop.line,
-          side: "Over",
-          seasonAverage,
-          sportsProjection,
-          last5,
-          matchupGames,
-          opportunity,
-          playoff,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-        });
-
-      const underPick =
-        buildWinProbability({
-          player: playerName,
-          team,
-          opponent,
-          game: game.game,
-          line: prop.line,
-          side: "Under",
-          seasonAverage,
-          sportsProjection,
-          last5,
-          matchupGames,
-          opportunity,
-          playoff,
-          overOdds: prop.overOdds,
-          underOdds: prop.underOdds,
-        });
+      const underPick = buildWinProbability({
+        player: playerName,
+        team,
+        opponent,
+        game: game.game,
+        line: prop.line,
+        side: "Under",
+        seasonAverage,
+        sportsProjection,
+        last5,
+        matchupGames,
+        opportunity,
+        playoff,
+        overOdds: prop.overOdds,
+        underOdds: prop.underOdds,
+      });
 
       const bestPick =
         overPick.winProbability >= underPick.winProbability
@@ -204,11 +189,10 @@ async function buildPicksForDay(daysAhead = 0) {
       });
     }
 
-    const rankedGame =
-      buildTopPicksForGame({
-        game,
-        picks: builtPicks,
-      });
+    const rankedGame = buildTopPicksForGame({
+      game,
+      picks: builtPicks,
+    });
 
     gameCards.push(rankedGame);
   }
