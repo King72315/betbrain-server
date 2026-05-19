@@ -1,15 +1,29 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { resolveSavedPicks } from "./api";
 
 const SAVED_PICKS_KEY = "BETBRAIN_SAVED_PICKS";
 
 export default function ViewPicksScreen() {
   const [picks, setPicks] = useState<any[]>([]);
+const [filter, setFilter] = useState("All");
 
   useEffect(() => {
-    loadPicks();
-  }, []);
+  const autoResolve = async () => {
+    await resolveSavedPicks();
+    await loadPicks();
+  };
+
+  autoResolve();
+
+  const interval = setInterval(() => {
+    autoResolve();
+  }, 300000);
+
+  return () => clearInterval(interval);
+
+}, []);
 
   const loadPicks = async () => {
     const raw = await AsyncStorage.getItem(SAVED_PICKS_KEY);
@@ -34,6 +48,38 @@ export default function ViewPicksScreen() {
   const wins = picks.filter((p) => p.result === "Win").length;
   const losses = picks.filter((p) => p.result === "Loss").length;
   const pending = picks.filter((p) => p.result === "Pending").length;
+  const unitsWon = wins * 1;
+const unitsLost = losses * 1;
+const netUnits = unitsWon - unitsLost;
+
+const gradedPicks = picks.filter((p) => p.result === "Win" || p.result === "Loss");
+
+let streakType = "";
+let streakCount = 0;
+
+for (let i = gradedPicks.length - 1; i >= 0; i--) {
+  const result = gradedPicks[i].result;
+
+  if (!streakType) {
+    streakType = result;
+    streakCount = 1;
+  } else if (result === streakType) {
+    streakCount++;
+  } else {
+    break;
+  }
+}
+
+const streakLabel =
+  streakCount > 0
+    ? `${streakType === "Win" ? "W" : "L"}${streakCount}`
+    : "None";
+
+const filteredPicks =
+  filter === "All"
+    ? picks
+    : picks.filter((p) => p.result === filter);
+
   const graded = wins + losses;
   const winRate = graded ? Math.round((wins / graded) * 100) : 0;
 
@@ -58,8 +104,40 @@ export default function ViewPicksScreen() {
           marginBottom: 16,
         }}
       >
-        Record: {wins}-{losses} | Pending: {pending} | Win Rate: {winRate}%
+       Record: {wins}-{losses} | Pending: {pending} | Win Rate: {winRate}% | Net Units: 
+       {netUnits > 0 ? "+" : ""}{netUnits} | Streak: {streakLabel}
       </Text>
+
+<View
+  style={{
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  }}
+>
+  {["All", "Win", "Loss", "Pending"].map((type) => (
+    <TouchableOpacity
+      key={type}
+      onPress={() => setFilter(type)}
+      style={{
+        backgroundColor:
+          filter === type ? "#fbbf24" : "#1f3a4d",
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+      }}
+    >
+      <Text
+        style={{
+          color: filter === type ? "black" : "white",
+          fontWeight: "800",
+        }}
+      >
+        {type}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
 
       {picks.length === 0 && (
         <Text style={{ color: "white", fontSize: 18 }}>
@@ -67,7 +145,7 @@ export default function ViewPicksScreen() {
         </Text>
       )}
 
-      {picks.map((p) => (
+      {filteredPicks.map((p) => (
         <View
           key={p.id}
           style={{
@@ -89,17 +167,36 @@ export default function ViewPicksScreen() {
             Pick: {p.side} {p.sportsbookLine} {p.stat}
           </Text>
 
-          <Text style={{ color: "#4ade80", fontSize: 14 }}>
-            Projection: {p.projection}
-          </Text>
+    <Text style={{ color: "white", fontSize: 16, marginTop: 6 }}>
+  Pick: {p.side || p.pick} {p.line} {p.stat}
+</Text>
 
-          <Text style={{ color: "#fbbf24", fontSize: 14 }}>
-            Edge: {p.edge}
-          </Text>
+<Text style={{ color: "#4ade80", fontSize: 14 }}>
+  Projection: {p.projection}
+</Text>
 
-          <Text style={{ color: "#38bdf8", fontSize: 14 }}>
-            Confidence: {p.confidence}%
-          </Text>
+<Text style={{ color: "#fbbf24", fontSize: 14 }}>
+  Line: {p.line}
+</Text>
+
+<Text style={{ color: "#f59e0b", fontSize: 14 }}>
+  Edge: +{p.edge}
+</Text>
+
+<Text style={{ color: "#38bdf8", fontSize: 14 }}>
+  Confidence: {p.confidence}%
+</Text>
+
+<Text style={{ color: "#cbd5e1", fontSize: 14 }}>
+  Need:
+  {(p.side || p.pick) === "Over"
+    ? ` ${Math.floor(Number(p.line) + 1)}+ ${p.stat}`
+    : ` ${p.line} or less ${p.stat}`}
+</Text>
+
+<Text style={{ color: "#a78bfa", fontSize: 14 }}>
+  Actual: {p.actualStat || "Pending"}
+</Text>
 
           <Text
             style={{

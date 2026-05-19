@@ -1,8 +1,16 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
 
-import { buildAllPlayerPicksForGame } from "./api";
+import {
+  ScrollView,
+  Text,
+  View
+} from "react-native";
+
+import { fetchSavedPicks } from "./api";
+
+const SAVED_PICKS_KEY = "BETBRAIN_SAVED_PICKS";
 
 export default function GamePicksScreen() {
 
@@ -19,10 +27,12 @@ console.log("GAME DATA:", parsedGame);
 
   const [picks, setPicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedPicks, setSavedPicks] = useState<any[]>([]);
 
   useEffect(() => {
-    loadPicks();
-  }, []);
+  loadPicks();
+  loadSavedPicks();
+}, []);
 
   const loadPicks = async () => {
     try {
@@ -33,7 +43,17 @@ console.log("GAME DATA:", parsedGame);
         return;
       }
 
-      const allPicks = await buildAllPlayerPicksForGame(parsedGame);
+      const data = await fetchSavedPicks();
+
+const allPicks = (data.realProps || []).filter((p: any) => {
+  const sameId = String(p.gameId) === String(parsedGame.id);
+
+  const sameGame =
+    String(p.game || "").toLowerCase() ===
+    String(parsedGame.game || "").toLowerCase();
+
+  return sameId || sameGame;
+});
       setPicks(allPicks || []);
     } catch (err) {
       console.log("GAME PICKS ERROR:", err);
@@ -42,6 +62,11 @@ console.log("GAME DATA:", parsedGame);
       setLoading(false);
     }
   };
+
+const loadSavedPicks = async () => {
+  const raw = await AsyncStorage.getItem(SAVED_PICKS_KEY);
+  setSavedPicks(raw ? JSON.parse(raw) : []);
+};
 
   return (
     <ScrollView
@@ -96,12 +121,13 @@ console.log("GAME DATA:", parsedGame);
                 marginBottom: 4,
               }}
             >
-              {index + 1}. {p.player}
+              {index + 1}. {p.player} ({p.team})
             </Text>
 
             <Text style={{ color: "white", fontSize: 17, marginBottom: 6 }}>
-              BetBrain Pick: {p.side} {p.line} {p.stat}
+              BetBrain Pick: {p.pick || p.side} {p.line} {p.stat}
             </Text>
+
 
             <Text style={{ color: "#4ade80", fontSize: 15 }}>
               Projection: {p.projection}
@@ -111,13 +137,76 @@ console.log("GAME DATA:", parsedGame);
               Edge: {p.edge}
             </Text>
 
-<Text style={{ fontSize: 18 }}>
-  {getTier(p.edge)}
-</Text>
+             <Text style={{ color: "#4ade80", fontSize: 15 }}>
+               Last 5 Hit Rate: {p.hitRateLabel || "N/A"}
+            </Text>
+
+            <Text style={{ fontSize: 18 }}>
+              {getTier(p.edge)}
+            </Text>
 
             <Text style={{ color: "#38bdf8", fontSize: 15 }}>
               Confidence: {p.winProb || p.confidence}%
             </Text>
+
+<Text
+  onPress={async () => {
+    const alreadySaved = savedPicks.find(
+  (sp: any) =>
+    sp.player === p.player &&
+    sp.stat === p.stat &&
+    sp.line === p.line
+);
+
+let updated;
+
+if (alreadySaved) {
+  updated = savedPicks.filter(
+    (sp: any) =>
+      !(
+        sp.player === p.player &&
+        sp.stat === p.stat &&
+        sp.line === p.line
+      )
+  );
+} else {
+  updated = [
+    ...savedPicks,
+    {
+      ...p,
+      id: `${p.gameId}-${p.player}-${p.stat}-${p.line}`,
+      result: "Pending",
+      savedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+setSavedPicks(updated);
+await AsyncStorage.setItem(SAVED_PICKS_KEY, JSON.stringify(updated));
+  }}
+  style={{
+    color: savedPicks.find(
+      (sp: any) =>
+        sp.player === p.player &&
+        sp.stat === p.stat &&
+        sp.line === p.line
+    )
+      ? "#22c55e"
+      : "#ffffff",
+    fontSize: 16,
+    fontWeight: "900",
+    marginTop: 10,
+  }}
+>
+  {savedPicks.find(
+    (sp: any) =>
+      sp.player === p.player &&
+      sp.stat === p.stat &&
+      sp.line === p.line
+  )
+    ? "✓ SAVED PICK"
+    : "+ SAVE PICK"}
+</Text>
 
             <Text style={{ color: "#cbd5e1", fontSize: 13, marginTop: 6 }}>
               {p.reasoning}

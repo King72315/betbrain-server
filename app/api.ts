@@ -1,10 +1,12 @@
 
-const BASE_URL = "https://betbrain-server-1.onrender.com";
+const BASE_URL = "http://localhost:3000";
 
 export const fetchSavedPicks = async () => {
   try {
     const res = await fetch(`${BASE_URL}/picks`);
     const data = await res.json();
+
+console.log("FETCH SAVED PICKS DATA:", data);
 
     return {
       lastUpdated: new Date().toISOString(),
@@ -41,6 +43,22 @@ export const refreshSavedPicks = async () => {
     return {
       ok: false,
       message: "Refresh failed",
+    };
+  }
+};
+
+export const resolveSavedPicks = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/resolve-picks`, {
+      method: "POST",
+    });
+
+    return await res.json();
+  } catch (err) {
+    console.log("RESOLVE SAVED PICKS ERROR:", err);
+    return {
+      ok: false,
+      message: "Resolve failed",
     };
   }
 };

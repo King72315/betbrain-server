@@ -38,6 +38,7 @@ setGames(
   )
 );
 
+
 setTwoManPick(data.twoMan || []);
 setPicksByGame({});
 
@@ -189,10 +190,25 @@ const runRefresh = async () => {
       {!loading &&
         games.map((game: any) => {
           const gameKey = getGameKey(game);
-         const picks =
-  (savedData?.realProps || []).filter((p: any) => {
+    
+
+const sourcePicks =
+  savedData?.realProps?.length
+    ? savedData.realProps
+    : savedData?.gamePicks?.length
+    ? savedData.gamePicks
+    : savedData?.top3 || [];
+
+console.log("EXPLORE MATCH CHECK:", {
+  game,
+  sourcePicks,
+});
+
+const picks =
+  sourcePicks.filter((p: any) => {
     const sameId =
-      String(p.gameId) === String(game.id);
+      String(p.gameId) === String(game.id) ||
+      String(p.gameId) === String(game.GameID);
 
     const sameGame =
       String(p.game || "").toLowerCase() ===
@@ -268,8 +284,8 @@ const runRefresh = async () => {
                       marginBottom: 5,
                     }}
                   >
-                    {index + 1}. {p.player} {p.stat} {p.pick} {p.line} (
-{p.winProb || p.confidence}%) — Proj: {p.projection} | Edge: {p.edge}
+                    {index + 1}. {p.player} {p.stat} {p.pick} {p.line} ({p.winProb || p.confidence}%)
+                     — Proj: {p.projection} | Edge: {p.edge}
                   </Text>
                 ))
               )}
