@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import axios from "axios";
 import { CONFIG } from "../config.js";
 
 const ODDS_BASE =
@@ -16,17 +16,71 @@ function normalizeTeam(value = "") {
   const v = String(value).toLowerCase();
 
   const map = {
-    "oklahoma city thunder": "okc",
-    "minnesota timberwolves": "min",
-    "boston celtics": "bos",
-    "new york knicks": "nyk",
-    "cleveland cavaliers": "cle",
-    "san antonio spurs": "sas",
-    "los angeles lakers": "lal",
-    "los angeles clippers": "lac",
-  };
+  "atlanta hawks": "atl",
+  "boston celtics": "bos",
+  "brooklyn nets": "bkn",
+  "charlotte hornets": "cha",
+  "chicago bulls": "chi",
+  "cleveland cavaliers": "cle",
+  "dallas mavericks": "dal",
+  "denver nuggets": "den",
+  "detroit pistons": "det",
+  "golden state warriors": "gs",
+  "houston rockets": "hou",
+  "indiana pacers": "ind",
+  "los angeles clippers": "lac",
+  "los angeles lakers": "lal",
+  "memphis grizzlies": "mem",
+  "miami heat": "mia",
+  "milwaukee bucks": "mil",
+  "minnesota timberwolves": "min",
+  "new orleans pelicans": "no",
+  "new york knicks": "ny",
+  "oklahoma city thunder": "okc",
+  "orlando magic": "orl",
+  "philadelphia 76ers": "phi",
+  "phoenix suns": "phx",
+  "portland trail blazers": "por",
+  "sacramento kings": "sac",
+  "san antonio spurs": "sa",
+  "toronto raptors": "tor",
+  "utah jazz": "uta",
+  "washington wizards": "was",
+
+  nyk: "ny",
+  sas: "sa",
+  gsw: "gs",
+  nop: "no",
+};
 
   return map[v] || clean(v);
+}
+
+async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data } = await axios.get(url, {
+        params,
+        timeout: 20000,
+        headers: {
+          "User-Agent": "BetBrain-V2",
+          Accept: "application/json",
+        },
+      });
+
+      return data;
+    } catch (err) {
+      console.log(`${label} ATTEMPT ${attempt} FAILED:`, err.message);
+
+      if (attempt === 3) {
+        return null;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+    }
+  }
+
+  return null;
 }
 
 export async function fetchOddsEvents() {
@@ -35,23 +89,17 @@ export async function fetchOddsEvents() {
     return [];
   }
 
-  try {
-    const url =
-      `${ODDS_BASE}/events?apiKey=${API_KEY}`;
+  const data = await oddsGet(
+    `${ODDS_BASE}/events`,
+    { apiKey: API_KEY },
+    "FETCH ODDS EVENTS"
+  );
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const events = Array.isArray(data) ? data : [];
 
-    if (!res.ok) {
-      console.log("ODDS EVENTS ERROR:", res.status);
-      return [];
-    }
+  console.log("ODDS EVENTS FOUND:", events.length);
 
-    return Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.log("FETCH ODDS EVENTS ERROR:", err.message);
-    return [];
-  }
+  return events;
 }
 
 export async function findOddsEventForGame(game) {
@@ -65,13 +113,10 @@ export async function findOddsEventForGame(game) {
       const eventHome = normalizeTeam(event.home_team);
       const eventAway = normalizeTeam(event.away_team);
 
-      const normal =
-        gameHome === eventHome && gameAway === eventAway;
-
-      const flipped =
-        gameHome === eventAway && gameAway === eventHome;
-
-      return normal || flipped;
+      return (
+        (gameHome === eventHome && gameAway === eventAway) ||
+        (gameHome === eventAway && gameAway === eventHome)
+      );
     }) || null
   );
 }
@@ -79,49 +124,42 @@ export async function findOddsEventForGame(game) {
 export async function fetchPointsPropsForEvent(eventId) {
   if (!API_KEY || !eventId) return [];
 
-  try {
-    const url =
-      `${ODDS_BASE}/events/${eventId}/odds` +
-      `?apiKey=${API_KEY}` +
-      `&regions=us` +
-      `&markets=player_points` +
-      `&oddsFormat=american`;
+  const data = await oddsGet(
+    `${ODDS_BASE}/events/${eventId}/odds`,
+    {
+      apiKey: API_KEY,
+      regions: "us",
+      markets: "player_points",
+      oddsFormat: "american",
+    },
+    "FETCH POINT PROPS"
+  );
 
-    const res = await fetch(url);
-    const data = await res.json();
+  const props = [];
 
-    if (!res.ok) {
-      console.log("POINT PROPS ERROR:", res.status);
-      return [];
-    }
+  for (const book of data?.bookmakers || []) {
+    for (const market of book.markets || []) {
+      if (market.key !== "player_points") continue;
 
-    const props = [];
+      for (const outcome of market.outcomes || []) {
+        if (!outcome.description || !outcome.point) continue;
 
-    for (const book of data.bookmakers || []) {
-      for (const market of book.markets || []) {
-        if (market.key !== "player_points") continue;
-
-        for (const outcome of market.outcomes || []) {
-          if (!outcome.description || !outcome.point) continue;
-
-          props.push({
-            player: outcome.description,
-            playerKey: clean(outcome.description),
-            side: outcome.name,
-            line: Number(outcome.point),
-            odds: Number(outcome.price),
-            sportsbook: book.title || book.key,
-            eventId,
-          });
-        }
+        props.push({
+          player: outcome.description,
+          playerKey: clean(outcome.description),
+          side: outcome.name,
+          line: Number(outcome.point),
+          odds: Number(outcome.price),
+          sportsbook: book.title || book.key,
+          eventId,
+        });
       }
     }
-
-    return props;
-  } catch (err) {
-    console.log("FETCH POINT PROPS ERROR:", err.message);
-    return [];
   }
+
+  console.log("POINT PROPS FOUND:", props.length);
+
+  return props;
 }
 
 export function buildConsensusPointProps(rawProps = []) {
