@@ -1,8 +1,16 @@
 import axios from "axios";
 import { CONFIG } from "../config.js";
 
-const ODDS_BASE =
-  "https://api.the-odds-api.com/v4/sports/basketball_nba";
+const ODDS_SPORT_KEYS = {
+  NBA: "basketball_nba",
+  WNBA: "basketball_wnba",
+};
+
+function getOddsBase(league = "NBA") {
+  const sportKey = ODDS_SPORT_KEYS[league] || ODDS_SPORT_KEYS.NBA;
+
+  return `https://api.the-odds-api.com/v4/sports/${sportKey}`;
+}
 
 const API_KEY = CONFIG.ODDS_KEY;
 
@@ -83,14 +91,14 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
   return null;
 }
 
-export async function fetchOddsEvents() {
+export async function fetchOddsEvents(league = "NBA") {
   if (!API_KEY) {
     console.log("ODDS_KEY missing");
     return [];
   }
 
   const data = await oddsGet(
-    `${ODDS_BASE}/events`,
+    `${getOddsBase(league)}/events?`,
     { apiKey: API_KEY },
     "FETCH ODDS EVENTS"
   );
@@ -102,8 +110,8 @@ export async function fetchOddsEvents() {
   return events;
 }
 
-export async function findOddsEventForGame(game) {
-  const events = await fetchOddsEvents();
+export async function findOddsEventForGame(game, league = "NBA") {
+  const events = await fetchOddsEvents(league);
 
   const gameHome = normalizeTeam(game.homeTeam || game.home);
   const gameAway = normalizeTeam(game.awayTeam || game.away);
@@ -121,11 +129,11 @@ export async function findOddsEventForGame(game) {
   );
 }
 
-export async function fetchPointsPropsForEvent(eventId) {
+export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
   if (!API_KEY || !eventId) return [];
 
   const data = await oddsGet(
-    `${ODDS_BASE}/events/${eventId}/odds`,
+    `${getOddsBase(league)}/events/${eventId}/odds`,
     {
       apiKey: API_KEY,
       regions: "us",
@@ -250,4 +258,24 @@ export function buildConsensusPointProps(rawProps = []) {
       };
     })
     .filter(Boolean);
+}
+
+export async function fetchOddsGameCards(league = "NBA") {
+  const events = await fetchOddsEvents(league);
+
+  return events.map((event) => ({
+    id: event.id,
+    gameId: event.id,
+    date: event.commence_time?.slice(0, 10) || "",
+    time: event.commence_time || "",
+    homeTeam: normalizeTeam(event.home_team),
+    awayTeam: normalizeTeam(event.away_team),
+    home: normalizeTeam(event.home_team),
+    away: normalizeTeam(event.away_team),
+    game: `${normalizeTeam(event.away_team).toUpperCase()} vs ${normalizeTeam(
+      event.home_team
+    ).toUpperCase()}`,
+    league,
+    oddsEventId: event.id,
+  }));
 }

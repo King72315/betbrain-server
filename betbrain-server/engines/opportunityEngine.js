@@ -9,6 +9,10 @@ function avg(values = []) {
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 export function buildOpportunityScore({
   last5 = [],
   projection = {},
@@ -52,63 +56,73 @@ export function buildOpportunityScore({
   const risks = [];
 
   if (!minutes || !fga) {
+    score -= 6;
     risks.push("Incomplete opportunity data");
   }
 
+  // Minutes calibration
   if (minutes >= 36) {
-    score += 22;
+    score += 8;
     reasons.push("Elite minutes");
   } else if (minutes >= 32) {
-    score += 18;
+    score += 6;
     reasons.push("Strong minutes");
   } else if (minutes >= 28) {
-    score += 11;
+    score += 4;
     reasons.push("Solid minutes");
   } else if (minutes >= 24) {
-    score += 5;
+    score += 2;
     reasons.push("Playable minutes");
   } else if (minutes > 0) {
-    score -= 12;
+    score -= 8;
     risks.push("Low minutes");
   }
 
+  // Playoff rotation boost
   if (isPlayoff && minutes >= 34) {
-    score += 7;
+    score += 4;
     reasons.push("Trusted playoff rotation");
   }
 
+  // Shot volume calibration
   if (fga >= 20) {
-    score += 22;
+    score += 8;
     reasons.push("Elite shot volume");
   } else if (fga >= 16) {
-    score += 17;
+    score += 6;
     reasons.push("Strong shot volume");
   } else if (fga >= 13) {
-    score += 11;
+    score += 4;
     reasons.push("Good shot volume");
   } else if (fga >= 10) {
-    score += 5;
+    score += 2;
     reasons.push("Playable shot volume");
   } else if (fga > 0) {
-    score -= 12;
+    score -= 8;
     risks.push("Low shot volume");
   }
 
+  // Free throw floor
   if (fta >= 8) {
-    score += 10;
+    score += 6;
     reasons.push("Elite free throw floor");
   } else if (fta >= 6) {
-    score += 7;
+    score += 4;
     reasons.push("Strong free throw floor");
   } else if (fta >= 4) {
-    score += 4;
+    score += 2;
     reasons.push("Useful free throw floor");
   } else if (fta > 0 && fta < 2) {
-    score -= 4;
+    score -= 2;
     risks.push("Weak free throw floor");
   }
 
-  const minutesList = last5.map((g) => num(g.minutes)).filter((v) => v > 0);
+  // Role stability
+  const minutesList = last5
+    .map((g) => num(g.minutes))
+    .filter((v) => v > 0);
+
+  let roleCertainty = 50;
 
   if (minutesList.length >= 3) {
     const max = Math.max(...minutesList);
@@ -116,28 +130,40 @@ export function buildOpportunityScore({
     const range = max - min;
 
     if (range <= 6 && minutes >= 26) {
-      score += 8;
+      score += 6;
+      roleCertainty = 78;
       reasons.push("Stable role");
     } else if (range >= 14) {
-      score -= 10;
+      score -= 8;
+      roleCertainty = 35;
       risks.push("Unstable minutes");
     } else if (range >= 10) {
-      score -= 5;
+      score -= 4;
+      roleCertainty = 45;
       risks.push("Some role volatility");
+    } else {
+      roleCertainty = 62;
     }
   }
 
+  // Recent scoring context
   if (seasonAverage && recentPoints && recentPoints >= seasonAverage + 3) {
-    score += 4;
+    score += 2;
     reasons.push("Recent scoring above season level");
   }
 
   if (seasonAverage && recentPoints && recentPoints <= seasonAverage - 4) {
-    score -= 4;
+    score -= 2;
     risks.push("Recent scoring below season level");
   }
 
-  const opportunityScore = Math.max(0, Math.min(100, Math.round(score)));
+  const dataQuality =
+    last5.length >= 5 ? 85 :
+    last5.length >= 3 ? 65 :
+    last5.length >= 1 ? 40 :
+    25;
+
+  const opportunityScore = clamp(Math.round(score), 0, 100);
 
   return {
     opportunityScore,
@@ -146,6 +172,8 @@ export function buildOpportunityScore({
     recentFTA: Number(num(fta).toFixed(1)),
     recentPoints: Number(num(recentPoints).toFixed(1)),
     shotVolume: Number(num(shotVolume).toFixed(1)),
+    roleCertainty,
+    dataQuality,
     reasons: [...new Set(reasons)],
     risks: [...new Set(risks)],
   };

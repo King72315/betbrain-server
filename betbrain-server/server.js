@@ -10,6 +10,10 @@ import {
 } from "./services/oddsService.js";
 
 import {
+  fetchOddsGameCards
+} from "./services/oddsService.js";
+
+import {
   buildPlayerContextMaps,
   clean,
   fetchGames,
@@ -19,14 +23,18 @@ import {
   getOpponentForTeam,
   getProjectionPoints,
   getSeasonPoints,
-  getTeamForPlayer,
+  getTeamForPlayer
 } from "./services/sportsDataService.js";
 
 import {
+  fetchBallTeams,
   fetchLast3VsOpponent,
   fetchLast5,
+  summarizeOpponentMatchup,
   summarizeScoringProfile,
 } from "./services/ballService.js";
+
+
 
 import {
   fetchFinalPlayerStats,
@@ -37,6 +45,11 @@ import {
 import { buildOpportunityScore } from "./engines/opportunityEngine.js";
 import { buildTopPicksForGame } from "./engines/pickRanker.js";
 import { buildPlayoffContext } from "./engines/playoffEngine.js";
+import { compareOverUnderRisk } from "./engines/riskComparisonEngine.js";
+import {
+  calcUsageBoost,
+  getMissingPlayers,
+} from "./engines/usageEngine.js";
 import { buildWinProbability } from "./engines/winProbabilityEngine.js";
 
 import {
@@ -63,11 +76,18 @@ function cacheFresh() {
   return ageMinutes < CONFIG.CACHE_MINUTES;
 }
 
-async function buildPicksForDay(daysAhead = 0) {
-  const games = await fetchGames(daysAhead);
+async function buildPicksForDay(daysAhead = 0, league = "NBA") {
+  const games =
+  league === "WNBA"
+    ? await fetchOddsGameCards("WNBA")
+    : await fetchGames(daysAhead, league);
+    
   const players = await fetchPlayers();
   const seasonStats = await fetchSeasonStats();
-  const projections = await fetchProjections(daysAhead);
+
+const projections = await fetchProjections(daysAhead);
+
+
 
   const {
     playerMap,
@@ -84,7 +104,7 @@ async function buildPicksForDay(daysAhead = 0) {
   for (const game of games) {
     console.log("BUILDING GAME:", game.game);
 
-    const oddsEvent = await findOddsEventForGame(game);
+   const oddsEvent = await findOddsEventForGame(game, league);
 
     if (!oddsEvent) {
       gameCards.push({
@@ -95,7 +115,10 @@ async function buildPicksForDay(daysAhead = 0) {
       continue;
     }
 
-    const rawProps = await fetchPointsPropsForEvent(oddsEvent.id);
+    const rawProps = await fetchPointsPropsForEvent(
+  oddsEvent.id,
+  league
+);
     const props = buildConsensusPointProps(rawProps);
 
     const builtPicks = [];
@@ -110,10 +133,17 @@ async function buildPicksForDay(daysAhead = 0) {
         seasonMap
       );
 
-      if (!team) continue;
+      if (!team && league !== "WNBA") continue;
+      const safeTeam = team || "WNBA";
 
-      const opponent = getOpponentForTeam(game, team);
-      if (!opponent) continue;
+      const opponent =
+  league === "WNBA"
+    ? game.homeTeam === safeTeam
+      ? game.awayTeam
+      : game.homeTeam
+    : getOpponentForTeam(game, team);
+
+if (!opponent) continue;
 
       const projectionData =
         projectionMap.get(clean(playerName)) || {};
@@ -122,15 +152,63 @@ async function buildPicksForDay(daysAhead = 0) {
       const sportsProjection = getProjectionPoints(playerName, projectionMap);
 
       const last5 = await fetchLast5(playerName);
-      const matchupGames = await fetchLast3VsOpponent(playerName, opponent);
+
+const matchupGames = await fetchLast3VsOpponent(
+  playerName,
+  opponent
+);
+      
+      const opponentMatchup = summarizeOpponentMatchup(
+  matchupGames,
+  prop.line,
+  summarizeScoringProfile(last5)
+);
       const last5Profile = summarizeScoringProfile(last5);
 
-      const opportunity = buildOpportunityScore({
+      const baseOpportunity = buildOpportunityScore({
         last5,
         projection: projectionData,
         seasonAverage,
         isPlayoff: true,
       });
+
+      const playerData =
+        playerMap.get(clean(playerName)) ||
+        projectionData ||
+        {};
+
+      const missingPlayers = getMissingPlayers(safeTeam, players);
+
+      const usage = calcUsageBoost(
+        {
+          ...playerData,
+          ...projectionData,
+          Name: playerName,
+        },
+        "Points",
+        missingPlayers
+      );
+
+      console.log(usage.log);
+
+      const adjustedSportsProjection =
+        Number(sportsProjection || 0) +
+        Number(usage.projectionBoost || 0);
+
+      const opportunity = {
+        ...baseOpportunity,
+        opportunityScore: Math.min(
+          100,
+          Number(baseOpportunity.opportunityScore || 0) +
+            Number(usage.confidenceBoost || 0)
+        ),
+        reasons: [
+          ...(baseOpportunity.reasons || []),
+          ...usage.reasons.map((r) => `Usage boost from missing ${r}`),
+        ],
+        risks: baseOpportunity.risks || [],
+        usageBoost: usage,
+      };
 
       const playoff = buildPlayoffContext({
         last5,
@@ -139,26 +217,57 @@ async function buildPicksForDay(daysAhead = 0) {
         opportunityScore: opportunity.opportunityScore,
       });
 
+
+
+console.log(
+  "PICK DATA CHECK:",
+  playerName,
+  "LINE:",
+  prop.line,
+  "SEASON:",
+  seasonAverage,
+  "SPORTS PROJECTION:",
+  sportsProjection,
+  "ADJUSTED PROJECTION:",
+  adjustedSportsProjection,
+  "LAST5 POINTS:",
+  last5.map((g) => g.points),
+  "OPP:",
+opportunity.opportunityScore,
+
+"OPP MATCHUP:",
+opponentMatchup,
+  "MIN:",
+  opportunity.recentMinutes,
+  "FGA:",
+  opportunity.recentFGA,
+  "FTA:",
+  opportunity.recentFTA,
+  "OPP:",
+  opportunity.opportunityScore
+);
+
       const overPick = buildWinProbability({
         player: playerName,
-        team,
+        safeTeam,
         opponent,
         game: game.game,
         line: prop.line,
         side: "Over",
         seasonAverage,
-        sportsProjection,
+        sportsProjection: adjustedSportsProjection,
         last5,
         matchupGames,
         opportunity,
         playoff,
+        opponentMatchup,
         overOdds: prop.overOdds,
         underOdds: prop.underOdds,
       });
 
       const underPick = buildWinProbability({
         player: playerName,
-        team,
+        safeTeam,
         opponent,
         game: game.game,
         line: prop.line,
@@ -169,14 +278,66 @@ async function buildPicksForDay(daysAhead = 0) {
         matchupGames,
         opportunity,
         playoff,
+        opponentMatchup,
         overOdds: prop.overOdds,
         underOdds: prop.underOdds,
       });
 
-      const bestPick =
-        overPick.winProbability >= underPick.winProbability
+      const riskComparison = compareOverUnderRisk({
+        playerName,
+        line: prop.line,
+        projection: adjustedSportsProjection || overPick.projection,
+        seasonAvg: seasonAverage,
+        last5Avg: overPick.last5Average,
+        minutesAvg: opportunity.recentMinutes,
+        fgaAvg: opportunity.recentFGA,
+        ftaAvg: opportunity.recentFTA,
+        usageScore: opportunity.usageBoost?.confidenceBoost
+          ? 50 + Number(opportunity.usageBoost.confidenceBoost)
+          : 50,
+        opportunityScore: opportunity.opportunityScore,
+        matchupScore: overPick.matchupHitRate || 50,
+        defenseScore: 50,
+        roleCertainty: opportunity.roleCertainty || 50,
+        blowoutRisk: 50,
+        dataQuality: opportunity.dataQuality || 50,
+      });
+
+      let bestPick =
+        riskComparison.pickSide === "OVER"
           ? overPick
-          : underPick;
+          : riskComparison.pickSide === "UNDER"
+            ? underPick
+            : null;
+
+      if (!bestPick || !riskComparison.trustable) {
+        continue;
+      }
+
+      bestPick = {
+        ...bestPick,
+        pick: riskComparison.pickSide === "OVER" ? "Over" : "Under",
+        side: riskComparison.pickSide === "OVER" ? "Over" : "Under",
+        riskLabel: riskComparison.riskLabel,
+        overRisk: riskComparison.overRisk,
+        underRisk: riskComparison.underRisk,
+        chosenRisk: riskComparison.chosenRisk,
+        riskGap: riskComparison.riskGap,
+        riskReasons: riskComparison.reasons,
+        riskWarnings: riskComparison.warnings,
+        reasons: [
+          ...new Set([
+            ...(riskComparison.reasons || []),
+            ...(bestPick.reasons || []),
+          ]),
+        ].slice(0, 6),
+        risks: [
+          ...new Set([
+            ...(riskComparison.warnings || []),
+            ...(bestPick.risks || []),
+          ]),
+        ].slice(0, 5),
+      };
 
       builtPicks.push({
         ...bestPick,
@@ -185,7 +346,7 @@ async function buildPicksForDay(daysAhead = 0) {
         underOdds: prop.underOdds,
         bookCount: prop.bookCount,
         last5Profile,
-        label: `${playerName} — ${team} ${bestPick.pick} ${prop.line} Points`,
+        label: `${playerName} — ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
       });
     }
 
@@ -201,8 +362,15 @@ async function buildPicksForDay(daysAhead = 0) {
 }
 
 async function refreshAllPicks() {
-  const todayCards = await buildPicksForDay(0);
-  const tomorrowCards = await buildPicksForDay(1);
+  const todayCards = [
+  ...(await buildPicksForDay(0, "NBA")),
+  ...(await buildPicksForDay(0, "WNBA")),
+];
+
+const tomorrowCards = [
+  ...(await buildPicksForDay(1, "NBA")),
+  ...(await buildPicksForDay(1, "WNBA")),
+];
 
   const result = {
     ok: true,
@@ -229,9 +397,19 @@ async function refreshAllPicks() {
 app.get("/health", (req, res) => {
   res.json({
     ok: true,
-    message: "BetBrain V2 backend running",
+    message: "CourtEdge backend running",
     config: checkConfig(),
     time: new Date().toISOString(),
+  });
+});
+
+app.get("/test-ball-teams", async (req, res) => {
+  const teams = await fetchBallTeams();
+
+  res.json({
+    ok: true,
+    count: teams.length,
+    sample: teams.slice(0, 3),
   });
 });
 
@@ -336,6 +514,6 @@ app.post("/resolve-picks", async (req, res) => {
 });
 
 app.listen(CONFIG.PORT, () => {
-  console.log(`BetBrain V2 server running on port ${CONFIG.PORT}`);
+  console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
   console.log("CONFIG:", checkConfig());
 });

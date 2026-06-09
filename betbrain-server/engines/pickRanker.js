@@ -39,14 +39,25 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
   const cleanAway = clean(awayTeam);
 
   const uniquePicks = chooseBestPickPerPlayer(picks);
+const hasTeamMatches = uniquePicks.some(
+  (p) => clean(p.team) === cleanHome || clean(p.team) === cleanAway
+);
 
-  const homePicks = rankByWinProbability(
-    uniquePicks.filter((p) => clean(p.team) === cleanHome)
-  ).slice(0, 2);
+const homePicks = hasTeamMatches
+  ? rankByWinProbability(
+      uniquePicks.filter((p) => clean(p.team) === cleanHome)
+    ).slice(0, 2)
+  : [];
 
-  const awayPicks = rankByWinProbability(
-    uniquePicks.filter((p) => clean(p.team) === cleanAway)
-  ).slice(0, 2);
+const awayPicks = hasTeamMatches
+  ? rankByWinProbability(
+      uniquePicks.filter((p) => clean(p.team) === cleanAway)
+    ).slice(0, 2)
+  : [];
+
+const fallbackPicks = !hasTeamMatches
+  ? rankByWinProbability(uniquePicks).slice(0, 4)
+  : [];
 
   return {
     gameId: game.id || game.gameId || game.GameID || "",
@@ -54,13 +65,13 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
     homeTeam,
     awayTeam,
     time: game.time || game.DateTime || "",
-    picks: rankByWinProbability([...awayPicks, ...homePicks]),
+    picks: rankByWinProbability([...awayPicks, ...homePicks, ...fallbackPicks]),
     homePicks,
     awayPicks,
   };
 }
 
 export {
-    buildTopPicksForGame, chooseBestPickPerPlayer, rankByWinProbability
+  buildTopPicksForGame, chooseBestPickPerPlayer, rankByWinProbability
 };
 

@@ -43,12 +43,14 @@ async function fetchJson(url, label) {
   }
 }
 
-export async function fetchGames(daysAhead = 0) {
+export async function fetchGames(daysAhead = 0, league = "NBA") {
   const date = formatDate(dateForDaysAhead(daysAhead));
 
-  const url =
-    `${SPORTS_BASE}/odds/json/GamesByDate/${date}` +
-    `?key=${API_KEY}`;
+  const leaguePath = league === "WNBA" ? "wnba" : "nba";
+
+const url =
+  `https://api.sportsdata.io/v3/${leaguePath}/odds/json/GamesByDate/${date}` +
+  `?key=${API_KEY}`;
 
   const games = await fetchJson(url, "FETCH GAMES");
 
@@ -80,6 +82,14 @@ export async function fetchSeasonStats() {
     `?key=${API_KEY}`;
 
   return await fetchJson(url, "FETCH SEASON STATS");
+}
+
+export async function fetchTeamSeasonStats() {
+  const url =
+    `https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/2026` +
+    `?key=${API_KEY}`;
+
+  return await fetchJson(url, "FETCH TEAM SEASON STATS");
 }
 
 export async function fetchProjections(daysAhead = 0) {

@@ -2341,5 +2341,154 @@
     "pick": "Over",
     "sportsbook": "DraftKings",
     "result": "pending"
+  },
+  {
+    "player": "Mikal Bridges",
+    "team": "NY",
+    "opponent": "SA",
+    "game": "SA vs NY",
+    "stat": "Points",
+    "pick": "Over",
+    "side": "Over",
+    "line": 12.5,
+    "projection": 16.8,
+    "edge": 4.3,
+    "winProbability": 70,
+    "confidence": 70,
+    "strength": "Strong",
+    "seasonAverage": 14.4,
+    "sportsProjection": 0,
+    "last5Average": 17,
+    "matchupAverage": null,
+    "last5HitRate": 80,
+    "matchupHitRate": null,
+    "opportunityScore": 58,
+    "reasons": [
+      "Projection supports the over",
+      "Recent scoring is above the line",
+      "Minutes are strong",
+      "Good projection edge",
+      "Strong recent hit rate",
+      "Positive playoff context"
+    ],
+    "risks": [
+      "Role uncertainty detected",
+      "Some role volatility",
+      "Limited direct matchup history"
+    ],
+    "riskLabel": "Medium Risk",
+    "overRisk": 44,
+    "underRisk": 60,
+    "chosenRisk": 44,
+    "riskGap": 16,
+    "riskReasons": [
+      "Projection supports the over",
+      "Recent scoring is above the line",
+      "Minutes are strong"
+    ],
+    "riskWarnings": [
+      "Role uncertainty detected"
+    ],
+    "sportsbookLine": 12.5,
+    "overOdds": -129,
+    "underOdds": -46,
+    "bookCount": 7,
+    "last5Profile": {
+      "games": 5,
+      "avgPoints": 17,
+      "avgMinutes": 35.6,
+      "avgFGA": 12.4,
+      "avgFTA": 2,
+      "shotVolume": 13.3,
+      "consistencyScore": 85,
+      "hitRange": 13
+    },
+    "label": "Mikal Bridges — NY Over 12.5 Points",
+    "gameId": 23820,
+    "dateLabel": "Tomorrow",
+    "savedAt": "2026-06-07T00:42:33.795Z",
+    "status": "pending",
+    "createdAt": "2026-06-07T00:42:33.855Z"
+  },
+  {
+    "player": "Julian Champagnie",
+    "team": "SA",
+    "opponent": "NY",
+    "game": "SA vs NY",
+    "stat": "Points",
+    "pick": "Over",
+    "side": "Over",
+    "line": 10.5,
+    "projection": 14.7,
+    "edge": 4.2,
+    "winProbability": 66,
+    "confidence": 66,
+    "strength": "Lean",
+    "seasonAverage": 11.1,
+    "sportsProjection": 0,
+    "last5Average": 15.2,
+    "matchupAverage": null,
+    "last5HitRate": 60,
+    "matchupHitRate": null,
+    "opportunityScore": 56,
+    "opponentMatchup": {
+      "games": 0,
+      "avgPointsVsOpponent": 0,
+      "avgMinutesVsOpponent": 0,
+      "avgFGAVsOpponent": 0,
+      "avgFTAVsOpponent": 0,
+      "hitRateVsOpponent": 0,
+      "resistanceSignal": "NO_DIRECT_HISTORY",
+      "resistanceImpact": 0,
+      "reasons": [
+        "no direct opponent history found; using recent form instead"
+      ]
+    },
+    "reasons": [
+      "Projection supports the over",
+      "Recent scoring is above the line",
+      "Good projection edge",
+      "Positive recent hit rate",
+      "Positive playoff context",
+      "Strong minutes"
+    ],
+    "risks": [
+      "Role uncertainty detected",
+      "Some role volatility",
+      "Hot streak not supported by opportunity",
+      "Limited direct matchup history"
+    ],
+    "riskLabel": "Medium Risk",
+    "overRisk": 48,
+    "underRisk": 60,
+    "chosenRisk": 48,
+    "riskGap": 12,
+    "riskReasons": [
+      "Projection supports the over",
+      "Recent scoring is above the line"
+    ],
+    "riskWarnings": [
+      "Role uncertainty detected"
+    ],
+    "sportsbookLine": 10.5,
+    "overOdds": -64,
+    "underOdds": -127,
+    "bookCount": 6,
+    "last5Profile": {
+      "games": 5,
+      "avgPoints": 15.2,
+      "avgMinutes": 32,
+      "avgFGA": 10.2,
+      "avgFTA": 2,
+      "shotVolume": 11.1,
+      "consistencyScore": 75,
+      "hitRange": 14
+    },
+    "label": "Julian Champagnie — SA Over 10.5 Points",
+    "gameId": 23820,
+    "dateLabel": "Today",
+    "savedAt": "2026-06-08T07:52:15.840Z",
+    "status": "pending",
+    "createdAt": "2026-06-08T07:52:15.889Z"
   }
 ]
