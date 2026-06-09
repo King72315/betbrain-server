@@ -4,10 +4,28 @@ import { CONFIG } from "../config.js";
 console.log("🔥 BALL SERVICE LOADED");
 
 const API_KEY = CONFIG.BALLDONTLIE_KEY;
-const BASE = "https://api.balldontlie.io/wnba/v1";
+
+const NBA_BASE = "https://api.balldontlie.io/v1";
+const WNBA_BASE = "https://api.balldontlie.io/wnba/v1";
 
 const playerCache = new Map();
 const statsCache = new Map();
+
+function getBallBase(league = "NBA") {
+  return league === "WNBA" ? WNBA_BASE : NBA_BASE;
+}
+
+function getSeasonYear(league = "NBA") {
+  const now = new Date();
+
+  if (league === "WNBA") {
+    return now.getFullYear();
+  }
+
+  return now.getMonth() >= 9
+    ? now.getFullYear()
+    : now.getFullYear() - 1;
+}
 
 function clean(value = "") {
   return String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -74,37 +92,38 @@ async function ballFetch(url, label) {
   }
 }
 
-async function searchBallPlayers(searchTerm) {
+async function searchBallPlayers(searchTerm, league = "NBA") {
   if (!searchTerm) return [];
 
-  const url = `${BASE}/players?search=${encodeURIComponent(searchTerm)}`;
-  const data = await ballFetch(url, `BALL PLAYER SEARCH (${searchTerm})`);
+  const base = getBallBase(league);
+
+  const url = `${base}/players?search=${encodeURIComponent(searchTerm)}`;
+  const data = await ballFetch(
+    url,
+    `BALL PLAYER SEARCH (${league} ${searchTerm})`
+  );
 
   return data?.data || [];
 }
 
-export async function findBallPlayer(playerName) {
-  console.log("🔎 FIND BALL PLAYER:", playerName);
+export async function findBallPlayer(playerName, league = "NBA") {
+  console.log("🔎 FIND BALL PLAYER:", league, playerName);
 
-  const key = clean(playerName);
+  const key = `${league}-${clean(playerName)}`;
 
   if (playerCache.has(key)) {
-    console.log("BALL PLAYER CACHE HIT:", playerName);
+    console.log("BALL PLAYER CACHE HIT:", league, playerName);
     return playerCache.get(key);
   }
 
   const { firstName, lastName, fullName } = splitName(playerName);
 
-  const searchTerms = [
-    fullName,
-    lastName,
-    firstName,
-  ].filter(Boolean);
+  const searchTerms = [fullName, lastName, firstName].filter(Boolean);
 
   const allCandidates = [];
 
   for (const term of searchTerms) {
-    const players = await searchBallPlayers(term);
+    const players = await searchBallPlayers(term, league);
 
     for (const player of players) {
       const candidateKey = clean(fullPlayerName(player));
@@ -113,9 +132,10 @@ export async function findBallPlayer(playerName) {
         allCandidates.push(player);
       }
 
-      if (candidateKey === key) {
+      if (candidateKey === clean(playerName)) {
         console.log(
           "BALL PLAYER EXACT MATCH:",
+          league,
           playerName,
           "=>",
           player.id,
@@ -141,6 +161,7 @@ export async function findBallPlayer(playerName) {
   if (safeLastNameMatch) {
     console.log(
       "BALL PLAYER SAFE MATCH:",
+      league,
       playerName,
       "=>",
       safeLastNameMatch.id,
@@ -153,6 +174,7 @@ export async function findBallPlayer(playerName) {
 
   console.log(
     "BALL PLAYER NO SAFE MATCH:",
+    league,
     playerName,
     "CANDIDATES:",
     allCandidates.map((p) => ({
@@ -169,15 +191,15 @@ export async function findBallPlayer(playerName) {
 function normalizeStat(stat) {
   const playerTeam = stat.team?.abbreviation || "";
 
-  const home =
-    stat.game?.home_team?.abbreviation ||
-    stat.game?.home_team_abbreviation ||
-    "";
+  const home = clean(
+  `${stat.game?.home_team?.city || ""}
+   ${stat.game?.home_team?.name || ""}`
+);
 
-  const away =
-    stat.game?.visitor_team?.abbreviation ||
-    stat.game?.visitor_team_abbreviation ||
-    "";
+const away = clean(
+  `${stat.game?.visitor_team?.city || ""}
+   ${stat.game?.visitor_team?.name || ""}`
+);
 
   const opponent = clean(playerTeam) === clean(home) ? away : home;
 
@@ -197,74 +219,51 @@ function normalizeStat(stat) {
   };
 }
 
-export async function fetchPlayerStats(playerName) {
-  console.log("🔥 FETCH PLAYER STATS FIRED:", playerName);
+export async function fetchPlayerStats(playerName, league = "NBA") {
+  console.log("🔥 FETCH PLAYER STATS FIRED:", league, playerName);
 
-  const key = clean(playerName);
+  const key = `${league}-${clean(playerName)}`;
 
   if (statsCache.has(key)) {
-    console.log("BALL STATS CACHE HIT:", playerName);
+    console.log("BALL STATS CACHE HIT:", league, playerName);
     return statsCache.get(key);
   }
 
-  const player = await findBallPlayer(playerName);
+  const player = await findBallPlayer(playerName, league);
 
   if (!player?.id) {
-    console.log("BALL STATS NO PLAYER ID:", playerName);
+    console.log("BALL STATS NO PLAYER ID:", league, playerName);
     statsCache.set(key, []);
     return [];
   }
 
-  const now = new Date();
-  const seasonYear =
-    now.getMonth() >= 9
-      ? now.getFullYear()
-      : now.getFullYear() - 1;
+  const base = getBallBase(league);
+  const seasonYear = getSeasonYear(league);
 
- const url =
-  `${BASE}/player_stats?player_ids[]=${player.id}` +
-  `&seasons[]=${seasonYear}` +
-  `&per_page=100`;
+  const url =
+    `${base}/player_stats?player_ids[]=${player.id}` +
+    `&seasons[]=${seasonYear}` +
+    `&per_page=100`;
 
-  const data = await ballFetch(url, "BALL PLAYER STATS");
+  const data = await ballFetch(url, `BALL PLAYER STATS (${league})`);
 
-  let games = (data?.data || [])
+  const games = (data?.data || [])
     .map(normalizeStat)
     .filter((g) => g.date)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  if (!games.length) {
-    console.log(
-      "BALL POSTSEASON EMPTY, TRYING REGULAR SEASON:",
-      playerName
-    );
-
-    const regularSeasonUrl =
-  `${BASE}/player_stats?player_ids[]=${player.id}` +
-  `&seasons[]=${seasonYear}` +
-  `&per_page=100`;
-
-    const regularData = await ballFetch(
-      regularSeasonUrl,
-      "BALL PLAYER REGULAR STATS"
-    );
-
-    games = (regularData?.data || [])
-      .map(normalizeStat)
-      .filter((g) => g.date)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }
-
   console.log(
     "BALL NORMALIZED GAMES:",
+    league,
     playerName,
     games.length,
-    games.slice(0, 3).map((g) => ({
+    games.slice(0, 5).map((g) => ({
       date: g.date,
       points: g.points,
       minutes: g.minutes,
       fga: g.fga,
       fta: g.fta,
+      opponent: g.opponent,
     }))
   );
 
@@ -273,14 +272,15 @@ export async function fetchPlayerStats(playerName) {
   return games;
 }
 
-export async function fetchLast5(playerName) {
-  console.log("🔥 FETCH LAST5 FIRED:", playerName);
+export async function fetchLast5(playerName, league = "NBA") {
+  console.log("🔥 FETCH LAST5 FIRED:", league, playerName);
 
-  const games = await fetchPlayerStats(playerName);
+  const games = await fetchPlayerStats(playerName, league);
   const last5 = games.slice(0, 5);
 
   console.log(
     "🔥 LAST5 RESULT:",
+    league,
     playerName,
     last5.map((g) => g.points)
   );
@@ -288,10 +288,14 @@ export async function fetchLast5(playerName) {
   return last5;
 }
 
-export async function fetchLast3VsOpponent(playerName, opponent) {
-  console.log("🔥 FETCH LAST3 VS OPP FIRED:", playerName, opponent);
+export async function fetchLast3VsOpponent(
+  playerName,
+  opponent,
+  league = "NBA"
+) {
+  console.log("🔥 FETCH LAST3 VS OPP FIRED:", league, playerName, opponent);
 
-  const games = await fetchPlayerStats(playerName);
+  const games = await fetchPlayerStats(playerName, league);
   const opp = clean(opponent);
 
   return games.filter((g) => clean(g.opponent) === opp).slice(0, 3);
@@ -351,61 +355,55 @@ export function summarizeScoringProfile(games = []) {
   };
 }
 
-export function summarizeOpponentMatchup(games = [], line = 0, recentProfile = {}) {
+export function summarizeOpponentMatchup(
+  games = [],
+  line = 0,
+  recentProfile = {}
+) {
   if (!games.length) {
-  const avgPoints = Number(recentProfile.avgPoints || 0);
-  const avgMinutes = Number(recentProfile.avgMinutes || 0);
-  const avgFGA = Number(recentProfile.avgFGA || 0);
-  const avgFTA = Number(recentProfile.avgFTA || 0);
+    const avgPoints = Number(recentProfile.avgPoints || 0);
+    const avgMinutes = Number(recentProfile.avgMinutes || 0);
+    const avgFGA = Number(recentProfile.avgFGA || 0);
+    const avgFTA = Number(recentProfile.avgFTA || 0);
 
-  let resistanceSignal = "NO_DIRECT_HISTORY";
-  let resistanceImpact = 0;
-  const reasons = ["no direct opponent history found; using recent form instead"];
+    let resistanceSignal = "NO_DIRECT_HISTORY";
+    let resistanceImpact = 0;
+    const reasons = ["no direct opponent history found; using recent form instead"];
 
-  if (
-  avgPoints >= Number(line) - 1 &&
-  (
-    avgFGA >= 15 ||
-    avgFTA >= 6
-  )
-) {
-  resistanceSignal = "WEAPON_ADVANTAGE";
-  resistanceImpact = 4;
+    if (
+      avgPoints >= Number(line) - 1 &&
+      (avgFGA >= 15 || avgFTA >= 6)
+    ) {
+      resistanceSignal = "WEAPON_ADVANTAGE";
+      resistanceImpact = 4;
+      reasons.push("player weapon profile supports scoring expectation");
+    } else if (
+      avgPoints <= Number(line) - 3 ||
+      avgMinutes < 22 ||
+      avgFGA < 8
+    ) {
+      resistanceSignal = "LOW_USAGE_RISK";
+      resistanceImpact = -4;
+      reasons.push("recent role or shot volume creates scoring risk");
+    }
 
-  reasons.push(
-    "player weapon profile supports scoring expectation"
-  );
-}
-else if (
-  avgPoints <= Number(line) - 3 ||
-  avgMinutes < 22 ||
-  avgFGA < 8
-) {
-  resistanceSignal = "LOW_USAGE_RISK";
-  resistanceImpact = -4;
+    if (avgFTA >= 5) {
+      resistanceImpact += 1;
+      reasons.push("free throw volume supports scoring floor");
+    }
 
-  reasons.push(
-    "recent role or shot volume creates scoring risk"
-  );
-}
-
-  if (avgFTA >= 5) {
-    resistanceImpact += 1;
-    reasons.push("free throw volume supports scoring floor");
+    return {
+      games: 0,
+      avgPointsVsOpponent: Number(avgPoints.toFixed(1)),
+      avgMinutesVsOpponent: Number(avgMinutes.toFixed(1)),
+      avgFGAVsOpponent: Number(avgFGA.toFixed(1)),
+      avgFTAVsOpponent: Number(avgFTA.toFixed(1)),
+      hitRateVsOpponent: 0,
+      resistanceSignal,
+      resistanceImpact,
+      reasons,
+    };
   }
-
-  return {
-    games: 0,
-    avgPointsVsOpponent: Number(avgPoints.toFixed(1)),
-    avgMinutesVsOpponent: Number(avgMinutes.toFixed(1)),
-    avgFGAVsOpponent: Number(avgFGA.toFixed(1)),
-    avgFTAVsOpponent: Number(avgFTA.toFixed(1)),
-    hitRateVsOpponent: 0,
-    resistanceSignal,
-    resistanceImpact,
-    reasons,
-  };
-}
 
   const avg = (field) =>
     games.reduce((sum, g) => sum + Number(g[field] || 0), 0) / games.length;
@@ -465,9 +463,20 @@ else if (
   };
 }
 
-export async function fetchBallTeams() {
-  const url = `${BASE}/teams`;
-  const data = await ballFetch(url, "BALL TEAMS");
+export async function getBallPlayerTeam(playerName, league = "NBA") {
+  const player = await findBallPlayer(playerName, league);
+
+  if (!player?.team) return "";
+
+  return clean(
+    `${player.team.city || ""}${player.team.name || ""}`
+  );
+}
+
+export async function fetchBallTeams(league = "NBA") {
+  const base = getBallBase(league);
+  const url = `${base}/teams`;
+  const data = await ballFetch(url, `BALL TEAMS (${league})`);
 
   return data?.data || [];
 }

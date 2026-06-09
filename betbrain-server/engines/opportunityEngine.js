@@ -122,7 +122,7 @@ export function buildOpportunityScore({
     .map((g) => num(g.minutes))
     .filter((v) => v > 0);
 
-  let roleCertainty = 50;
+  let roleCertainty = minutes >= 28 ? 62 : 50;
 
   if (minutesList.length >= 3) {
     const max = Math.max(...minutesList);

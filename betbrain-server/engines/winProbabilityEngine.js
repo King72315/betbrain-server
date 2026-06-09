@@ -5,9 +5,7 @@ function num(value) {
 
 function avg(values = []) {
   const nums = values.map(num).filter((v) => Number.isFinite(v));
-
   if (!nums.length) return 0;
-
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 }
 
@@ -31,6 +29,18 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function unique(list = []) {
+  return [...new Set(list.filter(Boolean))];
+}
+
+function getSignalStrength({ supportScore, resistanceScore, dataSignals }) {
+  const total = supportScore + resistanceScore + dataSignals;
+
+  if (total >= 7) return "STRONG";
+  if (total >= 4) return "MODERATE";
+  return "WEAK";
+}
+
 export function buildWinProbability({
   player = "",
   team = "",
@@ -46,11 +56,11 @@ export function buildWinProbability({
   matchupGames = [],
 
   opportunity = {},
-playoff = {},
-opponentMatchup = {},
+  playoff = {},
+  opponentMatchup = {},
 
-overOdds = null,
-underOdds = null,
+  overOdds = null,
+  underOdds = null,
 }) {
   const last5Points = last5.map((g) => num(g.points));
   const matchupPoints = matchupGames.map((g) => num(g.points));
@@ -65,8 +75,26 @@ underOdds = null,
   const playoffAdjustment = num(playoff.playoffAdjustment);
   const resistanceImpact = num(opponentMatchup.resistanceImpact);
   const resistanceSignal = opponentMatchup.resistanceSignal || "";
+
   const reasons = [];
   const risks = [];
+
+  const support = [];
+  const resistance = [];
+
+  function addSupport(text) {
+    if (text) {
+      reasons.push(text);
+      support.push(text);
+    }
+  }
+
+  function addResistance(text) {
+    if (text) {
+      risks.push(text);
+      resistance.push(text);
+    }
+  }
 
   const weightedValues = [];
   const weights = [];
@@ -81,8 +109,8 @@ underOdds = null,
   }
 
   addWeighted(last5Average, 0.45);
-  addWeighted(seasonAverage, 0.25);
-  addWeighted(sportsProjection, 0.20);
+  addWeighted(Math.max(0, seasonAverage), 0.25);
+  addWeighted(Math.max(0, sportsProjection), 0.20);
 
   if (matchupAverage > 0) {
     addWeighted(matchupAverage, 0.10);
@@ -114,6 +142,7 @@ underOdds = null,
   else if (opportunityScore <= 45) projection -= 1.2;
 
   projection += playoffAdjustment * 0.25;
+  projection = Math.max(0, projection);
   projection = Number(projection.toFixed(1));
 
   const rawEdge =
@@ -125,76 +154,80 @@ underOdds = null,
 
   if (rawEdge >= 7) {
     probability += 12;
-    reasons.push("Strong projection edge");
+    addSupport("Strong projection edge");
   } else if (rawEdge >= 4) {
     probability += 8;
-    reasons.push("Good projection edge");
+    addSupport("Good projection edge");
   } else if (rawEdge >= 2) {
     probability += 4;
-    reasons.push("Small projection edge");
+    addSupport("Small projection edge");
   } else if (rawEdge < 0) {
     probability -= 12;
-    risks.push("Projection does not support side");
+    addResistance("Projection does not support side");
   }
 
   if (opportunityScore >= 80) {
     probability += 10;
-    reasons.push("Strong opportunity");
+    addSupport("Strong opportunity");
   } else if (opportunityScore >= 65) {
     probability += 5;
-    reasons.push("Playable opportunity");
+    addSupport("Playable opportunity");
   } else if (opportunityScore > 0 && opportunityScore < 50) {
     probability -= 8;
-    risks.push("Weak opportunity");
+    addResistance("Weak opportunity");
   }
 
   if (recentHitRate !== null) {
     if (recentHitRate >= 0.8) {
       probability += 9;
-      reasons.push("Strong recent hit rate");
+      addSupport("Strong recent hit rate");
     } else if (recentHitRate >= 0.6) {
       probability += 5;
-      reasons.push("Positive recent hit rate");
+      addSupport("Positive recent hit rate");
     } else if (recentHitRate <= 0.2) {
       probability -= 9;
-      risks.push("Poor recent hit rate");
+      addResistance("Poor recent hit rate");
     } else if (recentHitRate <= 0.4) {
       probability -= 5;
-      risks.push("Weak recent hit rate");
+      addResistance("Weak recent hit rate");
     }
   } else {
     probability -= 10;
-    risks.push("Limited Last 5 data");
+    addResistance("Limited Last 5 data");
   }
 
   if (matchupHitRate !== null) {
     if (matchupHitRate >= 0.67) {
       probability += 5;
-      reasons.push("Positive matchup history");
+      addSupport("Positive matchup history");
     } else if (matchupHitRate <= 0.33) {
       probability -= 4;
-      risks.push("Weak matchup history");
+      addResistance("Weak matchup history");
     }
   }
 
-if (resistanceSignal && resistanceSignal !== "NO_DIRECT_HISTORY") {
-  probability += resistanceImpact;
+  if (resistanceSignal && resistanceSignal !== "NO_DIRECT_HISTORY") {
+    probability += resistanceImpact;
 
-  if (resistanceImpact > 0) {
-    reasons.push(...(opponentMatchup.reasons || []));
-  }
+    if (resistanceImpact > 0) {
+      for (const reason of opponentMatchup.reasons || []) {
+        addSupport(reason);
+      }
+    }
 
-  if (resistanceImpact < 0) {
-    risks.push(...(opponentMatchup.reasons || []));
+    if (resistanceImpact < 0) {
+      for (const reason of opponentMatchup.reasons || []) {
+        addResistance(reason);
+      }
+    }
   }
-}
 
   if (playoffAdjustment >= 3) {
     probability += 3;
-    reasons.push("Positive playoff context");
+    addSupport("Positive playoff context");
   } else if (playoffAdjustment <= -3) {
     probability -= 3;
-    risks.push("Negative playoff context");
+    addResistance("Negative playoff context");
   }
 
   const pickOdds = side === "Over" ? overOdds : underOdds;
@@ -204,18 +237,47 @@ if (resistanceSignal && resistanceSignal !== "NO_DIRECT_HISTORY") {
 
     if (odds <= -150) {
       probability += 2;
-      reasons.push("Sportsbook price supports side");
+      addSupport("Sportsbook price supports side");
     } else if (odds >= 130) {
       probability -= 3;
-      risks.push("Plus-money risk");
+      addResistance("Plus-money risk");
     }
   }
 
-  reasons.push(...(opportunity.reasons || []));
-  reasons.push(...(playoff.reasons || []));
+  for (const reason of opportunity.reasons || []) {
+    addSupport(reason);
+  }
 
-  risks.push(...(opportunity.risks || []));
-  risks.push(...(playoff.risks || []));
+  for (const reason of playoff.reasons || []) {
+    addSupport(reason);
+  }
+
+  for (const risk of opportunity.risks || []) {
+    addResistance(risk);
+  }
+
+  for (const risk of playoff.risks || []) {
+    addResistance(risk);
+  }
+
+  const cleanSupport = unique(support);
+  const cleanResistance = unique(resistance);
+
+  const supportScore = cleanSupport.length;
+  const resistanceScore = cleanResistance.length;
+  const netEdge = supportScore - resistanceScore;
+
+  const dataSignals =
+    (last5.length >= 5 ? 1 : 0) +
+    (matchupGames.length > 0 ? 1 : 0) +
+    (overOdds !== null || underOdds !== null ? 1 : 0) +
+    (opportunityScore > 0 ? 1 : 0);
+
+  const signalStrength = getSignalStrength({
+    supportScore,
+    resistanceScore,
+    dataSignals,
+  });
 
   const finalProbability = clamp(Math.round(probability), 20, 88);
 
@@ -251,9 +313,26 @@ if (resistanceSignal && resistanceSignal !== "NO_DIRECT_HISTORY") {
       matchupHitRate !== null ? Math.round(matchupHitRate * 100) : null,
 
     opportunityScore,
-opponentMatchup,
+    opponentMatchup,
 
-reasons: [...new Set(reasons)].slice(0, 6),
-    risks: [...new Set(risks)].slice(0, 5),
+    support: cleanSupport,
+    resistance: cleanResistance,
+    supportScore,
+    resistanceScore,
+    netEdge,
+    signalStrength,
+
+    grading: {
+      support: cleanSupport,
+      resistance: cleanResistance,
+      supportScore,
+      resistanceScore,
+      netEdge,
+      signalStrength,
+      confidence: finalProbability,
+    },
+
+    reasons: unique(reasons).slice(0, 6),
+    risks: unique(risks).slice(0, 5),
   };
 }

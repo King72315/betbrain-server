@@ -30,6 +30,7 @@ import {
   fetchBallTeams,
   fetchLast3VsOpponent,
   fetchLast5,
+  getBallPlayerTeam,
   summarizeOpponentMatchup,
   summarizeScoringProfile,
 } from "./services/ballService.js";
@@ -74,6 +75,17 @@ function cacheFresh() {
     (Date.now() - lastRefreshTime) / 1000 / 60;
 
   return ageMinutes < CONFIG.CACHE_MINUTES;
+}
+
+
+
+function getOpponentFromGame(team, game) {
+  if (!team) return "";
+
+  if (clean(team) === clean(game.homeTeam)) return game.awayTeam;
+  if (clean(team) === clean(game.awayTeam)) return game.homeTeam;
+
+  return "";
 }
 
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
@@ -126,21 +138,23 @@ const projections = await fetchProjections(daysAhead);
     for (const prop of props) {
       const playerName = prop.player;
 
-      const team = getTeamForPlayer(
+     const team =
+  league === "WNBA"
+    ? await getBallPlayerTeam(playerName, league)
+    : getTeamForPlayer(
         playerName,
         playerMap,
         projectionMap,
         seasonMap
       );
 
-      if (!team && league !== "WNBA") continue;
-      const safeTeam = team || "WNBA";
+if (!team) continue;
 
-      const opponent =
+const safeTeam = team;
+
+const opponent =
   league === "WNBA"
-    ? game.homeTeam === safeTeam
-      ? game.awayTeam
-      : game.homeTeam
+    ? getOpponentFromGame(team, game)
     : getOpponentForTeam(game, team);
 
 if (!opponent) continue;
@@ -148,14 +162,37 @@ if (!opponent) continue;
       const projectionData =
         projectionMap.get(clean(playerName)) || {};
 
-      const seasonAverage = getSeasonPoints(playerName, seasonMap);
-      const sportsProjection = getProjectionPoints(playerName, projectionMap);
+      const bdlLast5 = await fetchLast5(playerName, league);
 
-      const last5 = await fetchLast5(playerName);
+const bdlRecentAverage =
+  bdlLast5.length
+    ? bdlLast5.reduce((sum, g) => sum + Number(g.points || 0), 0) / bdlLast5.length
+    : 0;
+
+const seasonAverage =
+  league === "WNBA"
+    ? bdlRecentAverage
+    : getSeasonPoints(playerName, seasonMap);
+
+const sportsProjection =
+  league === "WNBA"
+    ? 0
+    : getProjectionPoints(playerName, projectionMap);
+
+const last5 = bdlLast5;
+
+console.log("WNBA PROJECTION DEBUG", {
+  player: playerName,
+  projection: sportsProjection,
+  seasonAverage,
+  team,
+});
+     
 
 const matchupGames = await fetchLast3VsOpponent(
   playerName,
-  opponent
+  opponent,
+  league
 );
       
       const opponentMatchup = summarizeOpponentMatchup(
@@ -177,9 +214,18 @@ const matchupGames = await fetchLast3VsOpponent(
         projectionData ||
         {};
 
-      const missingPlayers = getMissingPlayers(safeTeam, players);
+      const missingPlayers =
+  league === "WNBA" ? [] : getMissingPlayers(safeTeam, players);
 
-      const usage = calcUsageBoost(
+const usage =
+  league === "WNBA"
+    ? {
+        confidenceBoost: 0,
+        projectionBoost: 0,
+        reasons: [],
+        log: `WNBA usage boost skipped for ${playerName}`,
+      }
+    : calcUsageBoost(
         {
           ...playerData,
           ...projectionData,
@@ -191,9 +237,13 @@ const matchupGames = await fetchLast3VsOpponent(
 
       console.log(usage.log);
 
-      const adjustedSportsProjection =
-        Number(sportsProjection || 0) +
-        Number(usage.projectionBoost || 0);
+      const baseSportsProjection = Number(sportsProjection || 0);
+const usageProjectionBoost = Number(usage.projectionBoost || 0);
+
+const adjustedSportsProjection =
+  baseSportsProjection > 0
+    ? Math.max(0, baseSportsProjection + usageProjectionBoost)
+    : 0;
 
       const opportunity = {
         ...baseOpportunity,
@@ -249,7 +299,7 @@ opponentMatchup,
 
       const overPick = buildWinProbability({
         player: playerName,
-        safeTeam,
+        team: safeTeam,
         opponent,
         game: game.game,
         line: prop.line,
@@ -267,13 +317,13 @@ opponentMatchup,
 
       const underPick = buildWinProbability({
         player: playerName,
-        safeTeam,
+        team: safeTeam,
         opponent,
         game: game.game,
         line: prop.line,
         side: "Under",
         seasonAverage,
-        sportsProjection,
+        sportsProjection: adjustedSportsProjection,
         last5,
         matchupGames,
         opportunity,

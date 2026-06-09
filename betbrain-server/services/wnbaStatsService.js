@@ -165,15 +165,15 @@ export async function findWnbaPlayer(playerName) {
 function normalizeStat(stat) {
   const playerTeam = stat.team?.abbreviation || "";
 
-  const home =
-    stat.game?.home_team?.abbreviation ||
-    stat.game?.home_team_abbreviation ||
-    "";
+  const home = clean(
+  `${stat.game?.home_team?.city || ""}
+   ${stat.game?.home_team?.name || ""}`
+);
 
-  const away =
-    stat.game?.visitor_team?.abbreviation ||
-    stat.game?.visitor_team_abbreviation ||
-    "";
+const away = clean(
+  `${stat.game?.visitor_team?.city || ""}
+   ${stat.game?.visitor_team?.name || ""}`
+);
 
   const opponent = clean(playerTeam) === clean(home) ? away : home;
 
@@ -212,7 +212,7 @@ export async function fetchWnbaPlayerStats(playerName) {
   }
 
   const now = new Date();
-const seasonYear =
+const seasonYear = getSeasonYear(league);
   now.getMonth() >= 9
     ? now.getFullYear()
     : now.getFullYear() - 1;

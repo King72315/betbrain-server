@@ -136,14 +136,15 @@ export function compareOverUnderRisk({
   }
 
   // Role uncertainty
-  if (roleCertainty <= 45) {
-    overRisk += 8;
-    underRisk += 2;
-    warnings.push("Role uncertainty detected");
-  } else if (roleCertainty >= 75) {
-    overRisk -= 4;
-    addReason(overReasons, "Role appears stable");
-  }
+  if (roleCertainty < 45) {
+  overRisk += 8;
+  underRisk += 2;
+  warnings.push("Role uncertainty detected");
+} else if (roleCertainty < 55) {
+  overRisk += 4;
+  underRisk += 1;
+  warnings.push("Some role volatility");
+}
 
   // Blowout risk
   if (blowoutRisk >= 70) {
