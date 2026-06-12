@@ -2490,5 +2490,117 @@
     "savedAt": "2026-06-08T07:52:15.840Z",
     "status": "pending",
     "createdAt": "2026-06-08T07:52:15.889Z"
+  },
+  {
+    "player": "Jessica Shepard",
+    "team": "dallaswings",
+    "opponent": "phoenixmercury",
+    "game": "PHOENIXMERCURY vs DALLASWINGS",
+    "stat": "Points",
+    "pick": "Over",
+    "side": "Over",
+    "line": 11.5,
+    "projection": 15.8,
+    "edge": 4.3,
+    "winProbability": 88,
+    "confidence": 88,
+    "strength": "Elite",
+    "seasonAverage": 15,
+    "sportsProjection": 0,
+    "last5Average": 15,
+    "matchupAverage": null,
+    "last5HitRate": 60,
+    "matchupHitRate": null,
+    "opportunityScore": 50,
+    "opponentMatchup": {
+      "games": 0,
+      "avgPointsVsOpponent": 15,
+      "avgMinutesVsOpponent": 32.2,
+      "avgFGAVsOpponent": 10.8,
+      "avgFTAVsOpponent": 3,
+      "hitRateVsOpponent": 0,
+      "resistanceSignal": "NO_DIRECT_HISTORY",
+      "resistanceImpact": 0,
+      "reasons": [
+        "no direct opponent history found; using recent form instead"
+      ]
+    },
+    "support": [
+      "Projection supports the over",
+      "Recent form leans over",
+      "Season average supports the over",
+      "Minutes are strong"
+    ],
+    "resistance": [
+      "Role uncertainty detected"
+    ],
+    "supportScore": 27,
+    "resistanceScore": 10,
+    "netEdge": 17,
+    "signalStrength": "Strong",
+    "grading": {
+      "support": [
+        "Projection supports the over",
+        "Recent form leans over",
+        "Season average supports the over",
+        "Minutes are strong"
+      ],
+      "resistance": [
+        "Role uncertainty detected"
+      ],
+      "supportScore": 27,
+      "resistanceScore": 10,
+      "netEdge": 17,
+      "signalStrength": "Strong",
+      "riskLabel": "Medium Risk",
+      "chosenRisk": 42,
+      "confidence": 88
+    },
+    "reasons": [
+      "Projection supports the over",
+      "Recent form leans over",
+      "Season average supports the over",
+      "Minutes are strong"
+    ],
+    "risks": [
+      "Role uncertainty detected"
+    ],
+    "riskLabel": "Medium Risk",
+    "overRisk": 42,
+    "underRisk": 56,
+    "chosenRisk": 42,
+    "riskGap": 14,
+    "totalEvidence": 37,
+    "riskReasons": [
+      "Projection supports the over",
+      "Recent form leans over",
+      "Season average supports the over",
+      "Minutes are strong"
+    ],
+    "riskWarnings": [
+      "Role uncertainty detected"
+    ],
+    "noPlay": false,
+    "noPlayReasons": [],
+    "sportsbookLine": 11.5,
+    "overOdds": -108,
+    "underOdds": -120,
+    "bookCount": 1,
+    "last5Profile": {
+      "games": 5,
+      "avgPoints": 15,
+      "avgMinutes": 32.2,
+      "avgFGA": 10.8,
+      "avgFTA": 3,
+      "shotVolume": 12.1,
+      "consistencyScore": 75,
+      "hitRange": 13
+    },
+    "label": "Jessica Shepard — dallaswings Over 11.5 Points",
+    "gameId": "ea094671159571ce86c43da02eb3157b",
+    "dateLabel": "Today",
+    "savedAt": "2026-06-10T08:34:31.041Z",
+    "status": "pending",
+    "createdAt": "2026-06-10T08:34:31.137Z"
   }
 ]

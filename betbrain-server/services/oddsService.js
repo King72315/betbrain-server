@@ -6,13 +6,16 @@ const ODDS_SPORT_KEYS = {
   WNBA: "basketball_wnba",
 };
 
+const API_KEY = CONFIG.ODDS_KEY;
+
+const EVENT_CACHE = new Map();
+const EVENT_CACHE_MS = 2 * 60 * 1000;
+
 function getOddsBase(league = "NBA") {
   const sportKey = ODDS_SPORT_KEYS[league] || ODDS_SPORT_KEYS.NBA;
 
   return `https://api.the-odds-api.com/v4/sports/${sportKey}`;
 }
-
-const API_KEY = CONFIG.ODDS_KEY;
 
 function clean(value = "") {
   return String(value)
@@ -20,10 +23,12 @@ function clean(value = "") {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function normalizeTeam(value = "") {
-  const v = String(value).toLowerCase();
+function normalizeTeam(value = "", league = "NBA") {
+  const raw = String(value || "").trim();
+  const v = raw.toLowerCase();
+  const c = clean(raw);
 
-  const map = {
+  const nbaMap = {
     "atlanta hawks": "atl",
     "boston celtics": "bos",
     "brooklyn nets": "bkn",
@@ -55,13 +60,119 @@ function normalizeTeam(value = "") {
     "utah jazz": "uta",
     "washington wizards": "was",
 
-    nyk: "ny",
-    sas: "sa",
+    atl: "atl",
+    bos: "bos",
+    bkn: "bkn",
+    brk: "bkn",
+    cha: "cha",
+    chi: "chi",
+    cle: "cle",
+    dal: "dal",
+    den: "den",
+    det: "det",
     gsw: "gs",
+    gs: "gs",
+    hou: "hou",
+    ind: "ind",
+    lac: "lac",
+    lal: "lal",
+    mem: "mem",
+    mia: "mia",
+    mil: "mil",
+    min: "min",
     nop: "no",
+    no: "no",
+    nyk: "ny",
+    ny: "ny",
+    okc: "okc",
+    orl: "orl",
+    phi: "phi",
+    phx: "phx",
+    por: "por",
+    sac: "sac",
+    sas: "sa",
+    sa: "sa",
+    tor: "tor",
+    uta: "uta",
+    was: "was",
   };
 
-  return map[v] || clean(v);
+  const wnbaMap = {
+    "atlanta dream": "atlantadream",
+    "chicago sky": "chicagosky",
+    "connecticut sun": "connecticutsun",
+    "dallas wings": "dallaswings",
+    "golden state valkyries": "goldenstatevalkyries",
+    "indiana fever": "indianafever",
+    "las vegas aces": "lasvegasaces",
+    "los angeles sparks": "losangelessparks",
+    "minnesota lynx": "minnesotalynx",
+    "new york liberty": "newyorkliberty",
+    "phoenix mercury": "phoenixmercury",
+    "seattle storm": "seattlestorm",
+    "washington mystics": "washingtonmystics",
+
+    atl: "atlantadream",
+    chi: "chicagosky",
+    con: "connecticutsun",
+    conn: "connecticutsun",
+    dal: "dallaswings",
+    gs: "goldenstatevalkyries",
+    gsv: "goldenstatevalkyries",
+    ind: "indianafever",
+    lv: "lasvegasaces",
+    lva: "lasvegasaces",
+    las: "lasvegasaces",
+    la: "losangelessparks",
+    lasparks: "losangelessparks",
+    min: "minnesotalynx",
+    ny: "newyorkliberty",
+    nyl: "newyorkliberty",
+    phx: "phoenixmercury",
+    pho: "phoenixmercury",
+    sea: "seattlestorm",
+    was: "washingtonmystics",
+    wash: "washingtonmystics",
+  };
+
+  if (league === "WNBA") {
+    return wnbaMap[v] || wnbaMap[c] || c;
+  }
+
+  return nbaMap[v] || nbaMap[c] || c;
+}
+
+function getCentralDateKey(dateInput) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+function getTargetCentralDateKey(daysAhead = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + Number(daysAhead || 0));
+  return getCentralDateKey(date);
+}
+
+function getMinutesUntilStart(commenceTime) {
+  const start = new Date(commenceTime).getTime();
+
+  if (!Number.isFinite(start)) return null;
+
+  return Math.round((start - Date.now()) / 1000 / 60);
 }
 
 async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
@@ -82,51 +193,92 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
 
       if (attempt === 3) return null;
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, attempt * 1500)
-      );
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
     }
   }
 
   return null;
 }
 
-export async function fetchOddsEvents(league = "NBA") {
+function uniqueEvents(events = []) {
+  const seen = new Set();
+
+  return events.filter((event) => {
+    if (!event?.id || seen.has(event.id)) return false;
+    seen.add(event.id);
+    return true;
+  });
+}
+
+export async function fetchOddsEvents(league = "NBA", options = {}) {
   if (!API_KEY) {
     console.log("ODDS_KEY missing");
     return [];
   }
 
+  const cacheKey = `${league}-events`;
+  const cached = EVENT_CACHE.get(cacheKey);
+
+  if (!options.force && cached && Date.now() - cached.time < EVENT_CACHE_MS) {
+    return cached.data;
+  }
+
   const data = await oddsGet(
-    `${getOddsBase(league)}/events?`,
+    `${getOddsBase(league)}/events`,
     { apiKey: API_KEY },
-    "FETCH ODDS EVENTS"
+    `FETCH ODDS EVENTS (${league})`
   );
 
-  const events = Array.isArray(data) ? data : [];
+  const events = uniqueEvents(Array.isArray(data) ? data : []);
 
-  console.log("ODDS EVENTS FOUND:", events.length);
+  console.log(`ODDS EVENTS FOUND (${league}):`, events.length);
+
+  EVENT_CACHE.set(cacheKey, {
+    time: Date.now(),
+    data: events,
+  });
 
   return events;
 }
 
-export async function findOddsEventForGame(game, league = "NBA") {
-  const events = await fetchOddsEvents(league);
+export async function findOddsEventForGame(
+  game,
+  league = "NBA",
+  providedEvents = null
+) {
+  const events = providedEvents || (await fetchOddsEvents(league));
 
-  const gameHome = normalizeTeam(game.homeTeam || game.home);
-  const gameAway = normalizeTeam(game.awayTeam || game.away);
+  const gameHome = normalizeTeam(game.homeTeam || game.home, league);
+  const gameAway = normalizeTeam(game.awayTeam || game.away, league);
 
-  return (
+  const match =
     events.find((event) => {
-      const eventHome = normalizeTeam(event.home_team);
-      const eventAway = normalizeTeam(event.away_team);
+      const eventHome = normalizeTeam(event.home_team, league);
+      const eventAway = normalizeTeam(event.away_team, league);
 
       return (
         (gameHome === eventHome && gameAway === eventAway) ||
         (gameHome === eventAway && gameAway === eventHome)
       );
-    }) || null
-  );
+    }) || null;
+
+  if (!match) {
+    console.log("NO ODDS EVENT MATCH:", {
+      league,
+      game: game.game,
+      gameHome,
+      gameAway,
+      availableEvents: events.slice(0, 8).map((event) => ({
+        id: event.id,
+        home: normalizeTeam(event.home_team, league),
+        away: normalizeTeam(event.away_team, league),
+        rawHome: event.home_team,
+        rawAway: event.away_team,
+      })),
+    });
+  }
+
+  return match;
 }
 
 export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
@@ -140,7 +292,7 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
       markets: "player_points",
       oddsFormat: "american",
     },
-    "FETCH POINT PROPS"
+    `FETCH POINT PROPS (${league})`
   );
 
   const props = [];
@@ -150,45 +302,140 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
       if (market.key !== "player_points") continue;
 
       for (const outcome of market.outcomes || []) {
-        if (!outcome.description || !outcome.point) continue;
+        const player = outcome.description;
+        const side = outcome.name;
+        const line = Number(outcome.point);
+        const odds = Number(outcome.price);
+
+        if (!player) continue;
+        if (!["Over", "Under"].includes(side)) continue;
+        if (!Number.isFinite(line)) continue;
+        if (!Number.isFinite(odds)) continue;
 
         props.push({
-          player: outcome.description,
-          playerKey: clean(outcome.description),
-          side: outcome.name,
-          line: Number(outcome.point),
-          odds: Number(outcome.price),
+          player,
+          playerKey: clean(player),
+          side,
+          line,
+          odds,
           sportsbook: book.title || book.key,
+          sportsbookKey: book.key,
           eventId,
+          league,
         });
       }
     }
   }
 
-  console.log("POINT PROPS FOUND:", props.length);
+  console.log(`POINT PROPS FOUND (${league}):`, props.length);
 
   return props;
 }
 
 function average(arr = []) {
-  if (!arr.length) return null;
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
+  const nums = arr.map(Number).filter(Number.isFinite);
+
+  if (!nums.length) return null;
+
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
 function chooseMainLine(lines = []) {
-  if (!lines.length) return null;
+  const nums = lines.map(Number).filter(Number.isFinite);
 
-  const sorted = [...lines].sort((a, b) => a - b);
+  if (!nums.length) return null;
 
+  const sorted = [...nums].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
 
   if (sorted.length % 2 === 1) {
     return sorted[middle];
   }
 
-  return Number(
-    ((sorted[middle - 1] + sorted[middle]) / 2).toFixed(1)
-  );
+  return Number(((sorted[middle - 1] + sorted[middle]) / 2).toFixed(1));
+}
+
+function chooseClosestLine(lines = [], targetLine) {
+  const nums = [...new Set(lines.map(Number).filter(Number.isFinite))];
+
+  if (!nums.length || targetLine === null) return null;
+
+  return nums.sort((a, b) => {
+    const aDiff = Math.abs(a - targetLine);
+    const bDiff = Math.abs(b - targetLine);
+
+    if (aDiff !== bDiff) return aDiff - bDiff;
+
+    return b - a;
+  })[0];
+}
+
+function buildMarketProfile({
+  bookCount = 0,
+  consensusBookCount = 0,
+  overBookCount = 0,
+  underBookCount = 0,
+  lineSpread = 0,
+  hasBothSides = false,
+}) {
+  let marketQuality = 50;
+  const warnings = [];
+  const strengths = [];
+
+  if (bookCount >= 10) {
+    marketQuality += 20;
+    strengths.push("Strong book coverage");
+  } else if (bookCount >= 6) {
+    marketQuality += 12;
+    strengths.push("Good book coverage");
+  } else if (bookCount >= 3) {
+    marketQuality += 5;
+  } else {
+    marketQuality -= 15;
+    warnings.push("Low book coverage");
+  }
+
+  if (consensusBookCount >= 6) {
+    marketQuality += 10;
+    strengths.push("Good line agreement");
+  } else if (consensusBookCount <= 2) {
+    marketQuality -= 10;
+    warnings.push("Weak line agreement");
+  }
+
+  if (lineSpread <= 0.5) {
+    marketQuality += 10;
+    strengths.push("Tight market line");
+  } else if (lineSpread <= 1.5) {
+    marketQuality += 4;
+  } else {
+    marketQuality -= 12;
+    warnings.push("Wide line spread across books");
+  }
+
+  if (!hasBothSides) {
+    marketQuality -= 20;
+    warnings.push("Missing Over/Under side coverage");
+  }
+
+  if (overBookCount === 0 || underBookCount === 0) {
+    marketQuality -= 15;
+    warnings.push("One side has no usable odds");
+  }
+
+  marketQuality = Math.max(0, Math.min(100, Math.round(marketQuality)));
+
+  let marketGrade = "WEAK";
+  if (marketQuality >= 80) marketGrade = "STRONG";
+  else if (marketQuality >= 65) marketGrade = "GOOD";
+  else if (marketQuality >= 50) marketGrade = "FAIR";
+
+  return {
+    marketQuality,
+    marketGrade,
+    marketStrengths: strengths,
+    marketWarnings: warnings,
+  };
 }
 
 export function buildConsensusPointProps(rawProps = []) {
@@ -203,28 +450,53 @@ export function buildConsensusPointProps(rawProps = []) {
         playerKey: prop.playerKey,
         allLines: [],
         books: new Set(),
+        booksByLine: {},
         oversByLine: {},
         undersByLine: {},
+        overBooksByLine: {},
+        underBooksByLine: {},
       };
     }
 
-    byPlayer[key].allLines.push(prop.line);
+    const line = Number(prop.line);
+
+    if (!Number.isFinite(line)) continue;
+
+    const lineKey = String(line);
+
+    byPlayer[key].allLines.push(line);
     byPlayer[key].books.add(prop.sportsbook);
 
-    if (!byPlayer[key].oversByLine[prop.line]) {
-      byPlayer[key].oversByLine[prop.line] = [];
+    if (!byPlayer[key].booksByLine[lineKey]) {
+      byPlayer[key].booksByLine[lineKey] = new Set();
     }
 
-    if (!byPlayer[key].undersByLine[prop.line]) {
-      byPlayer[key].undersByLine[prop.line] = [];
+    if (!byPlayer[key].oversByLine[lineKey]) {
+      byPlayer[key].oversByLine[lineKey] = [];
     }
+
+    if (!byPlayer[key].undersByLine[lineKey]) {
+      byPlayer[key].undersByLine[lineKey] = [];
+    }
+
+    if (!byPlayer[key].overBooksByLine[lineKey]) {
+      byPlayer[key].overBooksByLine[lineKey] = new Set();
+    }
+
+    if (!byPlayer[key].underBooksByLine[lineKey]) {
+      byPlayer[key].underBooksByLine[lineKey] = new Set();
+    }
+
+    byPlayer[key].booksByLine[lineKey].add(prop.sportsbook);
 
     if (prop.side === "Over") {
-      byPlayer[key].oversByLine[prop.line].push(prop.odds);
+      byPlayer[key].oversByLine[lineKey].push(prop.odds);
+      byPlayer[key].overBooksByLine[lineKey].add(prop.sportsbook);
     }
 
     if (prop.side === "Under") {
-      byPlayer[key].undersByLine[prop.line].push(prop.odds);
+      byPlayer[key].undersByLine[lineKey].push(prop.odds);
+      byPlayer[key].underBooksByLine[lineKey].add(prop.sportsbook);
     }
   }
 
@@ -234,48 +506,145 @@ export function buildConsensusPointProps(rawProps = []) {
 
       if (mainLine === null) return null;
 
-      const availableLines = [...new Set(item.allLines)];
+      const availableLines = [...new Set(item.allLines)]
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
 
-      const closestLine =
-        availableLines.sort(
-          (a, b) => Math.abs(a - mainLine) - Math.abs(b - mainLine)
-        )[0];
+      const closestLine = chooseClosestLine(availableLines, mainLine);
+
+      if (closestLine === null) return null;
+
+      const lineKey = String(closestLine);
+
+      const overOddsArray = item.oversByLine[lineKey] || [];
+      const underOddsArray = item.undersByLine[lineKey] || [];
+
+      const overAverage = average(overOddsArray);
+      const underAverage = average(underOddsArray);
+
+      const overBookCount = item.overBooksByLine[lineKey]?.size || 0;
+      const underBookCount = item.underBooksByLine[lineKey]?.size || 0;
+      const consensusBookCount = item.booksByLine[lineKey]?.size || 0;
+      const bookCount = item.books.size;
+
+      const lineSpread =
+        availableLines.length > 1
+          ? Number(
+              (
+                Math.max(...availableLines) - Math.min(...availableLines)
+              ).toFixed(1)
+            )
+          : 0;
+
+      const hasBothSides = overBookCount > 0 && underBookCount > 0;
+
+      const market = buildMarketProfile({
+        bookCount,
+        consensusBookCount,
+        overBookCount,
+        underBookCount,
+        lineSpread,
+        hasBothSides,
+      });
 
       return {
         player: item.player,
         playerKey: item.playerKey,
         stat: "Points",
+
         line: Number(closestLine),
+        consensusLine: Number(mainLine),
+        availableLines,
+
         overOdds:
-          item.oversByLine[closestLine]
-            ? Math.round(average(item.oversByLine[closestLine]))
-            : null,
+          overAverage !== null ? Math.round(overAverage) : null,
+
         underOdds:
-          item.undersByLine[closestLine]
-            ? Math.round(average(item.undersByLine[closestLine]))
-            : null,
-        bookCount: item.books.size,
+          underAverage !== null ? Math.round(underAverage) : null,
+
+        bookCount,
+        consensusBookCount,
+        overBookCount,
+        underBookCount,
+        lineSpread,
+        hasBothSides,
+
+        marketQuality: market.marketQuality,
+        marketGrade: market.marketGrade,
+        marketStrengths: market.marketStrengths,
+        marketWarnings: market.marketWarnings,
       };
     })
     .filter(Boolean);
 }
 
-export async function fetchOddsGameCards(league = "NBA") {
-  const events = await fetchOddsEvents(league);
+export async function fetchOddsGameCards(
+  league = "NBA",
+  daysAhead = null,
+  options = {}
+) {
+  const events = await fetchOddsEvents(league, options);
 
-  return events.map((event) => ({
-    id: event.id,
-    gameId: event.id,
-    date: event.commence_time?.slice(0, 10) || "",
-    time: event.commence_time || "",
-    homeTeam: normalizeTeam(event.home_team),
-    awayTeam: normalizeTeam(event.away_team),
-    home: normalizeTeam(event.home_team),
-    away: normalizeTeam(event.away_team),
-    game: `${normalizeTeam(event.away_team).toUpperCase()} vs ${normalizeTeam(
-      event.home_team
-    ).toUpperCase()}`,
-    league,
-    oddsEventId: event.id,
-  }));
+  const targetDate =
+    daysAhead === null || daysAhead === undefined
+      ? null
+      : getTargetCentralDateKey(daysAhead);
+
+  const cards = events
+    .map((event) => {
+      const commenceTime = event.commence_time || "";
+      const centralDate = getCentralDateKey(commenceTime);
+      const minutesUntilStart = getMinutesUntilStart(commenceTime);
+
+      const homeTeam = normalizeTeam(event.home_team, league);
+      const awayTeam = normalizeTeam(event.away_team, league);
+
+      return {
+        id: event.id,
+        gameId: event.id,
+
+        date: centralDate,
+        utcDate: commenceTime?.slice(0, 10) || "",
+        time: commenceTime,
+        commenceTime,
+
+        minutesUntilStart,
+        isStarted:
+          typeof minutesUntilStart === "number"
+            ? minutesUntilStart <= 0
+            : false,
+
+        homeTeam,
+        awayTeam,
+        home: homeTeam,
+        away: awayTeam,
+
+        rawHomeTeam: event.home_team,
+        rawAwayTeam: event.away_team,
+
+        game: `${awayTeam.toUpperCase()} vs ${homeTeam.toUpperCase()}`,
+        league,
+        oddsEventId: event.id,
+      };
+    })
+    .filter((card) => {
+      if (!targetDate) return true;
+      return card.date === targetDate;
+    })
+    .sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
+
+  console.log(`ODDS GAME CARDS (${league})`, {
+    daysAhead,
+    targetDate,
+    count: cards.length,
+    games: cards.map((card) => ({
+      game: card.game,
+      date: card.date,
+      time: card.time,
+      isStarted: card.isStarted,
+    })),
+  });
+
+  return cards;
 }
