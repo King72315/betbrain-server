@@ -1,218 +1,218 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
-
+import React from "react";
 import {
   ScrollView,
   Text,
-  View
+  View,
 } from "react-native";
 
-import { fetchSavedPicks } from "./api";
-
-const SAVED_PICKS_KEY = "BETBRAIN_SAVED_PICKS";
-
 export default function GamePicksScreen() {
+  const params = useLocalSearchParams();
 
-const getTier = (edge: number) => {
-  if (edge >= 2.5) return '🟢';
-  if (edge >= 1.5) return '🟡';
-  return '🔴';
-};
+  let game: any = null;
 
-  const { game } = useLocalSearchParams();
-  const parsedGame = game ? JSON.parse(String(game)) : null;
+  try {
+    game = params.game
+      ? JSON.parse(String(params.game))
+      : null;
+  } catch {
+    game = null;
+  }
 
-console.log("GAME DATA:", parsedGame);
+  const getStrengthColor = (strength: string) => {
+    if (strength === "Elite") return "#22c55e";
+    if (strength === "Strong") return "#fbbf24";
 
-  const [picks, setPicks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [savedPicks, setSavedPicks] = useState<any[]>([]);
-
-  useEffect(() => {
-  loadPicks();
-  loadSavedPicks();
-}, []);
-
-  const loadPicks = async () => {
-    try {
-      setLoading(true);
-
-      if (!parsedGame) {
-        setPicks([]);
-        return;
-      }
-
-      const data = await fetchSavedPicks();
-
-const allPicks = (data.realProps || []).filter((p: any) => {
-  const sameId = String(p.gameId) === String(parsedGame.id);
-
-  const sameGame =
-    String(p.game || "").toLowerCase() ===
-    String(parsedGame.game || "").toLowerCase();
-
-  return sameId || sameGame;
-});
-      setPicks(allPicks || []);
-    } catch (err) {
-      console.log("GAME PICKS ERROR:", err);
-      setPicks([]);
-    } finally {
-      setLoading(false);
-    }
+    return "#93c5fd";
   };
 
-const loadSavedPicks = async () => {
-  const raw = await AsyncStorage.getItem(SAVED_PICKS_KEY);
-  setSavedPicks(raw ? JSON.parse(raw) : []);
-};
+  if (!game) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "rgb(11,15,26)",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Text
+          style={{
+            color: "white",
+            fontSize: 18,
+          }}
+        >
+          No game data found
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: "rgb(11, 15, 26)",
+        backgroundColor: "rgb(11,15,26)",
         padding: 16,
       }}
     >
-      <Text style={{ color: "white", fontSize: 30, fontWeight: "900" }}>
-        {parsedGame?.AwayTeam} vs {parsedGame?.HomeTeam}
+      <Text
+        style={{
+          color: "white",
+          fontSize: 28,
+          fontWeight: "900",
+          marginBottom: 8,
+        }}
+      >
+        {game.game}
       </Text>
 
       <Text
         style={{
-          color: "#fbbf24",
-          fontSize: 16,
-          fontWeight: "800",
-          marginTop: 6,
-          marginBottom: 16,
+          color: "#94a3b8",
+          marginBottom: 24,
         }}
       >
-        Full Pick Board
+        {game.dateLabel}
       </Text>
 
-      {loading && (
-        <Text style={{ color: "white", fontSize: 18 }}>Loading picks...</Text>
-      )}
-
-      {!loading && picks.length === 0 && (
-        <Text style={{ color: "white", fontSize: 18 }}>
-          No valid picks found.
-        </Text>
-      )}
-
-      {!loading &&
-        picks.map((p: any, index: number) => (
+      {(game.picks || []).map(
+        (pick: any, index: number) => (
           <View
-            key={`${p.player}-${p.stat}-${p.line}-${index}`}
+            key={index}
             style={{
-              backgroundColor: "#1f3a4d",
+              backgroundColor: "#1f2937",
               padding: 16,
-              borderRadius: 14,
-              marginBottom: 12,
+              borderRadius: 16,
+              marginBottom: 14,
             }}
           >
+            <Text
+              style={{
+                color: "#64748b",
+                marginBottom: 6,
+              }}
+            >
+              Rank #{index + 1}
+            </Text>
+
             <Text
               style={{
                 color: "white",
                 fontSize: 20,
                 fontWeight: "900",
-                marginBottom: 4,
               }}
             >
-              {index + 1}. {p.player} ({p.team})
+              {pick.player} — {pick.team}
             </Text>
 
-            <Text style={{ color: "white", fontSize: 17, marginBottom: 6 }}>
-              BetBrain Pick: {p.pick || p.side} {p.line} {p.stat}
+            <Text
+              style={{
+                color: "#93c5fd",
+                marginTop: 6,
+                fontSize: 16,
+              }}
+            >
+              {pick.pick} {pick.line} Points
             </Text>
 
-
-            <Text style={{ color: "#4ade80", fontSize: 15 }}>
-              Projection: {p.projection}
+            <Text
+              style={{
+                color: getStrengthColor(
+                  pick.strength
+                ),
+                marginTop: 10,
+                fontSize: 17,
+                fontWeight: "900",
+              }}
+            >
+              {pick.winProbability}% —
+              {" "}
+              {pick.strength}
             </Text>
 
-            <Text style={{ color: "#fbbf24", fontSize: 15 }}>
-              Edge: {p.edge}
+            <Text
+              style={{
+                color: "white",
+                marginTop: 8,
+              }}
+            >
+              Projection: {pick.projection}
             </Text>
 
-             <Text style={{ color: "#4ade80", fontSize: 15 }}>
-               Last 5 Hit Rate: {p.hitRateLabel || "N/A"}
+            <Text
+              style={{
+                color: "#cbd5e1",
+                marginTop: 4,
+              }}
+            >
+              Opportunity: {pick.opportunityScore}
             </Text>
 
-            <Text style={{ fontSize: 18 }}>
-              {getTier(p.edge)}
-            </Text>
+            {pick.reasons?.length > 0 && (
+              <>
+                <Text
+                  style={{
+                    color: "#4ade80",
+                    marginTop: 10,
+                    fontWeight: "800",
+                  }}
+                >
+                  Reasons
+                </Text>
 
-            <Text style={{ color: "#38bdf8", fontSize: 15 }}>
-              Confidence: {p.winProb || p.confidence}%
-            </Text>
+                {pick.reasons.map(
+                  (
+                    reason: string,
+                    i: number
+                  ) => (
+                    <Text
+                      key={i}
+                      style={{
+                        color: "#d1fae5",
+                        marginTop: 2,
+                      }}
+                    >
+                      • {reason}
+                    </Text>
+                  )
+                )}
+              </>
+            )}
 
-<Text
-  onPress={async () => {
-    const alreadySaved = savedPicks.find(
-  (sp: any) =>
-    sp.player === p.player &&
-    sp.stat === p.stat &&
-    sp.line === p.line
-);
+            {pick.risks?.length > 0 && (
+              <>
+                <Text
+                  style={{
+                    color: "#ef4444",
+                    marginTop: 10,
+                    fontWeight: "800",
+                  }}
+                >
+                  Risks
+                </Text>
 
-let updated;
-
-if (alreadySaved) {
-  updated = savedPicks.filter(
-    (sp: any) =>
-      !(
-        sp.player === p.player &&
-        sp.stat === p.stat &&
-        sp.line === p.line
-      )
-  );
-} else {
-  updated = [
-    ...savedPicks,
-    {
-      ...p,
-      id: `${p.gameId}-${p.player}-${p.stat}-${p.line}`,
-      result: "Pending",
-      savedAt: new Date().toISOString(),
-    },
-  ];
-}
-
-setSavedPicks(updated);
-await AsyncStorage.setItem(SAVED_PICKS_KEY, JSON.stringify(updated));
-  }}
-  style={{
-    color: savedPicks.find(
-      (sp: any) =>
-        sp.player === p.player &&
-        sp.stat === p.stat &&
-        sp.line === p.line
-    )
-      ? "#22c55e"
-      : "#ffffff",
-    fontSize: 16,
-    fontWeight: "900",
-    marginTop: 10,
-  }}
->
-  {savedPicks.find(
-    (sp: any) =>
-      sp.player === p.player &&
-      sp.stat === p.stat &&
-      sp.line === p.line
-  )
-    ? "✓ SAVED PICK"
-    : "+ SAVE PICK"}
-</Text>
-
-            <Text style={{ color: "#cbd5e1", fontSize: 13, marginTop: 6 }}>
-              {p.reasoning}
-            </Text>
+                {pick.risks.map(
+                  (
+                    risk: string,
+                    i: number
+                  ) => (
+                    <Text
+                      key={i}
+                      style={{
+                        color: "#fecaca",
+                        marginTop: 2,
+                      }}
+                    >
+                      • {risk}
+                    </Text>
+                  )
+                )}
+              </>
+            )}
           </View>
-        ))}
+        )
+      )}
     </ScrollView>
   );
 }

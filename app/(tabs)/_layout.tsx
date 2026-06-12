@@ -1,33 +1,79 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs } from "expo-router";
+import React from "react";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          backgroundColor: "#020617",
+          borderTopColor: "#1e293b",
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: "#22c55e",
+        tabBarInactiveTintColor: "#64748b",
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "900",
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Home",
         }}
       />
+
+      <Tabs.Screen
+        name="top-props"
+        options={{
+          title: "Top",
+        }}
+      />
+
+      <Tabs.Screen
+        name="view-picks"
+        options={{
+          title: "Saved",
+        }}
+      />
+
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: "Results",
+        }}
+      />
+
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="nba"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="wnba"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
