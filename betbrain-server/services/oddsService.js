@@ -111,6 +111,8 @@ function normalizeTeam(value = "", league = "NBA") {
     "phoenix mercury": "phoenixmercury",
     "seattle storm": "seattlestorm",
     "washington mystics": "washingtonmystics",
+    "toronto tempo": "torontotempo",
+    "portland fire": "portlandfire",
 
     atl: "atlantadream",
     chi: "chicagosky",
@@ -133,6 +135,10 @@ function normalizeTeam(value = "", league = "NBA") {
     sea: "seattlestorm",
     was: "washingtonmystics",
     wash: "washingtonmystics",
+    tor: "torontotempo",
+    tempo: "torontotempo",
+    por: "portlandfire",
+    fire: "portlandfire",
   };
 
   if (league === "WNBA") {
@@ -282,7 +288,14 @@ export async function findOddsEventForGame(
 }
 
 export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
-  if (!API_KEY || !eventId) return [];
+  if (!API_KEY || !eventId) {
+    console.log("FETCH POINT PROPS SKIPPED:", {
+      league,
+      eventId,
+      reason: !API_KEY ? "missing ODDS_KEY" : "missing eventId",
+    });
+    return [];
+  }
 
   const data = await oddsGet(
     `${getOddsBase(league)}/events/${eventId}/odds`,
@@ -295,22 +308,46 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
     `FETCH POINT PROPS (${league})`
   );
 
+  if (!data) {
+    console.log("FETCH POINT PROPS EMPTY RESPONSE:", { league, eventId });
+    return [];
+  }
+
   const props = [];
+  const rejected = [];
+  let playerPointOutcomes = 0;
 
   for (const book of data?.bookmakers || []) {
     for (const market of book.markets || []) {
       if (market.key !== "player_points") continue;
 
       for (const outcome of market.outcomes || []) {
+        playerPointOutcomes += 1;
+
         const player = outcome.description;
         const side = outcome.name;
         const line = Number(outcome.point);
         const odds = Number(outcome.price);
 
-        if (!player) continue;
-        if (!["Over", "Under"].includes(side)) continue;
-        if (!Number.isFinite(line)) continue;
-        if (!Number.isFinite(odds)) continue;
+        if (!player) {
+          rejected.push({ reason: "missing player name", outcome: outcome.name });
+          continue;
+        }
+
+        if (!["Over", "Under"].includes(side)) {
+          rejected.push({ player, reason: "invalid side", side });
+          continue;
+        }
+
+        if (!Number.isFinite(line)) {
+          rejected.push({ player, side, reason: "invalid line" });
+          continue;
+        }
+
+        if (!Number.isFinite(odds)) {
+          rejected.push({ player, side, line, reason: "invalid odds" });
+          continue;
+        }
 
         props.push({
           player,
@@ -327,7 +364,14 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
     }
   }
 
-  console.log(`POINT PROPS FOUND (${league}):`, props.length);
+  console.log(`POINT PROPS FOUND (${league}):`, {
+    eventId,
+    bookmakers: data?.bookmakers?.length || 0,
+    playerPointOutcomes,
+    accepted: props.length,
+    rejected: rejected.length,
+    rejectedSample: rejected.slice(0, 5),
+  });
 
   return props;
 }
@@ -440,6 +484,7 @@ function buildMarketProfile({
 
 export function buildConsensusPointProps(rawProps = []) {
   const byPlayer = {};
+  const rejected = [];
 
   for (const prop of rawProps) {
     const key = prop.playerKey;
@@ -500,11 +545,14 @@ export function buildConsensusPointProps(rawProps = []) {
     }
   }
 
-  return Object.values(byPlayer)
+  const results = Object.values(byPlayer)
     .map((item) => {
       const mainLine = chooseMainLine(item.allLines);
 
-      if (mainLine === null) return null;
+      if (mainLine === null) {
+        rejected.push({ player: item.player, reason: "no main line" });
+        return null;
+      }
 
       const availableLines = [...new Set(item.allLines)]
         .map(Number)
@@ -513,7 +561,10 @@ export function buildConsensusPointProps(rawProps = []) {
 
       const closestLine = chooseClosestLine(availableLines, mainLine);
 
-      if (closestLine === null) return null;
+      if (closestLine === null) {
+        rejected.push({ player: item.player, reason: "no closest line" });
+        return null;
+      }
 
       const lineKey = String(closestLine);
 
@@ -577,6 +628,15 @@ export function buildConsensusPointProps(rawProps = []) {
       };
     })
     .filter(Boolean);
+
+  console.log("CONSENSUS POINT PROPS:", {
+    rawCount: rawProps.length,
+    players: results.length,
+    rejected: rejected.length,
+    rejectedSample: rejected.slice(0, 5),
+  });
+
+  return results;
 }
 
 export async function fetchOddsGameCards(

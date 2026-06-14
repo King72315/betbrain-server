@@ -92,28 +92,36 @@ function isPlayablePick(pick = {}) {
   return true;
 }
 
+function sortRankedPicks(picks = []) {
+  return [...picks].sort((a, b) => {
+    return (
+      getPickScore(b) - getPickScore(a) ||
+      tierValue(b.tier) - tierValue(a.tier) ||
+      num(b.confidence ?? b.winProbability) -
+        num(a.confidence ?? a.winProbability) ||
+      num(b.netEdge ?? b.gap) - num(a.netEdge ?? a.gap) ||
+      num(a.chosenRisk, 99) - num(b.chosenRisk, 99) ||
+      num(b.dataQuality) - num(a.dataQuality) ||
+      num(b.marketQuality) - num(a.marketQuality) ||
+      num(b.bookCount) - num(a.bookCount)
+    );
+  });
+}
+
 function rankTopProps(picks = []) {
-  return [...picks]
-    .filter(isPlayablePick)
-    .sort((a, b) => {
-      return (
-        getPickScore(b) - getPickScore(a) ||
-        tierValue(b.tier) - tierValue(a.tier) ||
-        num(b.confidence ?? b.winProbability) -
-          num(a.confidence ?? a.winProbability) ||
-        num(b.netEdge ?? b.gap) - num(a.netEdge ?? a.gap) ||
-        num(a.chosenRisk, 99) - num(b.chosenRisk, 99) ||
-        num(b.dataQuality) - num(a.dataQuality) ||
-        num(b.marketQuality) - num(a.marketQuality) ||
-        num(b.bookCount) - num(a.bookCount)
-      );
-    });
+  return sortRankedPicks(picks.filter(isPlayablePick));
+}
+
+function rankDisplayPicks(picks = []) {
+  return sortRankedPicks(
+    picks.filter((pick) => !pick?.noPlay && !pick?.isStarted)
+  );
 }
 
 function chooseBestPickPerPlayer(picks = []) {
   const best = new Map();
 
-  for (const pick of rankTopProps(picks)) {
+  for (const pick of rankDisplayPicks(picks)) {
     const key = clean(`${pick.player}-${pick.team}`);
 
     if (!best.has(key)) {
@@ -145,9 +153,9 @@ function splitPicksByTeam({ picks = [], homeTeam = "", awayTeam = "" }) {
   }
 
   return {
-    homePicks: rankTopProps(homePicks),
-    awayPicks: rankTopProps(awayPicks),
-    unmatchedPicks: rankTopProps(unmatchedPicks),
+    homePicks: sortRankedPicks(homePicks),
+    awayPicks: sortRankedPicks(awayPicks),
+    unmatchedPicks: sortRankedPicks(unmatchedPicks),
   };
 }
 
@@ -157,10 +165,11 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
 
   const uniquePicks = chooseBestPickPerPlayer(picks);
 
-  const rankedAll = rankTopProps(uniquePicks);
+  const rankedPlayable = rankTopProps(uniquePicks);
+  const rankedDisplay = rankDisplayPicks(uniquePicks);
 
   const { homePicks, awayPicks, unmatchedPicks } = splitPicksByTeam({
-    picks: rankedAll,
+    picks: rankedDisplay,
     homeTeam,
     awayTeam,
   });
@@ -171,10 +180,10 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
   const topAwayPicks = awayPicks.slice(0, 2);
 
   const topGamePicks = hasTeamMatches
-    ? rankTopProps([...topAwayPicks, ...topHomePicks]).slice(0, 4)
-    : rankedAll.slice(0, 4);
+    ? rankDisplayPicks([...topAwayPicks, ...topHomePicks]).slice(0, 4)
+    : rankedDisplay.slice(0, 4);
 
-  const allTopPicks = rankTopProps([
+  const allTopPicks = rankDisplayPicks([
     ...topGamePicks,
     ...unmatchedPicks.slice(0, 2),
   ]).slice(0, 4);
@@ -195,6 +204,7 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
 
     date: game.date || "",
     dateLabel: game.dateLabel || "",
+    dayBucket: game.dayBucket || "",
     time: game.time || game.DateTime || "",
     commenceTime: game.commenceTime || game.time || "",
     minutesUntilStart: game.minutesUntilStart,
@@ -219,7 +229,8 @@ function buildTopPicksForGame({ game = {}, picks = [] }) {
     })),
 
     allCandidateCount: picks.length,
-    playableCandidateCount: rankedAll.length,
+    playableCandidateCount: rankedPlayable.length,
+    displayPickCount: allTopPicks.length,
   };
 }
 

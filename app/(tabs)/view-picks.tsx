@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -9,7 +11,8 @@ import {
   View,
 } from "react-native";
 
-import { fetchPickHistory, resolvePicks } from "../../services/api";
+import PropCard, { formatTime, safeDisplay } from "../../components/PropCard";
+import { deletePick, fetchPickHistory, resolvePicks } from "../../services/api";
 
 const FILTERS = ["All", "Pending", "Win", "Loss", "Push", "Premium"] as const;
 
@@ -21,25 +24,17 @@ export default function ViewPicksScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadAndResolve();
-
-    const interval = setInterval(() => {
-      loadAndResolve();
-    }, 300000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadPicks = async () => {
     const data = await fetchPickHistory();
     setPicks(data.picks || []);
   };
 
-  const loadAndResolve = async () => {
+  const loadAndResolve = async (forceResolve = false) => {
     try {
       setLoading(true);
-      await resolvePicks();
+      await resolvePicks({ force: forceResolve });
       await loadPicks();
     } catch (err) {
       console.log("LOAD SAVED PICKS ERROR:", err);
@@ -49,16 +44,55 @@ export default function ViewPicksScreen() {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadAndResolve(false);
+
+      intervalRef.current = setInterval(() => {
+        loadAndResolve(false);
+      }, 300000);
+
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    }, [])
+  );
+
   const manualRefresh = async () => {
     try {
       setRefreshing(true);
-      await resolvePicks();
+      await resolvePicks({ force: true });
       await loadPicks();
     } catch (err) {
       console.log("REFRESH SAVED PICKS ERROR:", err);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleDeletePick = async (pick: any) => {
+    Alert.alert(
+      "Delete Saved Pick?",
+      `${pick.player} ${pick.side || pick.pick} ${pick.line}`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deletePick(pick.id || pick.pickKey);
+            if (result.ok) {
+              setPicks(result.picks || []);
+            } else {
+              Alert.alert("Delete Failed", result.message || "Could not delete pick.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const stats = useMemo(() => {
@@ -212,134 +246,37 @@ export default function ViewPicksScreen() {
 
         {!loading &&
           filteredPicks.map((pick, index) => (
-            <SavedPickCard
+            <View
               key={`${pick.id || pick.pickKey || pick.player}-${index}`}
-              pick={pick}
-            />
+              style={[
+                styles.pickCard,
+                getStatus(pick) === "Win" && styles.winCard,
+                getStatus(pick) === "Loss" && styles.lossCard,
+                String(pick.tier || "").toUpperCase() === "PREMIUM" &&
+                  styles.premiumCard,
+              ]}
+            >
+              <PropCard
+                pick={{ ...pick, status: getStatus(pick).toLowerCase() }}
+                index={index}
+                showDelete
+                onDelete={() => handleDeletePick(pick)}
+              />
+              <Text style={styles.dateText}>
+                Saved: {formatTime(pick.createdAt || pick.savedAt)}
+              </Text>
+              {pick.resolvedAt || pick.gradedAt ? (
+                <Text style={styles.dateText}>
+                  Graded: {formatTime(pick.resolvedAt || pick.gradedAt)}
+                </Text>
+              ) : null}
+              {pick.pendingReason ? (
+                <Text style={styles.pendingReason}>{pick.pendingReason}</Text>
+              ) : null}
+            </View>
           ))}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function SavedPickCard({ pick }: { pick: any }) {
-  const status = getStatus(pick);
-  const side = pick.side || pick.pick || "";
-  const line = pick.line ?? pick.sportsbookLine;
-  const stat = pick.stat || "Points";
-  const tier = String(pick.tier || "WATCHLIST").toUpperCase();
-
-  return (
-    <View
-      style={[
-        styles.pickCard,
-        status === "Win" && styles.winCard,
-        status === "Loss" && styles.lossCard,
-        tier === "PREMIUM" && styles.premiumCard,
-      ]}
-    >
-      <View style={styles.pickTopRow}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.leagueBadge}>{pick.league || "—"}</Text>
-          <Text
-            style={[
-              styles.tierBadge,
-              tier === "PREMIUM" && styles.premiumBadge,
-            ]}
-          >
-            {tier}
-          </Text>
-          <Text style={[styles.statusBadge, getStatusStyle(status)]}>
-            {status}
-          </Text>
-        </View>
-
-        <Text style={styles.confidenceText}>
-          {safeDisplay(pick.confidence ?? pick.winProbability)}%
-        </Text>
-      </View>
-
-      <Text style={styles.playerName}>{pick.player || "Unknown Player"}</Text>
-
-      <Text style={styles.gameText}>{pick.game || "Game unavailable"}</Text>
-
-      <View style={styles.pickLineBox}>
-        <Text style={styles.pickText}>
-          {side} {safeDisplay(line)} {stat}
-        </Text>
-
-        <Text style={styles.needText}>
-          Need:{" "}
-          {side === "Over"
-            ? `${Math.floor(Number(line) + 1)}+ ${stat}`
-            : `${safeDisplay(line)} or less ${stat}`}
-        </Text>
-      </View>
-
-      <View style={styles.metricGrid}>
-        <Metric label="Projection" value={safeDisplay(pick.projection)} />
-        <Metric label="Edge" value={safeDisplay(pick.edge)} />
-        <Metric label="Actual" value={safeDisplay(getActual(pick))} />
-        <Metric label="Margin" value={safeDisplay(pick.margin)} />
-        <Metric label="Risk" value={pick.riskLabel || "—"} />
-        <Metric label="Signal" value={pick.signalStrength || "—"} />
-        <Metric label="Support" value={safeDisplay(pick.supportScore)} />
-        <Metric
-          label="Danger"
-          value={safeDisplay(pick.resistanceScore ?? pick.dangerScore)}
-        />
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Last 5 Avg: {safeDisplay(pick.last5Average)}
-        </Text>
-        <Text style={styles.statText}>
-          Season Avg: {safeDisplay(pick.seasonAverage)}
-        </Text>
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Books: {safeDisplay(pick.bookCount)}
-        </Text>
-        <Text style={styles.statText}>
-          Data: {safeDisplay(pick.dataQuality)}%
-        </Text>
-      </View>
-
-      {pick.reasons?.length > 0 && (
-        <View style={styles.reasonBox}>
-          <Text style={styles.reasonTitle}>Support</Text>
-          {pick.reasons.slice(0, 3).map((reason: string, i: number) => (
-            <Text key={`${reason}-${i}`} style={styles.reasonText}>
-              ✅ {reason}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {pick.risks?.length > 0 && (
-        <View style={styles.riskBox}>
-          <Text style={styles.riskTitle}>Danger</Text>
-          {pick.risks.slice(0, 3).map((risk: string, i: number) => (
-            <Text key={`${risk}-${i}`} style={styles.riskText}>
-              ⚠️ {risk}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      <Text style={styles.dateText}>
-        Saved: {formatTime(pick.createdAt || pick.savedAt)}
-      </Text>
-
-      {pick.resolvedAt || pick.gradedAt ? (
-        <Text style={styles.dateText}>
-          Graded: {formatTime(pick.resolvedAt || pick.gradedAt)}
-        </Text>
-      ) : null}
-    </View>
   );
 }
 
@@ -379,16 +316,6 @@ function getStatus(pick: any) {
   return "Pending";
 }
 
-function getActual(pick: any) {
-  return (
-    pick.actualPoints ??
-    pick.finalPoints ??
-    pick.actualStat ??
-    pick.resultMeta?.points ??
-    null
-  );
-}
-
 function getStatusStyle(status: string) {
   if (status === "Win") {
     return {
@@ -415,35 +342,6 @@ function getStatusStyle(status: string) {
     backgroundColor: "#1e3a8a",
     color: "#bfdbfe",
   };
-}
-
-function safeDisplay(value: any) {
-  if (value === null || value === undefined || value === "") return "—";
-
-  const n = Number(value);
-
-  if (Number.isFinite(n)) {
-    return Number(n.toFixed(1)).toString();
-  }
-
-  return String(value);
-}
-
-function formatTime(value: any) {
-  if (!value) return "—";
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-
-  return (
-    d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }) + " CT"
-  );
 }
 
 const styles = StyleSheet.create({
@@ -820,5 +718,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     marginTop: 8,
+    paddingHorizontal: 15,
+  },
+  pendingReason: {
+    color: "#93c5fd",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
+    paddingHorizontal: 15,
+    paddingBottom: 12,
   },
 });

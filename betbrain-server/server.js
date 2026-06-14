@@ -35,7 +35,10 @@ import {
 import {
   fetchFinalPlayerStats,
   findPlayerResult,
+  getPickDate,
   gradePointsPick,
+  isPickGameStarted,
+  isPickLikelyFinished,
 } from "./services/resultService.js";
 
 import { buildOpportunityScore } from "./engines/opportunityEngine.js";
@@ -49,6 +52,7 @@ import {
 import { buildWinProbability } from "./engines/winProbabilityEngine.js";
 
 import {
+  deletePick,
   getSavedPicks,
   savePick,
   savePickHistory,
@@ -94,43 +98,212 @@ function average(values = []) {
   return nums.reduce((sum, n) => sum + n, 0) / nums.length;
 }
 
-function buildEvidenceConfidence(riskComparison) {
-  let confidence = 50;
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
-  const signal = String(riskComparison.signalStrength || "").toUpperCase();
+function isFiniteMetric(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
+}
 
-  confidence += Math.max(
-    -18,
-    Math.min(24, Number(riskComparison.netEdge || 0) * 1.2)
+const SEVERE_MARKET_WARNINGS = [
+  "Missing Over/Under side coverage",
+  "One side has no usable odds",
+  "Low book coverage",
+];
+
+function hasSevereMarketWarnings(marketWarnings = [], bookCount = 0) {
+  const warnings = Array.isArray(marketWarnings) ? marketWarnings : [];
+
+  if (warnings.some((w) => SEVERE_MARKET_WARNINGS.includes(w))) {
+    return true;
+  }
+
+  return num(bookCount) <= 1 && warnings.includes("Low book coverage");
+}
+
+function applyReliabilityAdjustedConfidence({
+  rawConfidence = 0,
+  riskComparison = {},
+  opportunity = {},
+  prop = {},
+} = {}) {
+  const confidenceAdjustmentReasons = [];
+
+  const raw = num(rawConfidence);
+  const bookCount = num(prop.bookCount);
+  const consensusBookCount = num(prop.consensusBookCount);
+  const marketQuality = prop.marketQuality;
+  const hasBothSides = Boolean(prop.hasBothSides);
+  const marketWarnings = Array.isArray(prop.marketWarnings)
+    ? prop.marketWarnings
+    : [];
+  const roleCertainty = num(opportunity.roleCertainty);
+  const volatilityLabel = String(
+    opportunity.scoringVolatility?.label || ""
+  ).toUpperCase();
+
+  const reliabilityComponents = [];
+
+  if (isFiniteMetric(marketQuality)) {
+    reliabilityComponents.push({
+      weight: 0.3,
+      value: clamp(marketQuality / 100, 0, 1),
+      label: `market quality (${marketQuality})`,
+    });
+  }
+
+  if (isFiniteMetric(bookCount) && bookCount > 0) {
+    reliabilityComponents.push({
+      weight: 0.2,
+      value: clamp((bookCount - 1) / 7, 0, 1),
+      label: `book coverage (${bookCount} books)`,
+    });
+  }
+
+  if (isFiniteMetric(consensusBookCount)) {
+    reliabilityComponents.push({
+      weight: 0.15,
+      value: clamp(consensusBookCount / 6, 0, 1),
+      label: `line agreement (${consensusBookCount} books)`,
+    });
+  }
+
+  if (isFiniteMetric(opportunity.dataCoverage)) {
+    reliabilityComponents.push({
+      weight: 0.2,
+      value: clamp(opportunity.dataCoverage / 100, 0, 1),
+      label: `data coverage (${opportunity.dataCoverage}%)`,
+    });
+  }
+
+  if (isFiniteMetric(opportunity.rawQuality)) {
+    reliabilityComponents.push({
+      weight: 0.1,
+      value: clamp(opportunity.rawQuality / 100, 0, 1),
+      label: `raw quality (${opportunity.rawQuality}%)`,
+    });
+  }
+
+  reliabilityComponents.push({
+    weight: 0.05,
+    value: hasBothSides ? 1 : 0.4,
+    label: hasBothSides ? "both sides covered" : "missing side coverage",
+  });
+
+  const reliabilityWeight = reliabilityComponents.reduce(
+    (sum, component) => sum + component.weight,
+    0
   );
 
-  if (signal === "STRONG") confidence += 8;
-  else if (signal === "MODERATE") confidence += 4;
-  else confidence -= 6;
+  const evidenceReliability =
+    reliabilityWeight > 0
+      ? reliabilityComponents.reduce(
+          (sum, component) => sum + component.weight * component.value,
+          0
+        ) / reliabilityWeight
+      : 0;
 
-  if (riskComparison.chosenRisk <= 25) confidence += 8;
-  else if (riskComparison.chosenRisk <= 35) confidence += 5;
-  else if (riskComparison.chosenRisk <= 48) confidence += 2;
-  else if (riskComparison.chosenRisk >= 60) confidence -= 8;
+  let dangerPressure = 0;
 
-  if (riskComparison.riskGap >= 20) confidence += 6;
-  else if (riskComparison.riskGap >= 12) confidence += 4;
-  else if (riskComparison.riskGap < 6) confidence -= 10;
-
-  if (riskComparison.totalEvidence >= 35) confidence += 4;
-  else if (riskComparison.totalEvidence < 15) confidence -= 5;
-
-  if (!riskComparison.trustable) confidence = Math.min(confidence, 54);
-
-  if (riskComparison.resistanceScore >= riskComparison.supportScore) {
-    confidence = Math.min(confidence, 58);
+  const chosenRisk = num(riskComparison.chosenRisk);
+  const riskPressure = clamp((chosenRisk - 25) / 45, 0, 1) * 0.25;
+  if (riskPressure > 0) {
+    dangerPressure += riskPressure;
+    confidenceAdjustmentReasons.push(
+      `Side risk ${chosenRisk} adds danger pressure`
+    );
   }
 
-  if (signal === "WEAK") {
-    confidence = Math.min(confidence, 60);
+  if (isFiniteMetric(marketQuality)) {
+    const marketWeakness = (1 - marketQuality / 100) * 0.25;
+    if (marketWeakness > 0) {
+      dangerPressure += marketWeakness;
+      if (marketWeakness >= 0.1) {
+        confidenceAdjustmentReasons.push(
+          `Weak market quality (${marketQuality}) adds danger pressure`
+        );
+      }
+    }
   }
 
-  return Math.max(40, Math.min(88, Math.round(confidence)));
+  if (
+    num(riskComparison.resistanceScore) > num(riskComparison.supportScore)
+  ) {
+    dangerPressure += 0.15;
+    confidenceAdjustmentReasons.push(
+      "Resistance exceeds support on chosen side"
+    );
+  }
+
+  if (volatilityLabel === "HIGH") {
+    dangerPressure += 0.15;
+    confidenceAdjustmentReasons.push("High scoring volatility");
+  } else if (volatilityLabel === "MEDIUM") {
+    dangerPressure += 0.08;
+    confidenceAdjustmentReasons.push("Medium scoring volatility");
+  }
+
+  if (roleCertainty > 0 && roleCertainty < 45) {
+    dangerPressure += 0.1;
+    confidenceAdjustmentReasons.push("Role uncertainty detected");
+  }
+
+  if (marketWarnings.length) {
+    const marketWarningPressure = Math.min(0.2, marketWarnings.length * 0.05);
+    dangerPressure += marketWarningPressure;
+    confidenceAdjustmentReasons.push(
+      `Market warnings (${marketWarnings.join(", ")})`
+    );
+  }
+
+  const riskWarnings = Array.isArray(riskComparison.warnings)
+    ? riskComparison.warnings
+    : [];
+
+  if (riskWarnings.length) {
+    const riskWarningPressure = Math.min(0.15, riskWarnings.length * 0.04);
+    dangerPressure += riskWarningPressure;
+    confidenceAdjustmentReasons.push(
+      `Risk comparison warnings (${riskWarnings.join(", ")})`
+    );
+  }
+
+  dangerPressure = clamp(dangerPressure, 0, 1);
+
+  const reliabilityMultiplier = 0.55 + 0.45 * evidenceReliability;
+  let finalConfidence = Math.round(
+    raw * reliabilityMultiplier - dangerPressure * 24
+  );
+  finalConfidence = clamp(finalConfidence, 25, 95);
+
+  confidenceAdjustmentReasons.unshift(
+    `Raw player signal ${raw} before reliability adjustment`
+  );
+
+  for (const component of reliabilityComponents) {
+    if (component.value < 0.5) {
+      confidenceAdjustmentReasons.push(`Low ${component.label}`);
+    } else if (component.value >= 0.8) {
+      confidenceAdjustmentReasons.push(`Strong ${component.label}`);
+    }
+  }
+
+  confidenceAdjustmentReasons.push(
+    `Evidence reliability ${Math.round(evidenceReliability * 100)}% (x${reliabilityMultiplier.toFixed(2)})`
+  );
+  confidenceAdjustmentReasons.push(
+    `Danger pressure ${Math.round(dangerPressure * 100)}% (-${Math.round(dangerPressure * 24)} pts)`
+  );
+  confidenceAdjustmentReasons.push(`Final confidence ${finalConfidence}`);
+
+  return {
+    rawConfidenceBeforeReliability: raw,
+    evidenceReliability,
+    dangerPressure,
+    finalConfidence,
+    confidenceAdjustmentReasons,
+  };
 }
 
 function strengthFromConfidence(confidence) {
@@ -139,23 +312,96 @@ function strengthFromConfidence(confidence) {
   return "Lean";
 }
 
-function getTier({ confidence = 0, riskLabel = "", signalStrength = "", netEdge = 0 }) {
+function getTier({
+  finalConfidence = 0,
+  evidenceReliability = 0,
+  dangerPressure = 0,
+  riskLabel = "",
+  signalStrength = "",
+  netEdge = 0,
+  noPlay = false,
+  marketQuality = 0,
+  marketWarnings = [],
+  bookCount = 0,
+} = {}) {
+  const tierReasons = [];
   const signal = String(signalStrength || "").toUpperCase();
+  const cleanNetEdge = num(netEdge);
+  const cleanMarketQuality = num(marketQuality);
+  const severeWarnings = hasSevereMarketWarnings(marketWarnings, bookCount);
 
-  if (
-    confidence >= 75 &&
-    riskLabel !== "High Risk" &&
-    signal === "STRONG" &&
-    Number(netEdge || 0) >= 10
-  ) {
-    return "PREMIUM";
+  const premiumChecks = [
+    {
+      pass: finalConfidence >= 75,
+      reason:
+        finalConfidence >= 75
+          ? `Confidence ${finalConfidence} meets PREMIUM threshold (75+)`
+          : `Confidence ${finalConfidence} below PREMIUM threshold (75+)`,
+    },
+    {
+      pass: evidenceReliability >= 0.65,
+      reason:
+        evidenceReliability >= 0.65
+          ? `Evidence reliability ${Math.round(evidenceReliability * 100)}% is strong enough`
+          : `Evidence reliability ${Math.round(evidenceReliability * 100)}% below 65% requirement`,
+    },
+    {
+      pass: dangerPressure <= 0.35,
+      reason:
+        dangerPressure <= 0.35
+          ? `Danger pressure ${Math.round(dangerPressure * 100)}% is acceptable`
+          : `Danger pressure ${Math.round(dangerPressure * 100)}% exceeds 35% limit`,
+    },
+    {
+      pass: signal === "STRONG" && cleanNetEdge >= 10,
+      reason:
+        signal === "STRONG" && cleanNetEdge >= 10
+          ? `Signal is STRONG with net edge ${cleanNetEdge}`
+          : `Signal/edge too weak for PREMIUM (${signal}, edge ${cleanNetEdge})`,
+    },
+    {
+      pass: riskLabel !== "High Risk",
+      reason:
+        riskLabel !== "High Risk"
+          ? `Risk label is ${riskLabel || "acceptable"}`
+          : "High Risk label blocks PREMIUM",
+    },
+    {
+      pass: !noPlay,
+      reason: !noPlay ? "Pick is playable" : "Pick flagged as no-play",
+    },
+    {
+      pass: cleanMarketQuality >= 55,
+      reason:
+        cleanMarketQuality >= 55
+          ? `Market quality ${cleanMarketQuality} meets threshold`
+          : `Market quality ${cleanMarketQuality} below 55 requirement`,
+    },
+    {
+      pass: !severeWarnings,
+      reason: severeWarnings
+        ? "Severe market warnings present"
+        : "No severe market warnings",
+    },
+  ];
+
+  for (const check of premiumChecks) {
+    tierReasons.push(check.reason);
   }
 
-  if (confidence >= 60) {
-    return "WATCHLIST";
+  const premiumEligible = premiumChecks.every((check) => check.pass);
+
+  if (premiumEligible) {
+    return { tier: "PREMIUM", tierReasons };
   }
 
-  return "LEAN";
+  if (finalConfidence >= 60) {
+    tierReasons.push(`Confidence ${finalConfidence} qualifies for WATCHLIST`);
+    return { tier: "WATCHLIST", tierReasons };
+  }
+
+  tierReasons.push(`Confidence ${finalConfidence} stays at LEAN tier`);
+  return { tier: "LEAN", tierReasons };
 }
 
 function getOpponentFromGame(team, game) {
@@ -203,6 +449,7 @@ function buildTopProps(gameCards = [], options = {}) {
         game: game.game,
         date: game.date,
         dateLabel: game.dateLabel,
+        dayBucket: game.dayBucket || pick.dayBucket || "",
         time: game.time,
         commenceTime: game.commenceTime,
         minutesUntilStart: game.minutesUntilStart,
@@ -235,8 +482,61 @@ function buildTopProps(gameCards = [], options = {}) {
     }));
 }
 
+function formatStartTimeDisplay(commenceTime) {
+  if (!commenceTime) return "";
+
+  const parsed = new Date(commenceTime);
+
+  if (Number.isNaN(parsed.getTime())) return String(commenceTime);
+
+  return (
+    parsed.toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }) + " CT"
+  );
+}
+
+function createSideAudit() {
+  return {
+    rawOverLines: 0,
+    rawUnderLines: 0,
+    overCandidatesBuilt: 0,
+    underCandidatesBuilt: 0,
+    chosenOver: 0,
+    chosenUnder: 0,
+    rejectedOver: 0,
+    rejectedUnder: 0,
+    rejectionReasons: {},
+  };
+}
+
+function trackSideAuditRejection(audit, side, reasons = []) {
+  const normalizedSide = String(side || "").toUpperCase();
+
+  if (normalizedSide === "OVER") {
+    audit.rejectedOver += 1;
+  } else if (normalizedSide === "UNDER") {
+    audit.rejectedUnder += 1;
+  }
+
+  for (const reason of reasons) {
+    audit.rejectionReasons[reason] = Number(audit.rejectionReasons[reason] || 0) + 1;
+  }
+}
+
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   const games = await fetchOddsGameCards(league, daysAhead);
+  const sideAudit = createSideAudit();
+
+  console.log("PROPS PIPELINE GAMES FETCHED:", {
+    league,
+    daysAhead,
+    gamesFetched: games.length,
+  });
 
   const players = league === "NBA" ? await fetchPlayers() : [];
   const seasonStats = league === "NBA" ? await fetchSeasonStats() : [];
@@ -276,7 +576,19 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     const rawProps = await fetchPointsPropsForEvent(oddsEvent.id, league);
     const props = buildConsensusPointProps(rawProps);
 
+    sideAudit.rawOverLines += rawProps.filter((prop) => prop.side === "Over").length;
+    sideAudit.rawUnderLines += rawProps.filter((prop) => prop.side === "Under").length;
+
+    console.log("PROPS PIPELINE EVENT:", {
+      league,
+      game: game.game,
+      oddsEventId: oddsEvent.id,
+      rawPropCount: rawProps.length,
+      consensusPropCount: props.length,
+    });
+
     const builtPicks = [];
+    const rejectedPicks = [];
 
     for (const prop of props) {
       const playerName = prop.player;
@@ -287,6 +599,10 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           : getTeamForPlayer(playerName, playerMap, projectionMap, seasonMap);
 
       if (!team) {
+        rejectedPicks.push({
+          player: playerName,
+          reason: "no team match",
+        });
         console.log("SKIP PICK - NO TEAM:", {
           league,
           playerName,
@@ -303,6 +619,11 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           : getOpponentForTeam(game, team) || getOpponentFromGame(team, game);
 
       if (!opponent) {
+        rejectedPicks.push({
+          player: playerName,
+          team,
+          reason: "no opponent match",
+        });
         console.log("SKIP PICK - NO OPPONENT:", {
           league,
           playerName,
@@ -353,6 +674,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         projection: projectionData,
         seasonAverage,
         isPlayoff: true,
+        league,
       });
 
       const playerData =
@@ -493,7 +815,16 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         roleCertainty: opportunity.roleCertainty || 50,
         blowoutRisk: 50,
         dataQuality,
+        rawQuality: opportunity.rawQuality,
+        dataCoverage: opportunity.dataCoverage,
+        marketQuality: prop.marketQuality,
       });
+
+      if (riskComparison.pickSide === "OVER") {
+        sideAudit.overCandidatesBuilt += 1;
+      } else if (riskComparison.pickSide === "UNDER") {
+        sideAudit.underCandidatesBuilt += 1;
+      }
 
       let bestPick =
         riskComparison.pickSide === "OVER"
@@ -503,6 +834,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
             : null;
 
       if (!bestPick || !riskComparison.trustable) {
+        trackSideAuditRejection(
+          sideAudit,
+          riskComparison.pickSide,
+          riskComparison.noPlayReasons
+        );
+        rejectedPicks.push({
+          player: playerName,
+          line: prop.line,
+          reason: "no-play",
+          details: riskComparison.noPlayReasons,
+        });
         console.log("NO PLAY:", {
           league,
           playerName,
@@ -516,26 +858,69 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         continue;
       }
 
-      const evidenceConfidence = buildEvidenceConfidence(riskComparison);
+      const {
+        rawConfidenceBeforeReliability,
+        evidenceReliability,
+        dangerPressure,
+        finalConfidence,
+        confidenceAdjustmentReasons,
+      } = applyReliabilityAdjustedConfidence({
+        rawConfidence: bestPick.rawWinProbability,
+        riskComparison,
+        opportunity,
+        prop,
+      });
 
-      const tier = getTier({
-        confidence: evidenceConfidence,
+      const { tier, tierReasons } = getTier({
+        finalConfidence,
+        evidenceReliability,
+        dangerPressure,
         riskLabel: riskComparison.riskLabel,
         signalStrength: riskComparison.signalStrength,
         netEdge: riskComparison.netEdge,
+        noPlay: riskComparison.noPlay,
+        marketQuality: prop.marketQuality,
+        marketWarnings: prop.marketWarnings,
+        bookCount: prop.bookCount,
       });
 
       bestPick = {
         ...bestPick,
 
         league,
+        gameId: game.gameId || game.id,
+        gameDate: game.date,
+        commenceTime: game.commenceTime || game.time,
+        startTimeDisplay: formatStartTimeDisplay(
+          game.commenceTime || game.time
+        ),
+        date: game.date,
+        dateLabel: game.dateLabel,
+        dayBucket: game.dayBucket || "",
+        game: game.game,
 
         pick: riskComparison.pickSide === "OVER" ? "Over" : "Under",
         side: riskComparison.pickSide === "OVER" ? "Over" : "Under",
 
-        winProbability: evidenceConfidence,
-        confidence: evidenceConfidence,
-        strength: strengthFromConfidence(evidenceConfidence),
+        recentMinutes: opportunity.recentMinutes,
+        recentFGA: opportunity.recentFGA,
+        recentFTA: opportunity.recentFTA,
+        minutesAverage: opportunity.recentMinutes,
+        fgaAverage: opportunity.recentFGA,
+        ftaAverage: opportunity.recentFTA,
+        opportunityScore: opportunity.opportunityScore,
+        dataCoverage: opportunity.dataCoverage,
+
+        rawConfidenceBeforeReliability,
+        evidenceReliability,
+        dangerPressure,
+        finalConfidence,
+        confidenceAdjustmentReasons,
+        tierReasons,
+
+        winProbability: finalConfidence,
+        confidence: finalConfidence,
+        strength: strengthFromConfidence(finalConfidence),
         tier,
 
         riskLabel: riskComparison.riskLabel,
@@ -591,7 +976,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           signalStrength: riskComparison.signalStrength,
           riskLabel: riskComparison.riskLabel,
           chosenRisk: riskComparison.chosenRisk,
-          confidence: evidenceConfidence,
+          confidence: finalConfidence,
           tier,
           dataQuality,
           marketQuality: prop.marketQuality,
@@ -606,6 +991,12 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         ...bestPick,
         label: `${playerName} — ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
       });
+
+      if (riskComparison.pickSide === "OVER") {
+        sideAudit.chosenOver += 1;
+      } else if (riskComparison.pickSide === "UNDER") {
+        sideAudit.chosenUnder += 1;
+      }
     }
 
     const rankedGame = buildTopPicksForGame({
@@ -613,31 +1004,112 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       picks: builtPicks,
     });
 
-    gameCards.push(rankedGame);
+    console.log("PROPS PIPELINE FINAL:", {
+      league,
+      game: game.game,
+      rawPropCount: rawProps.length,
+      consensusPropCount: props.length,
+      builtPickCount: builtPicks.length,
+      displayPickCount: rankedGame.picks?.length || 0,
+      playablePickCount: rankedGame.playableCandidateCount || 0,
+      rejectedPickCount: rejectedPicks.length,
+      rejectedSample: rejectedPicks.slice(0, 5),
+    });
+
+    gameCards.push({
+      ...rankedGame,
+      rawPropCount: rawProps.length,
+      consensusPropCount: props.length,
+      rejectedPickCount: rejectedPicks.length,
+    });
   }
 
-  return gameCards;
+  console.log("SIDE AUDIT:", {
+    league,
+    daysAhead,
+    ...sideAudit,
+    topRejectionReasons: Object.entries(sideAudit.rejectionReasons || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8),
+  });
+
+  return { gameCards, sideAudit };
 }
 
 async function refreshAllPicks() {
-  const todayCards = [
-    ...(await buildPicksForDay(0, "NBA")),
-    ...(await buildPicksForDay(0, "WNBA")),
-  ];
+  const sideAudit = createSideAudit();
 
-  const tomorrowCards = [
-    ...(await buildPicksForDay(1, "NBA")),
-    ...(await buildPicksForDay(1, "WNBA")),
-  ];
+  const todayNba = await buildPicksForDay(0, "NBA");
+  const todayWnba = await buildPicksForDay(0, "WNBA");
+  const tomorrowNba = await buildPicksForDay(1, "NBA");
+  const tomorrowWnba = await buildPicksForDay(1, "WNBA");
+
+  sideAudit.rawOverLines =
+    todayNba.sideAudit.rawOverLines +
+    todayWnba.sideAudit.rawOverLines +
+    tomorrowNba.sideAudit.rawOverLines +
+    tomorrowWnba.sideAudit.rawOverLines;
+  sideAudit.rawUnderLines =
+    todayNba.sideAudit.rawUnderLines +
+    todayWnba.sideAudit.rawUnderLines +
+    tomorrowNba.sideAudit.rawUnderLines +
+    tomorrowWnba.sideAudit.rawUnderLines;
+  sideAudit.overCandidatesBuilt =
+    todayNba.sideAudit.overCandidatesBuilt +
+    todayWnba.sideAudit.overCandidatesBuilt +
+    tomorrowNba.sideAudit.overCandidatesBuilt +
+    tomorrowWnba.sideAudit.overCandidatesBuilt;
+  sideAudit.underCandidatesBuilt =
+    todayNba.sideAudit.underCandidatesBuilt +
+    todayWnba.sideAudit.underCandidatesBuilt +
+    tomorrowNba.sideAudit.underCandidatesBuilt +
+    tomorrowWnba.sideAudit.underCandidatesBuilt;
+  sideAudit.chosenOver =
+    todayNba.sideAudit.chosenOver +
+    todayWnba.sideAudit.chosenOver +
+    tomorrowNba.sideAudit.chosenOver +
+    tomorrowWnba.sideAudit.chosenOver;
+  sideAudit.chosenUnder =
+    todayNba.sideAudit.chosenUnder +
+    todayWnba.sideAudit.chosenUnder +
+    tomorrowNba.sideAudit.chosenUnder +
+    tomorrowWnba.sideAudit.chosenUnder;
+  sideAudit.rejectedOver =
+    todayNba.sideAudit.rejectedOver +
+    todayWnba.sideAudit.rejectedOver +
+    tomorrowNba.sideAudit.rejectedOver +
+    tomorrowWnba.sideAudit.rejectedOver;
+  sideAudit.rejectedUnder =
+    todayNba.sideAudit.rejectedUnder +
+    todayWnba.sideAudit.rejectedUnder +
+    tomorrowNba.sideAudit.rejectedUnder +
+    tomorrowWnba.sideAudit.rejectedUnder;
+
+  for (const partial of [
+    todayNba.sideAudit,
+    todayWnba.sideAudit,
+    tomorrowNba.sideAudit,
+    tomorrowWnba.sideAudit,
+  ]) {
+    for (const [reason, count] of Object.entries(partial.rejectionReasons || {})) {
+      sideAudit.rejectionReasons[reason] =
+        Number(sideAudit.rejectionReasons[reason] || 0) + Number(count || 0);
+    }
+  }
+
+  const todayCards = [...todayNba.gameCards, ...todayWnba.gameCards];
+  const tomorrowCards = [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards];
 
   const games = [
     ...todayCards.map((g) => ({
       ...g,
       dateLabel: "Today",
+      dayBucket: "TODAY",
     })),
     ...tomorrowCards.map((g) => ({
       ...g,
       dateLabel: "Tomorrow",
+      dayBucket: "TOMORROW",
     })),
   ];
 
@@ -648,6 +1120,14 @@ async function refreshAllPicks() {
     ok: true,
     lastUpdated: new Date().toISOString(),
     config: checkConfig(),
+    sideAudit,
+    sideAuditSummary: {
+      ...sideAudit,
+      topRejectionReasons: Object.entries(sideAudit.rejectionReasons || {})
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([reason, count]) => ({ reason, count })),
+    },
 
     topProps: buildTopProps(games),
     topNBAProps: buildTopProps(games, { league: "NBA" }),
@@ -660,6 +1140,8 @@ async function refreshAllPicks() {
 
   picksCache = result;
   lastRefreshTime = Date.now();
+
+  console.log("REFRESH SIDE AUDIT:", result.sideAuditSummary);
 
   return result;
 }
@@ -789,49 +1271,153 @@ app.get("/saved-picks", (req, res) => {
 });
 
 app.post("/save-pick", (req, res) => {
-  const pick = req.body;
+  const incoming = req.body || {};
+  const side = incoming.side || incoming.pick || "";
+  const price = Number(incoming.odds ?? incoming.price);
 
-  savePick(pick);
+  const pick = {
+    ...incoming,
+    league: incoming.league || "",
+    side,
+    pick: side,
+    stat: incoming.stat || "Points",
+    status: incoming.status || "pending",
+    gameDate:
+      incoming.gameDate ||
+      incoming.date ||
+      (incoming.commenceTime
+        ? String(incoming.commenceTime).slice(0, 10)
+        : ""),
+    commenceTime: incoming.commenceTime || incoming.time || "",
+    startTimeDisplay:
+      incoming.startTimeDisplay ||
+      formatStartTimeDisplay(incoming.commenceTime || incoming.time),
+    odds: Number.isFinite(price) ? price : incoming.odds,
+    price: Number.isFinite(price) ? price : incoming.price,
+    savedAt: incoming.savedAt || new Date().toISOString(),
+  };
+
+  const saved = savePick(pick);
 
   res.json({
     ok: true,
     message: "Pick saved",
-    pick,
+    pick: saved,
   });
 });
 
+app.delete("/saved-picks/:id", (req, res) => {
+  const result = deletePick(req.params.id);
+
+  if (!result.ok) {
+    return res.status(404).json(result);
+  }
+
+  res.json(result);
+});
+
+const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
+let autoResolveRunning = false;
+
+async function resolvePendingPicks(options = {}) {
+  const requireLikelyFinished = Boolean(options.requireLikelyFinished);
+  const isReadyToGrade = requireLikelyFinished
+    ? isPickLikelyFinished
+    : isPickGameStarted;
+
+  const savedPicks = getSavedPicks();
+  const pendingPicks = savedPicks.filter(
+    (pick) => String(pick.status || "pending").toLowerCase() === "pending"
+  );
+  const gradeablePicks = pendingPicks.filter((pick) => isReadyToGrade(pick));
+
+  const statsCache = new Map();
+
+  for (const pick of gradeablePicks) {
+    const pickDate = getPickDate(pick);
+    const league = String(pick.league || "NBA").toUpperCase();
+    const cacheKey = `${league}:${pickDate || "unknown"}`;
+
+    if (!statsCache.has(cacheKey)) {
+      const stats = await fetchFinalPlayerStats(
+        pickDate ? new Date(`${pickDate}T12:00:00Z`) : new Date(),
+        { league }
+      );
+      statsCache.set(cacheKey, stats);
+    }
+  }
+
+  let gradedCount = 0;
+  let skippedNotReady = 0;
+  let stillPending = 0;
+
+  const updatedPicks = savedPicks.map((pick) => {
+    if (pick.status && pick.status !== "pending") {
+      return pick;
+    }
+
+    if (!isReadyToGrade(pick)) {
+      skippedNotReady += 1;
+      return pick;
+    }
+
+    const pickDate = getPickDate(pick);
+    const league = String(pick.league || "NBA").toUpperCase();
+    const cacheKey = `${league}:${pickDate || "unknown"}`;
+    const playerStats = statsCache.get(cacheKey) || [];
+
+    const result = findPlayerResult(pick, playerStats);
+    const graded = gradePointsPick(pick, result);
+
+    if (graded.status === "win") {
+      updatePlayerAccuracy(graded.player, true, {
+        side: graded.side,
+        tier: graded.tier,
+        league: graded.league,
+      });
+      gradedCount += 1;
+    } else if (graded.status === "loss") {
+      updatePlayerAccuracy(graded.player, false, {
+        side: graded.side,
+        tier: graded.tier,
+        league: graded.league,
+      });
+      gradedCount += 1;
+    } else if (graded.status === "push") {
+      gradedCount += 1;
+    } else {
+      stillPending += 1;
+    }
+
+    return graded;
+  });
+
+  const normalized = savePickHistory(updatedPicks);
+
+  return {
+    picks: normalized,
+    summary: {
+      pendingTotal: pendingPicks.length,
+      gradeable: gradeablePicks.length,
+      gradedCount,
+      skippedNotReady,
+      stillPending,
+      requireLikelyFinished,
+    },
+  };
+}
+
 app.post("/resolve-picks", async (req, res) => {
   try {
-    const savedPicks = getSavedPicks();
-    const playerStats = await fetchFinalPlayerStats();
-
-    const updatedPicks = savedPicks.map((pick) => {
-      if (pick.status && pick.status !== "pending") {
-        return pick;
-      }
-
-      const result = findPlayerResult(pick, playerStats);
-      const graded = gradePointsPick(pick, result);
-
-      if (!graded) return pick;
-
-      if (graded.status === "win") {
-        updatePlayerAccuracy(graded.player, true);
-      }
-
-      if (graded.status === "loss") {
-        updatePlayerAccuracy(graded.player, false);
-      }
-
-      return graded;
+    const { picks, summary } = await resolvePendingPicks({
+      requireLikelyFinished: Boolean(req.body?.requireLikelyFinished),
     });
-
-    savePickHistory(updatedPicks);
 
     res.json({
       ok: true,
       message: "Picks resolved",
-      picks: updatedPicks,
+      picks,
+      summary,
     });
   } catch (error) {
     console.log("RESOLVE PICKS ERROR:", error.message);
@@ -844,7 +1430,67 @@ app.post("/resolve-picks", async (req, res) => {
   }
 });
 
-app.listen(CONFIG.PORT, () => {
-  console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
-  console.log("CONFIG:", checkConfig());
-});
+if (process.env.RUN_AUDIT === "1") {
+  refreshAllPicks()
+    .then((result) => {
+      console.log(JSON.stringify(result.sideAuditSummary, null, 2));
+
+      const sides = [];
+      for (const game of result.games || []) {
+        for (const pick of game.picks || []) {
+          sides.push(String(pick.side || pick.pick || "").toLowerCase());
+        }
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            displayPicksTotal: sides.length,
+            displayOver: sides.filter((s) => s === "over").length,
+            displayUnder: sides.filter((s) => s === "under").length,
+            topPropsOver: (result.topProps || []).filter(
+              (p) => String(p.side || p.pick).toLowerCase() === "over"
+            ).length,
+            topPropsUnder: (result.topProps || []).filter(
+              (p) => String(p.side || p.pick).toLowerCase() === "under"
+            ).length,
+          },
+          null,
+          2
+        )
+      );
+
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+} else {
+  app.listen(CONFIG.PORT, () => {
+    console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
+    console.log("CONFIG:", checkConfig());
+
+    setInterval(async () => {
+      if (autoResolveRunning) return;
+
+      autoResolveRunning = true;
+
+      try {
+        const { summary } = await resolvePendingPicks({
+          requireLikelyFinished: true,
+        });
+
+        console.log("AUTO RESOLVE PICKS:", summary);
+      } catch (error) {
+        console.log("AUTO RESOLVE PICKS ERROR:", error.message);
+      } finally {
+        autoResolveRunning = false;
+      }
+    }, AUTO_RESOLVE_INTERVAL_MS);
+
+    console.log(
+      `AUTO RESOLVE scheduled every ${AUTO_RESOLVE_INTERVAL_MS / 60000} minutes`
+    );
+  });
+}

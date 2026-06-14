@@ -383,6 +383,7 @@ export async function fetchFinalPlayerStats(date = new Date(), options = {}) {
 
 function getPickDate(savedPick = {}) {
   const dateSource =
+    savedPick.gameDate ||
     savedPick.date ||
     savedPick.commenceTime ||
     savedPick.time ||
@@ -390,6 +391,52 @@ function getPickDate(savedPick = {}) {
     null;
 
   return dateSource ? formatDate(dateSource) : "";
+}
+
+const GAME_LIKELY_FINISHED_MS = 3 * 60 * 60 * 1000;
+
+function getPickStartTime(savedPick = {}) {
+  const commenceSource = savedPick.commenceTime || savedPick.time || null;
+
+  if (commenceSource) {
+    const parsed = new Date(commenceSource);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  const pickDate = getPickDate(savedPick);
+
+  if (pickDate) {
+    const parsed = new Date(`${pickDate}T12:00:00Z`);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+export function isPickGameStarted(savedPick = {}, now = new Date()) {
+  const startTime = getPickStartTime(savedPick);
+
+  if (!startTime) return false;
+
+  return now.getTime() >= startTime.getTime();
+}
+
+export function isPickLikelyFinished(
+  savedPick = {},
+  now = new Date(),
+  bufferMs = GAME_LIKELY_FINISHED_MS
+) {
+  const startTime = getPickStartTime(savedPick);
+
+  if (!startTime) return false;
+
+  return now.getTime() >= startTime.getTime() + bufferMs;
 }
 
 function getStatDate(stat = {}) {
@@ -444,7 +491,7 @@ function dateMatches(savedPick = {}, stat = {}) {
   const pickDate = getPickDate(savedPick);
   const statDate = getStatDate(stat);
 
-  if (!pickDate || !statDate) return true;
+  if (!pickDate || !statDate) return false;
 
   return pickDate === statDate;
 }
@@ -462,31 +509,31 @@ export function findPlayerResult(savedPick, playerStats = []) {
   if (exactDateMatch) return exactDateMatch;
 
   if (candidates.length) {
-    console.log("RESULT MATCH FOUND WITHOUT DATE MATCH:", {
+    console.log("RESULT MATCH REJECTED - NO EXACT DATE:", {
       player: savedPick.player,
       league,
       pickDate: getPickDate(savedPick),
       candidateDates: candidates.map((c) => c.date),
     });
-
-    return candidates[0];
+  } else {
+    console.log("NO PLAYER RESULT FOUND:", {
+      player: savedPick.player,
+      team: savedPick.team,
+      league,
+      pickDate: getPickDate(savedPick),
+      availableMatches: playerStats
+        .filter(
+          (stat) => clean(getStatPlayerName(stat)) === clean(savedPick.player)
+        )
+        .map((stat) => ({
+          player: getStatPlayerName(stat),
+          league: getStatLeague(stat),
+          team: stat.team,
+          date: stat.date,
+          points: stat.points,
+        })),
+    });
   }
-
-  console.log("NO PLAYER RESULT FOUND:", {
-    player: savedPick.player,
-    team: savedPick.team,
-    league,
-    pickDate: getPickDate(savedPick),
-    availableMatches: playerStats
-      .filter((stat) => clean(getStatPlayerName(stat)) === clean(savedPick.player))
-      .map((stat) => ({
-        player: getStatPlayerName(stat),
-        league: getStatLeague(stat),
-        team: stat.team,
-        date: stat.date,
-        points: stat.points,
-      })),
-  });
 
   return null;
 }
@@ -511,7 +558,15 @@ function normalizeSide(savedPick = {}) {
 }
 
 export function gradePointsPick(savedPick, statResult) {
-  if (!statResult) return null;
+  if (!statResult) {
+    return {
+      ...savedPick,
+      status: "pending",
+      pendingReason:
+        savedPick.pendingReason ||
+        "No exact game stat match found for pick date and league",
+    };
+  }
 
   const actualPoints = getActualPoints(statResult);
   const line = num(savedPick.line || savedPick.sportsbookLine);
@@ -524,7 +579,11 @@ export function gradePointsPick(savedPick, statResult) {
       line,
     });
 
-    return null;
+    return {
+      ...savedPick,
+      status: "pending",
+      pendingReason: "Missing side or line for grading",
+    };
   }
 
   const push = actualPoints === line;
@@ -536,7 +595,7 @@ export function gradePointsPick(savedPick, statResult) {
 
   const status = push ? "push" : hit ? "win" : "loss";
 
-  const margin =
+  const resultMargin =
     side === "Over"
       ? actualPoints - line
       : line - actualPoints;
@@ -549,6 +608,7 @@ export function gradePointsPick(savedPick, statResult) {
     side,
     pick: side,
 
+    actualStat: actualPoints,
     actualPoints,
     finalPoints: actualPoints,
     result: actualPoints,
@@ -557,11 +617,13 @@ export function gradePointsPick(savedPick, statResult) {
     hit: status === "win",
     push,
 
-    margin: Number(margin.toFixed(1)),
+    margin: Number(resultMargin.toFixed(1)),
+    resultMargin: Number(resultMargin.toFixed(1)),
     resultSource: statResult.source || "unknown",
 
     gradedAt,
     resolvedAt: gradedAt,
+    pendingReason: null,
 
     resultMeta: {
       source: statResult.source || "unknown",
@@ -573,9 +635,12 @@ export function gradePointsPick(savedPick, statResult) {
       fga: statResult.fga ?? null,
       fta: statResult.fta ?? null,
       fg3a: statResult.fg3a ?? null,
+      points: actualPoints,
     },
   };
 }
+
+export { getPickDate, formatDate };
 
 export function buildResultSummary(picks = []) {
   const resolved = picks.filter((pick) =>

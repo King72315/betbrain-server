@@ -72,7 +72,7 @@ export default function Settings() {
     try {
       setResolving(true);
 
-      const data = await resolvePicks();
+      const data = await resolvePicks({ force: true });
 
       if (data.ok) {
         Alert.alert("Resolve Complete ✅", data.message || "Saved picks checked.");

@@ -197,15 +197,58 @@ export const fetchPickHistory = async () => {
   };
 };
 
-export const resolvePicks = async () => {
+const RESOLVE_COOLDOWN_MS = 5 * 60 * 1000;
+let lastResolveAt = 0;
+
+export const resolvePicks = async (options?: { force?: boolean }) => {
+  const force = Boolean(options?.force);
+  const now = Date.now();
+
+  if (!force && now - lastResolveAt < RESOLVE_COOLDOWN_MS) {
+    return {
+      ok: true,
+      skipped: true,
+      message: "Resolve skipped (cooldown active)",
+      error: "",
+      picks: [],
+    };
+  }
+
+  lastResolveAt = now;
+
   const data = await apiPost("/resolve-picks");
 
   return {
     ok: data.ok,
+    skipped: false,
     message: data.message || "",
     error: data.error || "",
     picks: data.picks || [],
   };
+};
+
+export const deletePick = async (id: string) => {
+  try {
+    const res = await fetch(`${BASE_URL}/saved-picks/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      message: data.message || "",
+      picks: data.picks || [],
+    };
+  } catch (err) {
+    console.log("DELETE PICK FAILED:", err);
+
+    return {
+      ok: false,
+      message: "Network request failed",
+      picks: [],
+    };
+  }
 };
 
 export const getApiBaseUrl = () => BASE_URL;

@@ -10,11 +10,13 @@ import {
     View,
 } from "react-native";
 
+import PropCard, { formatTime } from "../../components/PropCard";
 import {
     fetchWNBAPicks,
     refreshSavedPicks,
     savePick,
 } from "../../services/api";
+import { groupByDayBucket } from "../../utils/groupByDayBucket";
 
 export default function WNBAScreen() {
   const [games, setGames] = useState<any[]>([]);
@@ -38,6 +40,9 @@ export default function WNBAScreen() {
       return sum + Number(game.playableCandidateCount || game.picks?.length || 0);
     }, 0);
   }, [games]);
+
+  const groupedGames = useMemo(() => groupByDayBucket(games), [games]);
+  const groupedTopProps = useMemo(() => groupByDayBucket(topProps), [topProps]);
 
   const loadPicks = async () => {
     try {
@@ -139,13 +144,19 @@ export default function WNBAScreen() {
               Best WNBA-only props ranked by confidence, support, risk, data, and market
             </Text>
 
-            {topProps.map((pick, index) => (
-              <PropCard
-                key={`${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
-                pick={pick}
-                index={index}
-                onSave={() => handleSavePick(pick)}
-              />
+            {groupedTopProps.map((section) => (
+              <View key={`top-${section.bucket}`} style={styles.daySection}>
+                <Text style={styles.daySectionTitle}>{section.label}</Text>
+                {section.items.map((pick, index) => (
+                  <PropCard
+                    key={`${section.bucket}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
+                    pick={pick}
+                    index={index}
+                    onSave={() => handleSavePick(pick)}
+                    showSaveHint
+                  />
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -160,9 +171,12 @@ export default function WNBAScreen() {
         )}
 
         {!loading &&
-          games.map((game, gameIndex) => (
+          groupedGames.map((section) => (
+            <View key={`games-${section.bucket}`} style={styles.daySection}>
+              <Text style={styles.daySectionTitle}>{section.label}</Text>
+              {section.items.map((game: any, gameIndex: number) => (
             <View
-              key={`${game.gameId || game.game}-${gameIndex}`}
+              key={`${section.bucket}-${game.gameId || game.game}-${gameIndex}`}
               style={styles.gameCard}
             >
               <View style={styles.gameHeaderRow}>
@@ -188,7 +202,9 @@ export default function WNBAScreen() {
 
               {!game.picks || game.picks.length === 0 ? (
                 <Text style={styles.noPicksText}>
-                  No playable WNBA picks built for this game.
+                  {(game.consensusPropCount ?? game.rawPropCount ?? 0) === 0
+                    ? "No player points props available for this game yet."
+                    : "No ranked picks available for this game yet."}
                 </Text>
               ) : (
                 game.picks.map((pick: any, index: number) => (
@@ -196,128 +212,18 @@ export default function WNBAScreen() {
                     key={`${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
                     pick={pick}
                     index={index}
+                    game={game}
                     onSave={() => handleSavePick(pick, game)}
+                    showSaveHint
                   />
                 ))
               )}
             </View>
+              ))}
+            </View>
           ))}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function PropCard({
-  pick,
-  index,
-  onSave,
-}: {
-  pick: any;
-  index: number;
-  onSave: () => void;
-}) {
-  const tier = String(pick.tier || "WATCHLIST").toUpperCase();
-  const confidence = pick.confidence ?? pick.winProbability ?? 0;
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.86}
-      onPress={onSave}
-      style={[styles.pickCard, tier === "PREMIUM" && styles.premiumPickCard]}
-    >
-      <View style={styles.pickTopRow}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.rankBadge}>#{pick.rank || index + 1}</Text>
-          <Text style={styles.leagueBadge}>WNBA</Text>
-          <Text
-            style={[
-              styles.tierBadge,
-              tier === "PREMIUM" && styles.premiumBadge,
-            ]}
-          >
-            {tier}
-          </Text>
-        </View>
-
-        <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
-      </View>
-
-      <Text style={styles.playerName}>{pick.player}</Text>
-      <Text style={styles.teamText}>
-        {formatTeam(pick.team)} vs {formatTeam(pick.opponent)}
-      </Text>
-
-      <View style={styles.pickLineBox}>
-        <Text style={styles.pickSide}>
-          {pick.pick} {pick.line} Points
-        </Text>
-        <Text style={styles.projectionText}>
-          Projection {safeDisplay(pick.projection)} • Edge {safeDisplay(pick.edge)}
-        </Text>
-      </View>
-
-      <View style={styles.metricGrid}>
-        <Metric label="Risk" value={pick.riskLabel || "—"} />
-        <Metric label="Signal" value={pick.signalStrength || "—"} />
-        <Metric label="Support" value={safeDisplay(pick.supportScore)} />
-        <Metric
-          label="Danger"
-          value={safeDisplay(pick.resistanceScore ?? pick.dangerScore)}
-        />
-        <Metric label="Net Edge" value={safeDisplay(pick.netEdge)} />
-        <Metric label="Books" value={safeDisplay(pick.bookCount)} />
-        <Metric label="Data" value={`${safeDisplay(pick.dataQuality)}%`} />
-        <Metric label="Market" value={`${safeDisplay(pick.marketQuality)}%`} />
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Last 5 Avg: {safeDisplay(pick.last5Average)}
-        </Text>
-        <Text style={styles.statText}>
-          Season Avg: {safeDisplay(pick.seasonAverage)}
-        </Text>
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Last 5 Hit: {safeDisplay(pick.last5HitRate)}%
-        </Text>
-        <Text style={styles.statText}>
-          Line Spread: {safeDisplay(pick.lineSpread)}
-        </Text>
-      </View>
-
-      {pick.reasons?.length > 0 && (
-        <View style={styles.reasonBox}>
-          <Text style={styles.reasonTitle}>Support</Text>
-          {pick.reasons.slice(0, 4).map((reason: string, i: number) => (
-            <Text key={`${reason}-${i}`} style={styles.reasonText}>
-              ✅ {reason}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {pick.risks?.length > 0 && (
-        <View style={styles.riskBox}>
-          <Text style={styles.riskTitle}>Danger</Text>
-          {pick.risks.slice(0, 3).map((risk: string, i: number) => (
-            <Text key={`${risk}-${i}`} style={styles.riskText}>
-              ⚠️ {risk}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {pick.marketWarnings?.length > 0 && (
-        <Text style={styles.warningText}>
-          Market: {pick.marketWarnings.slice(0, 2).join(" • ")}
-        </Text>
-      )}
-
-      <Text style={styles.saveHint}>Tap card to save WNBA pick</Text>
-    </TouchableOpacity>
   );
 }
 
@@ -327,72 +233,6 @@ function SummaryBox({ label, value }: { label: string; value: any }) {
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
     </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: any }) {
-  return (
-    <View style={styles.metricBox}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function safeDisplay(value: any) {
-  if (value === null || value === undefined || value === "") return "—";
-
-  const n = Number(value);
-
-  if (Number.isFinite(n)) {
-    return Number(n.toFixed(1)).toString();
-  }
-
-  return String(value);
-}
-
-function formatTeam(value: any) {
-  if (!value) return "—";
-
-  const raw = String(value).toLowerCase();
-
-  const map: Record<string, string> = {
-    atlantadream: "ATLANTA DREAM",
-    chicagosky: "CHICAGO SKY",
-    connecticutsun: "CONNECTICUT SUN",
-    dallaswings: "DALLAS WINGS",
-    goldenstatevalkyries: "GOLDEN STATE VALKYRIES",
-    indianafever: "INDIANA FEVER",
-    lasvegasaces: "LAS VEGAS ACES",
-    losangelessparks: "LOS ANGELES SPARKS",
-    minnesotalynx: "MINNESOTA LYNX",
-    newyorkliberty: "NEW YORK LIBERTY",
-    phoenixmercury: "PHOENIX MERCURY",
-    seattlestorm: "SEATTLE STORM",
-    washingtonmystics: "WASHINGTON MYSTICS",
-  };
-
-  if (map[raw]) return map[raw];
-
-  if (raw.length <= 4) return raw.toUpperCase();
-
-  return raw.toUpperCase();
-}
-
-function formatTime(value: any) {
-  if (!value) return "";
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-
-  return (
-    d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }) + " CT"
   );
 }
 
@@ -513,6 +353,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginBottom: 12,
+  },
+
+  daySection: {
+    marginBottom: 18,
+  },
+
+  daySectionTitle: {
+    color: "#fbbf24",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 10,
   },
 
   gameCard: {

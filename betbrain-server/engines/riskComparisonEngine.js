@@ -136,6 +136,10 @@ export function compareOverUnderRisk({
   const hasProjection = isRealNumber(cleanProjection);
   const hasSeasonAvg = isRealNumber(cleanSeasonAvg);
   const hasLast5Avg = isRealNumber(cleanLast5Avg);
+  const hasMinutesData = isRealNumber(cleanMinutesAvg);
+  const hasFgaData = isRealNumber(cleanFgaAvg);
+  const hasFtaData = isRealNumber(cleanFtaAvg);
+  const hasVolumeData = hasMinutesData || hasFgaData;
 
   const edge = hasProjection && hasLine ? cleanProjection - cleanLine : 0;
 
@@ -314,8 +318,9 @@ export function compareOverUnderRisk({
     }
   }
 
-  // Opportunity: strong opportunity supports Over. Weak opportunity is Over danger, not automatic Under support.
-  if (cleanOpportunityScore >= 75) {
+  // Opportunity: strong opportunity supports Over only when volume data exists.
+  // Weak opportunity is Over danger and supports Under.
+  if (hasVolumeData && cleanOpportunityScore >= 75) {
     overRisk -= 7;
     underRisk += 3;
     addSideSupport({
@@ -329,7 +334,7 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanOpportunityScore >= 65) {
+  } else if (hasVolumeData && cleanOpportunityScore >= 65) {
     overRisk -= 4;
     underRisk += 1;
     addSideSupport({
@@ -345,6 +350,7 @@ export function compareOverUnderRisk({
     });
   } else if (cleanOpportunityScore > 0 && cleanOpportunityScore <= 40) {
     overRisk += 7;
+    underRisk -= 3;
     addSideResistance({
       side: "OVER",
       text: "Opportunity profile is weak",
@@ -353,10 +359,21 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
+    addSideSupport({
+      side: "UNDER",
+      text: "Weak opportunity profile supports the under",
+      weight: 7,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
+      overResistance,
+      underResistance,
+    });
   }
 
-  // Usage: same rule. Strong usage supports Over. Weak usage is Over danger.
-  if (cleanUsageScore >= 75) {
+  // Usage: strong usage supports Over when volume data exists. Weak usage supports Under.
+  if (hasVolumeData && cleanUsageScore >= 75) {
     overRisk -= 7;
     underRisk += 3;
     addSideSupport({
@@ -372,6 +389,7 @@ export function compareOverUnderRisk({
     });
   } else if (cleanUsageScore > 0 && cleanUsageScore <= 40) {
     overRisk += 7;
+    underRisk -= 3;
     addSideResistance({
       side: "OVER",
       text: "Usage profile does not support scoring volume",
@@ -380,10 +398,21 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
+    addSideSupport({
+      side: "UNDER",
+      text: "Weak usage profile supports the under",
+      weight: 7,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
+      overResistance,
+      underResistance,
+    });
   }
 
-  // Minutes: strong minutes support Over. Low minutes create Over danger.
-  if (cleanMinutesAvg >= 32) {
+  // Minutes: strong minutes support Over. Low minutes create Over danger and Under support.
+  if (hasMinutesData && cleanMinutesAvg >= 32) {
     overRisk -= 5;
     underRisk += 2;
     addSideSupport({
@@ -397,7 +426,7 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanMinutesAvg >= 28) {
+  } else if (hasMinutesData && cleanMinutesAvg >= 28) {
     overRisk -= 3;
     addSideSupport({
       side: "OVER",
@@ -410,8 +439,9 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanMinutesAvg > 0 && cleanMinutesAvg < 24) {
+  } else if (hasMinutesData && cleanMinutesAvg < 24) {
     overRisk += 7;
+    underRisk -= 4;
     addSideResistance({
       side: "OVER",
       text: "Minutes create over risk",
@@ -420,10 +450,21 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
+    addSideSupport({
+      side: "UNDER",
+      text: "Low minutes support the under",
+      weight: 8,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
+      overResistance,
+      underResistance,
+    });
   }
 
-  // Shot volume: strong attempts support Over. Low attempts create Over danger.
-  if (cleanFgaAvg >= 16) {
+  // Shot volume: strong attempts support Over. Low attempts create Over danger and Under support.
+  if (hasFgaData && cleanFgaAvg >= 16) {
     overRisk -= 7;
     underRisk += 3;
     addSideSupport({
@@ -437,7 +478,7 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanFgaAvg >= 12) {
+  } else if (hasFgaData && cleanFgaAvg >= 12) {
     overRisk -= 4;
     underRisk += 1;
     addSideSupport({
@@ -451,8 +492,9 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanFgaAvg > 0 && cleanFgaAvg < 8) {
+  } else if (hasFgaData && cleanFgaAvg < 8) {
     overRisk += 7;
+    underRisk -= 4;
     addSideResistance({
       side: "OVER",
       text: "Shot volume is low",
@@ -461,10 +503,21 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
+    addSideSupport({
+      side: "UNDER",
+      text: "Low shot volume supports the under",
+      weight: 8,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
+      overResistance,
+      underResistance,
+    });
   }
 
   // Free throw floor.
-  if (cleanFtaAvg >= 5) {
+  if (hasFtaData && cleanFtaAvg >= 5) {
     overRisk -= 3;
     underRisk += 1;
     addSideSupport({
@@ -478,13 +531,25 @@ export function compareOverUnderRisk({
       overResistance,
       underResistance,
     });
-  } else if (cleanFtaAvg > 0 && cleanFtaAvg < 2) {
+  } else if (hasFtaData && cleanFtaAvg < 2) {
     overRisk += 3;
+    underRisk -= 2;
     addSideResistance({
       side: "OVER",
       text: "Weak free throw floor",
       weight: 3,
       warnings,
+      overResistance,
+      underResistance,
+    });
+    addSideSupport({
+      side: "UNDER",
+      text: "Weak free throw floor supports the under",
+      weight: 3,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
       overResistance,
       underResistance,
     });
@@ -552,14 +617,26 @@ export function compareOverUnderRisk({
     overResistance.value += 2;
   }
 
-  // Blowout risk mostly hurts Overs.
+  // Blowout risk mostly hurts Overs and supports Unders.
   if (cleanBlowoutRisk >= 70) {
     overRisk += 7;
+    underRisk -= 4;
     addSideResistance({
       side: "OVER",
       text: "Blowout risk may reduce minutes",
       weight: 7,
       warnings,
+      overResistance,
+      underResistance,
+    });
+    addSideSupport({
+      side: "UNDER",
+      text: "Blowout risk supports the under",
+      weight: 5,
+      overReasons,
+      underReasons,
+      overSupport,
+      underSupport,
       overResistance,
       underResistance,
     });
@@ -626,8 +703,13 @@ export function compareOverUnderRisk({
     pickSide = "OVER";
   } else if (underNet > overNet) {
     pickSide = "UNDER";
+  } else if (overRisk < underRisk) {
+    pickSide = "OVER";
+  } else if (underRisk < overRisk) {
+    pickSide = "UNDER";
   } else {
-    pickSide = overRisk <= underRisk ? "OVER" : "UNDER";
+    pickSide = null;
+    noPlayReasons.push("Over/Under evidence is tied");
   }
 
   const chosenRisk = pickSide === "OVER" ? overRisk : underRisk;

@@ -10,11 +10,13 @@ import {
   View,
 } from "react-native";
 
+import PropCard, { formatTime } from "../../components/PropCard";
 import {
   fetchSavedPicks,
   refreshSavedPicks,
   savePick,
 } from "../../services/api";
+import { groupByDayBucket } from "../../utils/groupByDayBucket";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
 
@@ -41,6 +43,16 @@ export default function ExploreScreen() {
     if (leagueFilter === "ALL") return topProps;
     return topProps.filter((pick) => pick.league === leagueFilter);
   }, [topProps, leagueFilter]);
+
+  const groupedTopProps = useMemo(
+    () => groupByDayBucket(filteredTopProps),
+    [filteredTopProps]
+  );
+
+  const groupedGames = useMemo(
+    () => groupByDayBucket(filteredGames),
+    [filteredGames]
+  );
 
   const loadPicks = async () => {
     try {
@@ -72,32 +84,17 @@ export default function ExploreScreen() {
     }
   };
 
-  const formatTime = (value: any) => {
-    if (!value) return "";
-
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return String(value);
-
-    return (
-      d.toLocaleString("en-US", {
-        timeZone: "America/Chicago",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }) + " CT"
-    );
-  };
-
   const handleSavePick = async (pick: any, game: any = {}) => {
     const saved = await savePick({
       ...pick,
-      game: pick.game || game.game,
-      gameId: pick.gameId || game.gameId,
       league: pick.league || game.league,
+      gameId: pick.gameId || game.gameId,
+      gameDate: pick.gameDate || pick.date || game.date,
+      game: pick.game || game.game,
       date: pick.date || game.date,
       dateLabel: pick.dateLabel || game.dateLabel,
       commenceTime: pick.commenceTime || game.commenceTime || game.time,
+      startTimeDisplay: pick.startTimeDisplay,
       savedAt: new Date().toISOString(),
     });
 
@@ -108,118 +105,16 @@ export default function ExploreScreen() {
     }
   };
 
-  const renderPickCard = (pick: any, index: number, game: any = {}) => {
-    const tier = pick.tier || "WATCHLIST";
-    const confidence = pick.confidence ?? pick.winProbability ?? 0;
-    const riskLabel = pick.riskLabel || "Risk Pending";
-    const signalStrength = pick.signalStrength || "WEAK";
-
-    return (
-      <TouchableOpacity
-        key={`${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
-        activeOpacity={0.86}
-        onPress={() => handleSavePick(pick, game)}
-        style={[
-          styles.pickCard,
-          tier === "PREMIUM" && styles.premiumPickCard,
-        ]}
-      >
-        <View style={styles.pickTopRow}>
-          <View style={styles.badgeRow}>
-            <Text style={styles.rankBadge}>#{pick.rank || index + 1}</Text>
-            <Text style={styles.leagueBadge}>{pick.league || game.league}</Text>
-            <Text
-              style={[
-                styles.tierBadge,
-                tier === "PREMIUM" && styles.premiumBadge,
-              ]}
-            >
-              {tier}
-            </Text>
-          </View>
-
-          <Text style={styles.confidenceText}>{confidence}%</Text>
-        </View>
-
-        <Text style={styles.playerName}>{pick.player}</Text>
-        <Text style={styles.teamText}>
-          {formatTeam(pick.team)} vs {formatTeam(pick.opponent)}
-        </Text>
-
-        <View style={styles.pickLineBox}>
-          <Text style={styles.pickSide}>
-            {pick.pick} {pick.line} Points
-          </Text>
-          <Text style={styles.projectionText}>
-            Projection {safeDisplay(pick.projection)} • Edge{" "}
-            {safeDisplay(pick.edge)}
-          </Text>
-        </View>
-
-        <View style={styles.metricGrid}>
-          <Metric label="Risk" value={riskLabel} />
-          <Metric label="Signal" value={signalStrength} />
-          <Metric label="Support" value={safeDisplay(pick.supportScore)} />
-          <Metric
-            label="Danger"
-            value={safeDisplay(pick.resistanceScore ?? pick.dangerScore)}
-          />
-          <Metric label="Net Edge" value={safeDisplay(pick.netEdge)} />
-          <Metric label="Books" value={safeDisplay(pick.bookCount)} />
-          <Metric label="Data" value={`${safeDisplay(pick.dataQuality)}%`} />
-          <Metric label="Market" value={`${safeDisplay(pick.marketQuality)}%`} />
-        </View>
-
-        <View style={styles.statRow}>
-          <Text style={styles.statText}>
-            Last 5 Avg: {safeDisplay(pick.last5Average)}
-          </Text>
-          <Text style={styles.statText}>
-            Season Avg: {safeDisplay(pick.seasonAverage)}
-          </Text>
-        </View>
-
-        <View style={styles.statRow}>
-          <Text style={styles.statText}>
-            Last 5 Hit: {safeDisplay(pick.last5HitRate)}%
-          </Text>
-          <Text style={styles.statText}>
-            Line Spread: {safeDisplay(pick.lineSpread)}
-          </Text>
-        </View>
-
-        {pick.reasons?.length > 0 && (
-          <View style={styles.reasonBox}>
-            <Text style={styles.reasonTitle}>Support</Text>
-            {pick.reasons.slice(0, 4).map((reason: string, i: number) => (
-              <Text key={`${reason}-${i}`} style={styles.reasonText}>
-                ✅ {reason}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        {pick.risks?.length > 0 && (
-          <View style={styles.riskBox}>
-            <Text style={styles.riskTitle}>Danger</Text>
-            {pick.risks.slice(0, 3).map((risk: string, i: number) => (
-              <Text key={`${risk}-${i}`} style={styles.riskText}>
-                ⚠️ {risk}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        {pick.marketWarnings?.length > 0 && (
-          <Text style={styles.warningText}>
-            Market: {pick.marketWarnings.slice(0, 2).join(" • ")}
-          </Text>
-        )}
-
-        <Text style={styles.saveHint}>Tap card to save pick</Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderPickCard = (pick: any, index: number, game: any = {}) => (
+    <PropCard
+      key={`${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
+      pick={pick}
+      index={index}
+      game={game}
+      onSave={() => handleSavePick(pick, game)}
+      showSaveHint
+    />
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -287,9 +182,14 @@ export default function ExploreScreen() {
               Best calculated props across the board
             </Text>
 
-            {filteredTopProps.slice(0, 6).map((pick, index) =>
-              renderPickCard(pick, index)
-            )}
+            {groupedTopProps.map((section) => (
+              <View key={`top-${section.bucket}`} style={styles.daySection}>
+                <Text style={styles.daySectionTitle}>{section.label}</Text>
+                {section.items.slice(0, 6).map((pick, index) =>
+                  renderPickCard(pick, index)
+                )}
+              </View>
+            ))}
           </View>
         )}
 
@@ -303,9 +203,12 @@ export default function ExploreScreen() {
         )}
 
         {!loading &&
-          filteredGames.map((game: any, gameIndex: number) => (
+          groupedGames.map((section) => (
+            <View key={`games-${section.bucket}`} style={styles.daySection}>
+              <Text style={styles.daySectionTitle}>{section.label}</Text>
+              {section.items.map((game: any, gameIndex: number) => (
             <View
-              key={`${game.gameId || game.game}-${gameIndex}`}
+              key={`${section.bucket}-${game.gameId || game.game}-${gameIndex}`}
               style={styles.gameCard}
             >
               <View style={styles.gameHeaderRow}>
@@ -331,13 +234,17 @@ export default function ExploreScreen() {
 
               {!game.picks || game.picks.length === 0 ? (
                 <Text style={styles.noPicksText}>
-                  No playable picks built for this game.
+                  {(game.consensusPropCount ?? game.rawPropCount ?? 0) === 0
+                    ? "No player points props available for this game yet."
+                    : "No ranked picks available for this game yet."}
                 </Text>
               ) : (
                 game.picks.map((pick: any, index: number) =>
                   renderPickCard(pick, index, game)
                 )
               )}
+            </View>
+              ))}
             </View>
           ))}
       </ScrollView>
@@ -497,6 +404,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginBottom: 12,
+  },
+
+  daySection: {
+    marginBottom: 18,
+  },
+
+  daySectionTitle: {
+    color: "#fbbf24",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 10,
   },
 
   gameCard: {

@@ -1,9 +1,20 @@
 {
-  "overall": {},
+  "overall": {
+    "wins": 0,
+    "losses": 0,
+    "pushes": 0,
+    "total": 0,
+    "accuracy": 0
+  },
   "byLeague": {},
   "bySide": {},
   "byTier": {},
   "byConfidenceBucket": {},
   "byRiskLabel": {},
-  "byPlayer": {}
+  "byPlayer": {},
+  "byTeam": {},
+  "byMarketQualityBucket": {},
+  "byBookCountBucket": {},
+  "bySignalStrength": {},
+  "updatedAt": "2026-06-14T19:06:08.771Z"
 }

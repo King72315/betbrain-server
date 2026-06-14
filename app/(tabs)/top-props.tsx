@@ -10,11 +10,13 @@ import {
     View,
 } from "react-native";
 
+import PropCard from "../../components/PropCard";
 import {
     fetchTopProps,
     refreshSavedPicks,
     savePick,
 } from "../../services/api";
+import { groupByDayBucket } from "../../utils/groupByDayBucket";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
 
@@ -38,6 +40,11 @@ export default function TopPropsScreen() {
     if (leagueFilter === "WNBA") return topWNBAProps;
     return topProps;
   }, [leagueFilter, topProps, topNBAProps, topWNBAProps]);
+
+  const groupedProps = useMemo(
+    () => groupByDayBucket(visibleProps),
+    [visibleProps]
+  );
 
   const loadTopProps = async () => {
     try {
@@ -74,6 +81,10 @@ export default function TopPropsScreen() {
   const handleSavePick = async (pick: any) => {
     const saved = await savePick({
       ...pick,
+      league: pick.league || "NBA",
+      gameDate: pick.gameDate || pick.date,
+      commenceTime: pick.commenceTime || pick.time,
+      startTimeDisplay: pick.startTimeDisplay,
       savedAt: new Date().toISOString(),
     });
 
@@ -191,188 +202,22 @@ export default function TopPropsScreen() {
         )}
 
         {!loading &&
-          visibleProps.map((pick, index) => (
-            <TopPropCard
-              key={`${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
-              pick={pick}
-              index={index}
-              onSave={() => handleSavePick(pick)}
-            />
+          groupedProps.map((section) => (
+            <View key={section.bucket} style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>{section.label}</Text>
+              {section.items.map((pick, index) => (
+                <PropCard
+                  key={`${section.bucket}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
+                  pick={pick}
+                  index={index}
+                  onSave={() => handleSavePick(pick)}
+                  showSaveHint
+                />
+              ))}
+            </View>
           ))}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function TopPropCard({
-  pick,
-  index,
-  onSave,
-}: {
-  pick: any;
-  index: number;
-  onSave: () => void;
-}) {
-  const tier = String(pick.tier || "WATCHLIST").toUpperCase();
-  const confidence = pick.confidence ?? pick.winProbability ?? 0;
-  const riskLabel = pick.riskLabel || "Risk Pending";
-  const signalStrength = pick.signalStrength || "WEAK";
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.86}
-      onPress={onSave}
-      style={[styles.pickCard, tier === "PREMIUM" && styles.premiumPickCard]}
-    >
-      <View style={styles.pickTopRow}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.rankBadge}>#{pick.rank || index + 1}</Text>
-          <Text style={styles.leagueBadge}>{pick.league || "—"}</Text>
-          <Text
-            style={[
-              styles.tierBadge,
-              tier === "PREMIUM" && styles.premiumBadge,
-            ]}
-          >
-            {tier}
-          </Text>
-        </View>
-
-        <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
-      </View>
-
-      <Text style={styles.playerName}>{pick.player}</Text>
-
-      <Text style={styles.gameText}>
-        {pick.game || `${formatTeam(pick.team)} vs ${formatTeam(pick.opponent)}`}
-      </Text>
-
-      {pick.commenceTime || pick.time ? (
-        <Text style={styles.timeText}>{formatCardTime(pick.commenceTime || pick.time)}</Text>
-      ) : null}
-
-      <View style={styles.pickLineBox}>
-        <Text style={styles.pickSide}>
-          {pick.pick} {pick.line} Points
-        </Text>
-        <Text style={styles.projectionText}>
-          Projection {safeDisplay(pick.projection)} • Edge {safeDisplay(pick.edge)}
-        </Text>
-      </View>
-
-      <View style={styles.metricGrid}>
-        <Metric label="Risk" value={riskLabel} />
-        <Metric label="Signal" value={signalStrength} />
-        <Metric label="Support" value={safeDisplay(pick.supportScore)} />
-        <Metric
-          label="Danger"
-          value={safeDisplay(pick.resistanceScore ?? pick.dangerScore)}
-        />
-        <Metric label="Net Edge" value={safeDisplay(pick.netEdge)} />
-        <Metric label="Books" value={safeDisplay(pick.bookCount)} />
-        <Metric label="Data" value={`${safeDisplay(pick.dataQuality)}%`} />
-        <Metric label="Market" value={`${safeDisplay(pick.marketQuality)}%`} />
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Last 5 Avg: {safeDisplay(pick.last5Average)}
-        </Text>
-        <Text style={styles.statText}>
-          Season Avg: {safeDisplay(pick.seasonAverage)}
-        </Text>
-      </View>
-
-      <View style={styles.statRow}>
-        <Text style={styles.statText}>
-          Last 5 Hit: {safeDisplay(pick.last5HitRate)}%
-        </Text>
-        <Text style={styles.statText}>
-          Line Spread: {safeDisplay(pick.lineSpread)}
-        </Text>
-      </View>
-
-      {pick.reasons?.length > 0 && (
-        <View style={styles.reasonBox}>
-          <Text style={styles.reasonTitle}>Support</Text>
-          {pick.reasons.slice(0, 4).map((reason: string, i: number) => (
-            <Text key={`${reason}-${i}`} style={styles.reasonText}>
-              ✅ {reason}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {pick.risks?.length > 0 && (
-        <View style={styles.riskBox}>
-          <Text style={styles.riskTitle}>Danger</Text>
-          {pick.risks.slice(0, 3).map((risk: string, i: number) => (
-            <Text key={`${risk}-${i}`} style={styles.riskText}>
-              ⚠️ {risk}
-            </Text>
-          ))}
-        </View>
-      )}
-
-      {pick.marketWarnings?.length > 0 && (
-        <Text style={styles.warningText}>
-          Market: {pick.marketWarnings.slice(0, 2).join(" • ")}
-        </Text>
-      )}
-
-      <Text style={styles.saveHint}>Tap card to save pick</Text>
-    </TouchableOpacity>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: any }) {
-  return (
-    <View style={styles.metricBox}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function safeDisplay(value: any) {
-  if (value === null || value === undefined || value === "") return "—";
-
-  const n = Number(value);
-
-  if (Number.isFinite(n)) {
-    return Number(n.toFixed(1)).toString();
-  }
-
-  return String(value);
-}
-
-function formatTeam(value: any) {
-  if (!value) return "—";
-
-  const raw = String(value);
-
-  if (raw.length <= 3) return raw.toUpperCase();
-
-  return raw
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/([a-z])([0-9])/g, "$1 $2")
-    .toUpperCase();
-}
-
-function formatCardTime(value: any) {
-  if (!value) return "";
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-
-  return (
-    d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }) + " CT"
   );
 }
 
@@ -525,6 +370,17 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  sectionBlock: {
+    marginBottom: 18,
+  },
+
+  sectionTitle: {
+    color: "#facc15",
+    fontSize: 20,
+    fontWeight: "900",
+    marginBottom: 10,
   },
 
   pickCard: {

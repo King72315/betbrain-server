@@ -65,6 +65,80 @@ function getConfidenceBucket(confidence = 0) {
   return "Under 55";
 }
 
+function getMarketQualityBucket(marketQuality = 0) {
+  const value = num(marketQuality);
+
+  if (value >= 80) return "80+";
+  if (value >= 65) return "65-79";
+  if (value >= 50) return "50-64";
+
+  return "Under 50";
+}
+
+function getBookCountBucket(bookCount = 0) {
+  const value = num(bookCount);
+
+  if (value >= 8) return "8+";
+  if (value >= 5) return "5-7";
+  if (value >= 3) return "3-4";
+  if (value >= 1) return "1-2";
+
+  return "0";
+}
+
+function getSignalBucket(signalStrength = "") {
+  const signal = String(signalStrength || "").toUpperCase();
+
+  if (signal === "STRONG") return "STRONG";
+  if (signal === "MODERATE") return "MODERATE";
+  if (signal === "WEAK") return "WEAK";
+
+  return "UNKNOWN";
+}
+
+function getStartTimeDisplay(pick = {}) {
+  if (pick.startTimeDisplay) return pick.startTimeDisplay;
+
+  const source =
+    pick.commenceTime || pick.time || pick.gameDate || pick.date || null;
+
+  if (!source) return "";
+
+  const parsed = new Date(source);
+
+  if (Number.isNaN(parsed.getTime())) return String(source);
+
+  return (
+    parsed.toLocaleString("en-US", {
+      timeZone: "America/Chicago",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }) + " CT"
+  );
+}
+
+function getGameDate(pick = {}) {
+  const source =
+    pick.gameDate ||
+    pick.date ||
+    pick.commenceTime ||
+    pick.time ||
+    pick.createdAt ||
+    null;
+
+  if (!source) return "";
+
+  const parsed = new Date(source);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return String(source).slice(0, 10);
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
 function getPickKey(pick = {}) {
   const date =
     pick.date ||
@@ -96,7 +170,10 @@ function normalizePick(pick = {}, existing = null) {
       0
   );
 
-  const side = pick.side || pick.pick || "";
+  const side = pick.side || pick.pick || existing?.side || existing?.pick || "";
+  const price = num(
+    pick.odds ?? pick.price ?? existing?.odds ?? existing?.price
+  );
 
   const normalized = {
     ...existing,
@@ -106,11 +183,19 @@ function normalizePick(pick = {}, existing = null) {
     pickKey: existing?.pickKey || pick.pickKey || getPickKey(pick),
 
     league: pick.league || existing?.league || "",
+    gameId: pick.gameId || existing?.gameId || "",
+    gameDate: getGameDate({ ...existing, ...pick }),
+    commenceTime:
+      pick.commenceTime || existing?.commenceTime || pick.time || existing?.time || "",
+    startTimeDisplay: getStartTimeDisplay({ ...existing, ...pick }),
+
     player: pick.player || existing?.player || "",
+    playerId: pick.playerId || existing?.playerId || "",
     team: pick.team || existing?.team || "",
     opponent: pick.opponent || existing?.opponent || "",
     game: pick.game || existing?.game || "",
-    gameId: pick.gameId || existing?.gameId || "",
+    date: pick.date || existing?.date || getGameDate({ ...existing, ...pick }),
+    dateLabel: pick.dateLabel || existing?.dateLabel || "",
 
     stat: pick.stat || existing?.stat || "Points",
     side,
@@ -119,13 +204,33 @@ function normalizePick(pick = {}, existing = null) {
     sportsbookLine: num(
       pick.sportsbookLine ?? pick.line ?? existing?.sportsbookLine
     ),
+    odds: price,
+    price,
+
+    bookCount: num(pick.bookCount ?? existing?.bookCount),
+    marketQuality: num(pick.marketQuality ?? existing?.marketQuality),
+    lineSpread: num(pick.lineSpread ?? existing?.lineSpread),
 
     confidence,
     winProbability: confidence,
+    rawConfidenceBeforeReliability: num(
+      pick.rawConfidenceBeforeReliability ??
+        existing?.rawConfidenceBeforeReliability
+    ),
+    evidenceReliability: num(
+      pick.evidenceReliability ?? existing?.evidenceReliability
+    ),
+    dangerPressure: num(pick.dangerPressure ?? existing?.dangerPressure),
+    confidenceAdjustmentReasons:
+      pick.confidenceAdjustmentReasons ||
+      existing?.confidenceAdjustmentReasons ||
+      [],
 
     tier: pick.tier || existing?.tier || "WATCHLIST",
+    tierReasons: pick.tierReasons || existing?.tierReasons || [],
     strength: pick.strength || existing?.strength || "",
     riskLabel: pick.riskLabel || existing?.riskLabel || "",
+    signalStrength: pick.signalStrength || existing?.signalStrength || "",
 
     supportScore: num(pick.supportScore ?? existing?.supportScore),
     resistanceScore: num(
@@ -140,35 +245,100 @@ function normalizePick(pick = {}, existing = null) {
     ),
     netEdge: num(pick.netEdge ?? pick.gap ?? existing?.netEdge),
     gap: num(pick.gap ?? pick.netEdge ?? existing?.gap),
+    dataCoverage: num(pick.dataCoverage ?? existing?.dataCoverage),
+    opportunityScore: num(pick.opportunityScore ?? existing?.opportunityScore),
 
     chosenRisk: num(pick.chosenRisk ?? existing?.chosenRisk),
     riskGap: num(pick.riskGap ?? existing?.riskGap),
 
     dataQuality: num(pick.dataQuality ?? existing?.dataQuality),
-    marketQuality: num(pick.marketQuality ?? existing?.marketQuality),
-    bookCount: num(pick.bookCount ?? existing?.bookCount),
 
     projection: num(pick.projection ?? existing?.projection),
     edge: num(pick.edge ?? existing?.edge),
     seasonAverage: num(pick.seasonAverage ?? existing?.seasonAverage),
     last5Average: num(pick.last5Average ?? existing?.last5Average),
+    last5HitRate: num(pick.last5HitRate ?? existing?.last5HitRate),
+    minutesAverage: num(
+      pick.minutesAverage ??
+        pick.recentMinutes ??
+        existing?.minutesAverage
+    ),
+    fgaAverage: num(pick.fgaAverage ?? pick.recentFGA ?? existing?.fgaAverage),
+    ftaAverage: num(pick.ftaAverage ?? pick.recentFTA ?? existing?.ftaAverage),
     sportsProjection: num(
       pick.sportsProjection ?? existing?.sportsProjection
     ),
 
-    status: pick.status || existing?.status || "pending",
+    boosts: pick.boosts || existing?.boosts || pick.reasons || [],
+    penalties: pick.penalties || existing?.penalties || pick.risks || [],
+    warnings:
+      pick.warnings ||
+      existing?.warnings ||
+      pick.marketWarnings ||
+      pick.riskWarnings ||
+      [],
 
-    createdAt: existing?.createdAt || pick.createdAt || now,
+    reasons: pick.reasons || existing?.reasons || [],
+    risks: pick.risks || existing?.risks || [],
+    marketWarnings: pick.marketWarnings || existing?.marketWarnings || [],
+    riskWarnings: pick.riskWarnings || existing?.riskWarnings || [],
+
+    status: String(pick.status || existing?.status || "pending").toLowerCase(),
+
+    createdAt: existing?.createdAt || pick.createdAt || pick.savedAt || now,
     updatedAt: now,
+    savedAt: existing?.savedAt || pick.savedAt || existing?.createdAt || now,
 
     resolvedAt: pick.resolvedAt || existing?.resolvedAt || null,
+    gradedAt: pick.gradedAt || existing?.gradedAt || null,
 
-    result: pick.result ?? existing?.result ?? null,
-    actualPoints: pick.actualPoints ?? existing?.actualPoints ?? null,
-    finalPoints: pick.finalPoints ?? existing?.finalPoints ?? null,
+    result:
+      pick.result ??
+      existing?.result ??
+      pick.actualStat ??
+      existing?.actualStat ??
+      null,
+    actualStat: num(
+      pick.actualStat ??
+        pick.actualPoints ??
+        pick.finalPoints ??
+        existing?.actualStat ??
+        existing?.actualPoints
+    ),
+    actualPoints: num(
+      pick.actualPoints ??
+        pick.actualStat ??
+        pick.finalPoints ??
+        existing?.actualPoints ??
+        existing?.actualStat
+    ),
+    finalPoints: num(
+      pick.finalPoints ??
+        pick.actualPoints ??
+        pick.actualStat ??
+        existing?.finalPoints
+    ),
+    resultMargin: num(
+      pick.resultMargin ?? pick.margin ?? existing?.resultMargin ?? existing?.margin
+    ),
+    margin: num(pick.margin ?? pick.resultMargin ?? existing?.margin),
+    pendingReason: pick.pendingReason ?? existing?.pendingReason ?? null,
   };
 
   normalized.confidenceBucket = getConfidenceBucket(normalized.confidence);
+  normalized.marketQualityBucket = getMarketQualityBucket(
+    normalized.marketQuality
+  );
+  normalized.bookCountBucket = getBookCountBucket(normalized.bookCount);
+  normalized.signalBucket = getSignalBucket(normalized.signalStrength);
+
+  if (!normalized.startTimeDisplay) {
+    normalized.startTimeDisplay = getStartTimeDisplay(normalized);
+  }
+
+  if (!normalized.gameDate) {
+    normalized.gameDate = getGameDate(normalized);
+  }
 
   return normalized;
 }
@@ -220,6 +390,10 @@ function buildAnalyticsFromHistory(picks = []) {
     byConfidenceBucket: {},
     byRiskLabel: {},
     byPlayer: {},
+    byTeam: {},
+    byMarketQualityBucket: {},
+    byBookCountBucket: {},
+    bySignalStrength: {},
   };
 
   for (const pick of picks) {
@@ -241,6 +415,23 @@ function buildAnalyticsFromHistory(picks = []) {
     );
     updateBucket(analytics.byRiskLabel, pick.riskLabel || "UNKNOWN", status);
     updateBucket(analytics.byPlayer, pick.player || "UNKNOWN", status);
+    updateBucket(analytics.byTeam, pick.team || "UNKNOWN", status);
+    updateBucket(
+      analytics.byMarketQualityBucket,
+      pick.marketQualityBucket ||
+        getMarketQualityBucket(pick.marketQuality),
+      status
+    );
+    updateBucket(
+      analytics.byBookCountBucket,
+      pick.bookCountBucket || getBookCountBucket(pick.bookCount),
+      status
+    );
+    updateBucket(
+      analytics.bySignalStrength,
+      pick.signalBucket || getSignalBucket(pick.signalStrength),
+      status
+    );
   }
 
   analytics.overall.total =
@@ -367,6 +558,26 @@ export function savePickHistory(picks) {
   persistCalibration(normalized);
 
   return normalized;
+}
+
+export function deletePick(id) {
+  const picks = readJSON(HISTORY_FILE, []);
+  const targetId = String(id || "");
+
+  if (!targetId) return { ok: false, message: "Missing pick id" };
+
+  const nextPicks = picks.filter(
+    (pick) => String(pick.id) !== targetId && String(pick.pickKey) !== targetId
+  );
+
+  if (nextPicks.length === picks.length) {
+    return { ok: false, message: "Pick not found" };
+  }
+
+  writeJSON(HISTORY_FILE, nextPicks.map((pick) => normalizePick(pick)));
+  persistCalibration(nextPicks);
+
+  return { ok: true, message: "Pick deleted", picks: nextPicks };
 }
 
 export function saveFilteredProp(prop) {

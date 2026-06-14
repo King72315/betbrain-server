@@ -1,25 +1,34 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
-import { fetchPickHistory, resolvePicks } from "../../services/api";
+import PropCard, {
+  ResultMarginText,
+  formatTime,
+  safeDisplay,
+} from "../../components/PropCard";
+import { deletePick, fetchPickHistory, resolvePicks } from "../../services/api";
+
+const RISK_GROUPS = ["Low Risk", "Medium Risk", "High Risk"] as const;
 
 export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadHistory = async () => {
+  const loadHistory = async (forceResolve = false) => {
     try {
       setLoading(true);
-      await resolvePicks();
+      await resolvePicks({ force: forceResolve });
 
       const data = await fetchPickHistory();
       setPicks(data.picks || []);
@@ -34,7 +43,7 @@ export default function History() {
   const refreshHistory = async () => {
     try {
       setRefreshing(true);
-      await resolvePicks();
+      await resolvePicks({ force: true });
 
       const data = await fetchPickHistory();
       setPicks(data.picks || []);
@@ -47,7 +56,7 @@ export default function History() {
 
   useFocusEffect(
     useCallback(() => {
-      loadHistory();
+      loadHistory(false);
     }, [])
   );
 
@@ -104,18 +113,50 @@ export default function History() {
       .sort((a, b) => bucketSortValue(b.bucket) - bucketSortValue(a.bucket));
   }, [gradedPicks]);
 
-  const groupedByDate = useMemo(() => {
-    return gradedPicks.reduce<Record<string, any[]>>((groups, pick) => {
-      const date = formatDateLabel(
-        pick.resolvedAt || pick.gradedAt || pick.completedDate || pick.updatedAt
-      );
+  const groupedByRisk = useMemo(() => {
+    const groups: Record<string, any[]> = {
+      "Low Risk": [],
+      "Medium Risk": [],
+      "High Risk": [],
+      Unknown: [],
+    };
 
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(pick);
+    for (const pick of picks) {
+      const bucket = normalizeRiskLabel(pick.riskLabel);
+      groups[bucket].push(pick);
+    }
 
-      return groups;
-    }, {});
-  }, [gradedPicks]);
+    return groups;
+  }, [picks]);
+
+  const riskSummaries = useMemo(() => {
+    return RISK_GROUPS.map((label) => ({
+      label,
+      ...buildRiskRecord(groupedByRisk[label] || [], picks),
+    }));
+  }, [groupedByRisk, picks]);
+
+  const handleDeletePick = async (pick: any) => {
+    Alert.alert(
+      "Delete Result Pick?",
+      `${pick.player} ${pick.side || pick.pick} ${pick.line}`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const result = await deletePick(pick.id || pick.pickKey);
+            if (result.ok) {
+              setPicks(result.picks || []);
+            } else {
+              Alert.alert("Delete Failed", result.message || "Could not delete pick.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -176,6 +217,61 @@ export default function History() {
           )}
         </View>
 
+        <View style={styles.breakdownCard}>
+          <Text style={styles.sectionTitle}>Results By Risk</Text>
+
+          {riskSummaries.map((group) => (
+            <View key={group.label} style={styles.riskGroupCard}>
+              <Text style={styles.riskGroupTitle}>{group.label}</Text>
+              <Text style={styles.riskGroupSummary}>
+                Total {group.total} • W {group.wins} • L {group.losses} • P{" "}
+                {group.pushes} • Hit {group.hitRate}% • Pending {group.pending}
+              </Text>
+              <Text style={styles.riskGroupSummary}>
+                Avg Win Margin {safeDisplay(group.avgWinMargin)} • Avg Loss Margin{" "}
+                {safeDisplay(group.avgLossMargin)}
+              </Text>
+              <Text style={styles.riskGroupSummary}>
+                Best Win {formatMargin(group.biggestWinMargin)} • Worst Loss{" "}
+                {formatMargin(group.biggestLossMargin)}
+              </Text>
+
+              {group.picks.length === 0 ? (
+                <Text style={styles.emptySmall}>No picks in this risk bucket.</Text>
+              ) : (
+                group.picks
+                  .sort((a, b) => getRiskSortValue(b) - getRiskSortValue(a))
+                  .map((pick, index) => (
+                    <View
+                      key={`${group.label}-${pick.id || pick.pickKey || pick.player}-${index}`}
+                      style={[
+                        styles.card,
+                        getStatus(pick) === "Win" && styles.winCard,
+                        getStatus(pick) === "Loss" && styles.lossCard,
+                        getStatus(pick) === "Push" && styles.pushCard,
+                      ]}
+                    >
+                      <PropCard pick={pick} index={index} />
+                      <View style={styles.resultBox}>
+                        <Text style={styles.pickText}>
+                          {pick.side || pick.pick} {safeDisplay(pick.line ?? pick.sportsbookLine)}{" "}
+                          {pick.stat || "Points"}
+                        </Text>
+                        <ResultMarginText pick={pick} />
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleDeletePick(pick)}
+                        style={styles.deleteButton}
+                      >
+                        <Text style={styles.deleteButtonText}>Delete Pick</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+              )}
+            </View>
+          ))}
+        </View>
+
         {loading && (
           <Text style={styles.loadingText}>Loading results history...</Text>
         )}
@@ -188,85 +284,79 @@ export default function History() {
             </Text>
           </View>
         )}
-
-        {!loading &&
-          Object.keys(groupedByDate).map((date) => (
-            <View key={date} style={styles.dateGroup}>
-              <Text style={styles.date}>{date}</Text>
-
-              {groupedByDate[date].map((pick, index) => (
-                <HistoryCard
-                  key={`${pick.id || pick.pickKey || pick.player}-${index}`}
-                  pick={pick}
-                />
-              ))}
-            </View>
-          ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function HistoryCard({ pick }: { pick: any }) {
-  const status = getStatus(pick);
-  const tier = String(pick.tier || "WATCHLIST").toUpperCase();
-  const side = pick.side || pick.pick || "—";
-  const line = pick.line ?? pick.sportsbookLine ?? "—";
-  const stat = pick.stat || "Points";
+function normalizeRiskLabel(value: any) {
+  const label = String(value || "").toLowerCase();
 
-  return (
-    <View
-      style={[
-        styles.card,
-        status === "Win" && styles.winCard,
-        status === "Loss" && styles.lossCard,
-        status === "Push" && styles.pushCard,
-        tier === "PREMIUM" && styles.premiumCard,
-      ]}
-    >
-      <View style={styles.cardTopRow}>
-        <View style={styles.badgeRow}>
-          <Text style={styles.leagueBadge}>{pick.league || "—"}</Text>
-          <Text
-            style={[
-              styles.tierBadge,
-              tier === "PREMIUM" && styles.premiumBadge,
-            ]}
-          >
-            {tier}
-          </Text>
-          <Text style={[styles.statusBadge, getStatusStyle(status)]}>
-            {status}
-          </Text>
-        </View>
+  if (label.includes("low")) return "Low Risk";
+  if (label.includes("medium")) return "Medium Risk";
+  if (label.includes("high")) return "High Risk";
 
-        <Text style={styles.conf}>{safeDisplay(pick.confidence)}%</Text>
-      </View>
+  return "Unknown";
+}
 
-      <Text style={styles.player}>{pick.player || "Unknown Player"}</Text>
-      <Text style={styles.text}>{pick.game || `${pick.team || "—"} vs ${pick.opponent || "—"}`}</Text>
-
-      <View style={styles.pickBox}>
-        <Text style={styles.pickText}>
-          {side} {safeDisplay(line)} {stat}
-        </Text>
-        <Text style={styles.text}>
-          Projection: {safeDisplay(pick.projection)} • Edge: {safeDisplay(pick.edge)}
-        </Text>
-      </View>
-
-      <View style={styles.metricRow}>
-        <Metric label="Actual" value={safeDisplay(getActual(pick))} />
-        <Metric label="Margin" value={safeDisplay(pick.margin)} />
-        <Metric label="Risk" value={pick.riskLabel || "—"} />
-        <Metric label="Signal" value={pick.signalStrength || "—"} />
-      </View>
-
-      <Text style={styles.dateText}>
-        Graded: {formatTime(pick.resolvedAt || pick.gradedAt || pick.completedDate)}
-      </Text>
-    </View>
+function buildRiskRecord(groupPicks: any[], allPicks: any[]) {
+  const graded = groupPicks.filter((pick) =>
+    ["Win", "Loss", "Push"].includes(getStatus(pick))
   );
+  const pending = groupPicks.filter((pick) => getStatus(pick) === "Pending").length;
+  const wins = graded.filter((pick) => getStatus(pick) === "Win");
+  const losses = graded.filter((pick) => getStatus(pick) === "Loss");
+  const pushes = graded.filter((pick) => getStatus(pick) === "Push");
+
+  const winMargins = wins
+    .map((pick) => Number(pick.resultMargin ?? pick.margin))
+    .filter(Number.isFinite);
+  const lossMargins = losses
+    .map((pick) => Number(pick.resultMargin ?? pick.margin))
+    .filter(Number.isFinite);
+
+  const avgWinMargin = winMargins.length
+    ? winMargins.reduce((sum, value) => sum + value, 0) / winMargins.length
+    : 0;
+  const avgLossMargin = lossMargins.length
+    ? lossMargins.reduce((sum, value) => sum + value, 0) / lossMargins.length
+    : 0;
+
+  return {
+    picks: groupPicks,
+    total: groupPicks.length,
+    wins: wins.length,
+    losses: losses.length,
+    pushes: pushes.length,
+    pending,
+    hitRate:
+      wins.length + losses.length > 0
+        ? Math.round((wins.length / (wins.length + losses.length)) * 100)
+        : 0,
+    avgWinMargin,
+    avgLossMargin,
+    biggestWinMargin: winMargins.length ? Math.max(...winMargins) : 0,
+    biggestLossMargin: lossMargins.length ? Math.min(...lossMargins) : 0,
+  };
+}
+
+function getRiskSortValue(pick: any) {
+  const status = getStatus(pick);
+  const margin = Math.abs(Number(pick.resultMargin ?? pick.margin ?? 0));
+
+  if (status === "Win") return 1000 + margin;
+  if (status === "Loss") return 500 + margin;
+  if (status === "Push") return 100;
+
+  return 0;
+}
+
+function formatMargin(value: any) {
+  const n = Number(value);
+
+  if (!Number.isFinite(n) || n === 0) return "—";
+
+  return `${n > 0 ? "+" : ""}${safeDisplay(n)}`;
 }
 
 function SummaryBox({
@@ -401,18 +491,6 @@ function getStatusStyle(status: string) {
   };
 }
 
-function safeDisplay(value: any) {
-  if (value === null || value === undefined || value === "") return "—";
-
-  const n = Number(value);
-
-  if (Number.isFinite(n)) {
-    return Number(n.toFixed(1)).toString();
-  }
-
-  return String(value);
-}
-
 function formatDateLabel(value: any) {
   if (!value) return "Unknown Date";
 
@@ -425,23 +503,6 @@ function formatDateLabel(value: any) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function formatTime(value: any) {
-  if (!value) return "—";
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-
-  return (
-    d.toLocaleString("en-US", {
-      timeZone: "America/Chicago",
-      month: "numeric",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    }) + " CT"
-  );
 }
 
 const styles = StyleSheet.create({
@@ -581,6 +642,49 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 13,
     fontWeight: "700",
+    marginTop: 8,
+  },
+
+  riskGroupCard: {
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+
+  riskGroupTitle: {
+    color: "#facc15",
+    fontSize: 16,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+
+  riskGroupSummary: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  resultBox: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+
+  deleteButton: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    backgroundColor: "#7f1d1d",
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+
+  deleteButtonText: {
+    color: "#fecaca",
+    fontWeight: "900",
+    textAlign: "center",
   },
 
   loadingText: {
