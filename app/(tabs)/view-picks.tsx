@@ -25,22 +25,49 @@ export default function ViewPicksScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadIdRef = useRef(0);
 
-  const loadPicks = async () => {
+  const applyPicks = (nextPicks: any[], loadId: number) => {
+    if (loadId !== loadIdRef.current) return;
+    if (Array.isArray(nextPicks)) {
+      setPicks(nextPicks);
+    }
+  };
+
+  const loadPicks = async (
+    resolvedPicks: any[] | null = null,
+    loadId = loadIdRef.current
+  ) => {
     const data = await fetchPickHistory();
-    setPicks(data.picks || []);
+
+    if (data.ok && Array.isArray(data.picks)) {
+      applyPicks(data.picks, loadId);
+      return data.picks;
+    }
+
+    if (Array.isArray(resolvedPicks) && resolvedPicks.length) {
+      applyPicks(resolvedPicks, loadId);
+      return resolvedPicks;
+    }
+
+    return null;
   };
 
   const loadAndResolve = async (forceResolve = false) => {
+    const loadId = ++loadIdRef.current;
+
     try {
       setLoading(true);
-      await resolvePicks({ force: forceResolve });
-      await loadPicks();
+      const resolved = await resolvePicks({ force: forceResolve });
+      const resolvedPicks =
+        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+      await loadPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("LOAD SAVED PICKS ERROR:", err);
-      setPicks([]);
     } finally {
-      setLoading(false);
+      if (loadId === loadIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -62,14 +89,20 @@ export default function ViewPicksScreen() {
   );
 
   const manualRefresh = async () => {
+    const loadId = ++loadIdRef.current;
+
     try {
       setRefreshing(true);
-      await resolvePicks({ force: true });
-      await loadPicks();
+      const resolved = await resolvePicks({ force: true });
+      const resolvedPicks =
+        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+      await loadPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("REFRESH SAVED PICKS ERROR:", err);
     } finally {
-      setRefreshing(false);
+      if (loadId === loadIdRef.current) {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -150,8 +183,15 @@ export default function ViewPicksScreen() {
     };
   }, [picks]);
 
+  const pendingPicks = useMemo(
+    () => picks.filter((pick) => getStatus(pick) === "Pending"),
+    [picks]
+  );
+
   const filteredPicks = useMemo(() => {
-    if (filter === "All") return picks;
+    const source = filter === "Pending" || filter === "All" ? pendingPicks : picks;
+
+    if (filter === "All") return pendingPicks;
 
     if (filter === "Premium") {
       return picks.filter(
@@ -159,8 +199,8 @@ export default function ViewPicksScreen() {
       );
     }
 
-    return picks.filter((p) => getStatus(p) === filter);
-  }, [filter, picks]);
+    return source.filter((p) => getStatus(p) === filter);
+  }, [filter, picks, pendingPicks]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -244,6 +284,16 @@ export default function ViewPicksScreen() {
           </View>
         )}
 
+        {!loading && picks.length > 0 && pendingPicks.length === 0 && (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No pending picks.</Text>
+            <Text style={styles.emptyText}>
+              Graded picks are in Results History. Use Win/Loss filters above to
+              review them here.
+            </Text>
+          </View>
+        )}
+
         {!loading &&
           filteredPicks.map((pick, index) => (
             <View
@@ -307,7 +357,7 @@ function Metric({ label, value }: { label: string; value: any }) {
 }
 
 function getStatus(pick: any) {
-  const raw = String(pick.status || pick.result || "pending").toLowerCase();
+  const raw = String(pick.status || "pending").toLowerCase();
 
   if (raw === "win") return "Win";
   if (raw === "loss") return "Loss";
