@@ -50,6 +50,13 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="prop-lab"
+        options={{
+          title: "Lab",
+        }}
+      />
+
+      <Tabs.Screen
         name="explore"
         options={{
           href: null,
