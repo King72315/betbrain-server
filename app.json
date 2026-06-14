@@ -3,6 +3,14 @@
     "name": "CourtEdge",
     "slug": "CourtEdge",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/567388b8-11a5-44ce-aa07-0f0ba3470779",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "betbrain",
@@ -27,6 +35,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-updates",
       "expo-router",
       [
         "expo-splash-screen",
