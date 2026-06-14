@@ -27,12 +27,19 @@ export default function PropCard({
 }: PropCardProps) {
   const [expanded, setExpanded] = useState(false);
 
+  const [roleExpanded, setRoleExpanded] = useState(false);
+  const [fairLineExpanded, setFairLineExpanded] = useState(false);
+
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
   const confidence = pick.confidence ?? pick.winProbability ?? 0;
   const side = pick.side || pick.pick || "";
   const line = pick.line ?? pick.sportsbookLine;
   const stat = pick.stat || "Points";
   const league = pick.league || game.league || "—";
+  const dataMode =
+    pick.dataMode || pick.playerState?.dataMode || "";
+  const playerState = pick.playerState || {};
+  const roleChange = pick.roleChange || {};
   const status = getStatusLabel(pick);
   const commenceTime =
     pick.commenceTime || pick.time || game.commenceTime || game.time;
@@ -71,6 +78,9 @@ export default function PropCard({
             <Text style={[styles.statusBadge, getStatusStyle(status)]}>
               {status}
             </Text>
+          ) : null}
+          {dataMode ? (
+            <Text style={styles.dataModeBadge}>{formatDataMode(dataMode)}</Text>
           ) : null}
         </View>
 
@@ -126,6 +136,205 @@ export default function PropCard({
           Season Avg: {safeDisplay(pick.seasonAverage)}
         </Text>
       </View>
+
+      <Text style={styles.v3PreviewLabel}>
+        Pricing engine v3 preview — side/confidence unchanged
+      </Text>
+
+      <View style={styles.v3Section}>
+        <Text style={styles.v3SectionTitle}>Role Change</Text>
+        <View style={styles.metricGrid}>
+          <Metric
+            label="Role Score"
+            value={safeDisplay(roleChange.roleChangeScore)}
+          />
+          <Metric
+            label="Role Certainty"
+            value={
+              roleChange.roleChangeCertainty !== undefined
+                ? `${safeDisplay(roleChange.roleChangeCertainty)}%`
+                : "—"
+            }
+          />
+        </View>
+      </View>
+
+      <View style={styles.v3Section}>
+        <Text style={styles.v3SectionTitle}>Season vs Recent</Text>
+        <View style={styles.compareRow}>
+          <Text style={styles.compareLabel}>Points</Text>
+          <Text style={styles.compareValue}>
+            {safeDisplay(playerState.seasonPoints ?? pick.seasonAverage)} →{" "}
+            {safeDisplay(playerState.recentPoints ?? pick.last5Average)}
+          </Text>
+        </View>
+        <View style={styles.compareRow}>
+          <Text style={styles.compareLabel}>Minutes</Text>
+          <Text style={styles.compareValue}>
+            {safeDisplay(playerState.seasonMinutes)} →{" "}
+            {safeDisplay(
+              playerState.recentMinutes ??
+                pick.minutesAverage ??
+                pick.recentMinutes
+            )}
+          </Text>
+        </View>
+        <View style={styles.compareRow}>
+          <Text style={styles.compareLabel}>FGA</Text>
+          <Text style={styles.compareValue}>
+            {safeDisplay(playerState.seasonFGA)} →{" "}
+            {safeDisplay(playerState.recentFGA ?? pick.fgaAverage ?? pick.recentFGA)}
+          </Text>
+        </View>
+        <View style={styles.compareRow}>
+          <Text style={styles.compareLabel}>FTA</Text>
+          <Text style={styles.compareValue}>
+            {safeDisplay(playerState.seasonFTA)} →{" "}
+            {safeDisplay(playerState.recentFTA ?? pick.ftaAverage ?? pick.recentFTA)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.v3Section}>
+        <Text style={styles.v3SectionTitle}>Market Snapshot</Text>
+        <View style={styles.metricGrid}>
+          <Metric
+            label="Snapshot Time"
+            value={formatTime(pick.snapshotTime) || "—"}
+          />
+          <Metric label="Book Line" value={safeDisplay(pick.currentLine ?? line)} />
+          <Metric label="Opening Line" value={safeDisplay(pick.openingLine)} />
+          <Metric label="Books" value={safeDisplay(pick.bookCount)} />
+          <Metric
+            label="Market Quality"
+            value={`${safeDisplay(pick.marketQuality)}%`}
+          />
+        </View>
+      </View>
+
+      {(roleChange.roleChangeReasons?.length > 0 ||
+        roleChange.roleRiskReasons?.length > 0) && (
+        <>
+          <TouchableOpacity
+            onPress={() => setRoleExpanded((value) => !value)}
+            style={styles.expandButton}
+          >
+            <Text style={styles.expandButtonText}>
+              {roleExpanded ? "Hide Role Change Details" : "Role Change Details"}
+            </Text>
+          </TouchableOpacity>
+
+          {roleExpanded && (
+            <View style={styles.previewBox}>
+              {roleChange.roleChangeReasons?.map((reason: string, i: number) => (
+                <Text key={`role-reason-${i}`} style={styles.previewReason}>
+                  ✅ {reason}
+                </Text>
+              ))}
+              {roleChange.roleRiskReasons?.map((risk: string, i: number) => (
+                <Text key={`role-risk-${i}`} style={styles.previewRisk}>
+                  ⚠️ {risk}
+                </Text>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+
+      <TouchableOpacity
+        onPress={() => setFairLineExpanded((value) => !value)}
+        style={styles.expandButton}
+      >
+        <Text style={styles.expandButtonText}>
+          {fairLineExpanded
+            ? "Hide CourtEdge Fair Line Preview"
+            : "CourtEdge Fair Line Preview"}
+        </Text>
+      </TouchableOpacity>
+
+      {fairLineExpanded && (
+        <View style={styles.v3Section}>
+          <Text style={styles.fairLinePreviewLabel}>
+            Preview only — not controlling pick side yet
+          </Text>
+          <View style={styles.metricGrid}>
+            <Metric
+              label="Expected Minutes"
+              value={safeDisplay(pick.expectedMinutes)}
+            />
+            <Metric label="Expected FGA" value={safeDisplay(pick.expectedFGA)} />
+            <Metric label="Expected FTA" value={safeDisplay(pick.expectedFTA)} />
+            <Metric
+              label="Pts Per FGA"
+              value={safeDisplay(pick.pointsPerFGA)}
+            />
+            <Metric label="FT Pts/FTA" value={safeDisplay(pick.ftPercent)} />
+            <Metric
+              label="Base Volume Pts"
+              value={safeDisplay(pick.baseVolumePoints)}
+            />
+            <Metric
+              label="Projection Anchor"
+              value={safeDisplay(pick.projectionAnchor)}
+            />
+            <Metric label="Fair Line" value={safeDisplay(pick.fairLine)} />
+            <Metric label="Book Line" value={safeDisplay(pick.bookLine ?? line)} />
+            <Metric label="Fair Edge" value={safeDisplay(pick.fairLineEdge)} />
+            <Metric
+              label="Fair Side"
+              value={pick.fairLineSide || "NONE"}
+            />
+            <Metric
+              label="Fair Confidence"
+              value={
+                pick.fairLineConfidence !== undefined
+                  ? `${safeDisplay(pick.fairLineConfidence)}%`
+                  : "—"
+              }
+            />
+            <Metric
+              label="Fair Quality"
+              value={
+                pick.fairLineQuality !== undefined
+                  ? `${safeDisplay(pick.fairLineQuality)}%`
+                  : "—"
+              }
+            />
+            <Metric
+              label="Audit Old Side"
+              value={pick.auditOldSide || side || "—"}
+            />
+            <Metric
+              label="Audit Match"
+              value={
+                pick.auditSideMatch === true
+                  ? "Yes"
+                  : pick.auditSideMatch === false
+                    ? "No"
+                    : "—"
+              }
+            />
+          </View>
+          {pick.fairLineReasons?.length > 0 && (
+            <View style={styles.previewBox}>
+              {pick.fairLineReasons.map((reason: string, i: number) => (
+                <Text key={`fair-reason-${i}`} style={styles.previewReason}>
+                  ✅ {reason}
+                </Text>
+              ))}
+            </View>
+          )}
+          {pick.fairLineRiskReasons?.length > 0 && (
+            <View style={styles.previewBox}>
+              {pick.fairLineRiskReasons.map((risk: string, i: number) => (
+                <Text key={`fair-risk-${i}`} style={styles.previewRisk}>
+                  ⚠️ {risk}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {(pick.reasons?.length > 0 || pick.risks?.length > 0) && (
         <View style={styles.previewBox}>
@@ -326,6 +535,12 @@ function getActual(pick: any) {
   );
 }
 
+function formatDataMode(mode: string) {
+  if (mode === "NBA_FULL_DATA") return "NBA Full Data";
+  if (mode === "WNBA_LIMITED_DATA") return "WNBA Limited Data";
+  return mode;
+}
+
 function getStatusLabel(pick: any) {
   const raw = String(pick.status || "upcoming").toLowerCase();
 
@@ -408,6 +623,16 @@ const styles = StyleSheet.create({
   premiumBadge: {
     color: "#fef9c3",
     backgroundColor: "#713f12",
+  },
+  dataModeBadge: {
+    color: "#e9d5ff",
+    backgroundColor: "#581c87",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
   },
   statusBadge: {
     overflow: "hidden",
@@ -501,6 +726,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     flex: 1,
+  },
+  v3PreviewLabel: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "800",
+    fontStyle: "italic",
+    marginBottom: 10,
+  },
+  v3Section: {
+    marginBottom: 12,
+    backgroundColor: "#0f172a",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#263449",
+  },
+  v3SectionTitle: {
+    color: "#93c5fd",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  fairLinePreviewLabel: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "800",
+    fontStyle: "italic",
+    marginBottom: 10,
+  },
+  compareRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  compareLabel: {
+    color: "#64748b",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  compareValue: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "700",
   },
   previewBox: {
     marginBottom: 10,

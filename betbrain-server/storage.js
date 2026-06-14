@@ -269,6 +269,48 @@ function normalizePick(pick = {}, existing = null) {
       pick.sportsProjection ?? existing?.sportsProjection
     ),
 
+    snapshotId: pick.snapshotId || existing?.snapshotId || "",
+    snapshotTime: pick.snapshotTime || existing?.snapshotTime || "",
+    openingLine: num(
+      pick.openingLine ?? existing?.openingLine ?? pick.line
+    ),
+    currentLine: num(
+      pick.currentLine ?? existing?.currentLine ?? pick.line
+    ),
+
+    dataMode:
+      pick.dataMode ||
+      existing?.dataMode ||
+      pick.playerState?.dataMode ||
+      "",
+    playerState: pick.playerState || existing?.playerState || null,
+    roleChange: pick.roleChange || existing?.roleChange || null,
+
+    fairLine: num(pick.fairLine ?? existing?.fairLine),
+    bookLine: num(pick.bookLine ?? existing?.bookLine ?? pick.line),
+    fairLineEdge: num(pick.fairLineEdge ?? existing?.fairLineEdge),
+    fairLineSide: pick.fairLineSide || existing?.fairLineSide || "NONE",
+    fairLineQuality: num(pick.fairLineQuality ?? existing?.fairLineQuality),
+    fairLineConfidence: num(
+      pick.fairLineConfidence ?? existing?.fairLineConfidence
+    ),
+    expectedMinutes: num(pick.expectedMinutes ?? existing?.expectedMinutes),
+    expectedFGA: num(pick.expectedFGA ?? existing?.expectedFGA),
+    expectedFTA: num(pick.expectedFTA ?? existing?.expectedFTA),
+    pointsPerFGA: num(pick.pointsPerFGA ?? existing?.pointsPerFGA),
+    ftPercent: num(pick.ftPercent ?? existing?.ftPercent),
+    baseVolumePoints: num(
+      pick.baseVolumePoints ?? existing?.baseVolumePoints
+    ),
+    projectionAnchor:
+      pick.projectionAnchor ?? existing?.projectionAnchor ?? null,
+    fairLineReasons: pick.fairLineReasons || existing?.fairLineReasons || [],
+    fairLineRiskReasons:
+      pick.fairLineRiskReasons || existing?.fairLineRiskReasons || [],
+    auditOldSide: pick.auditOldSide || existing?.auditOldSide || "",
+    auditSideMatch:
+      pick.auditSideMatch ?? existing?.auditSideMatch ?? false,
+
     boosts: pick.boosts || existing?.boosts || pick.reasons || [],
     penalties: pick.penalties || existing?.penalties || pick.risks || [],
     warnings:

@@ -42,14 +42,22 @@ import {
 } from "./services/resultService.js";
 
 import { buildOpportunityScore } from "./engines/opportunityEngine.js";
+import { buildPlayerState } from "./engines/playerStateBuilder.js";
 import { buildTopPicksForGame } from "./engines/pickRanker.js";
 import { buildPlayoffContext } from "./engines/playoffEngine.js";
+import { buildFairLine } from "./engines/fairLineEngine.js";
+import { buildRoleChange } from "./engines/roleChangeEngine.js";
 import { compareOverUnderRisk } from "./engines/riskComparisonEngine.js";
 import {
   calcUsageBoost,
   getMissingPlayers,
 } from "./engines/usageEngine.js";
 import { buildWinProbability } from "./engines/winProbabilityEngine.js";
+
+import {
+  appendMarketSnapshot,
+  getOpeningLine,
+} from "./services/marketSnapshotService.js";
 
 import {
   deletePick,
@@ -511,6 +519,13 @@ function createSideAudit() {
     rejectedOver: 0,
     rejectedUnder: 0,
     rejectionReasons: {},
+    fairLineOver: 0,
+    fairLineUnder: 0,
+    fairLineNone: 0,
+    currentSideOver: 0,
+    currentSideUnder: 0,
+    sideMatchCount: 0,
+    sideMismatchCount: 0,
   };
 }
 
@@ -725,6 +740,45 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         risks: baseOpportunity.risks || [],
         usageBoost: usage,
       };
+
+      const playerState = buildPlayerState({
+        playerName,
+        playerId: playerData.PlayerID || projectionData.PlayerID || "",
+        league,
+        team: safeTeam,
+        opponent,
+        gameDate: game.date,
+        commenceTime: game.commenceTime || game.time,
+        prop,
+        last5,
+        bdlSeasonGames,
+        seasonMap,
+        seasonAverage,
+        sportsProjection: adjustedSportsProjection || sportsProjection,
+        matchupGames,
+        opportunity,
+      });
+
+      const roleChange = buildRoleChange(
+        playerState,
+        league === "NBA" ? usage : null
+      );
+
+      const marketSnapshot = appendMarketSnapshot({
+        league,
+        gameDate: game.date,
+        commenceTime: game.commenceTime || game.time,
+        player: playerName,
+        team: safeTeam,
+        opponent,
+        stat: "Points",
+        bookLine: prop.line,
+        bookCount: prop.bookCount,
+        marketQuality: prop.marketQuality,
+        lineSpread: prop.lineSpread,
+        overOdds: prop.overOdds,
+        underOdds: prop.underOdds,
+      });
 
       const playoff = buildPlayoffContext({
         last5,
@@ -985,7 +1039,50 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
         reasons: [...new Set(riskComparison.support || [])].slice(0, 6),
         risks: [...new Set(riskComparison.resistance || [])].slice(0, 5),
+
+        playerState,
+        roleChange,
+        dataMode: playerState.dataMode,
+
+        snapshotId: marketSnapshot.snapshotId,
+        snapshotTime: marketSnapshot.snapshotTime,
+        openingLine: marketSnapshot.openingLine,
+        currentLine: marketSnapshot.currentLine,
       };
+
+      const fairLine = buildFairLine({
+        playerState,
+        roleChange,
+        prop,
+        auditOldSide: bestPick.side || bestPick.pick,
+      });
+
+      bestPick = {
+        ...bestPick,
+        ...fairLine,
+      };
+
+      if (fairLine.fairLineSide === "OVER") {
+        sideAudit.fairLineOver += 1;
+      } else if (fairLine.fairLineSide === "UNDER") {
+        sideAudit.fairLineUnder += 1;
+      } else {
+        sideAudit.fairLineNone += 1;
+      }
+
+      if (riskComparison.pickSide === "OVER") {
+        sideAudit.currentSideOver += 1;
+      } else if (riskComparison.pickSide === "UNDER") {
+        sideAudit.currentSideUnder += 1;
+      }
+
+      if (fairLine.fairLineSide !== "NONE") {
+        if (fairLine.auditSideMatch) {
+          sideAudit.sideMatchCount += 1;
+        } else {
+          sideAudit.sideMismatchCount += 1;
+        }
+      }
 
       builtPicks.push({
         ...bestPick,
@@ -1084,6 +1181,41 @@ async function refreshAllPicks() {
     todayWnba.sideAudit.rejectedUnder +
     tomorrowNba.sideAudit.rejectedUnder +
     tomorrowWnba.sideAudit.rejectedUnder;
+  sideAudit.fairLineOver =
+    todayNba.sideAudit.fairLineOver +
+    todayWnba.sideAudit.fairLineOver +
+    tomorrowNba.sideAudit.fairLineOver +
+    tomorrowWnba.sideAudit.fairLineOver;
+  sideAudit.fairLineUnder =
+    todayNba.sideAudit.fairLineUnder +
+    todayWnba.sideAudit.fairLineUnder +
+    tomorrowNba.sideAudit.fairLineUnder +
+    tomorrowWnba.sideAudit.fairLineUnder;
+  sideAudit.fairLineNone =
+    todayNba.sideAudit.fairLineNone +
+    todayWnba.sideAudit.fairLineNone +
+    tomorrowNba.sideAudit.fairLineNone +
+    tomorrowWnba.sideAudit.fairLineNone;
+  sideAudit.currentSideOver =
+    todayNba.sideAudit.currentSideOver +
+    todayWnba.sideAudit.currentSideOver +
+    tomorrowNba.sideAudit.currentSideOver +
+    tomorrowWnba.sideAudit.currentSideOver;
+  sideAudit.currentSideUnder =
+    todayNba.sideAudit.currentSideUnder +
+    todayWnba.sideAudit.currentSideUnder +
+    tomorrowNba.sideAudit.currentSideUnder +
+    tomorrowWnba.sideAudit.currentSideUnder;
+  sideAudit.sideMatchCount =
+    todayNba.sideAudit.sideMatchCount +
+    todayWnba.sideAudit.sideMatchCount +
+    tomorrowNba.sideAudit.sideMatchCount +
+    tomorrowWnba.sideAudit.sideMatchCount;
+  sideAudit.sideMismatchCount =
+    todayNba.sideAudit.sideMismatchCount +
+    todayWnba.sideAudit.sideMismatchCount +
+    tomorrowNba.sideAudit.sideMismatchCount +
+    tomorrowWnba.sideAudit.sideMismatchCount;
 
   for (const partial of [
     todayNba.sideAudit,
@@ -1127,6 +1259,15 @@ async function refreshAllPicks() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
         .map(([reason, count]) => ({ reason, count })),
+    },
+    fairLineAuditSummary: {
+      fairLineOver: sideAudit.fairLineOver,
+      fairLineUnder: sideAudit.fairLineUnder,
+      fairLineNone: sideAudit.fairLineNone,
+      currentSideOver: sideAudit.currentSideOver,
+      currentSideUnder: sideAudit.currentSideUnder,
+      sideMatchCount: sideAudit.sideMatchCount,
+      sideMismatchCount: sideAudit.sideMismatchCount,
     },
 
     topProps: buildTopProps(games),
@@ -1275,19 +1416,66 @@ app.post("/save-pick", (req, res) => {
   const side = incoming.side || incoming.pick || "";
   const price = Number(incoming.odds ?? incoming.price);
 
+  const gameDate =
+    incoming.gameDate ||
+    incoming.date ||
+    (incoming.commenceTime
+      ? String(incoming.commenceTime).slice(0, 10)
+      : "");
+
+  let snapshotFields = {};
+
+  if (
+    incoming.snapshotId &&
+    (incoming.openingLine !== undefined || incoming.currentLine !== undefined)
+  ) {
+    snapshotFields = {
+      snapshotId: incoming.snapshotId,
+      snapshotTime: incoming.snapshotTime || new Date().toISOString(),
+      openingLine: num(incoming.openingLine ?? incoming.line),
+      currentLine: num(incoming.currentLine ?? incoming.line),
+    };
+  } else {
+    const linked = getOpeningLine({
+      league: incoming.league || "",
+      gameDate,
+      player: incoming.player || "",
+      stat: incoming.stat || "Points",
+    });
+
+    const snapshot = appendMarketSnapshot({
+      league: incoming.league || "",
+      gameDate,
+      commenceTime: incoming.commenceTime || incoming.time || "",
+      player: incoming.player || "",
+      team: incoming.team || "",
+      opponent: incoming.opponent || "",
+      stat: incoming.stat || "Points",
+      bookLine: incoming.line ?? incoming.sportsbookLine,
+      bookCount: incoming.bookCount,
+      marketQuality: incoming.marketQuality,
+      lineSpread: incoming.lineSpread,
+      overOdds: incoming.overOdds,
+      underOdds: incoming.underOdds,
+    });
+
+    snapshotFields = {
+      snapshotId: snapshot.snapshotId,
+      snapshotTime: snapshot.snapshotTime,
+      openingLine: num(linked?.openingLine ?? snapshot.openingLine),
+      currentLine: num(snapshot.currentLine ?? snapshot.bookLine),
+    };
+  }
+
   const pick = {
     ...incoming,
+    ...snapshotFields,
     league: incoming.league || "",
     side,
     pick: side,
     stat: incoming.stat || "Points",
     status: incoming.status || "pending",
-    gameDate:
-      incoming.gameDate ||
-      incoming.date ||
-      (incoming.commenceTime
-        ? String(incoming.commenceTime).slice(0, 10)
-        : ""),
+    gameDate,
     commenceTime: incoming.commenceTime || incoming.time || "",
     startTimeDisplay:
       incoming.startTimeDisplay ||
@@ -1295,6 +1483,9 @@ app.post("/save-pick", (req, res) => {
     odds: Number.isFinite(price) ? price : incoming.odds,
     price: Number.isFinite(price) ? price : incoming.price,
     savedAt: incoming.savedAt || new Date().toISOString(),
+    playerState: incoming.playerState || null,
+    roleChange: incoming.roleChange || null,
+    dataMode: incoming.dataMode || incoming.playerState?.dataMode || "",
   };
 
   const saved = savePick(pick);

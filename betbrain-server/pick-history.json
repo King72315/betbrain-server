@@ -253,7 +253,7 @@
     ],
     "warnings": [],
     "createdAt": "2026-06-14T18:45:40.488Z",
-    "updatedAt": "2026-06-14T19:06:08.761Z",
+    "updatedAt": "2026-06-14T19:44:59.127Z",
     "resolvedAt": null,
     "gradedAt": null,
     "result": 0,
@@ -266,7 +266,14 @@
     "confidenceBucket": "Under 55",
     "marketQualityBucket": "65-79",
     "bookCountBucket": "3-4",
-    "signalBucket": "STRONG"
+    "signalBucket": "STRONG",
+    "snapshotId": "",
+    "snapshotTime": "",
+    "openingLine": 8.5,
+    "currentLine": 8.5,
+    "dataMode": "",
+    "playerState": null,
+    "roleChange": null
   },
   {
     "player": "Angel Reese",
@@ -485,7 +492,7 @@
     "penalties": [],
     "warnings": [],
     "createdAt": "2026-06-14T18:44:50.047Z",
-    "updatedAt": "2026-06-14T19:06:08.762Z",
+    "updatedAt": "2026-06-14T19:44:59.128Z",
     "resolvedAt": null,
     "gradedAt": null,
     "result": 0,
@@ -498,7 +505,14 @@
     "confidenceBucket": "Under 55",
     "marketQualityBucket": "50-64",
     "bookCountBucket": "3-4",
-    "signalBucket": "WEAK"
+    "signalBucket": "WEAK",
+    "snapshotId": "",
+    "snapshotTime": "",
+    "openingLine": 15.5,
+    "currentLine": 15.5,
+    "dataMode": "",
+    "playerState": null,
+    "roleChange": null
   },
   {
     "player": "Olivia Miles",
@@ -739,7 +753,7 @@
       "Weak line agreement"
     ],
     "createdAt": "2026-06-14T18:20:24.927Z",
-    "updatedAt": "2026-06-14T19:06:08.762Z",
+    "updatedAt": "2026-06-14T19:44:59.129Z",
     "resolvedAt": null,
     "gradedAt": null,
     "result": 0,
@@ -752,6 +766,13 @@
     "confidenceBucket": "Under 55",
     "marketQualityBucket": "Under 50",
     "bookCountBucket": "1-2",
-    "signalBucket": "MODERATE"
+    "signalBucket": "MODERATE",
+    "snapshotId": "",
+    "snapshotTime": "",
+    "openingLine": 17.5,
+    "currentLine": 17.5,
+    "dataMode": "",
+    "playerState": null,
+    "roleChange": null
   }
 ]
