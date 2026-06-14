@@ -189,12 +189,22 @@ export const savePick = async (pick: any) => {
 };
 
 export const fetchPickHistory = async () => {
-  const data = await apiGet("/saved-picks");
+  try {
+    const res = await fetch(`${BASE_URL}/saved-picks`);
+    const data = await safeJson(res);
 
-  return {
-    ok: data.ok,
-    picks: data.picks || [],
-  };
+    return {
+      ok: res.ok && (data.ok ?? false),
+      picks: Array.isArray(data.picks) ? data.picks : [],
+    };
+  } catch (err) {
+    console.log("FETCH PICK HISTORY FAILED:", err);
+
+    return {
+      ok: false,
+      picks: [],
+    };
+  }
 };
 
 const RESOLVE_COOLDOWN_MS = 5 * 60 * 1000;
@@ -211,20 +221,42 @@ export const resolvePicks = async (options?: { force?: boolean }) => {
       message: "Resolve skipped (cooldown active)",
       error: "",
       picks: [],
+      summary: null,
     };
   }
 
   lastResolveAt = now;
 
-  const data = await apiPost("/resolve-picks");
+  try {
+    const res = await fetch(`${BASE_URL}/resolve-picks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+    const data = await safeJson(res);
 
-  return {
-    ok: data.ok,
-    skipped: false,
-    message: data.message || "",
-    error: data.error || "",
-    picks: data.picks || [],
-  };
+    return {
+      ok: res.ok && (data.ok ?? false),
+      skipped: false,
+      message: data.message || "",
+      error: data.error || "",
+      picks: Array.isArray(data.picks) ? data.picks : [],
+      summary: data.summary || null,
+    };
+  } catch (err) {
+    console.log("RESOLVE PICKS FAILED:", err);
+
+    return {
+      ok: false,
+      skipped: false,
+      message: "Network request failed",
+      error: String(err),
+      picks: [],
+      summary: null,
+    };
+  }
 };
 
 export const deletePick = async (id: string) => {

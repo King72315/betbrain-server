@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   RefreshControl,
@@ -24,33 +24,67 @@ export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const loadIdRef = useRef(0);
+
+  const applyPicks = (nextPicks: any[], loadId: number) => {
+    if (loadId !== loadIdRef.current) return;
+    if (Array.isArray(nextPicks)) {
+      setPicks(nextPicks);
+    }
+  };
+
+  const loadHistoryPicks = async (
+    resolvedPicks: any[] | null = null,
+    loadId = loadIdRef.current
+  ) => {
+    const data = await fetchPickHistory();
+
+    if (data.ok && Array.isArray(data.picks)) {
+      applyPicks(data.picks, loadId);
+      return data.picks;
+    }
+
+    if (Array.isArray(resolvedPicks) && resolvedPicks.length) {
+      applyPicks(resolvedPicks, loadId);
+      return resolvedPicks;
+    }
+
+    return null;
+  };
 
   const loadHistory = async (forceResolve = false) => {
+    const loadId = ++loadIdRef.current;
+
     try {
       setLoading(true);
-      await resolvePicks({ force: forceResolve });
-
-      const data = await fetchPickHistory();
-      setPicks(data.picks || []);
+      const resolved = await resolvePicks({ force: forceResolve });
+      const resolvedPicks =
+        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+      await loadHistoryPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
-      setPicks([]);
     } finally {
-      setLoading(false);
+      if (loadId === loadIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const refreshHistory = async () => {
+    const loadId = ++loadIdRef.current;
+
     try {
       setRefreshing(true);
-      await resolvePicks({ force: true });
-
-      const data = await fetchPickHistory();
-      setPicks(data.picks || []);
+      const resolved = await resolvePicks({ force: true });
+      const resolvedPicks =
+        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+      await loadHistoryPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
     } finally {
-      setRefreshing(false);
+      if (loadId === loadIdRef.current) {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -420,7 +454,7 @@ function buildRecord(list: any[]) {
 }
 
 function getStatus(pick: any) {
-  const raw = String(pick.status || pick.result || "pending").toLowerCase();
+  const raw = String(pick.status || "pending").toLowerCase();
 
   if (raw === "win") return "Win";
   if (raw === "loss") return "Loss";
