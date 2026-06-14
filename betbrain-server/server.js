@@ -67,6 +67,15 @@ import {
   updatePlayerAccuracy,
 } from "./storage.js";
 
+import {
+  addTrackedProps,
+  buildTrackedPropAnalytics,
+  clearTrackedProps,
+  deleteTrackedProp,
+  getTrackedProps,
+  resolveTrackedProps,
+} from "./services/trackedPropService.js";
+
 const app = express();
 
 app.use(cors());
@@ -1101,6 +1110,10 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       picks: builtPicks,
     });
 
+    if (rankedGame.picks?.length) {
+      addTrackedProps(rankedGame.picks);
+    }
+
     console.log("PROPS PIPELINE FINAL:", {
       league,
       game: game.game,
@@ -1507,6 +1520,71 @@ app.delete("/saved-picks/:id", (req, res) => {
   res.json(result);
 });
 
+app.get("/tracked-props", (req, res) => {
+  const props = getTrackedProps();
+
+  res.json({
+    ok: true,
+    props,
+    count: props.length,
+  });
+});
+
+app.get("/tracked-props/analytics", (req, res) => {
+  const props = getTrackedProps();
+  const analytics = buildTrackedPropAnalytics(props);
+
+  res.json({
+    ok: true,
+    analytics,
+    count: props.length,
+  });
+});
+
+app.post("/resolve-tracked-props", async (req, res) => {
+  try {
+    const { props, summary } = await resolveTrackedProps({
+      requireLikelyFinished: Boolean(req.body?.requireLikelyFinished),
+    });
+
+    res.json({
+      ok: true,
+      message: "Tracked props resolved",
+      props,
+      summary,
+      analytics: buildTrackedPropAnalytics(props),
+    });
+  } catch (error) {
+    console.log("RESOLVE TRACKED PROPS ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Resolve tracked props failed",
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/tracked-props/:id", (req, res) => {
+  const result = deleteTrackedProp(req.params.id);
+
+  if (!result.ok) {
+    return res.status(404).json(result);
+  }
+
+  res.json(result);
+});
+
+app.post("/clear-tracked-props", (req, res) => {
+  const result = clearTrackedProps();
+
+  res.json({
+    ...result,
+    message:
+      "Tracked props cleared. Saved picks were not affected. Use only for research resets.",
+  });
+});
+
 const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
 let autoResolveRunning = false;
 
@@ -1672,7 +1750,12 @@ if (process.env.RUN_AUDIT === "1") {
           requireLikelyFinished: true,
         });
 
+        const { summary: trackedSummary } = await resolveTrackedProps({
+          requireLikelyFinished: true,
+        });
+
         console.log("AUTO RESOLVE PICKS:", summary);
+        console.log("AUTO RESOLVE TRACKED PROPS:", trackedSummary);
       } catch (error) {
         console.log("AUTO RESOLVE PICKS ERROR:", error.message);
       } finally {
