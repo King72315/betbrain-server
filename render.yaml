@@ -5,7 +5,9 @@ services:
     plan: free
     rootDir: betbrain-server
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: npm start
+    # Fallback if Root Directory is left blank: startCommand node server.js
+    # runs repo-root server.js, which launches betbrain-server/server.js.
     autoDeploy: true
     envVars:
       - key: NODE_ENV

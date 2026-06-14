@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "build:android:private": "eas build --platform android --profile preview",
-    "update:ota": "eas update --branch preview --message \"CourtEdge update\""
+    "update:ota": "eas update --branch preview --message \"CourtEdge update\"",
+    "postinstall": "npm install --prefix betbrain-server"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
