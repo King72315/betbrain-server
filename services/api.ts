@@ -252,3 +252,80 @@ export const deletePick = async (id: string) => {
 };
 
 export const getApiBaseUrl = () => BASE_URL;
+
+export const fetchTrackedProps = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/tracked-props`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      props: Array.isArray(data.props) ? data.props : [],
+      count: data.count || (Array.isArray(data.props) ? data.props.length : 0),
+    };
+  } catch (err) {
+    console.log("FETCH TRACKED PROPS FAILED:", err);
+
+    return {
+      ok: false,
+      props: [],
+      count: 0,
+    };
+  }
+};
+
+export const fetchTrackedAnalytics = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/tracked-props/analytics`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      analytics: data.analytics || null,
+      count: data.count || 0,
+    };
+  } catch (err) {
+    console.log("FETCH TRACKED ANALYTICS FAILED:", err);
+
+    return {
+      ok: false,
+      analytics: null,
+      count: 0,
+    };
+  }
+};
+
+export const resolveTrackedProps = async (options?: {
+  requireLikelyFinished?: boolean;
+}) => {
+  try {
+    const res = await fetch(`${BASE_URL}/resolve-tracked-props`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requireLikelyFinished: Boolean(options?.requireLikelyFinished),
+      }),
+    });
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      message: data.message || "",
+      props: Array.isArray(data.props) ? data.props : [],
+      summary: data.summary || null,
+      analytics: data.analytics || null,
+    };
+  } catch (err) {
+    console.log("RESOLVE TRACKED PROPS FAILED:", err);
+
+    return {
+      ok: false,
+      message: "Network request failed",
+      props: [],
+      summary: null,
+      analytics: null,
+    };
+  }
+};
