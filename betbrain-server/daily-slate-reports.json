@@ -1,0 +1,904 @@
+[
+  {
+    "slateDate": "2026-06-14",
+    "status": "in-progress",
+    "generatedAt": "2026-06-15T16:22:31.661Z",
+    "updatedAt": "2026-06-15T16:31:49.282Z",
+    "sections": {
+      "A": {
+        "title": "Slate Summary",
+        "slateDate": "2026-06-14",
+        "reportStatus": "in-progress",
+        "totalOfficialProps": 16,
+        "graded": 0,
+        "pending": 16,
+        "wins": 0,
+        "losses": 0,
+        "pushes": 0,
+        "overallWinRate": null,
+        "leagues": [
+          "WNBA"
+        ],
+        "generatedAt": "2026-06-15T16:31:49.282Z",
+        "updatedAt": "2026-06-15T16:31:49.282Z"
+      },
+      "B": {
+        "title": "Risk Bucket Breakdown",
+        "buckets": {
+          "LOW": {
+            "total": 4,
+            "graded": 0,
+            "pending": 4,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "MEDIUM": {
+            "total": 12,
+            "graded": 0,
+            "pending": 12,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "HIGH": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          }
+        }
+      },
+      "C": {
+        "title": "Projection/Fair Line Accuracy",
+        "sample": 0,
+        "projectionSideWinRate": null,
+        "avgProjected": null,
+        "avgFairLine": null,
+        "avgActual": null,
+        "avgError": null,
+        "avgAbsError": null,
+        "bias": "not enough data",
+        "bestCall": null,
+        "worstMiss": null,
+        "edgeBucketPerformance": {
+          "note": "not enough data for edge bucket breakdown"
+        },
+        "needsMoreData": true
+      },
+      "D": {
+        "title": "Engine/Signal Performance",
+        "groups": {
+          "last5": {
+            "supports_side": {
+              "sample": 10,
+              "pending": 10,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "neutral": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "opposes_side": {
+              "sample": 1,
+              "pending": 1,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "seasonAverage": {
+            "supports_side": {
+              "sample": 13,
+              "pending": 13,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "neutral": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "opposes_side": {
+              "sample": 1,
+              "pending": 1,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "h2h": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "opponentDefense": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "usageMinutes": {
+            "minutes_down": {
+              "sample": 9,
+              "pending": 9,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "minutes_up": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "stable": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "injuryAvailability": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "homeAway": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "restTravel": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "pace": {
+            "not enough data": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "marketBookCount": {
+            "1-2": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "supportDangerGap": {
+            "10-19": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "5-9": {
+              "sample": 3,
+              "pending": 3,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "20+": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "confidenceBucket": {
+            "Under 55": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "projectionEdgeBucket": {
+            "4+": {
+              "sample": 6,
+              "pending": 6,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "Under 1.5": {
+              "sample": 4,
+              "pending": 4,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "2.5-3.9": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "1.5-2.4": {
+              "sample": 4,
+              "pending": 4,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "riskBucket": {
+            "MEDIUM": {
+              "sample": 12,
+              "pending": 12,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "LOW": {
+              "sample": 4,
+              "pending": 4,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "tier": {
+            "LEAN": {
+              "sample": 16,
+              "pending": 16,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          }
+        }
+      },
+      "E": {
+        "title": "Loss/Miss Type Report",
+        "losses": [],
+        "totalLosses": 0
+      },
+      "F": {
+        "title": "Calibration Recommendations",
+        "signalsToTrustMore": [],
+        "signalsToTrustLess": [],
+        "riskBucketNotes": [
+          "LOW: insufficient sample (0 decided)",
+          "MEDIUM: insufficient sample (0 decided)",
+          "HIGH: insufficient sample (0 decided)"
+        ],
+        "projectionNotes": [
+          "Not enough graded projection data for bias call."
+        ],
+        "sampleSizeGaps": [
+          "last5/supports_side: needs more data",
+          "last5/neutral: needs more data",
+          "last5/opposes_side: needs more data",
+          "seasonAverage/supports_side: needs more data",
+          "seasonAverage/neutral: needs more data",
+          "seasonAverage/opposes_side: needs more data",
+          "h2h/not enough data: needs more data",
+          "opponentDefense/not enough data: needs more data"
+        ],
+        "nextAdjustment": "Do not adjust yet — overall sample too small.",
+        "doNotAdjustYet": true,
+        "note": "Report only — no engine weights were changed."
+      }
+    },
+    "reportStatus": "in-progress"
+  },
+  {
+    "slateDate": "2026-06-15",
+    "status": "in-progress",
+    "generatedAt": "2026-06-15T16:22:31.664Z",
+    "updatedAt": "2026-06-15T16:31:49.283Z",
+    "sections": {
+      "A": {
+        "title": "Slate Summary",
+        "slateDate": "2026-06-15",
+        "reportStatus": "in-progress",
+        "totalOfficialProps": 8,
+        "graded": 0,
+        "pending": 8,
+        "wins": 0,
+        "losses": 0,
+        "pushes": 0,
+        "overallWinRate": null,
+        "leagues": [
+          "WNBA"
+        ],
+        "generatedAt": "2026-06-15T16:31:49.283Z",
+        "updatedAt": "2026-06-15T16:31:49.283Z"
+      },
+      "B": {
+        "title": "Risk Bucket Breakdown",
+        "buckets": {
+          "LOW": {
+            "total": 5,
+            "graded": 0,
+            "pending": 5,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "MEDIUM": {
+            "total": 3,
+            "graded": 0,
+            "pending": 3,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "HIGH": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          }
+        }
+      },
+      "C": {
+        "title": "Projection/Fair Line Accuracy",
+        "sample": 0,
+        "projectionSideWinRate": null,
+        "avgProjected": null,
+        "avgFairLine": null,
+        "avgActual": null,
+        "avgError": null,
+        "avgAbsError": null,
+        "bias": "not enough data",
+        "bestCall": null,
+        "worstMiss": null,
+        "edgeBucketPerformance": {
+          "note": "not enough data for edge bucket breakdown"
+        },
+        "needsMoreData": true
+      },
+      "D": {
+        "title": "Engine/Signal Performance",
+        "groups": {
+          "last5": {
+            "supports_side": {
+              "sample": 6,
+              "pending": 6,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "neutral": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "seasonAverage": {
+            "neutral": {
+              "sample": 3,
+              "pending": 3,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "supports_side": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "h2h": {
+            "not enough data": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "opponentDefense": {
+            "not enough data": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "usageMinutes": {
+            "minutes_up": {
+              "sample": 3,
+              "pending": 3,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "stable": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "injuryAvailability": {
+            "not enough data": {
+              "sample": 6,
+              "pending": 6,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "clear": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "homeAway": {
+            "not enough data": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "restTravel": {
+            "not enough data": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "pace": {
+            "not enough data": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "marketBookCount": {
+            "3-4": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "supportDangerGap": {
+            "20+": {
+              "sample": 6,
+              "pending": 6,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "10-19": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "confidenceBucket": {
+            "55-59": {
+              "sample": 4,
+              "pending": 4,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "Under 55": {
+              "sample": 4,
+              "pending": 4,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "projectionEdgeBucket": {
+            "2.5-3.9": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "4+": {
+              "sample": 3,
+              "pending": 3,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "1.5-2.4": {
+              "sample": 2,
+              "pending": 2,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "Under 1.5": {
+              "sample": 1,
+              "pending": 1,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "riskBucket": {
+            "LOW": {
+              "sample": 5,
+              "pending": 5,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "MEDIUM": {
+              "sample": 3,
+              "pending": 3,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          },
+          "tier": {
+            "LEAN": {
+              "sample": 8,
+              "pending": 8,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            }
+          }
+        }
+      },
+      "E": {
+        "title": "Loss/Miss Type Report",
+        "losses": [],
+        "totalLosses": 0
+      },
+      "F": {
+        "title": "Calibration Recommendations",
+        "signalsToTrustMore": [],
+        "signalsToTrustLess": [],
+        "riskBucketNotes": [
+          "LOW: insufficient sample (0 decided)",
+          "MEDIUM: insufficient sample (0 decided)",
+          "HIGH: insufficient sample (0 decided)"
+        ],
+        "projectionNotes": [
+          "Not enough graded projection data for bias call."
+        ],
+        "sampleSizeGaps": [
+          "last5/supports_side: needs more data",
+          "last5/neutral: needs more data",
+          "seasonAverage/neutral: needs more data",
+          "seasonAverage/supports_side: needs more data",
+          "h2h/not enough data: needs more data",
+          "opponentDefense/not enough data: needs more data",
+          "usageMinutes/minutes_up: needs more data",
+          "usageMinutes/stable: needs more data"
+        ],
+        "nextAdjustment": "Do not adjust yet — overall sample too small.",
+        "doNotAdjustYet": true,
+        "note": "Report only — no engine weights were changed."
+      }
+    },
+    "reportStatus": "in-progress"
+  }
+]

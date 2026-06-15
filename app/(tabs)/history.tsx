@@ -1,7 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -16,13 +15,14 @@ import PropCard, {
   formatTime,
   safeDisplay,
 } from "../../components/PropCard";
-import { deletePick, fetchPickHistory, resolvePicks } from "../../services/api";
+import { checkPendingResults, fetchPickHistory } from "../../services/api";
 
 const RISK_GROUPS = ["Low Risk", "Medium Risk", "High Risk"] as const;
 
 export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingPending, setCheckingPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const loadIdRef = useRef(0);
 
@@ -52,14 +52,14 @@ export default function History() {
     return null;
   };
 
-  const loadHistory = async (forceResolve = false) => {
+  const loadHistory = async (forceCheck = false) => {
     const loadId = ++loadIdRef.current;
 
     try {
       setLoading(true);
-      const resolved = await resolvePicks({ force: forceResolve });
+      const checked = await checkPendingResults({ force: forceCheck });
       const resolvedPicks =
-        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
       await loadHistoryPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
@@ -75,15 +75,36 @@ export default function History() {
 
     try {
       setRefreshing(true);
-      const resolved = await resolvePicks({ force: true });
+      const checked = await checkPendingResults({ force: true });
       const resolvedPicks =
-        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
       await loadHistoryPicks(resolvedPicks, loadId);
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
     } finally {
       if (loadId === loadIdRef.current) {
         setRefreshing(false);
+      }
+    }
+  };
+
+  const handleCheckPendingResults = async () => {
+    const loadId = ++loadIdRef.current;
+
+    try {
+      setCheckingPending(true);
+      const checked = await checkPendingResults({
+        force: true,
+        requireLikelyFinished: true,
+      });
+      const resolvedPicks =
+        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
+      await loadHistoryPicks(resolvedPicks, loadId);
+    } catch (err) {
+      console.log("CHECK PENDING RESULTS ERROR:", err);
+    } finally {
+      if (loadId === loadIdRef.current) {
+        setCheckingPending(false);
       }
     }
   };
@@ -170,28 +191,6 @@ export default function History() {
     }));
   }, [groupedByRisk, picks]);
 
-  const handleDeletePick = async (pick: any) => {
-    Alert.alert(
-      "Delete Result Pick?",
-      `${pick.player} ${pick.side || pick.pick} ${pick.line}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const result = await deletePick(pick.id || pick.pickKey);
-            if (result.ok) {
-              setPicks(result.picks || []);
-            } else {
-              Alert.alert("Delete Failed", result.message || "Could not delete pick.");
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -226,6 +225,16 @@ export default function History() {
           </View>
 
           <Text style={styles.pendingText}>Pending Picks: {pendingCount}</Text>
+
+          <TouchableOpacity
+            onPress={handleCheckPendingResults}
+            style={styles.checkButton}
+            disabled={checkingPending || loading || refreshing}
+          >
+            <Text style={styles.checkButtonText}>
+              {checkingPending ? "Checking..." : "Check Pending Results"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.breakdownCard}>
@@ -293,12 +302,6 @@ export default function History() {
                         </Text>
                         <ResultMarginText pick={pick} />
                       </View>
-                      <TouchableOpacity
-                        onPress={() => handleDeletePick(pick)}
-                        style={styles.deleteButton}
-                      >
-                        <Text style={styles.deleteButtonText}>Delete Pick</Text>
-                      </TouchableOpacity>
                     </View>
                   ))
               )}
@@ -634,6 +637,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  checkButton: {
+    marginTop: 12,
+    backgroundColor: "#1d4ed8",
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+
+  checkButtonText: {
+    color: "#dbeafe",
+    fontWeight: "900",
+    textAlign: "center",
+    fontSize: 14,
+  },
+
   breakdownCard: {
     backgroundColor: "#111827",
     padding: 15,
@@ -705,20 +722,6 @@ const styles = StyleSheet.create({
   resultBox: {
     paddingHorizontal: 12,
     paddingBottom: 12,
-  },
-
-  deleteButton: {
-    marginHorizontal: 12,
-    marginBottom: 12,
-    backgroundColor: "#7f1d1d",
-    borderRadius: 12,
-    paddingVertical: 10,
-  },
-
-  deleteButtonText: {
-    color: "#fecaca",
-    fontWeight: "900",
-    textAlign: "center",
   },
 
   loadingText: {

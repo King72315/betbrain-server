@@ -20,6 +20,11 @@ const BACKUP_FILE = path.join(
   "..",
   "tracked-props-backup-before-sprint3a.json"
 );
+const PHASE2_BACKUP_FILE = path.join(
+  __dirname,
+  "..",
+  "tracked-props-backup-before-phase2.json"
+);
 
 function clean(value = "") {
   return String(value)
@@ -59,6 +64,72 @@ function ensureTrackedFile() {
 
 ensureTrackedFile();
 
+function backfillTrackedPropPhase2Fields() {
+  const tracked = readJSON(TRACKED_FILE, []);
+  if (!Array.isArray(tracked) || tracked.length === 0) return tracked;
+
+  if (!fs.existsSync(PHASE2_BACKUP_FILE)) {
+    writeJSON(PHASE2_BACKUP_FILE, tracked);
+  }
+
+  let changed = false;
+
+  const next = tracked.map((item) => {
+    const commenceTime = item.commenceTime || "";
+    const slateDate = item.slateDate || getSlateDateCT(commenceTime);
+    const gameLabel = item.gameLabel || item.game || "";
+    const supportDangerGap = num(item.supportDangerGap ?? item.netEdge);
+    const needsSnapshot =
+      !item.signalSnapshot ||
+      !item.signalSnapshot.last5Signal ||
+      item.signalSnapshot.tier !== undefined;
+
+    const patch = {};
+
+    if (!item.slateDate && slateDate) {
+      patch.slateDate = slateDate;
+      changed = true;
+    }
+
+    if (!item.gameLabel && gameLabel) {
+      patch.gameLabel = gameLabel;
+      changed = true;
+    }
+
+    if (item.supportDangerGap === undefined || item.supportDangerGap === null) {
+      patch.supportDangerGap = supportDangerGap;
+      patch.supportDangerGapBucket = getSupportDangerGapBucket(supportDangerGap);
+      changed = true;
+    }
+
+    if (needsSnapshot) {
+      patch.signalSnapshot = buildSignalSnapshot(item, {
+        ...item,
+        ...patch,
+        supportDangerGap,
+      });
+      changed = true;
+    }
+
+    if (!item.projection && item.fairLine) {
+      patch.projection = num(item.fairLine);
+      changed = true;
+    }
+
+    if (Object.keys(patch).length === 0) return item;
+
+    return { ...item, ...patch };
+  });
+
+  if (changed) {
+    writeJSON(TRACKED_FILE, next);
+  }
+
+  return next;
+}
+
+backfillTrackedPropPhase2Fields();
+
 function getGameDate(pick = {}) {
   const source =
     pick.gameDate ||
@@ -76,6 +147,35 @@ function getGameDate(pick = {}) {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+export function getSlateDateCT(commenceTime) {
+  const source = commenceTime || "";
+
+  if (!source) return "";
+
+  const parsed = new Date(source);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return String(source).slice(0, 10);
+  }
+
+  return parsed.toLocaleDateString("en-CA", {
+    timeZone: "America/Chicago",
+  });
+}
+
+export function isOfficialTrackablePick(pick = {}) {
+  if (!pick?.player) return false;
+  if (pick.noPlay) return false;
+  if (pick.isStarted) return false;
+  if (pick.trustable === false) return false;
+
+  const tier = String(pick.tier || "").toUpperCase();
+  if (tier === "LEAN") return false;
+  if (tier === "WATCHLIST") return false;
+
+  return true;
 }
 
 function normalizeEngineSide(side = "") {
@@ -147,6 +247,192 @@ function getFairLineEdgeBucket(edge = 0) {
   return "Under 1.5";
 }
 
+function getSupportDangerGapBucket(gap = 0) {
+  const value = num(gap);
+  if (value >= 20) return "20+";
+  if (value >= 10) return "10-19";
+  if (value >= 5) return "5-9";
+  return "Under 5";
+}
+
+function getProjectionEdgeBucket(projection, line) {
+  const proj = num(projection);
+  const bookLine = num(line);
+  if (!proj || !bookLine) return "not enough data";
+  const edge = Math.abs(proj - bookLine);
+  if (edge >= 4) return "4+";
+  if (edge >= 2.5) return "2.5-3.9";
+  if (edge >= 1.5) return "1.5-2.4";
+  return "Under 1.5";
+}
+
+function sideSupportsValue(side = "", value = 0, line = 0, threshold = 1) {
+  const sideNorm = normalizeEngineSide(side);
+  if (!sideNorm || !Number.isFinite(value) || !Number.isFinite(line)) {
+    return "not enough data";
+  }
+  if (sideNorm === "Over") {
+    if (value > line + threshold) return "supports_side";
+    if (value < line - threshold) return "opposes_side";
+    return "neutral";
+  }
+  if (value < line - threshold) return "supports_side";
+  if (value > line + threshold) return "opposes_side";
+  return "neutral";
+}
+
+function textMatches(list = [], pattern) {
+  return list.some((item) => pattern.test(String(item || "")));
+}
+
+function buildSignalSnapshot(pick = {}, fields = {}) {
+  const ps = pick.playerState || {};
+  const side = pick.side || pick.pick || fields.currentEngineSide || "";
+  const line = num(pick.line ?? pick.sportsbookLine ?? fields.line);
+  const supportReasons = [
+    ...(pick.support || pick.supportReasons || fields.supportReasons || []),
+  ];
+  const dangerReasons = [
+    ...(pick.resistance || pick.dangerReasons || fields.dangerReasons || []),
+  ];
+  const warningReasons = [
+    ...(pick.warnings || pick.warningReasons || fields.warningReasons || []),
+  ];
+  const roleChange = pick.roleChange || fields.roleChange || {};
+  const projection =
+    pick.projection ??
+    pick.sportsProjection ??
+    ps.sportsProjection ??
+    fields.projection ??
+    null;
+  const supportDangerGap = num(
+    pick.supportDangerGap ?? pick.netEdge ?? fields.supportDangerGap ?? fields.netEdge
+  );
+  const confidence = num(
+    pick.confidence ?? pick.winProbability ?? fields.confidence
+  );
+
+  let last5Signal = "not enough data";
+  const last5Avg = num(pick.last5Average ?? ps.recentPoints);
+  if (last5Avg && line) {
+    last5Signal = sideSupportsValue(side, last5Avg, line);
+  } else if (textMatches(supportReasons, /recent|last 5|last five/i)) {
+    last5Signal = "supports_side";
+  } else if (textMatches(dangerReasons, /recent|last 5|last five/i)) {
+    last5Signal = "opposes_side";
+  }
+
+  let seasonAverageSignal = "not enough data";
+  const seasonAvg = num(pick.seasonAverage ?? ps.seasonPoints);
+  if (seasonAvg && line) {
+    seasonAverageSignal = sideSupportsValue(side, seasonAvg, line);
+  } else if (textMatches(supportReasons, /season average|season scoring/i)) {
+    seasonAverageSignal = "supports_side";
+  }
+
+  let h2hSignal = "not enough data";
+  const flags = ps.dataAvailabilityFlags || {};
+  const matchupAvg = pick.matchupAverage ?? ps.matchupAverage;
+  if (matchupAvg !== null && matchupAvg !== undefined && line) {
+    h2hSignal = sideSupportsValue(side, num(matchupAvg), line);
+  } else if (flags.hasMatchupHistory === false) {
+    h2hSignal = "not enough data";
+  } else if (textMatches(supportReasons, /h2h|head.to.head|matchup history/i)) {
+    h2hSignal = "supports_side";
+  } else if (textMatches(dangerReasons, /h2h|head.to.head|matchup history/i)) {
+    h2hSignal = "opposes_side";
+  }
+
+  let opponentDefenseSignal = "not enough data";
+  if (
+    textMatches(supportReasons, /opponent|defense|matchup/i) &&
+    !textMatches(dangerReasons, /opponent|defense|matchup/i)
+  ) {
+    opponentDefenseSignal = "supportive";
+  } else if (textMatches(dangerReasons, /opponent|defense|matchup/i)) {
+    opponentDefenseSignal = "resistance";
+  } else if (pick.opponentMatchup?.resistanceSignal) {
+    opponentDefenseSignal = String(pick.opponentMatchup.resistanceSignal);
+  }
+
+  let usageMinutesSignal = "not enough data";
+  const expectedMinutes = num(pick.expectedMinutes ?? fields.expectedMinutes);
+  const seasonMinutes = num(ps.seasonMinutes);
+  const recentMinutes = num(ps.recentMinutes);
+  if (expectedMinutes && seasonMinutes) {
+    if (expectedMinutes >= seasonMinutes + 2) usageMinutesSignal = "minutes_up";
+    else if (expectedMinutes <= seasonMinutes - 2) usageMinutesSignal = "minutes_down";
+    else usageMinutesSignal = "stable";
+  } else if (roleChange.recentMinutesTrend) {
+    usageMinutesSignal = String(roleChange.recentMinutesTrend).toLowerCase();
+  } else if (recentMinutes && seasonMinutes) {
+    if (recentMinutes >= seasonMinutes + 2) usageMinutesSignal = "minutes_up";
+    else if (recentMinutes <= seasonMinutes - 2) usageMinutesSignal = "minutes_down";
+    else usageMinutesSignal = "stable";
+  }
+
+  let injuryAvailabilitySignal = "not enough data";
+  if (
+    textMatches(dangerReasons, /injury|questionable|limited|availability/i) ||
+    textMatches(warningReasons, /injury|questionable|limited/i)
+  ) {
+    injuryAvailabilitySignal = "availability_risk";
+  } else if (roleChange.teammateOutBoost) {
+    injuryAvailabilitySignal = "teammate_out_boost";
+  } else if (textMatches(supportReasons, /minutes are playable|availability/i)) {
+    injuryAvailabilitySignal = "clear";
+  }
+
+  let homeAwaySignal = "not enough data";
+  if (textMatches(supportReasons, /home floor|home game|at home/i)) {
+    homeAwaySignal = "home_support";
+  } else if (textMatches(dangerReasons, /road|away|travel/i)) {
+    homeAwaySignal = "away_risk";
+  }
+
+  let restTravelSignal = "not enough data";
+  if (textMatches(dangerReasons, /back.to.back|rest|travel|fatigue/i)) {
+    restTravelSignal = "rest_travel_risk";
+  } else if (textMatches(supportReasons, /rest|fresh/i)) {
+    restTravelSignal = "rest_support";
+  }
+
+  let paceSignal = "not enough data";
+  if (textMatches(supportReasons, /pace|tempo|fast/i)) {
+    paceSignal = "pace_support";
+  } else if (textMatches(dangerReasons, /slow pace|pace/i)) {
+    paceSignal = "pace_risk";
+  }
+
+  let marketSignal = "not enough data";
+  const bookCount = num(pick.bookCount ?? fields.bookCount);
+  const marketQuality = num(pick.marketQuality ?? fields.marketQuality);
+  if (bookCount >= 5 && marketQuality >= 65) marketSignal = "strong_market";
+  else if (bookCount >= 3 && marketQuality >= 50) marketSignal = "adequate_market";
+  else if (bookCount > 0 || marketQuality > 0) marketSignal = "weak_market";
+
+  return {
+    last5Signal,
+    seasonAverageSignal,
+    h2hSignal,
+    opponentDefenseSignal,
+    usageMinutesSignal,
+    injuryAvailabilitySignal,
+    homeAwaySignal,
+    restTravelSignal,
+    paceSignal,
+    marketSignal,
+    supportDangerGapBucket: getSupportDangerGapBucket(supportDangerGap),
+    confidenceBucket: getConfidenceBucket(confidence),
+    projectionEdgeBucket: getProjectionEdgeBucket(projection, line),
+    tier: pick.tier || fields.tier || "",
+    signalStrength: pick.signalStrength || fields.signalStrength || "",
+    riskLabel: pick.riskLabel || fields.riskLabel || "",
+    fairLineSide: normalizeFairSide(pick.fairLineSide ?? fields.fairLineSide),
+    auditSideMatch: Boolean(pick.auditSideMatch ?? fields.auditSideMatch),
+  };
+}
+
 function getRoleChangeScoreBucket(score = 0) {
   const value = num(score);
   if (value >= 80) return "80+";
@@ -162,13 +448,25 @@ function isResolvedStatus(status = "") {
 function mapPickToTrackedFields(pick = {}) {
   const currentEngineSide = normalizeEngineSide(pick.side || pick.pick);
   const fairLineSide = normalizeFairSide(pick.fairLineSide);
+  const commenceTime = pick.commenceTime || pick.time || "";
+  const supportScore = num(pick.supportScore);
+  const resistanceScore = num(pick.resistanceScore ?? pick.dangerScore);
+  const netEdge = num(pick.netEdge ?? pick.gap);
+  const ps = pick.playerState || {};
+  const projection =
+    pick.projection ??
+    pick.sportsProjection ??
+    ps.sportsProjection ??
+    null;
 
-  return {
+  const baseFields = {
     source: "AUTO_TRACKED",
     league: pick.league || "",
     gameId: pick.gameId || pick.game || "",
+    gameLabel: pick.game || pick.gameLabel || "",
     gameDate: getGameDate(pick),
-    commenceTime: pick.commenceTime || pick.time || "",
+    slateDate: pick.slateDate || getSlateDateCT(commenceTime),
+    commenceTime,
     startTimeDisplay: pick.startTimeDisplay || "",
     dayBucket: pick.dayBucket || pick.dateLabel || "",
     player: pick.player || "",
@@ -184,9 +482,15 @@ function mapPickToTrackedFields(pick = {}) {
     riskLabel: pick.riskLabel || "",
     tier: pick.tier || "",
     signalStrength: pick.signalStrength || "",
-    supportScore: num(pick.supportScore),
-    resistanceScore: num(pick.resistanceScore ?? pick.dangerScore),
-    netEdge: num(pick.netEdge ?? pick.gap),
+    supportScore,
+    resistanceScore,
+    netEdge,
+    supportDangerGap: num(pick.supportDangerGap ?? netEdge),
+    projection: projection !== null ? num(projection) : null,
+    last5Average: num(pick.last5Average ?? ps.recentPoints) || null,
+    seasonAverage: num(pick.seasonAverage ?? ps.seasonPoints) || null,
+    matchupAverage:
+      pick.matchupAverage ?? ps.matchupAverage ?? null,
     dataCoverage: num(pick.dataCoverage),
     dataQuality: num(pick.dataQuality),
     evidenceReliability: num(pick.evidenceReliability),
@@ -222,9 +526,17 @@ function mapPickToTrackedFields(pick = {}) {
     marketQualityBucket: getMarketQualityBucket(pick.marketQuality),
     bookCountBucket: getBookCountBucket(pick.bookCount),
     fairLineEdgeBucket: getFairLineEdgeBucket(pick.fairLineEdge),
+    supportDangerGapBucket: getSupportDangerGapBucket(
+      pick.supportDangerGap ?? netEdge
+    ),
     roleChangeScoreBucket: getRoleChangeScoreBucket(
       pick.roleChange?.roleChangeScore
     ),
+  };
+
+  return {
+    ...baseFields,
+    signalSnapshot: buildSignalSnapshot(pick, baseFields),
   };
 }
 
@@ -371,7 +683,9 @@ function normalizeTrackedProp(pick = {}, existing = null) {
 }
 
 export function addTrackedProps(picks = []) {
-  const incoming = Array.isArray(picks) ? picks : [picks];
+  const incoming = (Array.isArray(picks) ? picks : [picks]).filter(
+    isOfficialTrackablePick
+  );
   const tracked = readJSON(TRACKED_FILE, []);
   const indexByKey = new Map(
     tracked.map((item, index) => [item.trackedKey || getTrackedPropKey(item), index])

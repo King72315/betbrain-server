@@ -259,6 +259,74 @@ export const resolvePicks = async (options?: { force?: boolean }) => {
   }
 };
 
+export const checkPendingResults = async (options?: {
+  requireLikelyFinished?: boolean;
+  force?: boolean;
+}) => {
+  const force = Boolean(options?.force);
+  const now = Date.now();
+
+  if (!force && now - lastResolveAt < RESOLVE_COOLDOWN_MS) {
+    return {
+      ok: true,
+      skipped: true,
+      message: "Check skipped (cooldown active)",
+      error: "",
+      picks: [],
+      props: [],
+      savedSummary: null,
+      trackedSummary: null,
+      dailyReport: null,
+      reports: [],
+    };
+  }
+
+  lastResolveAt = now;
+
+  try {
+    const res = await fetch(`${BASE_URL}/check-pending-results`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requireLikelyFinished: Boolean(options?.requireLikelyFinished),
+      }),
+    });
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      skipped: false,
+      message: data.message || "",
+      error: data.error || "",
+      picks: Array.isArray(data.picks) ? data.picks : [],
+      props: Array.isArray(data.props) ? data.props : [],
+      savedSummary: data.savedSummary || null,
+      trackedSummary: data.trackedSummary || null,
+      dailyReport: data.dailyReport || null,
+      reports: Array.isArray(data.reports) ? data.reports : [],
+      analytics: data.analytics || null,
+    };
+  } catch (err) {
+    console.log("CHECK PENDING RESULTS FAILED:", err);
+
+    return {
+      ok: false,
+      skipped: false,
+      message: "Network request failed",
+      error: String(err),
+      picks: [],
+      props: [],
+      savedSummary: null,
+      trackedSummary: null,
+      dailyReport: null,
+      reports: [],
+      analytics: null,
+    };
+  }
+};
+
 export const deletePick = async (id: string) => {
   try {
     const res = await fetch(`${BASE_URL}/saved-picks/${encodeURIComponent(id)}`, {
@@ -358,6 +426,83 @@ export const resolveTrackedProps = async (options?: {
       props: [],
       summary: null,
       analytics: null,
+    };
+  }
+};
+
+export const fetchDailySlateReports = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/daily-slate-reports`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      reports: Array.isArray(data.reports) ? data.reports : [],
+      count: data.count || 0,
+    };
+  } catch (err) {
+    console.log("FETCH DAILY SLATE REPORTS FAILED:", err);
+
+    return {
+      ok: false,
+      reports: [],
+      count: 0,
+    };
+  }
+};
+
+export const fetchDailySlateReport = async (slateDate: string) => {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/daily-slate-reports/${encodeURIComponent(slateDate)}`
+    );
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      report: data.report || null,
+      message: data.message || "",
+    };
+  } catch (err) {
+    console.log("FETCH DAILY SLATE REPORT FAILED:", err);
+
+    return {
+      ok: false,
+      report: null,
+      message: "Network request failed",
+    };
+  }
+};
+
+export const buildDailySlateReports = async (options?: { slateDate?: string }) => {
+  try {
+    const res = await fetch(`${BASE_URL}/daily-slate-reports/build`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        options?.slateDate ? { slateDate: options.slateDate } : {}
+      ),
+    });
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      message: data.message || "",
+      reports: Array.isArray(data.reports) ? data.reports : [],
+      summary: data.summary || data.dailyReport || null,
+      built: Array.isArray(data.built) ? data.built : [],
+    };
+  } catch (err) {
+    console.log("BUILD DAILY SLATE REPORTS FAILED:", err);
+
+    return {
+      ok: false,
+      message: "Network request failed",
+      reports: [],
+      summary: null,
+      built: [],
     };
   }
 };
