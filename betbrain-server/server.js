@@ -34,11 +34,11 @@ import {
 
 import {
   fetchFinalPlayerStats,
-  findPlayerResult,
   getPickDate,
   gradePointsPick,
   isPickGameStarted,
   isPickLikelyFinished,
+  resolvePlayerStatForPick,
 } from "./services/resultService.js";
 
 import { buildOpportunityScore } from "./engines/opportunityEngine.js";
@@ -75,6 +75,13 @@ import {
   getTrackedProps,
   resolveTrackedProps,
 } from "./services/trackedPropService.js";
+
+import {
+  attemptDailySlateReportBuild,
+  buildDailySlateReportsFromTrackedProps,
+  getDailySlateReport,
+  getDailySlateReports,
+} from "./services/dailySlateReportService.js";
 
 const app = express();
 
@@ -1110,10 +1117,6 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       picks: builtPicks,
     });
 
-    if (rankedGame.picks?.length) {
-      addTrackedProps(rankedGame.picks);
-    }
-
     console.log("PROPS PIPELINE FINAL:", {
       league,
       game: game.game,
@@ -1261,6 +1264,12 @@ async function refreshAllPicks() {
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
+  const topProps = buildTopProps(games);
+  const topNBAProps = buildTopProps(games, { league: "NBA" });
+  const topWNBAProps = buildTopProps(games, { league: "WNBA" });
+
+  addTrackedProps(topProps);
+
   const result = {
     ok: true,
     lastUpdated: new Date().toISOString(),
@@ -1283,9 +1292,9 @@ async function refreshAllPicks() {
       sideMismatchCount: sideAudit.sideMismatchCount,
     },
 
-    topProps: buildTopProps(games),
-    topNBAProps: buildTopProps(games, { league: "NBA" }),
-    topWNBAProps: buildTopProps(games, { league: "WNBA" }),
+    topProps,
+    topNBAProps,
+    topWNBAProps,
 
     games,
     nbaGames,
@@ -1585,6 +1594,60 @@ app.post("/clear-tracked-props", (req, res) => {
   });
 });
 
+app.get("/daily-slate-reports", (req, res) => {
+  const reports = getDailySlateReports();
+
+  res.json({
+    ok: true,
+    reports,
+    count: reports.length,
+  });
+});
+
+app.get("/daily-slate-reports/:slateDate", (req, res) => {
+  const report = getDailySlateReport(req.params.slateDate);
+
+  if (!report) {
+    return res.status(404).json({
+      ok: false,
+      message: "Daily slate report not found",
+      slateDate: req.params.slateDate,
+    });
+  }
+
+  res.json({
+    ok: true,
+    report,
+  });
+});
+
+app.post("/daily-slate-reports/build", (req, res) => {
+  try {
+    const slateDate = req.body?.slateDate ? String(req.body.slateDate) : null;
+    const props = getTrackedProps();
+    const result = buildDailySlateReportsFromTrackedProps(props, { slateDate });
+
+    res.json({
+      ok: true,
+      message: slateDate
+        ? `Daily slate report built for ${slateDate}`
+        : "Daily slate reports built for all slates",
+      reports: result.reports,
+      built: result.built,
+      summary: result.summary,
+      dailyReport: result.summary,
+    });
+  } catch (error) {
+    console.log("BUILD DAILY SLATE REPORTS ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Daily slate report build failed",
+      error: error.message,
+    });
+  }
+});
+
 const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
 let autoResolveRunning = false;
 
@@ -1620,14 +1683,18 @@ async function resolvePendingPicks(options = {}) {
   let skippedNotReady = 0;
   let stillPending = 0;
 
-  const updatedPicks = savedPicks.map((pick) => {
+  const updatedPicks = [];
+
+  for (const pick of savedPicks) {
     if (pick.status && pick.status !== "pending") {
-      return pick;
+      updatedPicks.push(pick);
+      continue;
     }
 
     if (!isReadyToGrade(pick)) {
       skippedNotReady += 1;
-      return pick;
+      updatedPicks.push(pick);
+      continue;
     }
 
     const pickDate = getPickDate(pick);
@@ -1635,8 +1702,11 @@ async function resolvePendingPicks(options = {}) {
     const cacheKey = `${league}:${pickDate || "unknown"}`;
     const playerStats = statsCache.get(cacheKey) || [];
 
-    const result = findPlayerResult(pick, playerStats);
-    const graded = gradePointsPick(pick, result);
+    const { statResult, pendingReason } = await resolvePlayerStatForPick(
+      pick,
+      playerStats
+    );
+    const graded = gradePointsPick(pick, statResult, { pendingReason });
 
     if (graded.status === "win") {
       updatePlayerAccuracy(graded.player, true, {
@@ -1658,8 +1728,8 @@ async function resolvePendingPicks(options = {}) {
       stillPending += 1;
     }
 
-    return graded;
-  });
+    updatedPicks.push(graded);
+  }
 
   const normalized = savePickHistory(updatedPicks);
 
@@ -1694,6 +1764,43 @@ app.post("/resolve-picks", async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Resolve failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/check-pending-results", async (req, res) => {
+  try {
+    const requireLikelyFinished = Boolean(req.body?.requireLikelyFinished);
+
+    const { picks, summary: savedSummary } = await resolvePendingPicks({
+      requireLikelyFinished,
+    });
+
+    const { props, summary: trackedSummary } = await resolveTrackedProps({
+      requireLikelyFinished,
+    });
+
+    const dailyReport = attemptDailySlateReportBuild(props);
+
+    res.json({
+      ok: true,
+      message: "Pending results checked",
+      picks,
+      props,
+      savedSummary,
+      trackedSummary,
+      dailyReport: dailyReport.summary,
+      reports: dailyReport.reports,
+      built: dailyReport.built,
+      analytics: buildTrackedPropAnalytics(props),
+    });
+  } catch (error) {
+    console.log("CHECK PENDING RESULTS ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Check pending results failed",
       error: error.message,
     });
   }

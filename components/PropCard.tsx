@@ -526,6 +526,12 @@ function formatPercent(value: any) {
 }
 
 function getActual(pick: any) {
+  const status = String(pick.status || "pending").toLowerCase();
+
+  if (status === "pending") {
+    return null;
+  }
+
   return (
     pick.actualStat ??
     pick.actualPoints ??

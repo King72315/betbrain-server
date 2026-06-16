@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 import { CONFIG } from "../config.js";
+import { fetchPlayerStats } from "./ballService.js";
 
 const SPORTS_BASE = "https://api.sportsdata.io/api/nba";
 const SPORTS_KEY = CONFIG.SPORTS_KEY;
@@ -21,16 +22,40 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function getSlateDateKey(dateInput) {
+  if (!dateInput) return "";
+
+  const raw = String(dateInput).trim();
+  const direct = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (direct) return direct[1];
+
+  const parsed = new Date(dateInput);
+
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: CONFIG.TIMEZONE || "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(parsed);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
 function formatDate(date = new Date()) {
-  if (!date) return new Date().toISOString().split("T")[0];
+  if (!date) return getSlateDateKey(new Date());
 
-  const parsed = new Date(date);
+  const direct = getSlateDateKey(date);
 
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date().toISOString().split("T")[0];
-  }
+  if (direct) return direct;
 
-  return parsed.toISOString().split("T")[0];
+  return getSlateDateKey(new Date());
 }
 
 function normalizeLeague(value = "NBA") {
@@ -129,6 +154,24 @@ function normalizeTeam(value = "", league = "NBA") {
     "phoenix mercury": "phoenixmercury",
     "seattle storm": "seattlestorm",
     "washington mystics": "washingtonmystics",
+    "toronto tempo": "torontotempo",
+    "portland fire": "portlandfire",
+
+    atlantadream: "atlantadream",
+    chicagosky: "chicagosky",
+    connecticutsun: "connecticutsun",
+    dallaswings: "dallaswings",
+    goldenstatevalkyries: "goldenstatevalkyries",
+    indianafever: "indianafever",
+    lasvegasaces: "lasvegasaces",
+    losangelessparks: "losangelessparks",
+    minnesotalynx: "minnesotalynx",
+    newyorkliberty: "newyorkliberty",
+    phoenixmercury: "phoenixmercury",
+    seattlestorm: "seattlestorm",
+    washingtonmystics: "washingtonmystics",
+    torontotempo: "torontotempo",
+    portlandfire: "portlandfire",
 
     atl: "atlantadream",
     chi: "chicagosky",
@@ -142,6 +185,7 @@ function normalizeTeam(value = "", league = "NBA") {
     lva: "lasvegasaces",
     las: "lasvegasaces",
     la: "losangelessparks",
+    lasparks: "losangelessparks",
     min: "minnesotalynx",
     ny: "newyorkliberty",
     nyl: "newyorkliberty",
@@ -150,6 +194,10 @@ function normalizeTeam(value = "", league = "NBA") {
     sea: "seattlestorm",
     was: "washingtonmystics",
     wash: "washingtonmystics",
+    tor: "torontotempo",
+    tempo: "torontotempo",
+    por: "portlandfire",
+    fire: "portlandfire",
   };
 
   if (league === "WNBA") {
@@ -182,26 +230,33 @@ function getBallOpponent(stat = {}) {
   return home || away || "";
 }
 
-async function fetchJSON(url, label, headers = {}) {
-  try {
-    console.log(`${label} URL:`, url);
+async function fetchJSON(url, label, headers = {}, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`${label} URL:`, url);
 
-    const res = await fetch(url, { headers });
-    const data = await res.json();
+      const res = await fetch(url, { headers });
+      const data = await res.json();
 
-    console.log(`${label} STATUS:`, res.status);
-    console.log(`${label} RAW COUNT:`, data?.data?.length ?? data?.length ?? "null");
+      console.log(`${label} STATUS:`, res.status);
+      console.log(`${label} RAW COUNT:`, data?.data?.length ?? data?.length ?? "null");
 
-    if (!res.ok) {
-      console.log(`${label} ERROR BODY:`, data);
-      return null;
+      if (!res.ok) {
+        console.log(`${label} ERROR BODY:`, data);
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      console.log(`${label} ATTEMPT ${attempt} ERROR:`, err.message);
+
+      if (attempt === retries) return null;
+
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
     }
-
-    return data;
-  } catch (err) {
-    console.log(`${label} ERROR:`, err.message);
-    return null;
   }
+
+  return null;
 }
 
 function normalizeSportsDataStat(stat = {}, date = new Date()) {
@@ -322,6 +377,7 @@ async function fetchBallFinalStatsByDate(date = new Date(), league = "WNBA") {
   if (!base) return [];
 
   const formattedDate = formatDate(date);
+  const seasonYear = formattedDate ? Number(formattedDate.slice(0, 4)) : new Date().getFullYear();
 
   const allStats = [];
   let cursor = null;
@@ -331,6 +387,7 @@ async function fetchBallFinalStatsByDate(date = new Date(), league = "WNBA") {
 
     const url =
       `${base}/player_stats?dates[]=${formattedDate}` +
+      `&seasons[]=${seasonYear}` +
       `&per_page=100${cursorParam}`;
 
     const data = await fetchJSON(
@@ -387,7 +444,6 @@ function getPickDate(savedPick = {}) {
     savedPick.date ||
     savedPick.commenceTime ||
     savedPick.time ||
-    savedPick.createdAt ||
     null;
 
   return dateSource ? formatDate(dateSource) : "";
@@ -454,12 +510,34 @@ function getStatPlayerName(stat = {}) {
   );
 }
 
+function getPickTeams(savedPick = {}, league = "NBA") {
+  const cleanLeague = normalizeLeague(league || savedPick.league || "NBA");
+  const game = String(savedPick.game || "");
+  const parts = game.split(/\s+vs\s+/i).map((part) => part.trim()).filter(Boolean);
+
+  if (parts.length === 2) {
+    return {
+      teamA: normalizeTeam(parts[0], cleanLeague),
+      teamB: normalizeTeam(parts[1], cleanLeague),
+    };
+  }
+
+  return {
+    teamA: normalizeTeam(savedPick.team || "", cleanLeague),
+    teamB: normalizeTeam(savedPick.opponent || "", cleanLeague),
+  };
+}
+
 function getStatTeam(stat = {}, league = "NBA") {
-  if (stat.team) return normalizeTeam(stat.team, league);
+  const cleanLeague = normalizeLeague(league || stat.league || "NBA");
+
+  if (stat.team) {
+    return normalizeTeam(String(stat.team), cleanLeague);
+  }
 
   return normalizeTeam(
     stat.Team || stat.TeamAbbreviation || stat.rawTeam || "",
-    league
+    cleanLeague
   );
 }
 
@@ -473,7 +551,29 @@ function playerMatches(savedPick = {}, stat = {}) {
 
   if (!targetPlayer || !statPlayer) return false;
 
-  return targetPlayer === statPlayer;
+  if (targetPlayer === statPlayer) return true;
+
+  const targetParts = String(savedPick.player || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const statParts = getStatPlayerName(stat).trim().split(/\s+/).filter(Boolean);
+
+  if (!targetParts.length || !statParts.length) return false;
+
+  const targetLast = clean(targetParts[targetParts.length - 1]);
+  const statLast = clean(statParts[statParts.length - 1]);
+
+  if (targetLast !== statLast) return false;
+
+  const targetFirst = clean(targetParts[0]);
+  const statFirst = clean(statParts[0]);
+
+  return (
+    targetFirst === statFirst ||
+    statFirst.startsWith(targetFirst.slice(0, 3)) ||
+    targetFirst.startsWith(statFirst.slice(0, 3))
+  );
 }
 
 function teamMatches(savedPick = {}, stat = {}) {
@@ -481,10 +581,18 @@ function teamMatches(savedPick = {}, stat = {}) {
 
   const targetTeam = normalizeTeam(savedPick.team || "", league);
   const statTeam = getStatTeam(stat, league);
+  const { teamA, teamB } = getPickTeams(savedPick, league);
 
-  if (!targetTeam || !statTeam) return true;
+  if (!targetTeam && !teamA && !teamB) return true;
+  if (!statTeam) return true;
 
-  return targetTeam === statTeam;
+  if (targetTeam && statTeam === targetTeam) return true;
+
+  if (teamA && teamB) {
+    return statTeam === teamA || statTeam === teamB;
+  }
+
+  return false;
 }
 
 function dateMatches(savedPick = {}, stat = {}) {
@@ -538,6 +646,95 @@ export function findPlayerResult(savedPick, playerStats = []) {
   return null;
 }
 
+function buildPendingReason(savedPick = {}, playerStats = [], statResult = null) {
+  if (statResult) return null;
+
+  if (!Array.isArray(playerStats) || playerStats.length === 0) {
+    return "Final player stats unavailable from source";
+  }
+
+  return "No exact game stat match found for pick date and league";
+}
+
+function ballGameToStatResult(savedPick = {}, game = {}, league = "WNBA") {
+  const pickDate = getPickDate(savedPick);
+
+  return {
+    source: "BallDontLie",
+    league,
+    date: getSlateDateKey(game.date) || pickDate,
+    player: savedPick.player,
+    playerKey: clean(savedPick.player),
+    team: normalizeTeam(game.team || savedPick.team || "", league),
+    opponent: normalizeTeam(game.opponent || savedPick.opponent || "", league),
+    points: num(game.points),
+    minutes: num(game.minutes),
+    fga: num(game.fga),
+    fta: num(game.fta),
+    fg3a: num(game.fg3a),
+    raw: game.raw || game,
+  };
+}
+
+async function fetchBallPlayerStatForPick(savedPick = {}) {
+  const league = normalizeLeague(savedPick.league || "WNBA");
+  const pickDate = getPickDate(savedPick);
+
+  if (!pickDate || !savedPick.player) return null;
+
+  const games = await fetchPlayerStats(savedPick.player, league);
+
+  if (!games.length) return null;
+
+  const targetTeam = normalizeTeam(savedPick.team || "", league);
+  const { teamA, teamB } = getPickTeams(savedPick, league);
+
+  const match = games.find((game) => {
+    const gameDate = getSlateDateKey(game.date);
+
+    if (gameDate !== pickDate) return false;
+
+    const gameTeam = normalizeTeam(game.team || "", league);
+
+    if (targetTeam && gameTeam && targetTeam !== gameTeam) return false;
+
+    if (!targetTeam && teamA && teamB && gameTeam) {
+      return gameTeam === teamA || gameTeam === teamB;
+    }
+
+    return true;
+  });
+
+  if (!match) return null;
+
+  return ballGameToStatResult(savedPick, match, league);
+}
+
+export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null) {
+  const league = normalizeLeague(savedPick.league || "NBA");
+  const pickDate = getPickDate(savedPick);
+
+  let stats = batchStats;
+
+  if (!stats) {
+    stats = await fetchFinalPlayerStats(
+      pickDate ? new Date(`${pickDate}T12:00:00Z`) : new Date(),
+      { league }
+    );
+  }
+
+  let statResult = findPlayerResult(savedPick, stats);
+
+  if (!statResult && (league === "WNBA" || league === "NBA")) {
+    statResult = await fetchBallPlayerStatForPick(savedPick);
+  }
+
+  return {
+    statResult,
+    pendingReason: buildPendingReason(savedPick, stats, statResult),
+  };
+}
+
 function getActualPoints(statResult = {}) {
   return num(
     statResult.points ??
@@ -557,14 +754,21 @@ function normalizeSide(savedPick = {}) {
   return "";
 }
 
-export function gradePointsPick(savedPick, statResult) {
+export function gradePointsPick(savedPick, statResult, options = {}) {
   if (!statResult) {
     return {
       ...savedPick,
       status: "pending",
       pendingReason:
+        options.pendingReason ||
         savedPick.pendingReason ||
         "No exact game stat match found for pick date and league",
+      actualStat: null,
+      actualPoints: null,
+      finalPoints: null,
+      result: null,
+      resultMargin: null,
+      margin: null,
     };
   }
 

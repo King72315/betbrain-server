@@ -52,6 +52,46 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function isResolvedPickStatus(status = "pending") {
+  return ["win", "loss", "push"].includes(String(status || "pending").toLowerCase());
+}
+
+function nullableStat(value) {
+  return value === null || value === undefined || value === "" ? null : num(value);
+}
+
+function resolvePickStatField(pick = {}, existing = {}, fields = []) {
+  const status = String(pick.status || existing?.status || "pending").toLowerCase();
+
+  if (!isResolvedPickStatus(status)) {
+    const hasExplicitNull = fields.some(
+      (field) => pick[field] === null || pick[field] === undefined
+    );
+
+    if (hasExplicitNull) {
+      const raw = fields.reduce(
+        (found, field) => (found !== undefined ? found : pick[field]),
+        undefined
+      );
+
+      return raw === null || raw === undefined ? null : nullableStat(raw);
+    }
+
+    return null;
+  }
+
+  const raw = fields.reduce((found, field) => {
+    if (found !== null && found !== undefined) return found;
+    if (pick[field] !== null && pick[field] !== undefined) return pick[field];
+    if (existing?.[field] !== null && existing?.[field] !== undefined) {
+      return existing[field];
+    }
+    return found;
+  }, null);
+
+  return nullableStat(raw);
+}
+
 function getConfidenceBucket(confidence = 0) {
   const c = num(confidence);
 
@@ -334,32 +374,22 @@ function normalizePick(pick = {}, existing = null) {
     resolvedAt: pick.resolvedAt || existing?.resolvedAt || null,
     gradedAt: pick.gradedAt || existing?.gradedAt || null,
 
-    result:
-      pick.result ??
-      existing?.result ??
-      pick.actualStat ??
-      existing?.actualStat ??
-      null,
-    actualStat: num(
-      pick.actualStat ??
-        pick.actualPoints ??
-        pick.finalPoints ??
-        existing?.actualStat ??
-        existing?.actualPoints
-    ),
-    actualPoints: num(
-      pick.actualPoints ??
-        pick.actualStat ??
-        pick.finalPoints ??
-        existing?.actualPoints ??
-        existing?.actualStat
-    ),
-    finalPoints: num(
-      pick.finalPoints ??
-        pick.actualPoints ??
-        pick.actualStat ??
-        existing?.finalPoints
-    ),
+    result: resolvePickStatField(pick, existing, ["result", "actualStat", "actualPoints"]),
+    actualStat: resolvePickStatField(pick, existing, [
+      "actualStat",
+      "actualPoints",
+      "finalPoints",
+    ]),
+    actualPoints: resolvePickStatField(pick, existing, [
+      "actualPoints",
+      "actualStat",
+      "finalPoints",
+    ]),
+    finalPoints: resolvePickStatField(pick, existing, [
+      "finalPoints",
+      "actualPoints",
+      "actualStat",
+    ]),
     resultMargin: num(
       pick.resultMargin ?? pick.margin ?? existing?.resultMargin ?? existing?.margin
     ),
