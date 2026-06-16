@@ -10,14 +10,12 @@ import {
   View,
 } from "react-native";
 
-import CopyReportButton from "../../components/CopyReportButton";
 import PropCard, {
   ResultMarginText,
   formatTime,
   safeDisplay,
 } from "../../components/PropCard";
 import { checkPendingResults, fetchPickHistory } from "../../services/api";
-import { buildResultsReport } from "../../utils/reportBuilders";
 
 const RISK_GROUPS = ["Low Risk", "Medium Risk", "High Risk"] as const;
 
@@ -202,22 +200,6 @@ export default function History() {
     }));
   }, [groupedByRisk, picks]);
 
-  const getReportText = () =>
-    buildResultsReport({
-      picks,
-      overall,
-      pendingCount,
-      premiumRecord,
-      nbaRecord,
-      wnbaRecord,
-      confidenceBuckets,
-      riskSummaries,
-      gradedPicks,
-      loading,
-      lastCheckResponse,
-      error: loadError,
-    });
-
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -233,7 +215,6 @@ export default function History() {
           <Text style={styles.motto}>
             Every result tightens the next confidence score.
           </Text>
-          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <View style={styles.summaryCard}>
