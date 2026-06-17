@@ -1,5 +1,5 @@
 import { formatTime, safeDisplay } from "../components/PropCard";
-import { getApiBaseUrl } from "../services/api";
+import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
 
 function getPickStatus(pick: any) {
@@ -428,7 +428,40 @@ export function buildPropLabReport(input: {
   const sectionD = input.report?.sections?.D;
   const sectionE = input.report?.sections?.E;
   const sectionF = input.report?.sections?.F;
+  const engineScorecard = input.report?.engineScorecard || input.report?.sections?.G;
+  const mistakeBreakdown = input.report?.mistakeBreakdown || input.report?.sections?.H;
+  const calibrationRules = input.report?.calibrationRules || input.report?.sections?.I;
+  const slateLesson = input.report?.slateLesson || input.report?.sections?.J;
   const status = sectionA?.reportStatus || input.report?.status || "—";
+
+  const engineLines = (engineScorecard?.engines || []).map(
+    (engine: any) =>
+      `${engine.engine}: ${engine.record} (${engine.winRate ?? "—"}%) • n=${engine.sampleSize} • avg margin ${safeDisplay(engine.avgMargin)} • ${engine.status}${engine.earlySignal ? " • early signal" : ""} — ${engine.lesson}`
+  );
+
+  const mistakeCategoryLines = Object.values(mistakeBreakdown?.categories || {})
+    .filter((cat: any) => cat.count > 0)
+    .map(
+      (cat: any) =>
+        `${cat.label}: ${cat.count} (${cat.pct}%)`
+    );
+
+  const mistakeDetailLines = (mistakeBreakdown?.losses || []).map(
+    (loss: any, index: number) =>
+      `[${index + 1}] ${loss.player} — ${loss.side} ${loss.line} | ${loss.label}: ${loss.explanation}`
+  );
+
+  const calibrationRuleLines = (calibrationRules?.rules || []).map(
+    (rule: any) => `[${String(rule.priority).toUpperCase()}] ${rule.rule} — ${rule.reason}`
+  );
+
+  const slateLessonLines = slateLesson
+    ? [
+        slateLesson.headline,
+        slateLesson.body,
+        ...(slateLesson.bullets || []).map((b: string) => `• ${b}`),
+      ].filter(Boolean)
+    : [];
 
   const riskBucketLines = sectionB?.buckets
     ? Object.entries(sectionB.buckets).map(
@@ -463,6 +496,8 @@ export function buildPropLabReport(input: {
   ].filter(Boolean) as string[];
 
   const analyticsOverall = input.analytics?.overall;
+  const backendUrl = getApiBaseUrl();
+  const backendMode = getBackendMode();
 
   return buildPageReport({
     page: "Prop Lab",
@@ -473,6 +508,8 @@ export function buildPropLabReport(input: {
       "Selected Slate": input.selectedSlate || "—",
       "Report Status": status,
       "Reports Available": input.reports.length,
+      "Backend URL": backendUrl,
+      "Backend Mode": backendMode,
       Loading: input.loading,
       Building: input.building,
       Refreshing: input.refreshing,
@@ -486,6 +523,7 @@ export function buildPropLabReport(input: {
       sectionA
         ? `Slate record: ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`
         : null,
+      slateLesson?.headline || null,
       analyticsOverall?.currentEngine
         ? `All-time tracked engine: ${analyticsOverall.currentEngine.wins}-${analyticsOverall.currentEngine.losses}-${analyticsOverall.currentEngine.pushes} (${analyticsOverall.currentEngine.accuracy}%)`
         : null,
@@ -494,6 +532,21 @@ export function buildPropLabReport(input: {
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
         : "No slate report loaded.",
+      slateLessonLines.length
+        ? `\nSlate Lesson\n${slateLessonLines.join("\n")}`
+        : null,
+      engineLines.length
+        ? `\nEngine Scorecard\n${bulletList(engineLines)}`
+        : null,
+      mistakeCategoryLines.length
+        ? `\nMistake Breakdown\n${bulletList(mistakeCategoryLines)}`
+        : null,
+      mistakeDetailLines.length
+        ? `\nMistake Details\n${mistakeDetailLines.join("\n")}`
+        : null,
+      calibrationRuleLines.length
+        ? `\nCalibration Rules\n${bulletList(calibrationRuleLines)}`
+        : null,
       sectionC
         ? `\nProjection / Fair Line Accuracy\nSample: ${sectionC.sample || 0} | Proj side win rate: ${sectionC.projectionSideWinRate ?? "—"}% | Avg projected/fair/actual/error: ${safeDisplay(sectionC.avgProjected)}/${safeDisplay(sectionC.avgFairLine)}/${safeDisplay(sectionC.avgActual)}/${safeDisplay(sectionC.avgError)} | Bias: ${sectionC.bias || "—"}`
         : null,
@@ -501,13 +554,13 @@ export function buildPropLabReport(input: {
         ? `\nRisk Bucket Breakdown\n${bulletList(riskBucketLines)}`
         : null,
       signalLines.length
-        ? `\nEngine / Signal Performance\n${bulletList(signalLines.slice(0, 30))}`
+        ? `\nEngine / Signal Performance (Detail)\n${bulletList(signalLines.slice(0, 30))}`
         : null,
       lossLines.length
-        ? `\nLoss / Miss Type Report\n${lossLines.join("\n")}`
+        ? `\nLoss / Miss Type Report (Legacy)\n${lossLines.join("\n")}`
         : null,
       recLines.length
-        ? `\nCalibration Recommendations\n${bulletList(recLines)}`
+        ? `\nLegacy Calibration Recommendations\n${bulletList(recLines)}`
         : null,
       analyticsOverall
         ? `\nTracked Props Summary\nTotal tracked: ${analyticsOverall.total || 0} | Fair line shadow: ${
@@ -525,6 +578,8 @@ export function buildPropLabReport(input: {
             )
             .join("\n")}`
         : null,
+      `\nBackend URL: ${backendUrl}`,
+      `Backend Mode: ${backendMode}`,
     ]),
     warnings:
       !input.loading && !input.report
@@ -533,7 +588,7 @@ export function buildPropLabReport(input: {
           ? `${sectionA.pending} prop(s) still pending — report updates when all grade.`
           : undefined,
     errors: input.error || undefined,
-    debugNotes: `Backend: ${getApiBaseUrl()}`,
+    debugNotes: `Backend: ${backendUrl} (${backendMode})`,
   });
 }
 
@@ -569,6 +624,7 @@ export function buildSettingsReport(input: {
     },
     visibleSummary: joinLines([
       `API URL: ${getApiBaseUrl()}`,
+      `Backend Mode: ${getBackendMode()}`,
       `Status: ${input.checking ? "Checking..." : input.health?.ok ? "Online" : "Offline"}`,
       input.health?.message || input.health?.error
         ? `Health message: ${input.health.message || input.health.error}`

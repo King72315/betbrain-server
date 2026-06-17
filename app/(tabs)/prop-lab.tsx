@@ -18,6 +18,8 @@ import {
   fetchTrackedProps,
   resolveTrackedProps,
 } from "../../services/api";
+import CopyReportButton from "../../components/CopyReportButton";
+import { buildPropLabReport } from "../../utils/reportBuilders";
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -99,11 +101,141 @@ function GroupPerfTable({
   ));
 }
 
+function EngineStatusBadge({ status }: { status: string }) {
+  const normalized = String(status || "").toUpperCase();
+  let badgeStyle = styles.engineStatusNeutral;
+  if (normalized === "WORKING") badgeStyle = styles.engineStatusWorking;
+  else if (normalized === "WEAK") badgeStyle = styles.engineStatusWeak;
+  else if (normalized === "FAILING") badgeStyle = styles.engineStatusFailing;
+
+  return (
+    <View style={[styles.engineBadge, badgeStyle]}>
+      <Text style={styles.engineBadgeText}>{normalized.replace(/_/g, " ")}</Text>
+    </View>
+  );
+}
+
+function EngineScorecardCard({ engine }: { engine: any }) {
+  return (
+    <View style={styles.engineCard}>
+      <View style={styles.engineCardHeader}>
+        <Text style={styles.engineName}>{engine.engine}</Text>
+        <EngineStatusBadge status={engine.status} />
+      </View>
+      <Text style={styles.engineStatLine}>
+        {engine.record} • {formatPct(engine.winRate)} • n={engine.sampleSize}
+        {engine.gradedCount !== undefined ? ` (${engine.gradedCount} decided)` : ""}
+      </Text>
+      <Text style={styles.engineStatLine}>
+        Avg margin: {formatNum(engine.avgMargin)} •{" "}
+        {engine.earlySignal ? "early signal" : engine.hasData === false ? "no field data" : "graded sample"}
+      </Text>
+      <Text style={styles.engineLesson}>{engine.lesson}</Text>
+    </View>
+  );
+}
+
+function EngineScorecardSection({ scorecard }: { scorecard: any }) {
+  const engines = scorecard?.engines || [];
+  if (!engines.length) {
+    return <Text style={styles.muted}>No engine scorecard data yet.</Text>;
+  }
+
+  const summary = scorecard.summary;
+
+  return (
+    <View style={styles.engineGrid}>
+      {summary ? (
+        <Text style={styles.engineSummary}>
+          {summary.working} working • {summary.weak} weak • {summary.failing} failing •{" "}
+          {summary.notEnoughData} need data
+        </Text>
+      ) : null}
+      {engines.map((engine: any) => (
+        <EngineScorecardCard key={engine.engine} engine={engine} />
+      ))}
+    </View>
+  );
+}
+
+function MistakeBreakdownSection({ breakdown }: { breakdown: any }) {
+  if (!breakdown) {
+    return <Text style={styles.muted}>No mistake breakdown yet.</Text>;
+  }
+
+  if ((breakdown.totalLosses || 0) === 0) {
+    return <Text style={styles.muted}>No losses on this slate.</Text>;
+  }
+
+  const categories = Object.values(breakdown.categories || {}).filter(
+    (cat: any) => cat.count > 0
+  ) as any[];
+
+  return (
+    <View style={styles.mistakeSection}>
+      <Text style={styles.mistakeTotal}>{breakdown.totalLosses} loss(es) classified</Text>
+      {categories.map((cat) => (
+        <View key={cat.key} style={styles.mistakeCategory}>
+          <Text style={styles.mistakeCategoryTitle}>
+            {cat.label} — {cat.count} ({cat.pct}%)
+          </Text>
+          {(cat.losses || []).slice(0, 3).map((loss: any, index: number) => (
+            <Text key={`${cat.key}-${index}`} style={styles.mistakeItem}>
+              {loss.player} {loss.side} {loss.line} — {loss.explanation}
+            </Text>
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CalibrationRulesSection({ rules }: { rules: any }) {
+  if (!rules?.rules?.length) {
+    return <Text style={styles.muted}>No calibration rules triggered yet.</Text>;
+  }
+
+  return (
+    <View style={styles.rulesSection}>
+      {rules.doNotAdjustYet ? (
+        <Text style={styles.warnNote}>Do not adjust yet — sample too small.</Text>
+      ) : null}
+      {rules.rules.map((item: any, index: number) => (
+        <View key={`${item.id}-${index}`} style={styles.ruleRow}>
+          <Text style={styles.rulePriority}>[{String(item.priority).toUpperCase()}]</Text>
+          <Text style={styles.ruleText}>{item.rule}</Text>
+          <Text style={styles.ruleReason}>{item.reason}</Text>
+        </View>
+      ))}
+      {rules.note ? <Text style={styles.muted}>{rules.note}</Text> : null}
+    </View>
+  );
+}
+
+function SlateLessonSection({ lesson }: { lesson: any }) {
+  if (!lesson) {
+    return <Text style={styles.muted}>No slate lesson yet.</Text>;
+  }
+
+  return (
+    <View style={styles.lessonSection}>
+      <Text style={styles.lessonHeadline}>{lesson.headline}</Text>
+      {lesson.body ? <Text style={styles.lessonBody}>{lesson.body}</Text> : null}
+      {(lesson.bullets || []).map((bullet: string, index: number) => (
+        <Text key={index} style={styles.lessonBullet}>
+          • {bullet}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 export default function PropLab() {
   const [reports, setReports] = useState<any[]>([]);
   const [selectedSlate, setSelectedSlate] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -133,6 +265,8 @@ export default function PropLab() {
       setLoading(true);
       const analyticsData = await fetchTrackedAnalytics();
       setAnalytics(analyticsData.analytics || null);
+      const trackedData = await fetchTrackedProps();
+      setTrackedProps(trackedData.props || []);
       await loadReports();
     } catch (err) {
       console.log("LOAD PROP LAB ERROR:", err);
@@ -150,6 +284,8 @@ export default function PropLab() {
       );
       const analyticsData = await fetchTrackedAnalytics();
       setAnalytics(analyticsData.analytics || null);
+      const trackedData = await fetchTrackedProps();
+      setTrackedProps(trackedData.props || []);
       await loadReports(selectedSlate);
     } catch (err) {
       console.log("REFRESH PROP LAB ERROR:", err);
@@ -191,12 +327,34 @@ export default function PropLab() {
   const sectionD = report?.sections?.D;
   const sectionE = report?.sections?.E;
   const sectionF = report?.sections?.F;
+  const engineScorecard = report?.engineScorecard || report?.sections?.G;
+  const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
+  const calibrationRules = report?.calibrationRules || report?.sections?.I;
+  const slateLesson = report?.slateLesson || report?.sections?.J;
+
+  const slateTrackedProps = useMemo(() => {
+    if (!selectedSlate) return trackedProps.slice(0, 12);
+    return trackedProps
+      .filter((p) => p.slateDate === selectedSlate)
+      .slice(0, 12);
+  }, [trackedProps, selectedSlate]);
 
   const allTimeRecord = useMemo(() => {
     const o = analytics?.overall?.currentEngine;
     if (!o) return null;
     return formatRecord(o.wins, o.losses, o.pushes, o.accuracy);
   }, [analytics]);
+
+  const getReportText = () =>
+    buildPropLabReport({
+      reports,
+      selectedSlate,
+      report,
+      analytics,
+      loading,
+      building,
+      refreshing,
+    });
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -213,6 +371,7 @@ export default function PropLab() {
           <Text style={styles.note}>
             Official Top Props are auto-tracked. Build reports after games grade.
           </Text>
+          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <View style={styles.actionRow}>
@@ -268,7 +427,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionA ? (
-          <SectionCard title="1. Daily Slate Report">
+          <SectionCard title="Slate Status & Record">
             <View style={styles.summaryHeader}>
               <Text style={styles.slateTitle}>{formatSlateLabel(sectionA.slateDate)}</Text>
               <StatusBadge status={sectionA.reportStatus || report?.status || ""} />
@@ -296,8 +455,32 @@ export default function PropLab() {
           </SectionCard>
         ) : null}
 
+        {slateLesson ? (
+          <SectionCard title="Slate Lesson">
+            <SlateLessonSection lesson={slateLesson} />
+          </SectionCard>
+        ) : null}
+
+        {engineScorecard ? (
+          <SectionCard title="Engine Scorecard">
+            <EngineScorecardSection scorecard={engineScorecard} />
+          </SectionCard>
+        ) : null}
+
+        {mistakeBreakdown ? (
+          <SectionCard title="Mistake Breakdown">
+            <MistakeBreakdownSection breakdown={mistakeBreakdown} />
+          </SectionCard>
+        ) : null}
+
+        {calibrationRules ? (
+          <SectionCard title="Calibration Rules">
+            <CalibrationRulesSection rules={calibrationRules} />
+          </SectionCard>
+        ) : null}
+
         {sectionB ? (
-          <SectionCard title="2. Risk Calibration">
+          <SectionCard title="Risk Calibration (Detail)">
             {Object.entries(sectionB.buckets || {}).map(([bucket, stats]: [string, any]) => (
               <View key={bucket} style={styles.bucketBlock}>
                 <Text style={styles.bucketTitle}>{bucket}</Text>
@@ -316,7 +499,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionC ? (
-          <SectionCard title="3. Projection / Fair Line Accuracy">
+          <SectionCard title="Projection / Fair Line (Detail)">
             {sectionC.needsMoreData ? (
               <Text style={styles.muted}>Not enough graded projection data yet.</Text>
             ) : null}
@@ -342,7 +525,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionD ? (
-          <SectionCard title="4. Engine / Signal Performance">
+          <SectionCard title="Signal Groups (Detail)">
             {Object.entries(sectionD.groups || {}).map(([groupName, groups]) => (
               <View key={groupName} style={styles.signalGroup}>
                 <Text style={styles.signalGroupTitle}>{groupName}</Text>
@@ -353,7 +536,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionE ? (
-          <SectionCard title="5. Loss / Miss Type Report">
+          <SectionCard title="Loss Detail (Legacy)">
             {(sectionE.losses || []).length === 0 ? (
               <Text style={styles.muted}>No losses on this slate.</Text>
             ) : (
@@ -373,7 +556,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionF ? (
-          <SectionCard title="6. Calibration Recommendations">
+          <SectionCard title="Legacy Calibration Notes">
             {sectionF.doNotAdjustYet ? (
               <Text style={styles.warnNote}>Do not adjust yet — sample too small.</Text>
             ) : null}
@@ -404,7 +587,7 @@ export default function PropLab() {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="All-Time Analytics (Secondary)">
+        <SectionCard title="All-Time Analytics">
           <MetricRow label="Tracked engine" value={allTimeRecord || "—"} />
           <MetricRow
             label="Fair line shadow"
@@ -423,6 +606,28 @@ export default function PropLab() {
             label="Total tracked"
             value={String(analytics?.overall?.total || 0)}
           />
+        </SectionCard>
+
+        <SectionCard title="Raw Tracked Props (Slate Sample)">
+          {slateTrackedProps.length === 0 ? (
+            <Text style={styles.muted}>No tracked props for this slate.</Text>
+          ) : (
+            slateTrackedProps.map((prop, index) => (
+              <View key={prop.trackedId || prop.trackedKey || index} style={styles.rawPropRow}>
+                <Text style={styles.rawPropTitle}>
+                  {prop.player} — {prop.currentEngineSide} {prop.line} ({prop.league})
+                </Text>
+                <Text style={styles.rawPropMeta}>
+                  {String(prop.status || "pending").toUpperCase()} • conf {prop.confidence ?? "—"} •{" "}
+                  {prop.riskLabel || "—"} • {String(prop.tier || "—").toUpperCase()}
+                </Text>
+                <Text style={styles.rawPropMeta}>
+                  proj {formatNum(prop.projection)} • fair {formatNum(prop.fairLine)} • books{" "}
+                  {prop.bookCount ?? "—"} • mkt {prop.marketQuality ?? "—"}
+                </Text>
+              </View>
+            ))
+          )}
         </SectionCard>
       </ScrollView>
     </SafeAreaView>
@@ -707,5 +912,154 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontWeight: "700",
+  },
+  engineGrid: {
+    gap: 8,
+  },
+  engineSummary: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  engineCard: {
+    backgroundColor: "#111827",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    gap: 4,
+  },
+  engineCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  engineName: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "900",
+    flex: 1,
+  },
+  engineBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  engineBadgeText: {
+    color: "#f8fafc",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  engineStatusWorking: {
+    backgroundColor: "#14532d",
+  },
+  engineStatusWeak: {
+    backgroundColor: "#854d0e",
+  },
+  engineStatusFailing: {
+    backgroundColor: "#7f1d1d",
+  },
+  engineStatusNeutral: {
+    backgroundColor: "#334155",
+  },
+  engineStatLine: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  engineLesson: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 14,
+  },
+  mistakeSection: {
+    gap: 8,
+  },
+  mistakeTotal: {
+    color: "#fca5a5",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  mistakeCategory: {
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+    paddingTop: 8,
+    gap: 3,
+  },
+  mistakeCategoryTitle: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  mistakeItem: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 14,
+  },
+  rulesSection: {
+    gap: 8,
+  },
+  ruleRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+    paddingTop: 8,
+    gap: 2,
+  },
+  rulePriority: {
+    color: "#38bdf8",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  ruleText: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  ruleReason: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  lessonSection: {
+    gap: 6,
+  },
+  lessonHeadline: {
+    color: "#f8fafc",
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 20,
+  },
+  lessonBody: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  lessonBullet: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  rawPropRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+    paddingTop: 8,
+    marginTop: 4,
+    gap: 2,
+  },
+  rawPropTitle: {
+    color: "#e2e8f0",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  rawPropMeta: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: "600",
   },
 });

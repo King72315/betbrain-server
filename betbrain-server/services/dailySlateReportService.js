@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { buildEngineReportCardBundle } from "./engineReportCardService.js";
 import { getSlateDateCT, getTrackedProps } from "./trackedPropService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -642,12 +643,41 @@ function buildSlateReport(slateDate, props = []) {
     }),
   };
 
+  const reportCard = buildEngineReportCardBundle(slateProps, {
+    slateDate,
+    reportStatus,
+  });
+
+  const sectionG = {
+    title: "Engine Scorecard",
+    ...reportCard.engineScorecard,
+  };
+
+  const sectionH = {
+    title: "Mistake Breakdown",
+    ...reportCard.mistakeBreakdown,
+  };
+
+  const sectionI = {
+    title: "Calibration Rules",
+    ...reportCard.calibrationRules,
+  };
+
+  const sectionJ = {
+    title: "Slate Lesson",
+    ...reportCard.slateLesson,
+  };
+
   return {
     slateDate,
     status: reportStatus,
     reportStatus,
     generatedAt: now,
     updatedAt: now,
+    engineScorecard: reportCard.engineScorecard,
+    mistakeBreakdown: reportCard.mistakeBreakdown,
+    calibrationRules: reportCard.calibrationRules,
+    slateLesson: reportCard.slateLesson,
     sections: {
       A: sectionA,
       B: sectionB,
@@ -655,6 +685,10 @@ function buildSlateReport(slateDate, props = []) {
       D: sectionD,
       E: sectionE,
       F: sectionF,
+      G: sectionG,
+      H: sectionH,
+      I: sectionI,
+      J: sectionJ,
     },
   };
 }
