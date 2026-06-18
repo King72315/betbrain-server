@@ -12,7 +12,9 @@ import {
 } from "react-native";
 
 import PropCard, { formatTime, safeDisplay } from "../../components/PropCard";
+import CopyReportButton from "../../components/CopyReportButton";
 import { deletePick, fetchPickHistory, resolvePicks } from "../../services/api";
+import { buildSavedPicksReport } from "../../utils/reportBuilders";
 
 const FILTERS = ["All", "Pending", "Win", "Loss", "Push", "Premium"] as const;
 
@@ -202,6 +204,15 @@ export default function ViewPicksScreen() {
     return source.filter((p) => getStatus(p) === filter);
   }, [filter, picks, pendingPicks]);
 
+  const getReportText = () =>
+    buildSavedPicksReport({
+      picks,
+      filter,
+      stats,
+      loading,
+      filteredPicks,
+    });
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -217,6 +228,7 @@ export default function ViewPicksScreen() {
           <Text style={styles.motto}>
             Every saved pick feeds the calibration system.
           </Text>
+          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <View style={styles.recordCard}>
@@ -288,7 +300,7 @@ export default function ViewPicksScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No pending picks.</Text>
             <Text style={styles.emptyText}>
-              Graded picks are in Results History. Use Win/Loss filters above to
+              Graded picks are in History. Use Win/Loss filters above to
               review them here.
             </Text>
           </View>

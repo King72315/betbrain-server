@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   RefreshControl,
   SafeAreaView,
@@ -10,195 +10,295 @@ import {
   View,
 } from "react-native";
 
-import PropCard, {
-  ResultMarginText,
-  formatTime,
-  safeDisplay,
-} from "../../components/PropCard";
-import { checkPendingResults, fetchPickHistory } from "../../services/api";
+import CopyReportButton from "../../components/CopyReportButton";
+import PropCard, { ResultMarginText, safeDisplay } from "../../components/PropCard";
+import {
+  fetchDailySlateReports,
+  fetchPickHistory,
+  fetchTrackedProps,
+} from "../../services/api";
+import {
+  HISTORY_FILTERS,
+  buildHistoryEntries,
+  filterHistoryEntries,
+  formatRecordLine,
+  formatSlateDateLabel,
+  getPickStatus,
+  type HistoryEntry,
+  type HistoryFilter,
+} from "../../utils/historyArchive";
+import { buildHistoryReport } from "../../utils/reportBuilders";
 
-const RISK_GROUPS = ["Low Risk", "Medium Risk", "High Risk"] as const;
+function TypeBadge({ type }: { type: HistoryEntry["type"] }) {
+  const isSaved = type === "saved-picks";
+  return (
+    <View style={[styles.typeBadge, isSaved ? styles.typeSaved : styles.typeOfficial]}>
+      <Text style={styles.typeBadgeText}>
+        {isSaved ? "SAVED PICKS" : "OFFICIAL / LAB"}
+      </Text>
+    </View>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const normalized = String(status || "").toUpperCase();
+  const isFinal =
+    normalized === "FINAL" || normalized === "GRADED" || normalized === "COMPLETE";
+  const isReportOnly = normalized === "REPORT BUILT";
+
+  return (
+    <View
+      style={[
+        styles.statusBadge,
+        isFinal ? styles.statusFinal : isReportOnly ? styles.statusReportOnly : styles.statusProgress,
+      ]}
+    >
+      <Text style={styles.statusBadgeText}>{normalized.replace(/_/g, " ")}</Text>
+    </View>
+  );
+}
+
+function HistoryEntryCard({
+  entry,
+  expanded,
+  onToggle,
+}: {
+  entry: HistoryEntry;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const gradedPicks = entry.picks.filter((pick) =>
+    ["Win", "Loss", "Push"].includes(getPickStatus(pick))
+  );
+
+  const engine = entry.hasGradedPerformance
+    ? entry.reportSummary?.engineScorecard || entry.reportSummary?.sections?.G
+    : null;
+  const lesson = entry.hasGradedPerformance
+    ? entry.reportSummary?.slateLesson || entry.reportSummary?.sections?.J
+    : null;
+  const showPerformance = entry.hasGradedPerformance;
+
+  return (
+    <View style={styles.entryCard}>
+      <TouchableOpacity onPress={onToggle} activeOpacity={0.85}>
+        <View style={styles.entryHeader}>
+          <View style={styles.entryHeaderLeft}>
+            <Text style={styles.entryDate}>{formatSlateDateLabel(entry.slateDate)}</Text>
+            <Text style={styles.entryLeague}>
+              {(entry.leagues || []).join(" • ") || "—"}
+            </Text>
+          </View>
+          <Text style={styles.expandHint}>{expanded ? "▲" : "▼"}</Text>
+        </View>
+
+        <View style={styles.entryBadgeRow}>
+          <TypeBadge type={entry.type} />
+          <StatusBadge status={entry.status} />
+        </View>
+
+        <Text
+          style={[
+            styles.entryRecord,
+            !showPerformance && entry.emptyLabel ? styles.entryEmptyLabel : null,
+          ]}
+        >
+          {formatRecordLine(entry)}
+        </Text>
+        <Text style={styles.entryMeta}>
+          {showPerformance
+            ? `Graded ${entry.graded}/${entry.total}${entry.pending > 0 ? ` • Pending ${entry.pending}` : ""}`
+            : `Official props tracked: ${entry.total}${entry.pending > 0 ? ` • Pending ${entry.pending}` : ""}`}
+        </Text>
+
+        {entry.topLesson && showPerformance ? (
+          <Text style={styles.entryLesson} numberOfLines={expanded ? undefined : 2}>
+            Lesson: {entry.topLesson}
+          </Text>
+        ) : null}
+      </TouchableOpacity>
+
+      {expanded ? (
+        <View style={styles.entryDetails}>
+          {!showPerformance && entry.emptyLabel ? (
+            <Text style={styles.emptyArchiveNote}>{entry.emptyLabel}</Text>
+          ) : null}
+
+          {lesson ? (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailTitle}>Slate Lesson</Text>
+              {lesson.headline ? (
+                <Text style={styles.lessonHeadline}>{lesson.headline}</Text>
+              ) : null}
+              {lesson.body ? <Text style={styles.lessonBody}>{lesson.body}</Text> : null}
+              {(lesson.bullets || []).map((bullet: string, index: number) => (
+                <Text key={index} style={styles.lessonBullet}>
+                  • {bullet}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {engine?.engines?.length ? (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailTitle}>Engine Scorecard</Text>
+              {engine.engines.slice(0, 4).map((item: any) => (
+                <Text key={item.engine} style={styles.engineLine}>
+                  {item.engine}: {item.record} ({item.winRate ?? "—"}%) — {item.status}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {gradedPicks.length > 0 ? (
+            <View style={styles.detailBlock}>
+              <Text style={styles.detailTitle}>
+                {entry.type === "saved-picks" ? "Graded Picks" : "Official Props"}
+              </Text>
+              {gradedPicks.map((pick, index) => (
+                <View
+                  key={`${entry.id}-${pick.id || pick.pickKey || pick.player}-${index}`}
+                  style={[
+                    styles.pickCard,
+                    getPickStatus(pick) === "Win" && styles.winCard,
+                    getPickStatus(pick) === "Loss" && styles.lossCard,
+                    getPickStatus(pick) === "Push" && styles.pushCard,
+                  ]}
+                >
+                  <PropCard pick={pick} index={index} />
+                  <View style={styles.pickMeta}>
+                    <Text style={styles.pickLine}>
+                      {pick.side || pick.pick} {safeDisplay(pick.line ?? pick.sportsbookLine)}{" "}
+                      {pick.stat || "Points"} — {getPickStatus(pick)}
+                    </Text>
+                    <ResultMarginText pick={pick} />
+                    <Text style={styles.pickDetail}>
+                      Conf {safeDisplay(pick.confidence ?? pick.winProbability)}% • Risk{" "}
+                      {pick.riskLabel || "—"} • Tier{" "}
+                      {String(pick.tier || "WATCHLIST").toUpperCase()}
+                    </Text>
+                    {pick.bookCount !== undefined ? (
+                      <Text style={styles.pickDetail}>Books: {safeDisplay(pick.bookCount)}</Text>
+                    ) : null}
+                    {pick.dataMode ? (
+                      <Text style={styles.pickDetail}>Data Mode: {pick.dataMode}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptySmall}>No graded pick detail on this archive entry.</Text>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [trackedProps, setTrackedProps] = useState<any[]>([]);
+  const [filter, setFilter] = useState<HistoryFilter>("All");
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
-  const [checkingPending, setCheckingPending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [lastCheckResponse, setLastCheckResponse] = useState<any>(null);
-  const loadIdRef = useRef(0);
 
-  const applyPicks = (nextPicks: any[], loadId: number) => {
-    if (loadId !== loadIdRef.current) return;
-    if (Array.isArray(nextPicks)) {
-      setPicks(nextPicks);
-    }
-  };
-
-  const loadHistoryPicks = async (
-    resolvedPicks: any[] | null = null,
-    loadId = loadIdRef.current
-  ) => {
-    const data = await fetchPickHistory();
-
-    if (data.ok && Array.isArray(data.picks)) {
-      applyPicks(data.picks, loadId);
-      return data.picks;
-    }
-
-    if (Array.isArray(resolvedPicks) && resolvedPicks.length) {
-      applyPicks(resolvedPicks, loadId);
-      return resolvedPicks;
-    }
-
-    return null;
-  };
-
-  const loadHistory = async (forceCheck = false) => {
-    const loadId = ++loadIdRef.current;
-
+  const loadHistory = async () => {
     try {
       setLoading(true);
-      const checked = await checkPendingResults({ force: forceCheck });
-      setLastCheckResponse(checked);
-      const resolvedPicks =
-        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
-      await loadHistoryPicks(resolvedPicks, loadId);
+      const [pickData, reportData, trackedData] = await Promise.all([
+        fetchPickHistory(),
+        fetchDailySlateReports(),
+        fetchTrackedProps(),
+      ]);
+
+      setPicks(pickData.picks || []);
+      setReports(reportData.reports || []);
+      setTrackedProps(trackedData.props || []);
       setLoadError(null);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
       setLoadError(String(err));
     } finally {
-      if (loadId === loadIdRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
   const refreshHistory = async () => {
-    const loadId = ++loadIdRef.current;
-
     try {
       setRefreshing(true);
-      const checked = await checkPendingResults({ force: true });
-      setLastCheckResponse(checked);
-      const resolvedPicks =
-        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
-      await loadHistoryPicks(resolvedPicks, loadId);
+      const [pickData, reportData, trackedData] = await Promise.all([
+        fetchPickHistory(),
+        fetchDailySlateReports(),
+        fetchTrackedProps(),
+      ]);
+
+      setPicks(pickData.picks || []);
+      setReports(reportData.reports || []);
+      setTrackedProps(trackedData.props || []);
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
       setLoadError(String(err));
     } finally {
-      if (loadId === loadIdRef.current) {
-        setRefreshing(false);
-      }
-    }
-  };
-
-  const handleCheckPendingResults = async () => {
-    const loadId = ++loadIdRef.current;
-
-    try {
-      setCheckingPending(true);
-      const checked = await checkPendingResults({
-        force: true,
-        requireLikelyFinished: true,
-      });
-      setLastCheckResponse(checked);
-      const resolvedPicks =
-        checked.ok && Array.isArray(checked.picks) ? checked.picks : null;
-      await loadHistoryPicks(resolvedPicks, loadId);
-    } catch (err) {
-      console.log("CHECK PENDING RESULTS ERROR:", err);
-      setLoadError(String(err));
-    } finally {
-      if (loadId === loadIdRef.current) {
-        setCheckingPending(false);
-      }
+      setRefreshing(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadHistory(false);
+      loadHistory();
     }, [])
   );
 
-  const gradedPicks = useMemo(() => {
-    return picks
-      .filter((pick) => ["Win", "Loss", "Push"].includes(getStatus(pick)))
-      .sort((a, b) => {
-        const aTime = new Date(
-          a.resolvedAt || a.gradedAt || a.completedDate || a.updatedAt || 0
-        ).getTime();
+  const entries = useMemo(
+    () => buildHistoryEntries(picks, reports, trackedProps),
+    [picks, reports, trackedProps]
+  );
 
-        const bTime = new Date(
-          b.resolvedAt || b.gradedAt || b.completedDate || b.updatedAt || 0
-        ).getTime();
+  const filteredEntries = useMemo(
+    () => filterHistoryEntries(entries, filter),
+    [entries, filter]
+  );
 
-        return bTime - aTime;
-      });
-  }, [picks]);
+  const summary = useMemo(() => {
+    const performanceEntries = filteredEntries.filter((entry) => entry.hasGradedPerformance);
+    const wins = performanceEntries.reduce((sum, entry) => sum + entry.wins, 0);
+    const losses = performanceEntries.reduce((sum, entry) => sum + entry.losses, 0);
+    const pushes = performanceEntries.reduce((sum, entry) => sum + entry.pushes, 0);
+    const pending = filteredEntries.reduce((sum, entry) => sum + entry.pending, 0);
+    const decided = wins + losses;
+    const winRate = decided > 0 ? Math.round((wins / decided) * 100) : 0;
 
-  const pendingCount = picks.filter((pick) => getStatus(pick) === "Pending").length;
-
-  const overall = useMemo(() => buildRecord(gradedPicks), [gradedPicks]);
-
-  const premiumRecord = useMemo(() => {
-    return buildRecord(
-      gradedPicks.filter(
-        (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
-      )
-    );
-  }, [gradedPicks]);
-
-  const nbaRecord = useMemo(() => {
-    return buildRecord(gradedPicks.filter((pick) => pick.league === "NBA"));
-  }, [gradedPicks]);
-
-  const wnbaRecord = useMemo(() => {
-    return buildRecord(gradedPicks.filter((pick) => pick.league === "WNBA"));
-  }, [gradedPicks]);
-
-  const confidenceBuckets = useMemo(() => {
-    const buckets: Record<string, any[]> = {};
-
-    for (const pick of gradedPicks) {
-      const bucket = getConfidenceBucket(pick);
-      if (!buckets[bucket]) buckets[bucket] = [];
-      buckets[bucket].push(pick);
-    }
-
-    return Object.entries(buckets)
-      .map(([bucket, bucketPicks]) => ({
-        bucket,
-        ...buildRecord(bucketPicks),
-      }))
-      .sort((a, b) => bucketSortValue(b.bucket) - bucketSortValue(a.bucket));
-  }, [gradedPicks]);
-
-  const groupedByRisk = useMemo(() => {
-    const groups: Record<string, any[]> = {
-      "Low Risk": [],
-      "Medium Risk": [],
-      "High Risk": [],
-      Unknown: [],
+    return {
+      slates: filteredEntries.length,
+      performanceSlates: performanceEntries.length,
+      wins,
+      losses,
+      pushes,
+      pending,
+      winRate,
+      netUnits: wins - losses,
     };
+  }, [filteredEntries]);
 
-    for (const pick of picks) {
-      const bucket = normalizeRiskLabel(pick.riskLabel);
-      groups[bucket].push(pick);
-    }
-
-    return groups;
-  }, [picks]);
-
-  const riskSummaries = useMemo(() => {
-    return RISK_GROUPS.map((label) => ({
-      label,
-      ...buildRiskRecord(groupedByRisk[label] || [], picks),
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((current) => ({
+      ...current,
+      [id]: !current[id],
     }));
-  }, [groupedByRisk, picks]);
+  };
+
+  const getReportText = () =>
+    buildHistoryReport({
+      entries,
+      filteredEntries,
+      filter,
+      loading,
+      error: loadError,
+    });
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -210,199 +310,83 @@ export default function History() {
         }
       >
         <View style={styles.headerCard}>
-          <Text style={styles.title}>📈 Results History</Text>
-          <Text style={styles.subtitle}>CourtEdge Calibration Center</Text>
+          <Text style={styles.title}>📚 History</Text>
+          <Text style={styles.subtitle}>CourtEdge Archive Center</Text>
           <Text style={styles.motto}>
-            Every result tightens the next confidence score.
+            Completed slates, graded picks, and Lab reports — read-only review.
           </Text>
+          <CopyReportButton getReportText={getReportText} label="Copy History Report" />
         </View>
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Overall Performance</Text>
-
+          <Text style={styles.summaryTitle}>Archive Summary</Text>
           <View style={styles.recordGrid}>
-            <SummaryBox label="Graded" value={overall.total} color="#f8fafc" />
-            <SummaryBox label="Wins" value={overall.wins} color="#22c55e" />
-            <SummaryBox label="Losses" value={overall.losses} color="#ef4444" />
-            <SummaryBox label="Pushes" value={overall.pushes} color="#facc15" />
-            <SummaryBox label="Win Rate" value={`${overall.winRate}%`} color="#38bdf8" />
+            <SummaryBox label="Slates" value={summary.slates} color="#f8fafc" />
+            <SummaryBox label="Wins" value={summary.wins} color="#22c55e" />
+            <SummaryBox label="Losses" value={summary.losses} color="#ef4444" />
+            <SummaryBox label="Pushes" value={summary.pushes} color="#facc15" />
+            <SummaryBox label="Win Rate" value={`${summary.winRate}%`} color="#38bdf8" />
             <SummaryBox
               label="Net Units"
-              value={`${overall.netUnits > 0 ? "+" : ""}${overall.netUnits}`}
-              color={overall.netUnits >= 0 ? "#22c55e" : "#ef4444"}
+              value={`${summary.netUnits > 0 ? "+" : ""}${summary.netUnits}`}
+              color={summary.netUnits >= 0 ? "#22c55e" : "#ef4444"}
             />
           </View>
-
-          <Text style={styles.pendingText}>Pending Picks: {pendingCount}</Text>
-
-          <TouchableOpacity
-            onPress={handleCheckPendingResults}
-            style={styles.checkButton}
-            disabled={checkingPending || loading || refreshing}
-          >
-            <Text style={styles.checkButtonText}>
-              {checkingPending ? "Checking..." : "Check Pending Results"}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.pendingText}>
+            Pending across visible slates: {summary.pending}
+            {summary.performanceSlates < summary.slates
+              ? ` • Performance archive: ${summary.performanceSlates}/${summary.slates}`
+              : ""}
+          </Text>
         </View>
 
-        <View style={styles.breakdownCard}>
-          <Text style={styles.sectionTitle}>Premium Mission</Text>
-          <BreakdownRow title="Premium" record={premiumRecord} />
-          <BreakdownRow title="NBA" record={nbaRecord} />
-          <BreakdownRow title="WNBA" record={wnbaRecord} />
-        </View>
-
-        <View style={styles.breakdownCard}>
-          <Text style={styles.sectionTitle}>Confidence Buckets</Text>
-
-          {confidenceBuckets.length === 0 ? (
-            <Text style={styles.emptySmall}>No confidence bucket data yet.</Text>
-          ) : (
-            confidenceBuckets.map((bucket) => (
-              <BreakdownRow
-                key={bucket.bucket}
-                title={bucket.bucket}
-                record={bucket}
-              />
-            ))
-          )}
-        </View>
-
-        <View style={styles.breakdownCard}>
-          <Text style={styles.sectionTitle}>Results By Risk</Text>
-
-          {riskSummaries.map((group) => (
-            <View key={group.label} style={styles.riskGroupCard}>
-              <Text style={styles.riskGroupTitle}>{group.label}</Text>
-              <Text style={styles.riskGroupSummary}>
-                Total {group.total} • W {group.wins} • L {group.losses} • P{" "}
-                {group.pushes} • Hit {group.hitRate}% • Pending {group.pending}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={styles.filterContent}
+        >
+          {HISTORY_FILTERS.map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[styles.filterChip, filter === item && styles.filterChipActive]}
+              onPress={() => setFilter(item)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  filter === item && styles.filterChipTextActive,
+                ]}
+              >
+                {item}
               </Text>
-              <Text style={styles.riskGroupSummary}>
-                Avg Win Margin {safeDisplay(group.avgWinMargin)} • Avg Loss Margin{" "}
-                {safeDisplay(group.avgLossMargin)}
-              </Text>
-              <Text style={styles.riskGroupSummary}>
-                Best Win {formatMargin(group.biggestWinMargin)} • Worst Loss{" "}
-                {formatMargin(group.biggestLossMargin)}
-              </Text>
-
-              {group.picks.length === 0 ? (
-                <Text style={styles.emptySmall}>No picks in this risk bucket.</Text>
-              ) : (
-                group.picks
-                  .sort((a, b) => getRiskSortValue(b) - getRiskSortValue(a))
-                  .map((pick, index) => (
-                    <View
-                      key={`${group.label}-${pick.id || pick.pickKey || pick.player}-${index}`}
-                      style={[
-                        styles.card,
-                        getStatus(pick) === "Win" && styles.winCard,
-                        getStatus(pick) === "Loss" && styles.lossCard,
-                        getStatus(pick) === "Push" && styles.pushCard,
-                      ]}
-                    >
-                      <PropCard pick={pick} index={index} />
-                      <View style={styles.resultBox}>
-                        <Text style={styles.pickText}>
-                          {pick.side || pick.pick} {safeDisplay(pick.line ?? pick.sportsbookLine)}{" "}
-                          {pick.stat || "Points"}
-                        </Text>
-                        <ResultMarginText pick={pick} />
-                      </View>
-                    </View>
-                  ))
-              )}
-            </View>
+            </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
-        {loading && (
-          <Text style={styles.loadingText}>Loading results history...</Text>
-        )}
+        {loading ? <Text style={styles.loadingText}>Loading archive...</Text> : null}
 
-        {!loading && gradedPicks.length === 0 && (
+        {!loading && filteredEntries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No completed picks yet.</Text>
+            <Text style={styles.emptyTitle}>No archived entries yet.</Text>
             <Text style={styles.emptyText}>
-              Saved picks will appear here after CourtEdge grades them.
+              Graded saved picks and completed Lab slate reports appear here automatically.
+              Nothing is moved or deleted from Saved Picks or Lab.
             </Text>
           </View>
-        )}
+        ) : null}
+
+        {filteredEntries.map((entry) => (
+          <HistoryEntryCard
+            key={entry.id}
+            entry={entry}
+            expanded={Boolean(expandedIds[entry.id])}
+            onToggle={() => toggleExpanded(entry.id)}
+          />
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function normalizeRiskLabel(value: any) {
-  const label = String(value || "").toLowerCase();
-
-  if (label.includes("low")) return "Low Risk";
-  if (label.includes("medium")) return "Medium Risk";
-  if (label.includes("high")) return "High Risk";
-
-  return "Unknown";
-}
-
-function buildRiskRecord(groupPicks: any[], allPicks: any[]) {
-  const graded = groupPicks.filter((pick) =>
-    ["Win", "Loss", "Push"].includes(getStatus(pick))
-  );
-  const pending = groupPicks.filter((pick) => getStatus(pick) === "Pending").length;
-  const wins = graded.filter((pick) => getStatus(pick) === "Win");
-  const losses = graded.filter((pick) => getStatus(pick) === "Loss");
-  const pushes = graded.filter((pick) => getStatus(pick) === "Push");
-
-  const winMargins = wins
-    .map((pick) => Number(pick.resultMargin ?? pick.margin))
-    .filter(Number.isFinite);
-  const lossMargins = losses
-    .map((pick) => Number(pick.resultMargin ?? pick.margin))
-    .filter(Number.isFinite);
-
-  const avgWinMargin = winMargins.length
-    ? winMargins.reduce((sum, value) => sum + value, 0) / winMargins.length
-    : 0;
-  const avgLossMargin = lossMargins.length
-    ? lossMargins.reduce((sum, value) => sum + value, 0) / lossMargins.length
-    : 0;
-
-  return {
-    picks: groupPicks,
-    total: groupPicks.length,
-    wins: wins.length,
-    losses: losses.length,
-    pushes: pushes.length,
-    pending,
-    hitRate:
-      wins.length + losses.length > 0
-        ? Math.round((wins.length / (wins.length + losses.length)) * 100)
-        : 0,
-    avgWinMargin,
-    avgLossMargin,
-    biggestWinMargin: winMargins.length ? Math.max(...winMargins) : 0,
-    biggestLossMargin: lossMargins.length ? Math.min(...lossMargins) : 0,
-  };
-}
-
-function getRiskSortValue(pick: any) {
-  const status = getStatus(pick);
-  const margin = Math.abs(Number(pick.resultMargin ?? pick.margin ?? 0));
-
-  if (status === "Win") return 1000 + margin;
-  if (status === "Loss") return 500 + margin;
-  if (status === "Push") return 100;
-
-  return 0;
-}
-
-function formatMargin(value: any) {
-  const n = Number(value);
-
-  if (!Number.isFinite(n) || n === 0) return "—";
-
-  return `${n > 0 ? "+" : ""}${safeDisplay(n)}`;
 }
 
 function SummaryBox({
@@ -422,157 +406,19 @@ function SummaryBox({
   );
 }
 
-function BreakdownRow({ title, record }: { title: string; record: any }) {
-  return (
-    <View style={styles.breakdownRow}>
-      <Text style={styles.breakdownTitle}>{title}</Text>
-      <Text style={styles.breakdownText}>
-        {record.wins}-{record.losses}
-        {record.pushes ? `-${record.pushes}` : ""} • {record.winRate}% •{" "}
-        {record.netUnits > 0 ? "+" : ""}
-        {record.netUnits}u
-      </Text>
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: any }) {
-  return (
-    <View style={styles.metricBox}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
-  );
-}
-
-function buildRecord(list: any[]) {
-  const wins = list.filter((pick) => getStatus(pick) === "Win").length;
-  const losses = list.filter((pick) => getStatus(pick) === "Loss").length;
-  const pushes = list.filter((pick) => getStatus(pick) === "Push").length;
-  const total = wins + losses + pushes;
-  const graded = wins + losses;
-  const winRate = graded ? Math.round((wins / graded) * 100) : 0;
-  const netUnits = wins - losses;
-
-  return {
-    wins,
-    losses,
-    pushes,
-    total,
-    graded,
-    winRate,
-    netUnits,
-  };
-}
-
-function getStatus(pick: any) {
-  const raw = String(pick.status || "pending").toLowerCase();
-
-  if (raw === "win") return "Win";
-  if (raw === "loss") return "Loss";
-  if (raw === "push") return "Push";
-
-  return "Pending";
-}
-
-function getActual(pick: any) {
-  const status = String(pick.status || "pending").toLowerCase();
-
-  if (status === "pending") {
-    return null;
-  }
-
-  return (
-    pick.actualPoints ??
-    pick.finalPoints ??
-    pick.actualStat ??
-    pick.resultMeta?.points ??
-    null
-  );
-}
-
-function getConfidenceBucket(pick: any) {
-  if (pick.confidenceBucket) return String(pick.confidenceBucket);
-
-  const confidence = Number(pick.confidence ?? pick.winProbability ?? 0);
-
-  if (confidence >= 85) return "85+";
-  if (confidence >= 80) return "80-84";
-  if (confidence >= 75) return "75-79";
-  if (confidence >= 70) return "70-74";
-  if (confidence >= 60) return "60-69";
-
-  return "Under 60";
-}
-
-function bucketSortValue(bucket: string) {
-  if (bucket.includes("85")) return 85;
-  if (bucket.includes("80")) return 80;
-  if (bucket.includes("75")) return 75;
-  if (bucket.includes("70")) return 70;
-  if (bucket.includes("60")) return 60;
-
-  return 0;
-}
-
-function getStatusStyle(status: string) {
-  if (status === "Win") {
-    return {
-      backgroundColor: "#14532d",
-      color: "#bbf7d0",
-    };
-  }
-
-  if (status === "Loss") {
-    return {
-      backgroundColor: "#7f1d1d",
-      color: "#fecaca",
-    };
-  }
-
-  if (status === "Push") {
-    return {
-      backgroundColor: "#713f12",
-      color: "#fef9c3",
-    };
-  }
-
-  return {
-    backgroundColor: "#1e3a8a",
-    color: "#bfdbfe",
-  };
-}
-
-function formatDateLabel(value: any) {
-  if (!value) return "Unknown Date";
-
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return String(value);
-
-  return d.toLocaleDateString("en-US", {
-    timeZone: "America/Chicago",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: "#020617",
   },
-
   container: {
     flex: 1,
     backgroundColor: "#020617",
   },
-
   content: {
     padding: 16,
     paddingBottom: 36,
   },
-
   headerCard: {
     backgroundColor: "#0f172a",
     borderRadius: 22,
@@ -581,27 +427,23 @@ const styles = StyleSheet.create({
     borderColor: "#1e293b",
     marginBottom: 16,
   },
-
   title: {
     color: "#22c55e",
     fontSize: 32,
     fontWeight: "900",
   },
-
   subtitle: {
     color: "#e2e8f0",
     fontSize: 16,
     fontWeight: "800",
     marginTop: 2,
   },
-
   motto: {
     color: "#94a3b8",
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
   },
-
   summaryCard: {
     backgroundColor: "#111827",
     padding: 15,
@@ -610,20 +452,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#22c55e",
   },
-
   summaryTitle: {
     color: "white",
     fontSize: 20,
     fontWeight: "900",
     marginBottom: 12,
   },
-
   recordGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
-
   summaryBox: {
     width: "48%",
     backgroundColor: "#0f172a",
@@ -632,298 +471,252 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1e293b",
   },
-
   summaryLabel: {
     color: "#64748b",
     fontSize: 11,
     fontWeight: "900",
     marginBottom: 4,
   },
-
   summaryValue: {
     fontSize: 20,
     fontWeight: "900",
   },
-
   pendingText: {
     color: "#93c5fd",
     marginTop: 12,
     fontSize: 13,
     fontWeight: "800",
   },
-
-  checkButton: {
-    marginTop: 12,
-    backgroundColor: "#1d4ed8",
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-
-  checkButtonText: {
-    color: "#dbeafe",
-    fontWeight: "900",
-    textAlign: "center",
-    fontSize: 14,
-  },
-
-  breakdownCard: {
-    backgroundColor: "#111827",
-    padding: 15,
-    borderRadius: 18,
+  filterRow: {
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#334155",
   },
-
-  sectionTitle: {
-    color: "#facc15",
-    fontSize: 17,
-    fontWeight: "900",
-    marginBottom: 10,
+  filterContent: {
+    gap: 8,
+    paddingRight: 8,
   },
-
-  breakdownRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+  filterChip: {
+    backgroundColor: "#1e293b",
+    borderRadius: 999,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1e293b",
-  },
-
-  breakdownTitle: {
-    color: "#e2e8f0",
-    fontSize: 13,
-    fontWeight: "900",
-    flex: 1,
-  },
-
-  breakdownText: {
-    color: "#cbd5e1",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
-  emptySmall: {
-    color: "#94a3b8",
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: 8,
-  },
-
-  riskGroupCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#334155",
   },
-
-  riskGroupTitle: {
-    color: "#facc15",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 6,
+  filterChipActive: {
+    backgroundColor: "#14532d",
+    borderColor: "#22c55e",
   },
-
-  riskGroupSummary: {
+  filterChipText: {
     color: "#cbd5e1",
     fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontWeight: "900",
   },
-
-  resultBox: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+  filterChipTextActive: {
+    color: "#bbf7d0",
   },
-
   loadingText: {
     color: "white",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
+    marginBottom: 12,
   },
-
   emptyCard: {
     backgroundColor: "#111827",
     padding: 18,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#334155",
+    marginBottom: 14,
   },
-
   emptyTitle: {
     color: "white",
     fontSize: 18,
     fontWeight: "900",
     marginBottom: 6,
   },
-
   emptyText: {
     color: "#94a3b8",
     fontSize: 13,
     fontWeight: "700",
   },
-
-  dateGroup: {
-    marginTop: 4,
-  },
-
-  date: {
-    color: "#eab308",
-    fontSize: 18,
-    marginTop: 15,
-    marginBottom: 10,
-    fontWeight: "900",
-  },
-
-  card: {
-    backgroundColor: "#1e293b",
+  entryCard: {
+    backgroundColor: "#111827",
+    borderRadius: 18,
     padding: 15,
-    borderRadius: 16,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#334155",
   },
-
-  winCard: {
-    borderColor: "#166534",
-  },
-
-  lossCard: {
-    borderColor: "#7f1d1d",
-  },
-
-  pushCard: {
-    borderColor: "#713f12",
-  },
-
-  premiumCard: {
-    borderColor: "#facc15",
-  },
-
-  cardTopRow: {
+  entryHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+    alignItems: "flex-start",
     gap: 10,
   },
-
-  badgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+  entryHeaderLeft: {
     flex: 1,
   },
-
-  leagueBadge: {
-    color: "#bfdbfe",
-    backgroundColor: "#1e40af",
-    overflow: "hidden",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    fontSize: 11,
+  entryDate: {
+    color: "#facc15",
+    fontSize: 18,
     fontWeight: "900",
   },
-
-  tierBadge: {
-    color: "#bbf7d0",
-    backgroundColor: "#14532d",
-    overflow: "hidden",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  premiumBadge: {
-    color: "#fef9c3",
-    backgroundColor: "#713f12",
-  },
-
-  statusBadge: {
-    overflow: "hidden",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: "900",
-  },
-
-  player: {
-    color: "white",
-    fontSize: 19,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-
-  text: {
-    color: "#cbd5e1",
-    marginTop: 3,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  conf: {
-    color: "#22c55e",
-    fontSize: 22,
-    fontWeight: "900",
-  },
-
-  pickBox: {
-    backgroundColor: "#0f172a",
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#263449",
-    marginTop: 10,
-    marginBottom: 10,
-  },
-
-  pickText: {
-    color: "#93c5fd",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-
-  metricRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+  entryLeague: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "800",
     marginTop: 4,
   },
-
-  metricBox: {
-    width: "48%",
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#263449",
-  },
-
-  metricLabel: {
+  expandHint: {
     color: "#64748b",
-    fontSize: 11,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-
-  metricValue: {
-    color: "#f8fafc",
     fontSize: 14,
     fontWeight: "900",
   },
-
-  dateText: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "800",
+  entryBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
     marginTop: 10,
+  },
+  typeBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  typeSaved: {
+    backgroundColor: "#1e3a8a",
+  },
+  typeOfficial: {
+    backgroundColor: "#4c1d95",
+  },
+  typeBadgeText: {
+    color: "#e2e8f0",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusFinal: {
+    backgroundColor: "#14532d",
+  },
+  statusProgress: {
+    backgroundColor: "#713f12",
+  },
+  statusReportOnly: {
+    backgroundColor: "#334155",
+  },
+  statusBadgeText: {
+    color: "#f8fafc",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  entryRecord: {
+    color: "#e2e8f0",
+    fontSize: 15,
+    fontWeight: "900",
+    marginTop: 10,
+  },
+  entryEmptyLabel: {
+    color: "#94a3b8",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  entryMeta: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  entryLesson: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  entryDetails: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+    paddingTop: 12,
+  },
+  detailBlock: {
+    marginBottom: 14,
+  },
+  detailTitle: {
+    color: "#facc15",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  lessonHeadline: {
+    color: "#f8fafc",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  lessonBody: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  lessonBullet: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  engineLine: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  pickCard: {
+    backgroundColor: "#0f172a",
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#334155",
+    overflow: "hidden",
+  },
+  winCard: {
+    borderColor: "#166534",
+  },
+  lossCard: {
+    borderColor: "#7f1d1d",
+  },
+  pushCard: {
+    borderColor: "#713f12",
+  },
+  pickMeta: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  pickLine: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  pickDetail: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  emptySmall: {
+    color: "#94a3b8",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  emptyArchiveNote: {
+    color: "#94a3b8",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 10,
   },
 });

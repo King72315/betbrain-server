@@ -8,6 +8,9 @@ import {
   View,
 } from "react-native";
 
+import CopyReportButton from "../../components/CopyReportButton";
+import { buildHomeReport } from "../../utils/reportBuilders";
+
 export default function HomeScreen() {
   const router = useRouter();
 
@@ -20,6 +23,7 @@ export default function HomeScreen() {
           <Text style={styles.motto}>
             We Don&apos;t Guess. We Calculate. We Cash.
           </Text>
+          <CopyReportButton getReportText={buildHomeReport} />
         </View>
 
         <View style={styles.section}>
@@ -84,9 +88,9 @@ export default function HomeScreen() {
             style={styles.button}
             onPress={() => router.push("/history")}
           >
-            <Text style={styles.buttonText}>📈 Results History</Text>
+            <Text style={styles.buttonText}>📚 History</Text>
             <Text style={styles.buttonSubtext}>
-              Wins, losses, pushes, accuracy, and calibration
+              Archived slates, graded picks, and Lab reports
             </Text>
           </TouchableOpacity>
 

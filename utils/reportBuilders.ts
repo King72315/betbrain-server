@@ -1,14 +1,13 @@
 import { formatTime, safeDisplay } from "../components/PropCard";
 import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
-
-function getPickStatus(pick: any) {
-  const raw = String(pick.status || "pending").toLowerCase();
-  if (raw === "win") return "Win";
-  if (raw === "loss") return "Loss";
-  if (raw === "push") return "Push";
-  return "Pending";
-}
+import {
+  formatRecordLine,
+  formatSlateDateLabel,
+  getPickStatus,
+  type HistoryEntry,
+  type HistoryFilter,
+} from "./historyArchive";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -116,7 +115,7 @@ export function buildHomeReport() {
     visibleSummary: joinLines([
       "CourtEdge home dashboard with links to Main Board and Tracking sections.",
       "Main Board: Top Props, NBA Props, WNBA Props, Full Game Board.",
-      "Tracking: Saved Picks, Results History, Settings.",
+      "Tracking: Saved Picks, History, Lab, Settings.",
     ]),
     mainData: joinLines([
       "Navigation targets:",
@@ -125,7 +124,7 @@ export function buildHomeReport() {
       "- /wnba — WNBA Props",
       "- /explore — Full Game Board",
       "- /view-picks — Saved Picks",
-      "- /history — Results History",
+      "- /history — History (archived slates & reports)",
       "- /prop-lab — Prop Lab",
       "- /settings — Settings",
       "",
@@ -316,10 +315,130 @@ export function buildSavedPicksReport(input: {
         ? "No saved picks yet."
         : null,
       !input.loading && input.picks.length > 0 && input.stats.pending === 0
-        ? "No pending picks — graded picks are in Results History."
+        ? "No pending picks — graded picks are in History."
         : null,
     ]) || undefined,
     errors: input.error || undefined,
+  });
+}
+
+function formatHistoryPickLine(pick: any, index: number) {
+  const status = getPickStatus(pick);
+  const actual =
+    pick.actualPoints ??
+    pick.finalPoints ??
+    pick.actualStat ??
+    pick.resultMeta?.points ??
+    null;
+
+  return joinLines([
+    `[${index + 1}] ${pick.player || "Unknown"} (${pick.league || "—"}) — ${status}`,
+    `  ${pick.side || pick.pick || "—"} ${safeDisplay(pick.line ?? pick.sportsbookLine)} ${pick.stat || "Points"}`,
+    `  Confidence: ${safeDisplay(pick.confidence ?? pick.winProbability)}% | Risk: ${pick.riskLabel || "—"} | Tier: ${String(pick.tier || "WATCHLIST").toUpperCase()}`,
+    actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
+    pick.resultMargin !== undefined || pick.margin !== undefined
+      ? `  Margin: ${safeDisplay(pick.resultMargin ?? pick.margin)}`
+      : null,
+    pick.bookCount !== undefined ? `  Books: ${safeDisplay(pick.bookCount)}` : null,
+    pick.dataMode ? `  Data Mode: ${pick.dataMode}` : null,
+  ]);
+}
+
+export function buildHistoryReport(input: {
+  entries: HistoryEntry[];
+  filteredEntries: HistoryEntry[];
+  filter: HistoryFilter;
+  loading: boolean;
+  error?: string | null;
+}) {
+  const summaryLines = input.filteredEntries.map((entry) => {
+    const typeLabel = entry.type === "saved-picks" ? "Saved Picks" : "Official/Lab";
+    const performance = entry.hasGradedPerformance
+      ? `${formatRecordLine(entry)} | ${entry.status} | pending ${entry.pending}`
+      : `${entry.emptyLabel || "No completed official props yet"} | ${entry.status}`;
+    return `${formatSlateDateLabel(entry.slateDate)} | ${typeLabel} | ${(entry.leagues || []).join("/") || "—"} | ${performance}${entry.topLesson ? ` | Lesson: ${entry.topLesson}` : ""}`;
+  });
+
+  const detailBlocks = input.filteredEntries.slice(0, 12).map((entry) => {
+    const header = joinLines([
+      `--- ${formatSlateDateLabel(entry.slateDate)} (${entry.type === "saved-picks" ? "Saved Picks" : "Official Slate"}) ---`,
+      `Leagues: ${(entry.leagues || []).join(", ") || "—"}`,
+      entry.hasGradedPerformance
+        ? `Record: ${formatRecordLine(entry)}`
+        : `Archive Note: ${entry.emptyLabel || "No completed official props yet"}`,
+      entry.hasGradedPerformance
+        ? `Status: ${entry.status} | Graded: ${entry.graded}/${entry.total} | Pending: ${entry.pending}`
+        : `Status: ${entry.status} | Official props tracked: ${entry.total} | Graded: 0`,
+      entry.topLesson ? `Top Lesson: ${entry.topLesson}` : null,
+    ]);
+
+    if (!entry.hasGradedPerformance) {
+      return header;
+    }
+
+    const pickLines = (entry.picks || [])
+      .filter((pick) => ["Win", "Loss", "Push"].includes(getPickStatus(pick)))
+      .slice(0, 20)
+      .map((pick, index) => formatHistoryPickLine(pick, index));
+
+    const engine = entry.reportSummary?.engineScorecard || entry.reportSummary?.sections?.G;
+    const engineLines = (engine?.engines || [])
+      .slice(0, 6)
+      .map(
+        (item: any) =>
+          `${item.engine}: ${item.record} (${item.winRate ?? "—"}%) — ${item.status} — ${item.lesson}`
+      );
+
+    const lesson = entry.reportSummary?.slateLesson || entry.reportSummary?.sections?.J;
+    const lessonLines = lesson
+      ? [
+          lesson.headline,
+          lesson.body,
+          ...(lesson.bullets || []).map((bullet: string) => `• ${bullet}`),
+        ].filter(Boolean)
+      : [];
+
+    return joinLines([
+      header,
+      pickLines.length ? `\nPicks:\n${pickLines.join("\n\n")}` : null,
+      lessonLines.length ? `\nSlate Lesson:\n${lessonLines.join("\n")}` : null,
+      engineLines.length ? `\nEngine Scorecard:\n${bulletList(engineLines)}` : null,
+    ]);
+  });
+
+  return buildPageReport({
+    page: "History",
+    leagueFilter: input.filter,
+    dataSource: "GET /saved-picks, /daily-slate-reports, /tracked-props (read-only)",
+    extraContext: {
+      "Archive Entries": input.entries.length,
+      "Visible After Filter": input.filteredEntries.length,
+      "Backend URL": getApiBaseUrl(),
+      "Backend Mode": getBackendMode(),
+      Loading: input.loading,
+    },
+    visibleSummary: joinLines([
+      `Filter: ${input.filter}`,
+      `Archived entries visible: ${input.filteredEntries.length}`,
+      `Performance archive entries: ${input.filteredEntries.filter((entry) => entry.hasGradedPerformance).length}`,
+      `Total archive entries loaded: ${input.entries.length}`,
+    ]),
+    mainData: joinLines([
+      "--- Archive Index ---",
+      summaryLines.length ? bulletList(summaryLines) : "No archived entries yet.",
+      "",
+      "--- Expanded Archive Details (up to 12) ---",
+      detailBlocks.length ? detailBlocks.join("\n\n") : "No detail blocks to show.",
+      "",
+      `Backend URL: ${getApiBaseUrl()}`,
+      `Backend Mode: ${getBackendMode()}`,
+    ]),
+    warnings:
+      !input.loading && input.entries.length === 0
+        ? "No completed slates yet. Saved picks appear after grading; official slates appear after Lab builds daily reports."
+        : undefined,
+    errors: input.error || undefined,
+    debugNotes: "Read-only archive view. No data is moved or deleted from active Results/Lab storage.",
   });
 }
 
