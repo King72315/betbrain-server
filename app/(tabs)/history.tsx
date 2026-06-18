@@ -29,12 +29,12 @@ import {
 } from "../../utils/historyArchive";
 import { buildHistoryReport } from "../../utils/reportBuilders";
 
-function TypeBadge({ type }: { type: HistoryEntry["type"] }) {
+function TypeBadge({ type, archiveLabel }: { type: HistoryEntry["type"]; archiveLabel?: string | null }) {
   const isSaved = type === "saved-picks";
   return (
     <View style={[styles.typeBadge, isSaved ? styles.typeSaved : styles.typeOfficial]}>
       <Text style={styles.typeBadgeText}>
-        {isSaved ? "SAVED PICKS" : "OFFICIAL / LAB"}
+        {isSaved ? "SAVED PICKS" : archiveLabel || "ARCHIVED LAB"}
       </Text>
     </View>
   );
@@ -93,7 +93,7 @@ function HistoryEntryCard({
         </View>
 
         <View style={styles.entryBadgeRow}>
-          <TypeBadge type={entry.type} />
+          <TypeBadge type={entry.type} archiveLabel={entry.archiveLabel} />
           <StatusBadge status={entry.status} />
         </View>
 
@@ -313,7 +313,8 @@ export default function History() {
           <Text style={styles.title}>📚 History</Text>
           <Text style={styles.subtitle}>CourtEdge Archive Center</Text>
           <Text style={styles.motto}>
-            Completed slates, graded picks, and Lab reports — read-only review.
+            Older completed Lab slates and graded saved picks — read-only. Current Lab slate
+            stays in Prop Lab until replaced.
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy History Report" />
         </View>
@@ -370,8 +371,8 @@ export default function History() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No archived entries yet.</Text>
             <Text style={styles.emptyText}>
-              Graded saved picks and completed Lab slate reports appear here automatically.
-              Nothing is moved or deleted from Saved Picks or Lab.
+              Graded saved picks and older completed Lab slates appear here automatically.
+              The current Lab slate is not duplicated here. Nothing is moved or deleted.
             </Text>
           </View>
         ) : null}

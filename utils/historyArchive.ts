@@ -1,9 +1,16 @@
+import {
+  computeSlateRotation,
+  getReportGraded,
+  getReportTotalOfficial,
+  isCompletedSlate,
+} from "./slateRotation";
+
 export const HISTORY_FILTERS = [
   "All",
   "NBA",
   "WNBA",
   "Saved Picks",
-  "Official Props/Lab",
+  "Archived Lab Slates",
   "Wins",
   "Losses",
 ] as const;
@@ -29,6 +36,7 @@ export type HistoryEntry = {
   hasGradedPerformance: boolean;
   emptyLabel: string | null;
   topLesson: string | null;
+  archiveLabel: string | null;
   picks: any[];
   reportSummary: any | null;
 };
@@ -121,6 +129,7 @@ function buildSavedPickEntries(picks: any[]): HistoryEntry[] {
       hasGradedPerformance: record.graded > 0,
       emptyLabel: null,
       topLesson: null,
+      archiveLabel: null,
       picks: groupPicks.sort((a, b) => {
         const aTime = new Date(
           a.resolvedAt || a.gradedAt || a.updatedAt || 0
@@ -137,36 +146,21 @@ function buildSavedPickEntries(picks: any[]): HistoryEntry[] {
   return entries;
 }
 
-function getOfficialGradedCount(report: any) {
-  const sectionA = report?.sections?.A;
-  return Number(sectionA?.graded ?? report?.graded ?? 0);
-}
-
-function getOfficialTotalCount(report: any, slateProps: any[]) {
-  const sectionA = report?.sections?.A;
-  return Number(sectionA?.totalOfficialProps ?? report?.totalOfficialProps ?? slateProps.length);
-}
-
-function getOfficialEmptyLabel(report: any, graded: number, total: number) {
-  if (graded > 0) return null;
-  if (total > 0) return "Report built — no graded official props yet";
-  return "No completed official props yet";
-}
-
-function buildOfficialSlateEntries(reports: any[], trackedProps: any[]): HistoryEntry[] {
+function buildOfficialSlateEntries(
+  historySlates: any[],
+  trackedProps: any[]
+): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
 
-  for (const report of reports) {
+  for (const report of historySlates) {
+    if (!isCompletedSlate(report)) continue;
+
     const sectionA = report.sections?.A || report;
     const slateDate = String(report.slateDate || sectionA.slateDate || "unknown");
     const slateProps = trackedProps.filter((prop) => prop.slateDate === slateDate);
-    const graded = getOfficialGradedCount(report);
-    const total = getOfficialTotalCount(report, slateProps);
-    const hasGradedPerformance = graded > 0;
-    const emptyLabel = getOfficialEmptyLabel(report, graded, total);
-    const slateLesson = hasGradedPerformance
-      ? report.slateLesson || report.sections?.J
-      : null;
+    const graded = getReportGraded(report);
+    const total = getReportTotalOfficial(report) || slateProps.length;
+    const slateLesson = report.slateLesson || report.sections?.J;
 
     entries.push({
       id: `official-${slateDate}`,
@@ -175,29 +169,24 @@ function buildOfficialSlateEntries(reports: any[], trackedProps: any[]): History
       leagues: (sectionA.leagues || []).length
         ? sectionA.leagues
         : [...new Set(slateProps.map((prop) => prop.league).filter(Boolean))],
-      wins: hasGradedPerformance ? Number(sectionA.wins ?? 0) : 0,
-      losses: hasGradedPerformance ? Number(sectionA.losses ?? 0) : 0,
-      pushes: hasGradedPerformance ? Number(sectionA.pushes ?? 0) : 0,
+      wins: Number(sectionA.wins ?? 0),
+      losses: Number(sectionA.losses ?? 0),
+      pushes: Number(sectionA.pushes ?? 0),
       pending: Number(sectionA.pending ?? 0),
       graded,
       total,
       winRate:
-        hasGradedPerformance &&
-        sectionA.overallWinRate !== null &&
-        sectionA.overallWinRate !== undefined
+        sectionA.overallWinRate !== null && sectionA.overallWinRate !== undefined
           ? Math.round(Number(sectionA.overallWinRate))
           : null,
-      netUnits: hasGradedPerformance
-        ? Number(sectionA.wins ?? 0) - Number(sectionA.losses ?? 0)
-        : 0,
-      status: hasGradedPerformance
-        ? String(report.status || sectionA.reportStatus || "unknown").toUpperCase()
-        : "REPORT BUILT",
-      hasGradedPerformance,
-      emptyLabel,
+      netUnits: Number(sectionA.wins ?? 0) - Number(sectionA.losses ?? 0),
+      status: "ARCHIVED LAB",
+      hasGradedPerformance: true,
+      emptyLabel: null,
       topLesson: slateLesson?.headline || slateLesson?.body || null,
-      picks: hasGradedPerformance ? slateProps : [],
-      reportSummary: hasGradedPerformance ? report : null,
+      archiveLabel: "Archived Lab Slate",
+      picks: slateProps,
+      reportSummary: report,
     });
   }
 
@@ -205,9 +194,11 @@ function buildOfficialSlateEntries(reports: any[], trackedProps: any[]): History
 }
 
 export function buildHistoryEntries(picks: any[], reports: any[], trackedProps: any[]) {
+  const { historySlates } = computeSlateRotation(reports);
+
   const entries = [
     ...buildSavedPickEntries(picks),
-    ...buildOfficialSlateEntries(reports, trackedProps),
+    ...buildOfficialSlateEntries(historySlates, trackedProps),
   ];
 
   return entries.sort((a, b) => {
@@ -232,7 +223,7 @@ export function filterHistoryEntries(entries: HistoryEntry[], filter: HistoryFil
     return entries.filter((entry) => entry.type === "saved-picks");
   }
 
-  if (filter === "Official Props/Lab") {
+  if (filter === "Archived Lab Slates") {
     return entries.filter((entry) => entry.type === "official-slate");
   }
 

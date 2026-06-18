@@ -20,6 +20,7 @@ import {
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
 import { buildPropLabReport } from "../../utils/reportBuilders";
+import { computeSlateRotation } from "../../utils/slateRotation";
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -232,7 +233,6 @@ function SlateLessonSection({ lesson }: { lesson: any }) {
 
 export default function PropLab() {
   const [reports, setReports] = useState<any[]>([]);
-  const [selectedSlate, setSelectedSlate] = useState<string | null>(null);
   const [report, setReport] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [trackedProps, setTrackedProps] = useState<any[]>([]);
@@ -240,21 +240,21 @@ export default function PropLab() {
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
 
-  const loadReports = async (slateDate?: string | null) => {
+  const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
+  const currentLabSlateDate = rotation.currentLabSlateDate;
+
+  const loadReports = async () => {
     const list = await fetchDailySlateReports();
     const sorted = list.reports || [];
     setReports(sorted);
 
-    const target =
-      slateDate ||
-      selectedSlate ||
-      sorted[0]?.slateDate ||
-      null;
+    const { currentLabSlateDate: labDate } = computeSlateRotation(sorted);
 
-    if (target) {
-      const detail = await fetchDailySlateReport(target);
-      setSelectedSlate(target);
-      setReport(detail.report || sorted.find((r) => r.slateDate === target) || null);
+    if (labDate) {
+      const detail = await fetchDailySlateReport(labDate);
+      setReport(
+        detail.report || sorted.find((r) => r.slateDate === labDate) || null
+      );
     } else {
       setReport(null);
     }
@@ -279,14 +279,12 @@ export default function PropLab() {
     try {
       setRefreshing(true);
       await resolveTrackedProps({ requireLikelyFinished: true });
-      await buildDailySlateReports(
-        selectedSlate ? { slateDate: selectedSlate } : undefined
-      );
+      await buildDailySlateReports();
       const analyticsData = await fetchTrackedAnalytics();
       setAnalytics(analyticsData.analytics || null);
       const trackedData = await fetchTrackedProps();
       setTrackedProps(trackedData.props || []);
-      await loadReports(selectedSlate);
+      await loadReports();
     } catch (err) {
       console.log("REFRESH PROP LAB ERROR:", err);
     } finally {
@@ -298,21 +296,13 @@ export default function PropLab() {
     try {
       setBuilding(true);
       await resolveTrackedProps({ requireLikelyFinished: false });
-      await buildDailySlateReports(
-        selectedSlate ? { slateDate: selectedSlate } : undefined
-      );
-      await loadReports(selectedSlate);
+      await buildDailySlateReports();
+      await loadReports();
     } catch (err) {
       console.log("BUILD REPORT ERROR:", err);
     } finally {
       setBuilding(false);
     }
-  };
-
-  const selectSlate = async (slateDate: string) => {
-    setSelectedSlate(slateDate);
-    const detail = await fetchDailySlateReport(slateDate);
-    setReport(detail.report || reports.find((r) => r.slateDate === slateDate) || null);
   };
 
   useFocusEffect(
@@ -333,11 +323,11 @@ export default function PropLab() {
   const slateLesson = report?.slateLesson || report?.sections?.J;
 
   const slateTrackedProps = useMemo(() => {
-    if (!selectedSlate) return trackedProps.slice(0, 12);
+    if (!currentLabSlateDate) return [];
     return trackedProps
-      .filter((p) => p.slateDate === selectedSlate)
+      .filter((p) => p.slateDate === currentLabSlateDate)
       .slice(0, 12);
-  }, [trackedProps, selectedSlate]);
+  }, [trackedProps, currentLabSlateDate]);
 
   const allTimeRecord = useMemo(() => {
     const o = analytics?.overall?.currentEngine;
@@ -348,7 +338,7 @@ export default function PropLab() {
   const getReportText = () =>
     buildPropLabReport({
       reports,
-      selectedSlate,
+      rotation,
       report,
       analytics,
       loading,
@@ -367,9 +357,10 @@ export default function PropLab() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>Prop Lab</Text>
-          <Text style={styles.subtitle}>CourtEdge Daily Slate Intelligence</Text>
+          <Text style={styles.subtitle}>Current Completed Slate — Learning & Calibration</Text>
           <Text style={styles.note}>
-            Official Top Props are auto-tracked. Build reports after games grade.
+            Official Top Props are auto-tracked. Active grading stays in Results/Saved until
+            the slate is fully graded and final.
           </Text>
           <CopyReportButton getReportText={getReportText} />
         </View>
@@ -386,48 +377,36 @@ export default function PropLab() {
           </TouchableOpacity>
         </View>
 
-        {reports.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.slatePicker}
-            contentContainerStyle={styles.slatePickerContent}
-          >
-            {reports.map((item) => (
-              <TouchableOpacity
-                key={item.slateDate}
-                style={[
-                  styles.slateChip,
-                  selectedSlate === item.slateDate && styles.slateChipActive,
-                ]}
-                onPress={() => selectSlate(item.slateDate)}
-              >
-                <Text
-                  style={[
-                    styles.slateChipText,
-                    selectedSlate === item.slateDate && styles.slateChipTextActive,
-                  ]}
-                >
-                  {formatSlateLabel(item.slateDate)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        ) : null}
-
         {loading ? <Text style={styles.muted}>Loading reports...</Text> : null}
 
         {!loading && !report ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No slate reports yet</Text>
+            <Text style={styles.emptyTitle}>Waiting for completed slate.</Text>
             <Text style={styles.emptyText}>
-              Tap Build / Refresh Report after tracked props are graded.
+              Lab shows the most recent fully graded official slate. In-progress slates remain
+              in Results/Saved until all props grade and the report is final.
+            </Text>
+            {rotation.activeResults.length > 0 ? (
+              <Text style={styles.activeNote}>
+                {rotation.activeResults.length} in-progress slate report
+                {rotation.activeResults.length === 1 ? "" : "s"} — not shown in Lab yet.
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {report ? (
+          <View style={styles.labBanner}>
+            <Text style={styles.labBannerTitle}>Current Lab Slate</Text>
+            <Text style={styles.labBannerNote}>
+              This slate remains in Lab until the next completed slate replaces it. Older
+              completed slates move to History automatically.
             </Text>
           </View>
         ) : null}
 
         {sectionA ? (
-          <SectionCard title="Slate Status & Record">
+          <SectionCard title="Current Lab Slate — Status & Record">
             <View style={styles.summaryHeader}>
               <Text style={styles.slateTitle}>{formatSlateLabel(sectionA.slateDate)}</Text>
               <StatusBadge status={sectionA.reportStatus || report?.status || ""} />
@@ -912,6 +891,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontWeight: "700",
+  },
+  activeNote: {
+    color: "#93c5fd",
+    fontSize: 12,
+    marginTop: 10,
+    fontWeight: "700",
+  },
+  labBanner: {
+    backgroundColor: "#14532d",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+    gap: 6,
+  },
+  labBannerTitle: {
+    color: "#bbf7d0",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  labBannerNote: {
+    color: "#86efac",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
   },
   engineGrid: {
     gap: 8,
