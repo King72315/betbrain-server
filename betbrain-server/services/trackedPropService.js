@@ -4,15 +4,20 @@ import { fileURLToPath } from "url";
 
 import {
   fetchFinalPlayerStats,
+  getCachedStatsForPick,
   getPickDate,
   gradePointsPick,
   isPickGameStarted,
   isPickLikelyFinished,
+  primePickStatsCache,
   resolvePlayerStatForPick,
 } from "./resultService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/** Switchable: "ALL_GENERATED_PROPS" (testing) | "OFFICIAL_ONLY" (production). */
+export const TRACKING_MODE = "ALL_GENERATED_PROPS";
 
 const TRACKED_FILE = path.join(__dirname, "..", "tracked-props.json");
 const BACKUP_FILE = path.join(
@@ -165,17 +170,80 @@ export function getSlateDateCT(commenceTime) {
   });
 }
 
-export function isOfficialTrackablePick(pick = {}) {
+function passesBaseTrackableGate(pick = {}) {
   if (!pick?.player) return false;
   if (pick.noPlay) return false;
   if (pick.isStarted) return false;
   if (pick.trustable === false) return false;
+  return true;
+}
+
+export function isOfficialTrackablePick(pick = {}) {
+  if (!passesBaseTrackableGate(pick)) return false;
 
   const tier = String(pick.tier || "").toUpperCase();
   if (tier === "LEAN") return false;
   if (tier === "WATCHLIST") return false;
 
   return true;
+}
+
+export function isTrackablePick(pick = {}) {
+  if (!passesBaseTrackableGate(pick)) return false;
+
+  if (TRACKING_MODE === "OFFICIAL_ONLY") {
+    return isOfficialTrackablePick(pick);
+  }
+
+  return true;
+}
+
+function enrichPickFromGameCard(pick = {}, game = {}) {
+  const commenceTime = pick.commenceTime || game.commenceTime || game.time || "";
+
+  return {
+    ...pick,
+    gameId: game.gameId || game.id,
+    game: game.game,
+    date: game.date,
+    dateLabel: game.dateLabel,
+    dayBucket: game.dayBucket || pick.dayBucket || "",
+    time: game.time,
+    commenceTime,
+    minutesUntilStart: game.minutesUntilStart,
+    isStarted: game.isStarted,
+    league: game.league || pick.league,
+    slateDate: pick.slateDate || getSlateDateCT(commenceTime),
+    trackingMode: TRACKING_MODE,
+  };
+}
+
+export function collectAllGeneratedProps(gameCards = []) {
+  const seen = new Map();
+
+  for (const game of gameCards) {
+    for (const pick of game.picks || []) {
+      const enriched = enrichPickFromGameCard(pick, game);
+      if (!isTrackablePick(enriched)) continue;
+
+      const stableKey = getStableTrackedPropKey(enriched);
+      const existing = seen.get(stableKey);
+
+      if (!existing) {
+        seen.set(stableKey, enriched);
+        continue;
+      }
+
+      const existingScore = num(existing.pickScore ?? existing.confidence);
+      const nextScore = num(enriched.pickScore ?? enriched.confidence);
+
+      if (nextScore > existingScore) {
+        seen.set(stableKey, enriched);
+      }
+    }
+  }
+
+  return Array.from(seen.values());
 }
 
 function normalizeEngineSide(side = "") {
@@ -192,7 +260,27 @@ function normalizeFairSide(side = "") {
   return "NONE";
 }
 
-export function getTrackedPropKey(pick = {}) {
+export function getStableTrackedPropKey(pick = {}) {
+  const slateDate =
+    pick.slateDate ||
+    getSlateDateCT(pick.commenceTime || pick.time) ||
+    getGameDate(pick);
+  const currentEngineSide = normalizeEngineSide(pick.side || pick.pick);
+
+  return [
+    slateDate,
+    pick.league || "",
+    pick.player || "",
+    pick.team || "",
+    pick.opponent || "",
+    pick.stat || "Points",
+    currentEngineSide,
+  ]
+    .map(clean)
+    .join("-");
+}
+
+function getLegacyTrackedPropKey(pick = {}) {
   const currentEngineSide = normalizeEngineSide(pick.side || pick.pick);
   const line = num(pick.line ?? pick.sportsbookLine);
 
@@ -208,6 +296,26 @@ export function getTrackedPropKey(pick = {}) {
   ]
     .map(clean)
     .join("-");
+}
+
+export function getTrackedPropKey(pick = {}) {
+  return getStableTrackedPropKey(pick);
+}
+
+function buildTrackedIndex(tracked = []) {
+  const indexByStable = new Map();
+
+  tracked.forEach((item, index) => {
+    const stableKey = getStableTrackedPropKey(item);
+    indexByStable.set(stableKey, index);
+
+    const legacyKey = item.trackedKey || getLegacyTrackedPropKey(item);
+    if (legacyKey && legacyKey !== stableKey) {
+      indexByStable.set(legacyKey, index);
+    }
+  });
+
+  return indexByStable;
 }
 
 function getConfidenceBucket(confidence = 0) {
@@ -601,6 +709,7 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
         options.pendingReason ||
         tracked.pendingReason ||
         "No exact game stat match found for pick date and league",
+      resolveDebug: options.resolveDebug || tracked.resolveDebug || null,
       actualStat: null,
       result: null,
       resultMargin: null,
@@ -655,16 +764,29 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
 function normalizeTrackedProp(pick = {}, existing = null) {
   const now = new Date().toISOString();
   const fields = mapPickToTrackedFields(pick);
-  const trackedKey = getTrackedPropKey(pick);
+  const trackedKey = getStableTrackedPropKey(pick);
+  const previousLine =
+    existing && num(existing.line) && num(existing.line) !== num(fields.line)
+      ? num(existing.line)
+      : null;
 
   return {
     ...existing,
     ...fields,
     trackedId: existing?.trackedId || trackedKey,
     trackedKey,
+    trackingMode: pick.trackingMode || existing?.trackingMode || TRACKING_MODE,
+    lineMovement:
+      previousLine !== null
+        ? {
+            from: previousLine,
+            to: num(fields.line),
+            seenAt: now,
+          }
+        : existing?.lineMovement || null,
     generatedAt: existing?.generatedAt || now,
     lastSeenAt: now,
-    timesSeen: existing ? num(existing.timesSeen) : 1,
+    timesSeen: existing ? num(existing.timesSeen) + 1 : 1,
     status: existing?.status || "pending",
     actualStat: existing?.actualStat ?? null,
     result: existing?.result ?? null,
@@ -688,29 +810,33 @@ function normalizeTrackedProp(pick = {}, existing = null) {
 
 export function addTrackedProps(picks = []) {
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter(
-    isOfficialTrackablePick
+    isTrackablePick
   );
   const tracked = readJSON(TRACKED_FILE, []);
-  const indexByKey = new Map(
-    tracked.map((item, index) => [item.trackedKey || getTrackedPropKey(item), index])
-  );
+  const indexByStable = buildTrackedIndex(tracked);
 
   for (const pick of incoming) {
     if (!pick?.player) continue;
 
-    const trackedKey = getTrackedPropKey(pick);
-    const existingIndex = indexByKey.get(trackedKey);
+    const stableKey = getStableTrackedPropKey(pick);
+    const legacyKey = getLegacyTrackedPropKey(pick);
+    const existingIndex =
+      indexByStable.get(stableKey) ?? indexByStable.get(legacyKey);
 
     if (existingIndex !== undefined) {
       const existing = tracked[existingIndex];
-      tracked[existingIndex] = normalizeTrackedProp(pick, {
-        ...existing,
-        timesSeen: num(existing.timesSeen) + 1,
-      });
+      tracked[existingIndex] = normalizeTrackedProp(pick, existing);
+      indexByStable.set(stableKey, existingIndex);
+      if (legacyKey !== stableKey) {
+        indexByStable.set(legacyKey, existingIndex);
+      }
     } else {
       const normalized = normalizeTrackedProp(pick);
       normalized.timesSeen = 1;
-      indexByKey.set(trackedKey, tracked.length);
+      indexByStable.set(stableKey, tracked.length);
+      if (legacyKey !== stableKey) {
+        indexByStable.set(legacyKey, tracked.length);
+      }
       tracked.push(normalized);
     }
   }
@@ -768,17 +894,7 @@ export async function resolveTrackedProps(options = {}) {
   const statsCache = new Map();
 
   for (const item of gradeable) {
-    const pickDate = getPickDate(item);
-    const league = String(item.league || "NBA").toUpperCase();
-    const cacheKey = `${league}:${pickDate || "unknown"}`;
-
-    if (!statsCache.has(cacheKey)) {
-      const stats = await fetchFinalPlayerStats(
-        pickDate ? new Date(`${pickDate}T12:00:00Z`) : new Date(),
-        { league }
-      );
-      statsCache.set(cacheKey, stats);
-    }
+    await primePickStatsCache(item, statsCache);
   }
 
   let gradedCount = 0;
@@ -799,16 +915,13 @@ export async function resolveTrackedProps(options = {}) {
       continue;
     }
 
-    const pickDate = getPickDate(item);
-    const league = String(item.league || "NBA").toUpperCase();
-    const cacheKey = `${league}:${pickDate || "unknown"}`;
-    const playerStats = statsCache.get(cacheKey) || [];
+    const playerStats = getCachedStatsForPick(item, statsCache);
 
-    const { statResult, pendingReason } = await resolvePlayerStatForPick(
+    const { statResult, pendingReason, resolveDebug } = await resolvePlayerStatForPick(
       item,
       playerStats
     );
-    const graded = gradeTrackedProp(item, statResult, { pendingReason });
+    const graded = gradeTrackedProp(item, statResult, { pendingReason, resolveDebug });
 
     if (isResolvedStatus(graded.status)) {
       gradedCount += 1;

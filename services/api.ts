@@ -1,8 +1,28 @@
-const BASE_URL =
-  (process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000").replace(
-    /\/$/,
-    ""
-  );
+import { Platform } from "react-native";
+
+const LIVE_RENDER_URL = "https://betbrain-server-1.onrender.com";
+const LOCAL_DEV_URL = "http://localhost:3000";
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) {
+    return fromEnv.replace(/\/$/, "");
+  }
+
+  // Physical phones and native builds must never default to localhost.
+  if (Platform.OS !== "web") {
+    return LIVE_RENDER_URL;
+  }
+
+  // Web dev server typically pairs with a local backend during development.
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    return LOCAL_DEV_URL;
+  }
+
+  return LIVE_RENDER_URL;
+}
+
+const BASE_URL = resolveApiBaseUrl();
 
 type League = "NBA" | "WNBA";
 
@@ -20,6 +40,9 @@ type ApiResult = {
   topProps?: any[];
   topNBAProps?: any[];
   topWNBAProps?: any[];
+  filterAudit?: any;
+  trackingMode?: string;
+  generatedPropCount?: number;
 
   picks?: any[];
   pick?: any;
@@ -48,6 +71,9 @@ function normalizePicksResponse(data: any = {}): ApiResult {
     topProps: data.topProps || [],
     topNBAProps: data.topNBAProps || [],
     topWNBAProps: data.topWNBAProps || [],
+    filterAudit: data.filterAudit || null,
+    trackingMode: data.trackingMode || data.filterAudit?.trackingMode || null,
+    generatedPropCount: data.generatedPropCount ?? null,
 
     picks: data.picks || [],
     pick: data.pick || null,
@@ -154,6 +180,7 @@ export const fetchTopProps = async () => {
     topProps: data.topProps || [],
     topNBAProps: data.topNBAProps || [],
     topWNBAProps: data.topWNBAProps || [],
+    filterAudit: data.filterAudit || null,
   };
 };
 
@@ -352,6 +379,27 @@ export const deletePick = async (id: string) => {
 };
 
 export const getApiBaseUrl = () => BASE_URL;
+
+export type BackendMode = "LOCAL DEV" | "LIVE RENDER" | "CUSTOM";
+
+export const getBackendMode = (): BackendMode => {
+  const url = BASE_URL.toLowerCase();
+
+  if (
+    url.includes("localhost") ||
+    url.includes("127.0.0.1") ||
+    /^http:\/\/192\.168\./.test(url) ||
+    /^http:\/\/10\./.test(url)
+  ) {
+    return "LOCAL DEV";
+  }
+
+  if (url.includes("onrender.com")) {
+    return "LIVE RENDER";
+  }
+
+  return "CUSTOM";
+};
 
 export const fetchTrackedProps = async () => {
   try {

@@ -80,72 +80,31 @@ function buildSlateSummary(props: any[]) {
   };
 }
 
-function findReportForSlate(reports: any[], slateDate: string) {
-  return (
-    reports.find((report) => String(report.slateDate) === slateDate) || null
-  );
-}
 
 /** Newest official tracked slate that is not yet the completed Lab slate. */
 export function computeActiveResultsSlate(
   trackedProps: any[] = [],
   reports: any[] = []
 ): ActiveResultsSlate | null {
-  const rotation = computeSlateRotation(reports);
-  const groups = groupTrackedPropsBySlate(trackedProps);
-  const slateDates = [...groups.keys()]
-    .filter((date) => date !== "unknown")
-    .sort((a, b) => b.localeCompare(a));
+  const visible = computeVisibleResultsSlates(trackedProps, reports);
+  return visible[0] || null;
+}
 
-  for (const slateDate of slateDates) {
-    const props = groups.get(slateDate) || [];
-    if (!props.length) continue;
-
-    const report = findReportForSlate(reports, slateDate);
-    const complete = isCompletedSlate(report);
-
-    if (complete && slateDate === rotation.currentLabSlateDate) {
-      continue;
-    }
-
-    if (!complete) {
-      const summary = buildSlateSummary(props);
-      const leagues = [
-        ...new Set(props.map((prop) => prop.league).filter(Boolean)),
-      ] as string[];
-
-      return {
-        slateDate,
-        props,
-        report,
-        rotation,
-        isComplete: summary.pending === 0 && summary.failed === 0 && summary.graded > 0,
-        summary,
-        leagues,
-      };
-    }
-  }
-
-  const newestWithProps = slateDates.find((date) => (groups.get(date) || []).length > 0);
-  if (!newestWithProps) return null;
-
-  const props = groups.get(newestWithProps) || [];
-  const report = findReportForSlate(reports, newestWithProps);
+function buildActiveResultsSlate(
+  slateDate: string,
+  props: any[],
+  reports: any[],
+  rotation: SlateRotation
+): ActiveResultsSlate {
+  const report =
+    reports.find((item) => String(item.slateDate) === slateDate) || null;
   const summary = buildSlateSummary(props);
-
-  if (
-    newestWithProps === rotation.currentLabSlateDate &&
-    isCompletedSlate(report)
-  ) {
-    return null;
-  }
-
   const leagues = [
     ...new Set(props.map((prop) => prop.league).filter(Boolean)),
   ] as string[];
 
   return {
-    slateDate: newestWithProps,
+    slateDate,
     props,
     report,
     rotation,
@@ -153,6 +112,41 @@ export function computeActiveResultsSlate(
     summary,
     leagues,
   };
+}
+
+/** In-progress slates visible in Results (today + tomorrow, excluding current Lab slate). */
+export function computeVisibleResultsSlates(
+  trackedProps: any[] = [],
+  reports: any[] = []
+): ActiveResultsSlate[] {
+  const rotation = computeSlateRotation(reports);
+  const groups = groupTrackedPropsBySlate(trackedProps);
+  const slateDates = [...groups.keys()]
+    .filter((date) => date !== "unknown")
+    .sort((a, b) => a.localeCompare(b));
+
+  const visible: ActiveResultsSlate[] = [];
+
+  for (const slateDate of slateDates) {
+    const props = groups.get(slateDate) || [];
+    if (!props.length) continue;
+
+    const report =
+      reports.find((item) => String(item.slateDate) === slateDate) || null;
+    const complete = isCompletedSlate(report);
+
+    if (complete && slateDate === rotation.currentLabSlateDate) {
+      continue;
+    }
+
+    if (complete) {
+      continue;
+    }
+
+    visible.push(buildActiveResultsSlate(slateDate, props, reports, rotation));
+  }
+
+  return visible;
 }
 
 export function filterResultsProps(props: any[], filter: ResultsFilter) {

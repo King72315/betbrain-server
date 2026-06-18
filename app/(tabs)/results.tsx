@@ -11,22 +11,26 @@ import {
 } from "react-native";
 
 import CopyReportButton from "../../components/CopyReportButton";
+import FilterAuditCard from "../../components/FilterAuditCard";
 import PropCard, { ResultMarginText, safeDisplay } from "../../components/PropCard";
 import {
   buildDailySlateReports,
   fetchDailySlateReports,
+  fetchTopProps,
   fetchTrackedProps,
   resolveTrackedProps,
 } from "../../services/api";
 import { buildResultsReport } from "../../utils/reportBuilders";
 import {
   RESULTS_FILTERS,
-  computeActiveResultsSlate,
+  computeVisibleResultsSlates,
   filterResultsProps,
   formatResultsSlateLabel,
   getTrackedPropStatus,
   type ResultsFilter,
 } from "../../utils/resultsQueue";
+import { type FilterAudit } from "../../utils/filterAudit";
+import { formatPropLabelLine, getPropDisplayLabels } from "../../utils/propLabels";
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toUpperCase();
@@ -52,17 +56,24 @@ export default function ResultsScreen() {
   const [resolving, setResolving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
+  const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
+  const [trackingMode, setTrackingMode] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [trackedData, reportData] = await Promise.all([
+      const [trackedData, reportData, topPropsData] = await Promise.all([
         fetchTrackedProps(),
         fetchDailySlateReports(),
+        fetchTopProps(),
       ]);
 
       setTrackedProps(trackedData.props || []);
       setReports(reportData.reports || []);
+      setFilterAudit(topPropsData.filterAudit || null);
+      setTrackingMode(
+        topPropsData.trackingMode || topPropsData.filterAudit?.trackingMode || null
+      );
       setLoadError(null);
     } catch (err) {
       console.log("LOAD RESULTS ERROR:", err);
@@ -122,15 +133,23 @@ export default function ResultsScreen() {
     }, [])
   );
 
-  const activeSlate = useMemo(
-    () => computeActiveResultsSlate(trackedProps, reports),
+  const visibleSlates = useMemo(
+    () => computeVisibleResultsSlates(trackedProps, reports),
     [trackedProps, reports]
   );
 
+  const activeSlate = visibleSlates[0] || null;
+
+  const filteredSlates = useMemo(() => {
+    return visibleSlates.map((slate) => ({
+      ...slate,
+      props: filterResultsProps(slate.props, filter),
+    }));
+  }, [visibleSlates, filter]);
+
   const filteredProps = useMemo(() => {
-    if (!activeSlate) return [];
-    return filterResultsProps(activeSlate.props, filter);
-  }, [activeSlate, filter]);
+    return filteredSlates.flatMap((slate) => slate.props);
+  }, [filteredSlates]);
 
   const getReportText = () =>
     buildResultsReport({
@@ -141,9 +160,8 @@ export default function ResultsScreen() {
       refreshing,
       lastResolveSummary,
       error: loadError,
+      filterAudit,
     });
-
-  const summary = activeSlate?.summary;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -156,48 +174,20 @@ export default function ResultsScreen() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>📋 Results</Text>
-          <Text style={styles.subtitle}>Official Grading Queue</Text>
+          <Text style={styles.subtitle}>
+            {trackingMode === "ALL_GENERATED_PROPS"
+              ? "All Generated Props — Grading Queue"
+              : "Official Grading Queue"}
+          </Text>
           <Text style={styles.motto}>
-            Every official Top Prop lands here first. Grade the current slate, then it
-            moves to Lab when complete.
+            {trackingMode === "ALL_GENERATED_PROPS"
+              ? "Every board-generated prop auto-tracks here for testing — Premium, Playable, Lean, and Watchlist. Saved picks stay Shadow Mode only."
+              : "Official tracked props live here until graded. No manual save required — Top Props auto-track on refresh."}
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
         </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Current Slate</Text>
-          {activeSlate ? (
-            <>
-              <Text style={styles.slateDate}>
-                {formatResultsSlateLabel(activeSlate.slateDate)}
-              </Text>
-              <Text style={styles.slateMeta}>
-                {(activeSlate.leagues || []).join(" • ") || "—"}
-              </Text>
-              <View style={styles.recordGrid}>
-                <SummaryBox label="Total" value={summary?.total ?? 0} color="#f8fafc" />
-                <SummaryBox label="Graded" value={summary?.graded ?? 0} color="#22c55e" />
-                <SummaryBox label="Pending" value={summary?.pending ?? 0} color="#93c5fd" />
-                <SummaryBox label="Failed" value={summary?.failed ?? 0} color="#f97316" />
-              </View>
-              <Text style={styles.recordLine}>
-                Record: {summary?.wins ?? 0}-{summary?.losses ?? 0}-{summary?.pushes ?? 0}
-              </Text>
-              {activeSlate.isComplete ? (
-                <View style={styles.completeBanner}>
-                  <Text style={styles.completeText}>
-                    Slate complete — ready for Lab
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <Text style={styles.emptySummary}>
-              No active official slate in Results. Completed slates are in Lab; older ones
-              archive in History.
-            </Text>
-          )}
-        </View>
+        <FilterAuditCard audit={filterAudit} />
 
         <TouchableOpacity
           style={[styles.actionBtn, (refreshing || resolving) && styles.actionBtnDisabled]}
@@ -243,61 +233,99 @@ export default function ResultsScreen() {
 
         {loading ? <Text style={styles.loadingText}>Loading grading queue...</Text> : null}
 
-        {!loading && !activeSlate ? (
+        {visibleSlates.map((slate) => {
+          const slateSummary = slate.summary;
+          const slateFiltered =
+            filteredSlates.find((item) => item.slateDate === slate.slateDate)?.props ||
+            [];
+
+          return (
+            <View key={slate.slateDate} style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Slate — {formatResultsSlateLabel(slate.slateDate)}</Text>
+              <Text style={styles.slateMeta}>
+                {(slate.leagues || []).join(" • ") || "—"} • {slateSummary?.total ?? 0} tracked
+              </Text>
+              <View style={styles.recordGrid}>
+                <SummaryBox label="Total" value={slateSummary?.total ?? 0} color="#f8fafc" />
+                <SummaryBox label="Graded" value={slateSummary?.graded ?? 0} color="#22c55e" />
+                <SummaryBox label="Pending" value={slateSummary?.pending ?? 0} color="#93c5fd" />
+                <SummaryBox label="Failed" value={slateSummary?.failed ?? 0} color="#f97316" />
+              </View>
+              <Text style={styles.recordLine}>
+                Record: {slateSummary?.wins ?? 0}-{slateSummary?.losses ?? 0}-{slateSummary?.pushes ?? 0}
+              </Text>
+              {slate.isComplete ? (
+                <View style={styles.completeBanner}>
+                  <Text style={styles.completeText}>Slate complete — ready for Lab</Text>
+                </View>
+              ) : null}
+
+              {slateFiltered.map((prop, index) => {
+                const status = getTrackedPropStatus(prop);
+                const displayStatus = status.toLowerCase();
+                const labels = getPropDisplayLabels(prop);
+
+                return (
+                  <View
+                    key={prop.trackedId || prop.trackedKey || `${prop.player}-${index}`}
+                    style={[
+                      styles.propCard,
+                      status === "Win" && styles.winCard,
+                      status === "Loss" && styles.lossCard,
+                      status === "Failed" && styles.failedCard,
+                    ]}
+                  >
+                    <View style={styles.propHeader}>
+                      <StatusBadge status={status} />
+                      <Text style={styles.propRank}>#{prop.rank ?? index + 1}</Text>
+                    </View>
+                    <View style={styles.labelRow}>
+                      {labels.badges.map((badge) => (
+                        <View key={`${prop.trackedKey}-${badge}`} style={styles.labelChip}>
+                          <Text style={styles.labelChipText}>{badge}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <PropCard
+                      pick={{
+                        ...prop,
+                        side: prop.currentEngineSide || prop.side,
+                        status: displayStatus,
+                      }}
+                      index={index}
+                    />
+                    <View style={styles.propMeta}>
+                      <Text style={styles.propLine}>
+                        {prop.currentEngineSide || prop.side} {safeDisplay(prop.line)}{" "}
+                        {prop.stat || "Points"} — {status}
+                      </Text>
+                      <ResultMarginText pick={prop} />
+                      <Text style={styles.propDetail}>{formatPropLabelLine(prop)}</Text>
+                      {prop.lineMovement ? (
+                        <Text style={styles.lineMovement}>
+                          Line moved {prop.lineMovement.from} → {prop.lineMovement.to}
+                        </Text>
+                      ) : null}
+                      {prop.pendingReason ? (
+                        <Text style={styles.pendingReason}>{prop.pendingReason}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
+
+        {!loading && visibleSlates.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No active Results slate.</Text>
             <Text style={styles.emptyText}>
-              Official props from Top/NBA/WNBA boards auto-track here. When the slate
-              fully grades, it moves to Lab for analysis.
+              Board-generated props from Props/NBA/WNBA auto-track here during testing.
+              When the slate fully grades, it moves to Lab for analysis.
             </Text>
           </View>
         ) : null}
-
-        {!loading &&
-          activeSlate &&
-          filteredProps.map((prop, index) => {
-            const status = getTrackedPropStatus(prop);
-            const displayStatus = status.toLowerCase();
-
-            return (
-              <View
-                key={prop.trackedId || prop.trackedKey || `${prop.player}-${index}`}
-                style={[
-                  styles.propCard,
-                  status === "Win" && styles.winCard,
-                  status === "Loss" && styles.lossCard,
-                  status === "Failed" && styles.failedCard,
-                ]}
-              >
-                <View style={styles.propHeader}>
-                  <StatusBadge status={status} />
-                  <Text style={styles.propRank}>#{prop.rank ?? index + 1}</Text>
-                </View>
-                <PropCard
-                  pick={{
-                    ...prop,
-                    side: prop.currentEngineSide || prop.side,
-                    status: displayStatus,
-                  }}
-                  index={index}
-                />
-                <View style={styles.propMeta}>
-                  <Text style={styles.propLine}>
-                    {prop.currentEngineSide || prop.side} {safeDisplay(prop.line)}{" "}
-                    {prop.stat || "Points"} — {status}
-                  </Text>
-                  <ResultMarginText pick={prop} />
-                  <Text style={styles.propDetail}>
-                    Conf {safeDisplay(prop.confidence)}% • Risk {prop.riskLabel || "—"} •{" "}
-                    Tier {String(prop.tier || "—").toUpperCase()}
-                  </Text>
-                  {prop.pendingReason ? (
-                    <Text style={styles.pendingReason}>{prop.pendingReason}</Text>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })}
       </ScrollView>
     </SafeAreaView>
   );
@@ -574,6 +602,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     marginTop: 2,
+  },
+  labelRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+  },
+  labelChip: {
+    backgroundColor: "#1e293b",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  labelChipText: {
+    color: "#e2e8f0",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  lineMovement: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 4,
   },
   pendingReason: {
     color: "#fdba74",

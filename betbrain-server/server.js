@@ -34,10 +34,12 @@ import {
 
 import {
   fetchFinalPlayerStats,
+  getCachedStatsForPick,
   getPickDate,
   gradePointsPick,
   isPickGameStarted,
   isPickLikelyFinished,
+  primePickStatsCache,
   resolvePlayerStatForPick,
 } from "./services/resultService.js";
 
@@ -67,10 +69,13 @@ import {
   updatePlayerAccuracy,
 } from "./storage.js";
 
+import { buildFilterAudit } from "./services/filterAuditService.js";
 import {
+  TRACKING_MODE,
   addTrackedProps,
   buildTrackedPropAnalytics,
   clearTrackedProps,
+  collectAllGeneratedProps,
   deleteTrackedProp,
   getTrackedProps,
   resolveTrackedProps,
@@ -630,6 +635,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           : getTeamForPlayer(playerName, playerMap, projectionMap, seasonMap);
 
       if (!team) {
+        trackSideAuditRejection(sideAudit, null, ["Missing player data"]);
         rejectedPicks.push({
           player: playerName,
           reason: "no team match",
@@ -650,6 +656,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           : getOpponentForTeam(game, team) || getOpponentFromGame(team, game);
 
       if (!opponent) {
+        trackSideAuditRejection(sideAudit, null, ["Missing player data"]);
         rejectedPicks.push({
           player: playerName,
           team,
@@ -1268,12 +1275,20 @@ async function refreshAllPicks() {
   const topNBAProps = buildTopProps(games, { league: "NBA" });
   const topWNBAProps = buildTopProps(games, { league: "WNBA" });
 
-  addTrackedProps(topProps);
+  const generatedProps = collectAllGeneratedProps(games);
+  addTrackedProps(generatedProps);
+
+  const filterAudit = buildFilterAudit(games, sideAudit, {
+    generatedProps,
+    topProps,
+    trackingMode: TRACKING_MODE,
+  });
 
   const result = {
     ok: true,
     lastUpdated: new Date().toISOString(),
     config: checkConfig(),
+    filterAudit,
     sideAudit,
     sideAuditSummary: {
       ...sideAudit,
@@ -1295,6 +1310,9 @@ async function refreshAllPicks() {
     topProps,
     topNBAProps,
     topWNBAProps,
+    generatedProps,
+    trackingMode: TRACKING_MODE,
+    generatedPropCount: generatedProps.length,
 
     games,
     nbaGames,
@@ -1364,6 +1382,7 @@ app.get("/top-props", async (req, res) => {
       topProps: picksCache.topProps || [],
       topNBAProps: picksCache.topNBAProps || [],
       topWNBAProps: picksCache.topWNBAProps || [],
+      filterAudit: picksCache.filterAudit || null,
     });
   } catch (error) {
     console.log("GET TOP PROPS ERROR:", error.message);
@@ -1666,17 +1685,7 @@ async function resolvePendingPicks(options = {}) {
   const statsCache = new Map();
 
   for (const pick of gradeablePicks) {
-    const pickDate = getPickDate(pick);
-    const league = String(pick.league || "NBA").toUpperCase();
-    const cacheKey = `${league}:${pickDate || "unknown"}`;
-
-    if (!statsCache.has(cacheKey)) {
-      const stats = await fetchFinalPlayerStats(
-        pickDate ? new Date(`${pickDate}T12:00:00Z`) : new Date(),
-        { league }
-      );
-      statsCache.set(cacheKey, stats);
-    }
+    await primePickStatsCache(pick, statsCache);
   }
 
   let gradedCount = 0;
@@ -1697,16 +1706,13 @@ async function resolvePendingPicks(options = {}) {
       continue;
     }
 
-    const pickDate = getPickDate(pick);
-    const league = String(pick.league || "NBA").toUpperCase();
-    const cacheKey = `${league}:${pickDate || "unknown"}`;
-    const playerStats = statsCache.get(cacheKey) || [];
+    const playerStats = getCachedStatsForPick(pick, statsCache);
 
-    const { statResult, pendingReason } = await resolvePlayerStatForPick(
+    const { statResult, pendingReason, resolveDebug } = await resolvePlayerStatForPick(
       pick,
       playerStats
     );
-    const graded = gradePointsPick(pick, statResult, { pendingReason });
+    const graded = gradePointsPick(pick, statResult, { pendingReason, resolveDebug });
 
     if (graded.status === "win") {
       updatePlayerAccuracy(graded.player, true, {

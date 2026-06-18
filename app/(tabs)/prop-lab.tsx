@@ -14,13 +14,17 @@ import {
   buildDailySlateReports,
   fetchDailySlateReport,
   fetchDailySlateReports,
+  fetchTopProps,
   fetchTrackedAnalytics,
   fetchTrackedProps,
   resolveTrackedProps,
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
+import FilterAuditCard from "../../components/FilterAuditCard";
 import { buildPropLabReport } from "../../utils/reportBuilders";
+import { type FilterAudit } from "../../utils/filterAudit";
 import { computeSlateRotation } from "../../utils/slateRotation";
+import { formatPropLabelLine } from "../../utils/propLabels";
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -82,6 +86,126 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BucketPerfTable({
+  title,
+  buckets,
+}: {
+  title: string;
+  buckets: Record<string, any> | undefined;
+}) {
+  if (!buckets || Object.keys(buckets).length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.bucketBlock}>
+      <Text style={styles.bucketTitle}>{title}</Text>
+      {Object.entries(buckets).map(([key, stats]) => (
+        <Text key={key} style={styles.bucketLine}>
+          {key}: {stats.total || 0} props •{" "}
+          {formatRecord(stats.wins, stats.losses, stats.pushes, stats.accuracy)}
+          {stats.pending ? ` • pending ${stats.pending}` : ""}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function TierBreakdownSection({
+  slateProps,
+  sectionD,
+}: {
+  slateProps: any[];
+  sectionD: any;
+}) {
+  const tierGroups = sectionD?.groups?.tier || {};
+  const hasReportTiers = Object.keys(tierGroups).length > 0;
+
+  const tierCounts = slateProps.reduce<Record<string, number>>((acc, prop) => {
+    const tier = String(prop.tier || "UNKNOWN").toUpperCase();
+    acc[tier] = (acc[tier] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <View style={styles.breakdownSection}>
+      <Text style={styles.breakdownTitle}>Tier mix (all tracked)</Text>
+      {Object.entries(tierCounts).map(([tier, count]) => (
+        <Text key={tier} style={styles.breakdownLine}>
+          {tier}: {count}
+          {hasReportTiers && tierGroups[tier]
+            ? ` • graded ${formatRecord(
+                tierGroups[tier].wins,
+                tierGroups[tier].losses,
+                tierGroups[tier].pushes,
+                tierGroups[tier].winRate
+              )}`
+            : ""}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function SlateAnalyticsBreakdown({
+  slateProps,
+  analytics,
+}: {
+  slateProps: any[];
+  analytics: any;
+}) {
+  const filterBucket = (bucketName: string) => {
+    const bucket = analytics?.[bucketName];
+    if (!bucket) return undefined;
+
+    const slatePlayers = new Set(slateProps.map((prop) => prop.player));
+    const filtered: Record<string, any> = {};
+
+    for (const [key, stats] of Object.entries(bucket)) {
+      const totalOnSlate = slateProps.filter((prop) => {
+        if (bucketName === "byTier") {
+          return String(prop.tier || "UNKNOWN").toUpperCase() === key;
+        }
+        if (bucketName === "byRiskLabel") {
+          return (prop.riskLabel || "UNKNOWN") === key;
+        }
+        if (bucketName === "byCurrentEngineSide") {
+          return (prop.currentEngineSide || "UNKNOWN") === key;
+        }
+        if (bucketName === "byBookCountBucket") {
+          return (prop.bookCountBucket || "UNKNOWN") === key;
+        }
+        if (bucketName === "byConfidenceBucket") {
+          return (prop.confidenceBucket || "UNKNOWN") === key;
+        }
+        if (bucketName === "byDataMode") {
+          return (prop.dataMode || "UNKNOWN") === key;
+        }
+        return slatePlayers.has(prop.player);
+      }).length;
+
+      if (totalOnSlate > 0) {
+        filtered[key] = { ...stats, total: totalOnSlate };
+      }
+    }
+
+    return filtered;
+  };
+
+  return (
+    <View style={styles.breakdownSection}>
+      <BucketPerfTable title="Risk bucket" buckets={filterBucket("byRiskLabel")} />
+      <BucketPerfTable title="Over / Under" buckets={filterBucket("byCurrentEngineSide")} />
+      <BucketPerfTable title="Book count" buckets={filterBucket("byBookCountBucket")} />
+      <BucketPerfTable
+        title="Confidence bucket"
+        buckets={filterBucket("byConfidenceBucket")}
+      />
+      <BucketPerfTable title="Data mode" buckets={filterBucket("byDataMode")} />
+      <BucketPerfTable title="Tier performance" buckets={filterBucket("byTier")} />
+    </View>
+  );
+}
 function GroupPerfTable({
   groups,
 }: {
@@ -239,6 +363,7 @@ export default function PropLab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
 
   const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
   const currentLabSlateDate = rotation.currentLabSlateDate;
@@ -263,10 +388,14 @@ export default function PropLab() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const analyticsData = await fetchTrackedAnalytics();
+      const [analyticsData, trackedData, topPropsData] = await Promise.all([
+        fetchTrackedAnalytics(),
+        fetchTrackedProps(),
+        fetchTopProps(),
+      ]);
       setAnalytics(analyticsData.analytics || null);
-      const trackedData = await fetchTrackedProps();
       setTrackedProps(trackedData.props || []);
+      setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
       console.log("LOAD PROP LAB ERROR:", err);
@@ -280,10 +409,14 @@ export default function PropLab() {
       setRefreshing(true);
       await resolveTrackedProps({ requireLikelyFinished: true });
       await buildDailySlateReports();
-      const analyticsData = await fetchTrackedAnalytics();
+      const [analyticsData, trackedData, topPropsData] = await Promise.all([
+        fetchTrackedAnalytics(),
+        fetchTrackedProps(),
+        fetchTopProps(),
+      ]);
       setAnalytics(analyticsData.analytics || null);
-      const trackedData = await fetchTrackedProps();
       setTrackedProps(trackedData.props || []);
+      setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
       console.log("REFRESH PROP LAB ERROR:", err);
@@ -324,10 +457,14 @@ export default function PropLab() {
 
   const slateTrackedProps = useMemo(() => {
     if (!currentLabSlateDate) return [];
-    return trackedProps
-      .filter((p) => p.slateDate === currentLabSlateDate)
-      .slice(0, 12);
+    return trackedProps.filter((p) => p.slateDate === currentLabSlateDate);
   }, [trackedProps, currentLabSlateDate]);
+
+  const officialSlateProps = useMemo(() => {
+    return slateTrackedProps.filter(
+      (prop) => String(prop.tier || "").toUpperCase() === "PREMIUM"
+    );
+  }, [slateTrackedProps]);
 
   const allTimeRecord = useMemo(() => {
     const o = analytics?.overall?.currentEngine;
@@ -344,6 +481,7 @@ export default function PropLab() {
       loading,
       building,
       refreshing,
+      filterAudit,
     });
 
   return (
@@ -359,11 +497,14 @@ export default function PropLab() {
           <Text style={styles.title}>Prop Lab</Text>
           <Text style={styles.subtitle}>Current Completed Slate — Learning & Calibration</Text>
           <Text style={styles.note}>
-            Official Top Props auto-track in Results. When the slate fully grades, it moves
-            here for analysis until the next completed slate replaces it.
+            Lab analyzes all tracked props after the slate completes — tier, risk, confidence,
+            book count, and data mode breakdowns included. Official Premium performance is
+            shown separately for comparison.
           </Text>
           <CopyReportButton getReportText={getReportText} />
         </View>
+
+        <FilterAuditCard audit={filterAudit} compact />
 
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -416,7 +557,11 @@ export default function PropLab() {
                 {sectionA.pending} prop(s) still pending — report updates when all grade.
               </Text>
             ) : null}
-            <MetricRow label="Official props" value={String(sectionA.totalOfficialProps || 0)} />
+            <MetricRow label="Tracked props" value={String(sectionA.totalOfficialProps || 0)} />
+            <MetricRow
+              label="Premium only"
+              value={String(officialSlateProps.length)}
+            />
             <MetricRow
               label="Record"
               value={formatRecord(
@@ -505,12 +650,22 @@ export default function PropLab() {
 
         {sectionD ? (
           <SectionCard title="Signal Groups (Detail)">
+            <TierBreakdownSection slateProps={slateTrackedProps} sectionD={sectionD} />
             {Object.entries(sectionD.groups || {}).map(([groupName, groups]) => (
               <View key={groupName} style={styles.signalGroup}>
                 <Text style={styles.signalGroupTitle}>{groupName}</Text>
                 <GroupPerfTable groups={groups as Record<string, any>} />
               </View>
             ))}
+          </SectionCard>
+        ) : null}
+
+        {slateTrackedProps.length > 0 ? (
+          <SectionCard title="Slate Breakdown — Tier / Risk / Books / Data">
+            <SlateAnalyticsBreakdown
+              slateProps={slateTrackedProps}
+              analytics={analytics}
+            />
           </SectionCard>
         ) : null}
 
@@ -591,18 +746,14 @@ export default function PropLab() {
           {slateTrackedProps.length === 0 ? (
             <Text style={styles.muted}>No tracked props for this slate.</Text>
           ) : (
-            slateTrackedProps.map((prop, index) => (
+            slateTrackedProps.slice(0, 24).map((prop, index) => (
               <View key={prop.trackedId || prop.trackedKey || index} style={styles.rawPropRow}>
                 <Text style={styles.rawPropTitle}>
                   {prop.player} — {prop.currentEngineSide} {prop.line} ({prop.league})
                 </Text>
+                <Text style={styles.rawPropMeta}>{formatPropLabelLine(prop)}</Text>
                 <Text style={styles.rawPropMeta}>
-                  {String(prop.status || "pending").toUpperCase()} • conf {prop.confidence ?? "—"} •{" "}
-                  {prop.riskLabel || "—"} • {String(prop.tier || "—").toUpperCase()}
-                </Text>
-                <Text style={styles.rawPropMeta}>
-                  proj {formatNum(prop.projection)} • fair {formatNum(prop.fairLine)} • books{" "}
-                  {prop.bookCount ?? "—"} • mkt {prop.marketQuality ?? "—"}
+                  {String(prop.status || "pending").toUpperCase()} • proj {formatNum(prop.projection)} • fair {formatNum(prop.fairLine)}
                 </Text>
               </View>
             ))
@@ -778,6 +929,20 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 11,
     fontWeight: "600",
+  },
+  breakdownSection: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  breakdownTitle: {
+    color: "#facc15",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  breakdownLine: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
   },
   smallNote: {
     color: "#fbbf24",

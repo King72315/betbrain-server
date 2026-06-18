@@ -2,6 +2,10 @@ import { formatTime, safeDisplay } from "../components/PropCard";
 import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
 import {
+  type FilterAudit,
+  formatFilterAuditSummary,
+} from "./filterAudit";
+import {
   formatRecordLine,
   formatSlateDateLabel,
   getPickStatus,
@@ -146,6 +150,7 @@ export function buildTopPropsReport(input: {
   topPropsCount: number;
   topNBACount: number;
   topWNBACount: number;
+  filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
   const propLines = input.visibleProps.map((pick, index) =>
@@ -169,7 +174,12 @@ export function buildTopPropsReport(input: {
       `Premium visible: ${input.premiumCount}`,
       input.lastUpdated ? `Last updated: ${formatTime(input.lastUpdated)}` : "Last updated: —",
     ]),
-    mainData: propLines.length ? propLines.join("\n\n") : "No props currently visible.",
+    mainData: joinLines([
+      "--- Filter Audit ---",
+      formatFilterAuditSummary(input.filterAudit),
+      "",
+      propLines.length ? propLines.join("\n\n") : "No props currently visible.",
+    ]),
     warnings:
       !input.loading && input.visibleProps.length === 0
         ? "No top props available. Refresh picks or check backend/API connection."
@@ -466,6 +476,7 @@ export function buildResultsReport(input: {
   loading: boolean;
   refreshing: boolean;
   lastResolveSummary?: any;
+  filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
   const slate = input.activeSlate;
@@ -526,6 +537,12 @@ export function buildResultsReport(input: {
       slate
         ? `--- Active Official Grading Queue (${slate.slateDate}) ---`
         : "--- No active Results slate ---",
+      summary
+        ? `Official props entered queue: ${summary.total ?? 0}`
+        : null,
+      input.filterAudit
+        ? `Latest scan filter audit: ${input.filterAudit.filteredOut ?? 0} filtered of ${input.filterAudit.totalScanned ?? 0} scanned`
+        : null,
       propLines.length ? propLines.join("\n\n") : "No official props in this view.",
       "",
       "--- Last Resolve Summary ---",
@@ -553,6 +570,7 @@ export function buildPropLabReport(input: {
   loading: boolean;
   building: boolean;
   refreshing: boolean;
+  filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
   const sectionA = input.report?.sections?.A;
@@ -673,6 +691,9 @@ export function buildPropLabReport(input: {
       currentLabSlateDate
         ? `Current Lab Slate (${selectedSlateLabel(currentLabSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
         : "No completed Lab slate yet — in-progress slates stay in Results.",
+      input.filterAudit
+        ? `\nLatest Filter Audit (from Top Props scan)\n${formatFilterAuditSummary(input.filterAudit)}`
+        : null,
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
         : null,
