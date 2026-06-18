@@ -86,11 +86,31 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.button}
+            onPress={() => router.push("/results")}
+          >
+            <Text style={styles.buttonText}>📋 Results</Text>
+            <Text style={styles.buttonSubtext}>
+              Official Top Props grading queue for the current slate
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push("/prop-lab")}
+          >
+            <Text style={styles.buttonText}>🧪 Prop Lab</Text>
+            <Text style={styles.buttonSubtext}>
+              Latest completed slate analysis and calibration
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
             onPress={() => router.push("/history")}
           >
             <Text style={styles.buttonText}>📚 History</Text>
             <Text style={styles.buttonSubtext}>
-              Archived slates, graded picks, and Lab reports
+              Archived Lab slates (7 days) and graded saved picks
             </Text>
           </TouchableOpacity>
 

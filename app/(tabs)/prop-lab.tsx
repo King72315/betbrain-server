@@ -359,8 +359,8 @@ export default function PropLab() {
           <Text style={styles.title}>Prop Lab</Text>
           <Text style={styles.subtitle}>Current Completed Slate — Learning & Calibration</Text>
           <Text style={styles.note}>
-            Official Top Props are auto-tracked. Active grading stays in Results/Saved until
-            the slate is fully graded and final.
+            Official Top Props auto-track in Results. When the slate fully grades, it moves
+            here for analysis until the next completed slate replaces it.
           </Text>
           <CopyReportButton getReportText={getReportText} />
         </View>
@@ -384,7 +384,7 @@ export default function PropLab() {
             <Text style={styles.emptyTitle}>Waiting for completed slate.</Text>
             <Text style={styles.emptyText}>
               Lab shows the most recent fully graded official slate. In-progress slates remain
-              in Results/Saved until all props grade and the report is final.
+              in Results until all props grade and the report is final.
             </Text>
             {rotation.activeResults.length > 0 ? (
               <Text style={styles.activeNote}>

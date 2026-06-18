@@ -300,8 +300,7 @@ export default function ViewPicksScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No pending picks.</Text>
             <Text style={styles.emptyText}>
-              Graded picks are in History. Use Win/Loss filters above to
-              review them here.
+              Graded picks stay here. Use Win/Loss filters above to review them.
             </Text>
           </View>
         )}

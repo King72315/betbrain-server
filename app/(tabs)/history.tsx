@@ -1,6 +1,7 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -27,7 +28,15 @@ import {
   type HistoryEntry,
   type HistoryFilter,
 } from "../../utils/historyArchive";
+import {
+  HISTORY_RETENTION_DAYS,
+  applyHistoryRetentionFilters,
+  clearHistoryDisplay,
+  loadHistoryDisplayClear,
+  type HistoryDisplayClear,
+} from "../../utils/historyRetention";
 import { buildHistoryReport } from "../../utils/reportBuilders";
+import { computeSlateRotation } from "../../utils/slateRotation";
 
 function TypeBadge({ type, archiveLabel }: { type: HistoryEntry["type"]; archiveLabel?: string | null }) {
   const isSaved = type === "saved-picks";
@@ -205,6 +214,12 @@ export default function History() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [displayClear, setDisplayClear] = useState<HistoryDisplayClear | null>(null);
+  const [clearing, setClearing] = useState(false);
+
+  useEffect(() => {
+    loadHistoryDisplayClear().then(setDisplayClear);
+  }, []);
 
   const loadHistory = async () => {
     try {
@@ -253,14 +268,25 @@ export default function History() {
     }, [])
   );
 
+  const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
+
   const entries = useMemo(
     () => buildHistoryEntries(picks, reports, trackedProps),
     [picks, reports, trackedProps]
   );
 
+  const retainedEntries = useMemo(
+    () =>
+      applyHistoryRetentionFilters(entries, {
+        currentLabSlateDate: rotation.currentLabSlateDate,
+        displayClear,
+      }),
+    [entries, rotation.currentLabSlateDate, displayClear]
+  );
+
   const filteredEntries = useMemo(
-    () => filterHistoryEntries(entries, filter),
-    [entries, filter]
+    () => filterHistoryEntries(retainedEntries, filter),
+    [retainedEntries, filter]
   );
 
   const summary = useMemo(() => {
@@ -293,12 +319,38 @@ export default function History() {
 
   const getReportText = () =>
     buildHistoryReport({
-      entries,
+      entries: retainedEntries,
       filteredEntries,
       filter,
       loading,
       error: loadError,
+      retentionDays: HISTORY_RETENTION_DAYS,
+      displayCleared: Boolean(displayClear),
+      currentLabSlateDate: rotation.currentLabSlateDate,
     });
+
+  const handleClearHistory = () => {
+    Alert.alert(
+      "Clear archived History?",
+      "This hides archived entries on this device only. Active Results, current Lab, and backend learning data are not affected.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Display",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setClearing(true);
+              const payload = await clearHistoryDisplay(retainedEntries);
+              setDisplayClear(payload);
+            } finally {
+              setClearing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -313,10 +365,25 @@ export default function History() {
           <Text style={styles.title}>📚 History</Text>
           <Text style={styles.subtitle}>CourtEdge Archive Center</Text>
           <Text style={styles.motto}>
-            Older completed Lab slates and graded saved picks — read-only. Current Lab slate
-            stays in Prop Lab until replaced.
+            Older completed Lab slates (last {HISTORY_RETENTION_DAYS} days) and graded saved
+            picks — read-only. Current Lab slate stays in Prop Lab until replaced.
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy History Report" />
+          <TouchableOpacity
+            style={[styles.clearBtn, clearing && styles.clearBtnDisabled]}
+            onPress={handleClearHistory}
+            disabled={clearing || loading || retainedEntries.length === 0}
+          >
+            <Text style={styles.clearBtnText}>
+              {clearing ? "Clearing..." : "Clear History Display"}
+            </Text>
+          </TouchableOpacity>
+          {displayClear ? (
+            <Text style={styles.clearNote}>
+              Display cleared {formatSlateDateLabel(displayClear.clearedAt.slice(0, 10))}.
+              Backend data unchanged.
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.summaryCard}>
@@ -337,6 +404,9 @@ export default function History() {
             Pending across visible slates: {summary.pending}
             {summary.performanceSlates < summary.slates
               ? ` • Performance archive: ${summary.performanceSlates}/${summary.slates}`
+              : ""}
+            {entries.length > retainedEntries.length
+              ? ` • Hidden by ${HISTORY_RETENTION_DAYS}-day rule or clear: ${entries.length - retainedEntries.length}`
               : ""}
           </Text>
         </View>
@@ -369,10 +439,11 @@ export default function History() {
 
         {!loading && filteredEntries.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No archived entries yet.</Text>
+            <Text style={styles.emptyTitle}>No archived entries visible.</Text>
             <Text style={styles.emptyText}>
-              Graded saved picks and older completed Lab slates appear here automatically.
-              The current Lab slate is not duplicated here. Nothing is moved or deleted.
+              Graded saved picks and older completed Lab slates appear here automatically
+              within {HISTORY_RETENTION_DAYS} days. The current Lab slate is not duplicated
+              here. Use Clear History to hide display only — nothing is deleted on the server.
             </Text>
           </View>
         ) : null}
@@ -444,6 +515,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
+  },
+  clearBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: "#450a0a",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#7f1d1d",
+  },
+  clearBtnDisabled: {
+    opacity: 0.6,
+  },
+  clearBtnText: {
+    color: "#fecaca",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  clearNote: {
+    color: "#fca5a5",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
   },
   summaryCard: {
     backgroundColor: "#111827",

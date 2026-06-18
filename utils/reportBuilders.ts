@@ -9,6 +9,7 @@ import {
   type HistoryFilter,
 } from "./historyArchive";
 import { type SlateRotation } from "./slateRotation";
+import { type ActiveResultsSlate } from "./resultsQueue";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -116,7 +117,7 @@ export function buildHomeReport() {
     visibleSummary: joinLines([
       "CourtEdge home dashboard with links to Main Board and Tracking sections.",
       "Main Board: Top Props, NBA Props, WNBA Props, Full Game Board.",
-      "Tracking: Saved Picks, History, Lab, Settings.",
+      "Tracking: Saved Picks, Results, Lab, History, Settings.",
     ]),
     mainData: joinLines([
       "Navigation targets:",
@@ -125,7 +126,8 @@ export function buildHomeReport() {
       "- /wnba — WNBA Props",
       "- /explore — Full Game Board",
       "- /view-picks — Saved Picks",
-      "- /history — History (archived slates & reports)",
+      "- /results — Results (official grading queue)",
+      "- /history — History (archived Lab slates)",
       "- /prop-lab — Prop Lab",
       "- /settings — Settings",
       "",
@@ -316,7 +318,7 @@ export function buildSavedPicksReport(input: {
         ? "No saved picks yet."
         : null,
       !input.loading && input.picks.length > 0 && input.stats.pending === 0
-        ? "No pending picks — graded picks are in History."
+        ? "No pending picks — graded saved picks remain in this tab."
         : null,
     ]) || undefined,
     errors: input.error || undefined,
@@ -351,6 +353,9 @@ export function buildHistoryReport(input: {
   filter: HistoryFilter;
   loading: boolean;
   error?: string | null;
+  retentionDays?: number;
+  displayCleared?: boolean;
+  currentLabSlateDate?: string | null;
 }) {
   const summaryLines = input.filteredEntries.map((entry) => {
     const typeLabel =
@@ -426,6 +431,13 @@ export function buildHistoryReport(input: {
       `Archived entries visible: ${input.filteredEntries.length}`,
       `Performance archive entries: ${input.filteredEntries.filter((entry) => entry.hasGradedPerformance).length}`,
       `Total archive entries loaded: ${input.entries.length}`,
+      input.retentionDays
+        ? `Retention: last ${input.retentionDays} days (display filter only)`
+        : null,
+      input.currentLabSlateDate
+        ? `Current Lab slate excluded: ${input.currentLabSlateDate}`
+        : null,
+      input.displayCleared ? "History display cleared locally on this device." : null,
     ]),
     mainData: joinLines([
       "--- Archive Index ---",
@@ -443,96 +455,93 @@ export function buildHistoryReport(input: {
         : undefined,
     errors: input.error || undefined,
     debugNotes:
-      "Read-only archive view. Current Lab slate stays in Prop Lab. No data is moved or deleted.",
+      "Read-only archive view. Current Lab slate stays in Prop Lab. 7-day display filter and Clear History are local-only — backend data is never deleted.",
   });
 }
 
 export function buildResultsReport(input: {
-  picks: any[];
-  overall: any;
-  pendingCount: number;
-  premiumRecord: any;
-  nbaRecord: any;
-  wnbaRecord: any;
-  confidenceBuckets: any[];
-  riskSummaries: any[];
-  gradedPicks: any[];
+  activeSlate: ActiveResultsSlate | null;
+  filteredProps: any[];
+  filter: string;
   loading: boolean;
-  lastCheckResponse?: any;
+  refreshing: boolean;
+  lastResolveSummary?: any;
   error?: string | null;
 }) {
-  const gradedLines = input.gradedPicks.slice(0, 40).map((pick, index) => {
-    const status = getPickStatus(pick);
-    const actual = getActualResult(pick);
+  const slate = input.activeSlate;
+  const summary = slate?.summary;
+
+  const propLines = input.filteredProps.slice(0, 40).map((prop, index) => {
+    const status = String(prop.status || "pending").toUpperCase();
+    const actual = prop.actualStat ?? prop.actualPoints ?? prop.finalPoints ?? null;
 
     return joinLines([
-      `[${index + 1}] ${pick.player || "Unknown"} (${pick.league || "—"}) — ${status}`,
-      `  ${pick.side || pick.pick || "—"} ${safeDisplay(pick.line ?? pick.sportsbookLine)} ${pick.stat || "Points"}`,
-      `  Game: ${pick.game || "—"}`,
-      `  Confidence: ${safeDisplay(pick.confidence ?? pick.winProbability)}% | Risk: ${pick.riskLabel || "—"}`,
+      `[${index + 1}] ${prop.player || "Unknown"} (${prop.league || "—"}) — ${status}`,
+      `  ${prop.currentEngineSide || prop.side || "—"} ${safeDisplay(prop.line)} ${prop.stat || "Points"}`,
+      `  Game: ${prop.game || prop.gameLabel || "—"}`,
+      `  Confidence: ${safeDisplay(prop.confidence)}% | Risk: ${prop.riskLabel || "—"} | Tier: ${String(prop.tier || "—").toUpperCase()}`,
       actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
-      pick.resultMargin !== undefined || pick.margin !== undefined
-        ? `  Margin: ${safeDisplay(pick.resultMargin ?? pick.margin)}`
-        : null,
+      prop.resultMargin !== undefined ? `  Margin: ${safeDisplay(prop.resultMargin)}` : null,
+      prop.pendingReason ? `  Pending Reason: ${prop.pendingReason}` : null,
     ]);
   });
 
-  const confidenceLines = input.confidenceBuckets.map(
-    (bucket) => `${bucket.bucket}: ${buildRecordSummary(bucket)}`
-  );
-
-  const riskLines = input.riskSummaries.map(
-    (group) =>
-      `${group.label}: Total ${group.total} | W ${group.wins} | L ${group.losses} | P ${group.pushes} | Hit ${group.hitRate}% | Pending ${group.pending}`
-  );
-
-  const checkLines = input.lastCheckResponse
+  const resolveLines = input.lastResolveSummary
     ? joinLines([
-        `ok: ${input.lastCheckResponse.ok ?? "—"}`,
-        input.lastCheckResponse.message
-          ? `message: ${input.lastCheckResponse.message}`
-          : null,
-        input.lastCheckResponse.error ? `error: ${input.lastCheckResponse.error}` : null,
-        Array.isArray(input.lastCheckResponse.picks)
-          ? `picks returned: ${input.lastCheckResponse.picks.length}`
-          : null,
+        `pending total: ${input.lastResolveSummary.pendingTotal ?? "—"}`,
+        `gradeable: ${input.lastResolveSummary.gradeable ?? "—"}`,
+        `graded this run: ${input.lastResolveSummary.gradedCount ?? "—"}`,
+        `still pending: ${input.lastResolveSummary.stillPending ?? "—"}`,
+        `skipped not ready: ${input.lastResolveSummary.skippedNotReady ?? "—"}`,
       ])
-    : "No Check Pending Results response captured this session.";
+    : "No resolve run captured this session.";
 
   return buildPageReport({
-    page: "Results History",
-    dataSource: "GET /pick-history + POST /check-pending-results",
+    page: "Results",
+    leagueFilter: input.filter,
+    dataSource: "GET /tracked-props + POST /resolve-tracked-props",
     extraContext: {
-      "Total Picks Loaded": input.picks.length,
-      "Graded Picks": input.gradedPicks.length,
-      Pending: input.pendingCount,
+      "Active Slate": slate?.slateDate || "—",
+      "Official Props": summary?.total ?? 0,
+      Graded: summary?.graded ?? 0,
+      Pending: summary?.pending ?? 0,
+      Failed: summary?.failed ?? 0,
       Loading: input.loading,
+      Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
-      `Overall: ${buildRecordSummary(input.overall)}`,
-      `Pending picks: ${input.pendingCount}`,
-      `Premium: ${buildRecordSummary(input.premiumRecord)}`,
-      `NBA: ${buildRecordSummary(input.nbaRecord)}`,
-      `WNBA: ${buildRecordSummary(input.wnbaRecord)}`,
+      slate
+        ? `Current Slate: ${slate.slateDate} (${(slate.leagues || []).join("/") || "—"})`
+        : "No active official grading slate.",
+      summary
+        ? `Pending: ${summary.pending} | Graded: ${summary.graded} | Failed: ${summary.failed}`
+        : null,
+      summary
+        ? `Record: ${summary.wins}-${summary.losses}-${summary.pushes}`
+        : null,
+      slate?.isComplete ? "Slate complete — ready for Lab." : null,
+      `Filter: ${input.filter}`,
     ]),
     mainData: joinLines([
-      "--- Confidence Buckets ---",
-      confidenceLines.length ? bulletList(confidenceLines) : "No confidence bucket data yet.",
+      slate
+        ? `--- Active Official Grading Queue (${slate.slateDate}) ---`
+        : "--- No active Results slate ---",
+      propLines.length ? propLines.join("\n\n") : "No official props in this view.",
       "",
-      "--- Risk Buckets ---",
-      riskLines.length ? bulletList(riskLines) : "No risk bucket data yet.",
-      "",
-      "--- Graded Pick History (recent) ---",
-      gradedLines.length ? gradedLines.join("\n\n") : "No completed picks yet.",
-      "",
-      "--- Check Pending Results (last response) ---",
-      checkLines,
+      "--- Last Resolve Summary ---",
+      resolveLines,
     ]),
-    warnings:
-      !input.loading && input.gradedPicks.length === 0
-        ? "No completed picks yet. Saved picks appear here after CourtEdge grades them."
-        : undefined,
+    warnings: joinLines([
+      !input.loading && !slate
+        ? "No in-progress official slate. Completed slates move to Lab; older ones archive in History."
+        : null,
+      slate?.isComplete
+        ? "All props graded for this slate. Build/refresh Lab report when ready."
+        : null,
+    ]) || undefined,
     errors: input.error || undefined,
+    debugNotes:
+      "Official Top Props auto-track on board refresh. Results is the active grading queue only — not saved picks.",
   });
 }
 
@@ -663,7 +672,7 @@ export function buildPropLabReport(input: {
     mainData: joinLines([
       currentLabSlateDate
         ? `Current Lab Slate (${selectedSlateLabel(currentLabSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
-        : "No completed Lab slate yet — in-progress slates stay in Results/Saved.",
+        : "No completed Lab slate yet — in-progress slates stay in Results.",
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
         : null,
@@ -727,7 +736,7 @@ export function buildPropLabReport(input: {
     ]),
     warnings:
       !input.loading && !input.report
-        ? "Waiting for completed slate. In-progress slates remain in Results/Saved until all props grade and report is final."
+        ? "Waiting for completed slate. In-progress slates remain in Results until all props grade and report is final."
         : sectionA?.pending
           ? `${sectionA.pending} prop(s) still pending — report updates when all grade.`
           : undefined,
