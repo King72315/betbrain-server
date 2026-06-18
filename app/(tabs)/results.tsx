@@ -138,8 +138,6 @@ export default function ResultsScreen() {
     [trackedProps, reports]
   );
 
-  const activeSlate = visibleSlates[0] || null;
-
   const filteredSlates = useMemo(() => {
     return visibleSlates.map((slate) => ({
       ...slate,
@@ -147,17 +145,14 @@ export default function ResultsScreen() {
     }));
   }, [visibleSlates, filter]);
 
-  const filteredProps = useMemo(() => {
-    return filteredSlates.flatMap((slate) => slate.props);
-  }, [filteredSlates]);
-
   const getReportText = () =>
     buildResultsReport({
-      activeSlate,
-      filteredProps,
+      visibleSlates,
+      filteredSlates,
       filter,
       loading,
       refreshing,
+      trackingMode,
       lastResolveSummary,
       error: loadError,
       filterAudit,

@@ -13,7 +13,12 @@ import {
   type HistoryFilter,
 } from "./historyArchive";
 import { type SlateRotation } from "./slateRotation";
-import { type ActiveResultsSlate } from "./resultsQueue";
+import {
+  type ActiveResultsSlate,
+  computeAggregateResultsSummary,
+  formatTrackedPropGameLabel,
+  getTrackedPropStatus,
+} from "./resultsQueue";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -470,36 +475,62 @@ export function buildHistoryReport(input: {
 }
 
 export function buildResultsReport(input: {
-  activeSlate: ActiveResultsSlate | null;
-  filteredProps: any[];
+  visibleSlates: ActiveResultsSlate[];
+  filteredSlates: ActiveResultsSlate[];
   filter: string;
   loading: boolean;
   refreshing: boolean;
+  trackingMode?: string | null;
   lastResolveSummary?: any;
   filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
-  const slate = input.activeSlate;
-  const summary = slate?.summary;
+  const isAllGeneratedMode = input.trackingMode === "ALL_GENERATED_PROPS";
+  const propLabel = isAllGeneratedMode ? "Generated Props" : "Official Props";
+  const aggregate = computeAggregateResultsSummary(input.visibleSlates);
+  const visiblePending = aggregate.pending + aggregate.failed;
 
-  const propLines = input.filteredProps.slice(0, 40).map((prop, index) => {
-    const status = String(prop.status || "pending").toUpperCase();
+  const formatResultPropLine = (prop: any, index: number) => {
+    const status = getTrackedPropStatus(prop);
     const actual = prop.actualStat ?? prop.actualPoints ?? prop.finalPoints ?? null;
 
     return joinLines([
-      `[${index + 1}] ${prop.player || "Unknown"} (${prop.league || "—"}) — ${status}`,
+      `[${index + 1}] ${prop.player || "Unknown"} (${prop.league || "—"}) — ${status.toUpperCase()}`,
       `  ${prop.currentEngineSide || prop.side || "—"} ${safeDisplay(prop.line)} ${prop.stat || "Points"}`,
-      `  Game: ${prop.game || prop.gameLabel || "—"}`,
+      `  Game: ${formatTrackedPropGameLabel(prop)}`,
       `  Confidence: ${safeDisplay(prop.confidence)}% | Risk: ${prop.riskLabel || "—"} | Tier: ${String(prop.tier || "—").toUpperCase()}`,
       actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
       prop.resultMargin !== undefined ? `  Margin: ${safeDisplay(prop.resultMargin)}` : null,
       prop.pendingReason ? `  Pending Reason: ${prop.pendingReason}` : null,
     ]);
+  };
+
+  const slateSections = input.filteredSlates.map((slate) => {
+    const slateProps = slate.props.slice(0, 40);
+    const propLines = slateProps.map((prop, index) => formatResultPropLine(prop, index));
+
+    return joinLines([
+      `--- Active Grading Queue: ${slate.slateDate} ---`,
+      `${propLabel} entered queue: ${slate.summary?.total ?? slateProps.length}`,
+      propLines.length ? propLines.join("\n\n") : `No ${propLabel.toLowerCase()} in this view.`,
+    ]);
   });
+
+  const backendPendingTotal = input.lastResolveSummary?.pendingTotal;
+  const resolveDelta =
+    backendPendingTotal !== undefined && backendPendingTotal !== null
+      ? backendPendingTotal - visiblePending
+      : null;
 
   const resolveLines = input.lastResolveSummary
     ? joinLines([
-        `pending total: ${input.lastResolveSummary.pendingTotal ?? "—"}`,
+        `pending total (backend all tracked): ${backendPendingTotal ?? "—"}`,
+        `visible queue pending: ${visiblePending}`,
+        resolveDelta !== null && resolveDelta !== 0
+          ? `delta: ${resolveDelta > 0 ? "+" : ""}${resolveDelta} — backend counts all pending tracked props; Results shows in-progress slates only. Props missing slateDate are grouped via gameDate/commenceTime fallback. Completed Lab slates are excluded.`
+          : resolveDelta === 0
+            ? "delta: 0 — backend pending matches visible Results queue."
+            : null,
         `gradeable: ${input.lastResolveSummary.gradeable ?? "—"}`,
         `graded this run: ${input.lastResolveSummary.gradedCount ?? "—"}`,
         `still pending: ${input.lastResolveSummary.stillPending ?? "—"}`,
@@ -507,58 +538,69 @@ export function buildResultsReport(input: {
       ])
     : "No resolve run captured this session.";
 
+  const debugNotes = isAllGeneratedMode
+    ? "All generated props auto-track on board refresh. Results is the active grading queue only — not saved picks."
+    : "Official Top Props auto-track on board refresh. Results is the active grading queue only — not saved picks.";
+
   return buildPageReport({
     page: "Results",
     leagueFilter: input.filter,
     dataSource: "GET /tracked-props + POST /resolve-tracked-props",
     extraContext: {
-      "Active Slate": slate?.slateDate || "—",
-      "Official Props": summary?.total ?? 0,
-      Graded: summary?.graded ?? 0,
-      Pending: summary?.pending ?? 0,
-      Failed: summary?.failed ?? 0,
+      "Active Slates": input.visibleSlates.length,
+      [`Total ${propLabel} in Queue`]: aggregate.total,
+      "Total Pending": visiblePending,
+      "Total Graded": aggregate.graded,
+      "Total Failed": aggregate.failed,
       Loading: input.loading,
       Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
-      slate
-        ? `Current Slate: ${slate.slateDate} (${(slate.leagues || []).join("/") || "—"})`
-        : "No active official grading slate.",
-      summary
-        ? `Pending: ${summary.pending} | Graded: ${summary.graded} | Failed: ${summary.failed}`
+      input.visibleSlates.length
+        ? `Active Slates: ${input.visibleSlates.length}`
+        : "No active grading slate.",
+      aggregate.total
+        ? `Total ${propLabel}: ${aggregate.total} | Pending: ${visiblePending} | Graded: ${aggregate.graded} | Failed: ${aggregate.failed}`
         : null,
-      summary
-        ? `Record: ${summary.wins}-${summary.losses}-${summary.pushes}`
+      aggregate.graded
+        ? `Record: ${aggregate.wins}-${aggregate.losses}-${aggregate.pushes}`
         : null,
-      slate?.isComplete ? "Slate complete — ready for Lab." : null,
+      input.visibleSlates.some((slate) => slate.isComplete)
+        ? "One or more slates complete — ready for Lab."
+        : null,
       `Filter: ${input.filter}`,
     ]),
     mainData: joinLines([
-      slate
-        ? `--- Active Official Grading Queue (${slate.slateDate}) ---`
+      input.visibleSlates.length
+        ? joinLines([
+            `Active Slates: ${input.visibleSlates.length}`,
+            `Total ${propLabel} in Queue: ${aggregate.total}`,
+            `Total Pending: ${visiblePending}`,
+            `Total Graded: ${aggregate.graded}`,
+            `Total Failed: ${aggregate.failed}`,
+            "",
+          ])
         : "--- No active Results slate ---",
-      summary
-        ? `Official props entered queue: ${summary.total ?? 0}`
-        : null,
+      slateSections.length
+        ? slateSections.join("\n\n")
+        : `No ${propLabel.toLowerCase()} in this view.`,
       input.filterAudit
-        ? `Latest scan filter audit: ${input.filterAudit.filteredOut ?? 0} filtered of ${input.filterAudit.totalScanned ?? 0} scanned`
+        ? `\nLatest scan filter audit: ${input.filterAudit.filteredOut ?? 0} filtered of ${input.filterAudit.totalScanned ?? 0} scanned`
         : null,
-      propLines.length ? propLines.join("\n\n") : "No official props in this view.",
       "",
       "--- Last Resolve Summary ---",
       resolveLines,
     ]),
     warnings: joinLines([
-      !input.loading && !slate
-        ? "No in-progress official slate. Completed slates move to Lab; older ones archive in History."
+      !input.loading && input.visibleSlates.length === 0
+        ? "No in-progress grading slate. Completed slates move to Lab; older ones archive in History."
         : null,
-      slate?.isComplete
-        ? "All props graded for this slate. Build/refresh Lab report when ready."
+      input.visibleSlates.some((slate) => slate.isComplete)
+        ? "All props graded for one or more slates. Build/refresh Lab report when ready."
         : null,
     ]) || undefined,
     errors: input.error || undefined,
-    debugNotes:
-      "Official Top Props auto-track on board refresh. Results is the active grading queue only — not saved picks.",
+    debugNotes,
   });
 }
 

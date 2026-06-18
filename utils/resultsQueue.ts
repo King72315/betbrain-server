@@ -1,3 +1,5 @@
+import { formatTeam } from "../components/PropCard";
+import { getPickSlateDate } from "./historyArchive";
 import {
   computeSlateRotation,
   isCompletedSlate,
@@ -49,16 +51,68 @@ export function getTrackedPropStatus(prop: any): TrackedPropStatus {
   return "Pending";
 }
 
+/** Derive slate date for Results grouping (matches backend CT slate when possible). */
+export function getResultsPropSlateDate(prop: any): string {
+  const direct = getPickSlateDate(prop);
+  if (direct !== "unknown") return direct;
+
+  const commence = prop.commenceTime || prop.time;
+  if (commence) {
+    const parsed = new Date(commence);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    }
+  }
+
+  return "unknown";
+}
+
+export function formatTrackedPropGameLabel(prop: any): string {
+  const team = prop.team || prop.playerState?.team || "";
+  const opponent = prop.opponent || prop.playerState?.opponent || "";
+  const direct = prop.game || prop.gameLabel;
+
+  if (direct) return String(direct);
+  if (team && opponent) {
+    return `${formatTeam(team)} vs ${formatTeam(opponent)}`;
+  }
+
+  return "—";
+}
+
 function groupTrackedPropsBySlate(trackedProps: any[]) {
   const groups = new Map<string, any[]>();
 
   for (const prop of trackedProps) {
-    const slateDate = String(prop.slateDate || "unknown");
+    const slateDate = getResultsPropSlateDate(prop);
     if (!groups.has(slateDate)) groups.set(slateDate, []);
     groups.get(slateDate)!.push(prop);
   }
 
   return groups;
+}
+
+export function computeAggregateResultsSummary(slates: ActiveResultsSlate[]) {
+  return slates.reduce(
+    (acc, slate) => ({
+      total: acc.total + (slate.summary?.total ?? 0),
+      graded: acc.graded + (slate.summary?.graded ?? 0),
+      pending: acc.pending + (slate.summary?.pending ?? 0),
+      failed: acc.failed + (slate.summary?.failed ?? 0),
+      wins: acc.wins + (slate.summary?.wins ?? 0),
+      losses: acc.losses + (slate.summary?.losses ?? 0),
+      pushes: acc.pushes + (slate.summary?.pushes ?? 0),
+    }),
+    {
+      total: 0,
+      graded: 0,
+      pending: 0,
+      failed: 0,
+      wins: 0,
+      losses: 0,
+      pushes: 0,
+    }
+  );
 }
 
 function buildSlateSummary(props: any[]) {
