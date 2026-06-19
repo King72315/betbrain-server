@@ -3,6 +3,7 @@ services:
     name: betbrain-api
     env: node
     plan: free
+    branch: betbrain-v2-rebuild
     rootDir: betbrain-server
     buildCommand: npm install
     startCommand: npm start
