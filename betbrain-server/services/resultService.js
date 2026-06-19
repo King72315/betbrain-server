@@ -438,6 +438,22 @@ export async function fetchFinalPlayerStats(date = new Date(), options = {}) {
   return stats;
 }
 
+function getSlateDateCT(commenceTime) {
+  const source = commenceTime || "";
+
+  if (!source) return "";
+
+  const parsed = new Date(source);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return String(source).slice(0, 10);
+  }
+
+  return parsed.toLocaleDateString("en-CA", {
+    timeZone: CONFIG.TIMEZONE || "America/Chicago",
+  });
+}
+
 function getPickDate(savedPick = {}) {
   const dateSource =
     savedPick.gameDate ||
@@ -447,6 +463,36 @@ function getPickDate(savedPick = {}) {
     null;
 
   return dateSource ? formatDate(dateSource) : "";
+}
+
+export function getPickQueryDates(savedPick = {}) {
+  const dates = new Set();
+
+  const gameDate = savedPick.gameDate || savedPick.date || "";
+
+  if (gameDate) {
+    const normalized = getSlateDateKey(gameDate) || formatDate(gameDate);
+
+    if (normalized) dates.add(normalized);
+  }
+
+  const commence = savedPick.commenceTime || savedPick.time || "";
+
+  if (commence) {
+    const ctDate = getSlateDateCT(commence);
+
+    if (ctDate) dates.add(ctDate);
+
+    const utcDate = getSlateDateKey(commence);
+
+    if (utcDate) dates.add(utcDate);
+  }
+
+  const primary = getPickDate(savedPick);
+
+  if (primary) dates.add(primary);
+
+  return [...dates].filter(Boolean);
 }
 
 const GAME_LIKELY_FINISHED_MS = 3 * 60 * 60 * 1000;
@@ -596,12 +642,12 @@ function teamMatches(savedPick = {}, stat = {}) {
 }
 
 function dateMatches(savedPick = {}, stat = {}) {
-  const pickDate = getPickDate(savedPick);
+  const queryDates = getPickQueryDates(savedPick);
   const statDate = getStatDate(stat);
 
-  if (!pickDate || !statDate) return false;
+  if (!queryDates.length || !statDate) return false;
 
-  return pickDate === statDate;
+  return queryDates.includes(statDate);
 }
 
 export function findPlayerResult(savedPick, playerStats = []) {
@@ -653,7 +699,31 @@ function buildPendingReason(savedPick = {}, playerStats = [], statResult = null)
     return "Final player stats unavailable from source";
   }
 
+  if (isPickLikelyFinished(savedPick)) {
+    return "Game final, but player stat row unavailable from source";
+  }
+
   return "No exact game stat match found for pick date and league";
+}
+
+function buildResolveDebug(savedPick = {}, playerStats = [], statResult = null, extras = {}) {
+  const queryDates = getPickQueryDates(savedPick);
+  const pendingReason = buildPendingReason(savedPick, playerStats, statResult);
+
+  return {
+    player: savedPick.player || "",
+    gameDate: savedPick.gameDate || savedPick.date || "",
+    commenceTime: savedPick.commenceTime || savedPick.time || "",
+    resolvedSlateDate: getPickDate(savedPick),
+    queryDates,
+    batchQueryDates: extras.batchQueryDates || queryDates,
+    playerFallbackAttempted: Boolean(extras.playerFallbackAttempted),
+    batchRowCount: Array.isArray(playerStats) ? playerStats.length : 0,
+    fallbackRowCount: Number(extras.fallbackRowCount || 0),
+    matchedPlayerRow: Boolean(statResult),
+    pendingReason,
+    at: new Date().toISOString(),
+  };
 }
 
 function ballGameToStatResult(savedPick = {}, game = {}, league = "WNBA") {
@@ -678,60 +748,87 @@ function ballGameToStatResult(savedPick = {}, game = {}, league = "WNBA") {
 
 async function fetchBallPlayerStatForPick(savedPick = {}) {
   const league = normalizeLeague(savedPick.league || "WNBA");
-  const pickDate = getPickDate(savedPick);
+  const queryDates = getPickQueryDates(savedPick);
 
-  if (!pickDate || !savedPick.player) return null;
+  if (!queryDates.length || !savedPick.player) {
+    return { statResult: null, fallbackRowCount: 0 };
+  }
 
   const games = await fetchPlayerStats(savedPick.player, league);
 
-  if (!games.length) return null;
-
-  const targetTeam = normalizeTeam(savedPick.team || "", league);
-  const { teamA, teamB } = getPickTeams(savedPick, league);
+  if (!games.length) {
+    return { statResult: null, fallbackRowCount: 0 };
+  }
 
   const match = games.find((game) => {
     const gameDate = getSlateDateKey(game.date);
 
-    if (gameDate !== pickDate) return false;
+    if (!queryDates.includes(gameDate)) return false;
 
     const gameTeam = normalizeTeam(game.team || "", league);
+    const mockStat = {
+      league,
+      team: gameTeam,
+    };
 
-    if (targetTeam && gameTeam && targetTeam !== gameTeam) return false;
-
-    if (!targetTeam && teamA && teamB && gameTeam) {
-      return gameTeam === teamA || gameTeam === teamB;
-    }
-
-    return true;
+    return teamMatches(savedPick, mockStat);
   });
 
-  if (!match) return null;
+  if (!match) {
+    return { statResult: null, fallbackRowCount: games.length };
+  }
 
-  return ballGameToStatResult(savedPick, match, league);
+  return {
+    statResult: ballGameToStatResult(savedPick, match, league),
+    fallbackRowCount: games.length,
+  };
 }
 
 export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null) {
   const league = normalizeLeague(savedPick.league || "NBA");
-  const pickDate = getPickDate(savedPick);
+  const queryDates = getPickQueryDates(savedPick);
 
   let stats = batchStats;
+  let playerFallbackAttempted = false;
+  let fallbackRowCount = 0;
 
   if (!stats) {
-    stats = await fetchFinalPlayerStats(
-      pickDate ? new Date(`${pickDate}T12:00:00Z`) : new Date(),
-      { league }
-    );
+    stats = [];
+
+    for (const queryDate of queryDates) {
+      const dateStats = await fetchFinalPlayerStats(
+        new Date(`${queryDate}T12:00:00Z`),
+        { league }
+      );
+
+      stats.push(...dateStats);
+    }
   }
 
   let statResult = findPlayerResult(savedPick, stats);
 
   if (!statResult && (league === "WNBA" || league === "NBA")) {
-    statResult = await fetchBallPlayerStatForPick(savedPick);
+    playerFallbackAttempted = true;
+
+    const fallback = await fetchBallPlayerStatForPick(savedPick);
+
+    statResult = fallback.statResult;
+    fallbackRowCount = fallback.fallbackRowCount;
   }
+
+  const pendingReason = buildPendingReason(savedPick, stats, statResult);
+  const resolveDebug = buildResolveDebug(savedPick, stats, statResult, {
+    batchQueryDates: queryDates,
+    playerFallbackAttempted,
+    fallbackRowCount,
+  });
+
+  console.log("RESULT RESOLVE DEBUG:", resolveDebug);
 
   return {
     statResult,
-    pendingReason: buildPendingReason(savedPick, stats, statResult),
+    pendingReason,
+    resolveDebug,
   };
 }
 
@@ -763,6 +860,7 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
         options.pendingReason ||
         savedPick.pendingReason ||
         "No exact game stat match found for pick date and league",
+      resolveDebug: options.resolveDebug || savedPick.resolveDebug || null,
       actualStat: null,
       actualPoints: null,
       finalPoints: null,
@@ -845,6 +943,43 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
 }
 
 export { getPickDate, formatDate };
+
+export function getPickStatsCacheKey(league = "NBA", date = "") {
+  return `${String(league || "NBA").toUpperCase()}:${date || "unknown"}`;
+}
+
+export async function primePickStatsCache(savedPick = {}, statsCache = new Map()) {
+  const league = String(savedPick.league || "NBA").toUpperCase();
+  const queryDates = getPickQueryDates(savedPick);
+
+  for (const queryDate of queryDates) {
+    const cacheKey = getPickStatsCacheKey(league, queryDate);
+
+    if (statsCache.has(cacheKey)) continue;
+
+    const stats = await fetchFinalPlayerStats(
+      queryDate ? new Date(`${queryDate}T12:00:00Z`) : new Date(),
+      { league }
+    );
+
+    statsCache.set(cacheKey, stats);
+  }
+
+  return statsCache;
+}
+
+export function getCachedStatsForPick(savedPick = {}, statsCache = new Map()) {
+  const league = String(savedPick.league || "NBA").toUpperCase();
+  const queryDates = getPickQueryDates(savedPick);
+  const merged = [];
+
+  for (const queryDate of queryDates) {
+    const cacheKey = getPickStatsCacheKey(league, queryDate);
+    merged.push(...(statsCache.get(cacheKey) || []));
+  }
+
+  return merged;
+}
 
 export function buildResultSummary(picks = []) {
   const resolved = picks.filter((pick) =>
