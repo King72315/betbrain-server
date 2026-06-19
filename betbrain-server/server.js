@@ -101,6 +101,17 @@ import {
   getDailySlateReports,
 } from "./services/dailySlateReportService.js";
 
+const SERVER_BUILD = "bd1f5ef-point-strength-ledger";
+
+const ENGINE_LOAD_FLAGS = {
+  volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
+  scoreLedgerEngineLoaded: typeof buildScoreLedger === "function",
+  marketIntelligenceEngineLoaded: typeof buildMarketIntelligence === "function",
+  availabilityGateEngineLoaded: typeof evaluateAvailabilityGate === "function",
+  defenseScoreEngineLoaded: typeof computeDefenseScore === "function",
+  volumeDangerGatesEngineLoaded: typeof evaluateVolumeDangerGates === "function",
+};
+
 const app = express();
 
 app.use(cors());
@@ -1449,6 +1460,8 @@ app.get("/health", (req, res) => {
   res.json({
     ok: true,
     message: "CourtEdge backend running",
+    serverBuild: SERVER_BUILD,
+    engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
     time: new Date().toISOString(),
   });
