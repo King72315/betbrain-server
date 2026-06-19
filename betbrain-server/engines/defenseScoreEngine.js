@@ -1,5 +1,3 @@
-import { clean } from "../services/sportsDataService.js";
-
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -9,8 +7,14 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function cleanTeamKey(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function normalizeTeamKey(team = "") {
-  return clean(String(team || ""));
+  return cleanTeamKey(team);
 }
 
 function getOpponentPointsAllowed(teamRecord = {}) {
