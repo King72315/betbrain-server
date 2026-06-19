@@ -16,6 +16,7 @@ import {
   fetchPlayers,
   fetchProjections,
   fetchSeasonStats,
+  fetchTeamSeasonStats,
   getOpponentForTeam,
   getProjectionPoints,
   getSeasonPoints,
@@ -55,6 +56,18 @@ import {
   getMissingPlayers,
 } from "./engines/usageEngine.js";
 import { buildWinProbability } from "./engines/winProbabilityEngine.js";
+import { evaluateAvailabilityGate } from "./engines/availabilityGateEngine.js";
+import {
+  buildTeamStatsMap,
+  computeDefenseScore,
+} from "./engines/defenseScoreEngine.js";
+import { buildMarketIntelligence } from "./engines/marketIntelligenceEngine.js";
+import {
+  buildScoreLedger,
+  mergeIntelligenceIntoRiskComparison,
+} from "./engines/scoreLedgerEngine.js";
+import { buildVolumeProfile } from "./engines/volumeProfileEngine.js";
+import { evaluateVolumeDangerGates } from "./engines/volumeDangerGatesEngine.js";
 
 import {
   appendMarketSnapshot,
@@ -156,6 +169,8 @@ function applyReliabilityAdjustedConfidence({
   riskComparison = {},
   opportunity = {},
   prop = {},
+  extraDangerPressure = 0,
+  extraDangerReasons = [],
 } = {}) {
   const confidenceAdjustmentReasons = [];
 
@@ -295,6 +310,17 @@ function applyReliabilityAdjustedConfidence({
     dangerPressure += riskWarningPressure;
     confidenceAdjustmentReasons.push(
       `Risk comparison warnings (${riskWarnings.join(", ")})`
+    );
+  }
+
+  const additivePressure = clamp(num(extraDangerPressure), 0, 0.35);
+  if (additivePressure > 0) {
+    dangerPressure += additivePressure;
+    const reasonText = (extraDangerReasons || []).slice(0, 3).join("; ");
+    confidenceAdjustmentReasons.push(
+      reasonText
+        ? `Volume/market/availability pressure (+${Math.round(additivePressure * 100)}%): ${reasonText}`
+        : `Volume/market/availability pressure (+${Math.round(additivePressure * 100)}%)`
     );
   }
 
@@ -584,6 +610,11 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     projections,
   });
 
+  const teamStatsMap =
+    league === "NBA"
+      ? buildTeamStatsMap(await fetchTeamSeasonStats())
+      : null;
+
   const gameCards = [];
 
   for (const game of games) {
@@ -787,6 +818,41 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         league === "NBA" ? usage : null
       );
 
+      const volumeProfile = buildVolumeProfile({
+        playerState,
+        opportunity,
+        roleChange,
+        league,
+      });
+
+      const availabilityGate = evaluateAvailabilityGate({
+        playerData,
+        league,
+      });
+
+      if (availabilityGate.noPlay) {
+        trackSideAuditRejection(sideAudit, null, availabilityGate.noPlayReasons);
+        rejectedPicks.push({
+          player: playerName,
+          line: prop.line,
+          reason: "no-play",
+          details: availabilityGate.noPlayReasons,
+        });
+        console.log("NO PLAY - AVAILABILITY:", {
+          league,
+          playerName,
+          status: availabilityGate.status,
+          noPlayReasons: availabilityGate.noPlayReasons,
+        });
+        continue;
+      }
+
+      const defenseResult = computeDefenseScore({
+        opponentTeam: opponent,
+        teamStatsMap,
+        league,
+      });
+
       const marketSnapshot = appendMarketSnapshot({
         league,
         gameDate: game.date,
@@ -874,7 +940,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         underOdds: prop.underOdds,
       });
 
-      const riskComparison = compareOverUnderRisk({
+      let riskComparison = compareOverUnderRisk({
         playerName,
         line: prop.line,
         projection: adjustedSportsProjection || overPick.projection,
@@ -888,7 +954,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           : 50,
         opportunityScore: opportunity.opportunityScore,
         matchupScore: overPick.matchupHitRate || 50,
-        defenseScore: 50,
+        defenseScore: defenseResult.defenseScore,
         roleCertainty: opportunity.roleCertainty || 50,
         blowoutRisk: 50,
         dataQuality,
@@ -902,6 +968,27 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       } else if (riskComparison.pickSide === "UNDER") {
         sideAudit.underCandidatesBuilt += 1;
       }
+
+      const marketIntelligence = buildMarketIntelligence({
+        prop,
+        marketSnapshot,
+        side: riskComparison.pickSide,
+        volumeProfile,
+      });
+
+      const volumeDangerGates = evaluateVolumeDangerGates({
+        volumeProfile,
+        side: riskComparison.pickSide,
+        league,
+        opportunity,
+      });
+
+      riskComparison = mergeIntelligenceIntoRiskComparison(riskComparison, {
+        volumeDangerGates,
+        marketIntelligence,
+        availabilityGate,
+        pickSide: riskComparison.pickSide,
+      });
 
       let bestPick =
         riskComparison.pickSide === "OVER"
@@ -946,6 +1033,12 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         riskComparison,
         opportunity,
         prop,
+        extraDangerPressure: num(riskComparison.extraDangerPressure),
+        extraDangerReasons: [
+          ...(volumeDangerGates.dangerReasons || []),
+          ...(marketIntelligence.dangerReasons || []),
+          ...(availabilityGate.dangerReasons || []),
+        ],
       });
 
       const { tier, tierReasons } = getTier({
@@ -1035,6 +1128,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         overBookCount: prop.overBookCount,
         underBookCount: prop.underBookCount,
         lineSpread: prop.lineSpread,
+        consensusLine: prop.consensusLine,
         hasBothSides: prop.hasBothSides,
         marketQuality: prop.marketQuality,
         marketGrade: prop.marketGrade,
@@ -1065,12 +1159,18 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
         playerState,
         roleChange,
+        volumeProfile,
+        volumeDangerGates,
+        marketIntelligence,
+        availabilityGate,
+        defenseResult,
         dataMode: playerState.dataMode,
 
         snapshotId: marketSnapshot.snapshotId,
         snapshotTime: marketSnapshot.snapshotTime,
         openingLine: marketSnapshot.openingLine,
         currentLine: marketSnapshot.currentLine,
+        lineDelta: marketIntelligence.lineDelta,
       };
 
       const fairLine = buildFairLine({
@@ -1084,6 +1184,24 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         ...bestPick,
         ...fairLine,
       };
+
+      bestPick.scoreLedger = buildScoreLedger({
+        side: bestPick.side || bestPick.pick,
+        projection: adjustedSportsProjection || bestPick.projection,
+        line: prop.line,
+        seasonAverage,
+        last5Average: bestPick.last5Average,
+        fairLine: bestPick.fairLine,
+        fairLineEdge: bestPick.fairLineEdge,
+        volumeProfile,
+        volumeDangerGates,
+        marketIntelligence,
+        availabilityGate,
+        defenseResult,
+        opportunity,
+        riskComparison,
+        dataQuality,
+      });
 
       if (fairLine.fairLineSide === "OVER") {
         sideAudit.fairLineOver += 1;

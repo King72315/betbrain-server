@@ -1,6 +1,7 @@
 import { formatTime, safeDisplay } from "../components/PropCard";
 import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
+import { formatPointStrengthLedgerBlock } from "./pointStrengthLedger";
 import {
   type FilterAudit,
   formatFilterAuditSummary,
@@ -65,6 +66,9 @@ function formatPropReportLine(pick: any, index = 0) {
     reasons.length ? `  Top Reasons: ${reasons.join(" | ")}` : null,
     pick.warnings?.length ? `  Warnings: ${pick.warnings.slice(0, 2).join(" | ")}` : null,
     pick.dataMode ? `  Data Mode: ${pick.dataMode}` : null,
+    formatPointStrengthLedgerBlock(pick)
+      ? `  Point Strength Ledger:\n${formatPointStrengthLedgerBlock(pick)}`
+      : null,
   ]);
 }
 
@@ -190,7 +194,7 @@ export function buildTopPropsReport(input: {
         ? "No top props available. Refresh picks or check backend/API connection."
         : undefined,
     errors: input.error || undefined,
-    debugNotes: "Each prop includes confidence, risk, tier, projection/fair line/edge, support/danger, books/market quality, and top reasons.",
+    debugNotes: "Each prop includes confidence, risk, tier, projection/fair line/edge, support/danger, books/market quality, top reasons, and Point Strength Ledger (volume, line movement, defense, availability, danger gates, score ledger).",
   });
 }
 

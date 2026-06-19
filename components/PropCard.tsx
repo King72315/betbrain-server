@@ -5,6 +5,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  formatAvailabilitySummary,
+  formatDefenseSummary,
+  formatGateLabel,
+} from "../utils/pointStrengthLedger";
 
 type PropCardProps = {
   pick: any;
@@ -29,6 +34,7 @@ export default function PropCard({
 
   const [roleExpanded, setRoleExpanded] = useState(false);
   const [fairLineExpanded, setFairLineExpanded] = useState(false);
+  const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
   const confidence = pick.confidence ?? pick.winProbability ?? 0;
@@ -40,6 +46,18 @@ export default function PropCard({
     pick.dataMode || pick.playerState?.dataMode || "";
   const playerState = pick.playerState || {};
   const roleChange = pick.roleChange || {};
+  const volumeProfile = pick.volumeProfile || {};
+  const scoreLedger = pick.scoreLedger || [];
+  const marketIntelligence = pick.marketIntelligence || {};
+  const volumeDangerGates = pick.volumeDangerGates || {};
+  const availabilityGate = pick.availabilityGate || {};
+  const defenseResult = pick.defenseResult || {};
+  const openingLine =
+    pick.openingLine ?? marketIntelligence.openingLine;
+  const currentLine =
+    pick.currentLine ?? marketIntelligence.currentLine ?? line;
+  const lineDelta =
+    pick.lineDelta ?? marketIntelligence.lineDelta;
   const status = getStatusLabel(pick);
   const commenceTime =
     pick.commenceTime || pick.time || game.commenceTime || game.time;
@@ -196,20 +214,120 @@ export default function PropCard({
       </View>
 
       <View style={styles.v3Section}>
-        <Text style={styles.v3SectionTitle}>Market Snapshot</Text>
+        <Text style={styles.v3SectionTitle}>Point Strength Ledger</Text>
+
         <View style={styles.metricGrid}>
+          <Metric
+            label="Shot Volume"
+            value={safeDisplay(volumeProfile.shotVolume ?? pick.shotVolume)}
+          />
+          <Metric
+            label="Vol Stability"
+            value={volumeProfile.volumeStability || "—"}
+          />
+          <Metric label="Role Trend" value={volumeProfile.roleTrend || "—"} />
+          <Metric
+            label="Book Line"
+            value={safeDisplay(currentLine ?? line)}
+          />
+          <Metric label="Opening Line" value={safeDisplay(openingLine)} />
+          <Metric
+            label="Line Delta"
+            value={
+              lineDelta !== undefined && lineDelta !== null
+                ? `${Number(lineDelta) >= 0 ? "+" : ""}${safeDisplay(lineDelta)}`
+                : "—"
+            }
+          />
           <Metric
             label="Snapshot Time"
             value={formatTime(pick.snapshotTime) || "—"}
           />
-          <Metric label="Book Line" value={safeDisplay(pick.currentLine ?? line)} />
-          <Metric label="Opening Line" value={safeDisplay(pick.openingLine)} />
           <Metric label="Books" value={safeDisplay(pick.bookCount)} />
-          <Metric
-            label="Market Quality"
-            value={`${safeDisplay(pick.marketQuality)}%`}
-          />
         </View>
+
+        {volumeProfile.efficiencyWarning ? (
+          <Text style={styles.previewRisk}>⚠️ {volumeProfile.efficiencyWarning}</Text>
+        ) : null}
+
+        {volumeProfile.wnbaLimitedData ? (
+          <Text style={styles.ledgerMeta}>WNBA limited-data profile (BDL)</Text>
+        ) : null}
+
+        {marketIntelligence.signals?.length ? (
+          <Text style={styles.ledgerMeta}>
+            Market signals: {marketIntelligence.signals.join(", ")}
+          </Text>
+        ) : null}
+
+        {(marketIntelligence.supportReasons?.length ||
+          marketIntelligence.dangerReasons?.length) ? (
+          <View style={styles.previewBox}>
+            {marketIntelligence.supportReasons?.map((reason: string, i: number) => (
+              <Text key={`mi-support-${i}`} style={styles.previewReason}>
+                ✅ {reason}
+              </Text>
+            ))}
+            {marketIntelligence.dangerReasons?.map((reason: string, i: number) => (
+              <Text key={`mi-danger-${i}`} style={styles.previewRisk}>
+                ⚠️ {reason}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={styles.ledgerMeta}>
+          Defense: {formatDefenseSummary(defenseResult, league)}
+        </Text>
+        <Text style={styles.ledgerMeta}>
+          Availability: {formatAvailabilitySummary(availabilityGate, league)}
+        </Text>
+
+        {volumeDangerGates.gates?.length ? (
+          <View style={styles.previewBox}>
+            <Text style={styles.ledgerMeta}>
+              Danger gates:{" "}
+              {volumeDangerGates.gates.map(formatGateLabel).join(" • ")}
+            </Text>
+            {volumeDangerGates.dangerReasons?.map((reason: string, i: number) => (
+              <Text key={`vdg-${i}`} style={styles.previewRisk}>
+                ⚠️ {reason}
+              </Text>
+            ))}
+            {volumeDangerGates.supportReasons?.map((reason: string, i: number) => (
+              <Text key={`vdg-support-${i}`} style={styles.previewReason}>
+                ✅ {reason}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {scoreLedger.length > 0 ? (
+          <>
+            <TouchableOpacity
+              onPress={() => setLedgerExpanded((value) => !value)}
+              style={styles.expandButton}
+            >
+              <Text style={styles.expandButtonText}>
+                {ledgerExpanded
+                  ? "Hide Score Ledger Rows"
+                  : `Score Ledger (${Math.min(scoreLedger.length, 6)} shown)`}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.previewBox}>
+              {scoreLedger
+                .slice(0, ledgerExpanded ? 12 : 6)
+                .map((row: any, i: number) => (
+                  <Text key={`ledger-${i}`} style={styles.previewReason}>
+                    {row.side && row.side !== "NEUTRAL" ? `[${row.side}] ` : ""}
+                    {row.label}
+                    {row.explanation ? ` — ${row.explanation}` : ""}
+                  </Text>
+                ))}
+            </View>
+          </>
+        ) : null}
       </View>
 
       {(roleChange.roleChangeReasons?.length > 0 ||
@@ -775,6 +893,12 @@ const styles = StyleSheet.create({
     color: "#e2e8f0",
     fontSize: 12,
     fontWeight: "700",
+  },
+  ledgerMeta: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   previewBox: {
     marginBottom: 10,
