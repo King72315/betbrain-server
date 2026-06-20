@@ -13,6 +13,13 @@ import {
   resolvePlayerStatForPick,
 } from "./resultService.js";
 
+import {
+  getLockedSnapshot,
+  getHistoryArchiveProps,
+  isSlateLocked,
+  recordBlockedWrite,
+} from "./slateLockService.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -30,6 +37,51 @@ const PHASE2_BACKUP_FILE = path.join(
   "..",
   "tracked-props-backup-before-phase2.json"
 );
+const DEDUPE_BACKUP_FILE = path.join(
+  __dirname,
+  "..",
+  "tracked-props-backup-before-dedupe-migration.json"
+);
+
+const SAFE_LOCKED_UPDATE_FIELDS = new Set([
+  "latestLine",
+  "currentLine",
+  "lineHistory",
+  "lineMovement",
+  "lastSeenAt",
+  "bookCount",
+  "marketQuality",
+  "lineDelta",
+  "lineSpread",
+  "consensusLine",
+  "overOdds",
+  "underOdds",
+  "marketIntelligence",
+  "status",
+  "actualStat",
+  "result",
+  "resultMargin",
+  "margin",
+  "gradedAt",
+  "resolvedAt",
+  "pendingReason",
+  "gradingNotes",
+  "resolveDebug",
+  "currentEngineResult",
+  "currentEngineWon",
+  "currentEngineMargin",
+  "fairLineShadowResult",
+  "fairLineShadowWon",
+  "fairLineShadowMargin",
+  "sideComparison",
+  "resultMeta",
+  "matchVerified",
+  "resultConfidence",
+  "matchedDate",
+  "matchedGameId",
+  "matchedSource",
+  "timesSeen",
+]);
 
 function clean(value = "") {
   return String(value)
@@ -135,15 +187,105 @@ function backfillTrackedPropPhase2Fields() {
 
 backfillTrackedPropPhase2Fields();
 
+function runDedupeMigration() {
+  const tracked = readJSON(TRACKED_FILE, []);
+  if (!Array.isArray(tracked) || tracked.length === 0) return;
+
+  const stableIndex = new Map();
+  const legacyCollisions = [];
+
+  tracked.forEach((item, index) => {
+    const stableKey = getStableTrackedPropKey(item);
+    const legacyKey = item.trackedKey || getLegacyTrackedPropKey(item);
+
+    if (stableIndex.has(stableKey)) {
+      legacyCollisions.push({
+        stableKey,
+        keepIndex: stableIndex.get(stableKey),
+        dropIndex: index,
+        legacyKey,
+      });
+      return;
+    }
+
+    stableIndex.set(stableKey, index);
+    if (legacyKey && legacyKey !== stableKey) {
+      stableIndex.set(legacyKey, index);
+    }
+  });
+
+  if (!legacyCollisions.length) return;
+
+  if (!fs.existsSync(DEDUPE_BACKUP_FILE)) {
+    writeJSON(DEDUPE_BACKUP_FILE, tracked);
+  }
+
+  const merged = [...tracked];
+  const dropIndices = new Set();
+
+  for (const collision of legacyCollisions) {
+    const keep = merged[collision.keepIndex];
+    const drop = merged[collision.dropIndex];
+    if (!keep || !drop || dropIndices.has(collision.dropIndex)) continue;
+
+    const keepResolved = isResolvedStatus(keep.status);
+    const dropResolved = isResolvedStatus(drop.status);
+
+    if (dropResolved && !keepResolved) {
+      merged[collision.keepIndex] = {
+        ...drop,
+        ...keep,
+        trackedKey: getStableTrackedPropKey(keep),
+        trackedId: getStableTrackedPropKey(keep),
+        status: drop.status,
+        actualStat: drop.actualStat,
+        result: drop.result,
+        resultMargin: drop.resultMargin,
+        gradedAt: drop.gradedAt,
+        resolvedAt: drop.resolvedAt,
+        pendingReason: drop.pendingReason,
+        currentEngineResult: drop.currentEngineResult,
+        fairLineShadowResult: drop.fairLineShadowResult,
+        sideComparison: drop.sideComparison,
+      };
+    } else {
+      merged[collision.keepIndex] = {
+        ...drop,
+        ...keep,
+        trackedKey: getStableTrackedPropKey(keep),
+        trackedId: getStableTrackedPropKey(keep),
+      };
+    }
+
+    dropIndices.add(collision.dropIndex);
+  }
+
+  const next = merged.filter((_, index) => !dropIndices.has(index));
+
+  if (next.length !== tracked.length) {
+    writeJSON(TRACKED_FILE, next);
+    console.log(
+      `DEDUPE MIGRATION: merged ${legacyCollisions.length} legacy key collision(s); ${tracked.length} → ${next.length} props`
+    );
+  }
+}
+
+runDedupeMigration();
+
 function getGameDate(pick = {}) {
-  const source =
-    pick.gameDate ||
-    pick.date ||
-    pick.commenceTime ||
-    pick.time ||
-    null;
+  const commenceTime = pick.commenceTime || pick.time || "";
+
+  if (commenceTime) {
+    return getSlateDateCT(commenceTime);
+  }
+
+  const source = pick.gameDate || pick.date || null;
 
   if (!source) return "";
+
+  const direct = String(source).slice(0, 10);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
 
   const parsed = new Date(source);
 
@@ -151,7 +293,7 @@ function getGameDate(pick = {}) {
     return String(source).slice(0, 10);
   }
 
-  return parsed.toISOString().slice(0, 10);
+  return getSlateDateCT(parsed.toISOString());
 }
 
 export function getSlateDateCT(commenceTime) {
@@ -244,6 +386,118 @@ export function collectAllGeneratedProps(gameCards = []) {
   }
 
   return Array.from(seen.values());
+}
+
+export function buildFlowValidationDiagnostics(
+  tracked = [],
+  picksSnapshot = {}
+) {
+  const games = picksSnapshot.games || [];
+  const generatedProps =
+    picksSnapshot.generatedProps || collectAllGeneratedProps(games);
+  const topProps = picksSnapshot.topProps || [];
+  const league = String(picksSnapshot.league || "").toUpperCase() || null;
+  const slateDateFilter = picksSnapshot.slateDate
+    ? String(picksSnapshot.slateDate)
+    : null;
+
+  const enrichForKey = (pick, game = {}) =>
+    enrichPickFromGameCard(pick, {
+      commenceTime: pick.commenceTime || pick.time,
+      league: pick.league,
+      ...game,
+    });
+
+  const generatedKeys = new Set(
+    generatedProps.map((pick) => getStableTrackedPropKey(pick))
+  );
+  const topKeys = new Set(
+    topProps.map((pick) => getStableTrackedPropKey(enrichForKey(pick)))
+  );
+
+  const filterByScope = (prop) => {
+    if (league && String(prop.league || "").toUpperCase() !== league) {
+      return false;
+    }
+    if (slateDateFilter && String(prop.slateDate || "") !== slateDateFilter) {
+      return false;
+    }
+    return true;
+  };
+
+  const scopedTracked = tracked.filter(filterByScope);
+  const scopedGenerated = generatedProps.filter(filterByScope);
+  const scopedTop = topProps.filter((pick) => {
+    const enriched = enrichForKey(pick);
+    return filterByScope(enriched);
+  });
+
+  const trackedKeys = new Set(
+    scopedTracked.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
+  );
+
+  const topPropsMissingFromResults = [...topKeys].filter(
+    (key) => !trackedKeys.has(key)
+  );
+  const generatedMissingFromResults = scopedGenerated
+    .map((pick) => getStableTrackedPropKey(pick))
+    .filter((key) => !trackedKeys.has(key));
+
+  const stableKeyCounts = new Map();
+  for (const prop of scopedTracked) {
+    const key = prop.trackedKey || getStableTrackedPropKey(prop);
+    stableKeyCounts.set(key, (stableKeyCounts.get(key) || 0) + 1);
+  }
+  const duplicateStableKeys = [...stableKeyCounts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([key, count]) => ({ key, count }));
+
+  const boardPropCount = games.reduce(
+    (sum, game) => {
+      if (league && game.league !== league) return sum;
+      return sum + (Array.isArray(game.picks) ? game.picks.length : 0);
+    },
+    0
+  );
+
+  const tierCounts = scopedGenerated.reduce((acc, pick) => {
+    const tier = String(pick.tier || "UNKNOWN").toUpperCase();
+    acc[tier] = (acc[tier] || 0) + 1;
+    return acc;
+  }, {});
+
+  const labReport = picksSnapshot.labReport || null;
+  const labPropCount = labReport
+    ? Number(
+        labReport.sections?.A?.totalOfficialProps ??
+          labReport.totalOfficialProps ??
+          0
+      )
+    : null;
+
+  return {
+    trackingMode: TRACKING_MODE,
+    league,
+    slateDate: slateDateFilter,
+    generatedPropCount: scopedGenerated.length,
+    boardPropCount,
+    topPropsCount: scopedTop.length,
+    trackedResultsCount: scopedTracked.length,
+    duplicateStableKeys: duplicateStableKeys.length,
+    duplicateStableKeyDetails: duplicateStableKeys,
+    topPropsMissingFromResults: topPropsMissingFromResults.length,
+    topPropsMissingKeys: topPropsMissingFromResults,
+    generatedMissingFromResults: generatedMissingFromResults.length,
+    tierCounts,
+    labPropCount,
+    resultsMatchGenerated:
+      scopedTracked.length >= scopedGenerated.length &&
+      generatedMissingFromResults.length === 0,
+    resultsMatchTopProps: topPropsMissingFromResults.length === 0,
+    labMatchResults:
+      labPropCount === null ? null : labPropCount === scopedTracked.length,
+    noDuplicates: duplicateStableKeys.length === 0,
+  };
 }
 
 function normalizeEngineSide(side = "") {
@@ -640,6 +894,17 @@ function mapPickToTrackedFields(pick = {}) {
     roleChangeScoreBucket: getRoleChangeScoreBucket(
       pick.roleChange?.roleChangeScore
     ),
+    volumeProfile: pick.volumeProfile || null,
+    volumeDangerGates: pick.volumeDangerGates || null,
+    marketIntelligence: pick.marketIntelligence || null,
+    availabilityGate: pick.availabilityGate || null,
+    defenseResult: pick.defenseResult || null,
+    defenseScore: num(pick.defenseResult?.defenseScore),
+    scoreLedger: pick.scoreLedger || [],
+    openingLine: num(pick.openingLine) || null,
+    currentLine: num(pick.currentLine) || null,
+    lineDelta: num(pick.lineDelta ?? pick.marketIntelligence?.lineDelta) || null,
+    consensusLine: num(pick.consensusLine ?? pick.marketIntelligence?.consensusLine) || null,
   };
 
   return {
@@ -677,13 +942,23 @@ function buildSideComparison({
   return null;
 }
 
+function getGradingLine(tracked = {}) {
+  if (tracked.officialLine !== undefined && tracked.officialLine !== null) {
+    return num(tracked.officialLine);
+  }
+  return num(tracked.line ?? tracked.pickLine ?? tracked.sportsbookLine);
+}
+
 function gradeEngineSide(tracked, statResult, side) {
+  const gradingLine = getGradingLine(tracked);
+
   const graded = gradePointsPick(
     {
       ...tracked,
       side,
       pick: side,
-      line: tracked.line,
+      line: gradingLine,
+      officialLine: tracked.officialLine ?? gradingLine,
       league: tracked.league,
       player: tracked.player,
       team: tracked.team,
@@ -709,6 +984,12 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
         options.pendingReason ||
         tracked.pendingReason ||
         "No exact game stat match found for pick date and league",
+      gradingNotes: options.gradingNotes || tracked.gradingNotes || null,
+      matchVerified: options.matchVerified ?? tracked.matchVerified ?? false,
+      resultConfidence: options.resultConfidence ?? tracked.resultConfidence ?? null,
+      matchedDate: options.matchedDate ?? tracked.matchedDate ?? null,
+      matchedGameId: options.matchedGameId ?? tracked.matchedGameId ?? null,
+      matchedSource: options.matchedSource ?? tracked.matchedSource ?? null,
       resolveDebug: options.resolveDebug || tracked.resolveDebug || null,
       actualStat: null,
       result: null,
@@ -751,6 +1032,12 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     gradedAt,
     resolvedAt: gradedAt,
     pendingReason: current.pendingReason,
+    gradingNotes: options.gradingNotes || null,
+    matchVerified: options.matchVerified ?? true,
+    resultConfidence: options.resultConfidence || "medium",
+    matchedDate: options.matchedDate || tracked.matchedDate || null,
+    matchedGameId: options.matchedGameId || tracked.matchedGameId || null,
+    matchedSource: options.matchedSource || tracked.matchedSource || null,
     currentEngineResult: current.result,
     currentEngineWon: current.won,
     currentEngineMargin: current.margin,
@@ -761,14 +1048,90 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
   };
 }
 
+function appendLineHistory(existing = {}, nextLine = 0) {
+  const now = new Date().toISOString();
+  const history = Array.isArray(existing.lineHistory) ? [...existing.lineHistory] : [];
+  const prevLine = num(existing.latestLine ?? existing.currentLine ?? existing.line);
+
+  if (prevLine && prevLine !== nextLine) {
+    history.push({ from: prevLine, to: nextLine, seenAt: now });
+  }
+
+  return history.slice(-20);
+}
+
+function applySafeLockedMerge(existing = {}, incomingFields = {}) {
+  const now = new Date().toISOString();
+  const nextLine = num(incomingFields.currentLine ?? incomingFields.line ?? existing.latestLine);
+  const patch = {};
+
+  for (const key of SAFE_LOCKED_UPDATE_FIELDS) {
+    if (incomingFields[key] !== undefined) {
+      patch[key] = incomingFields[key];
+    }
+  }
+
+  patch.latestLine = nextLine || existing.latestLine || existing.officialLine;
+  patch.currentLine = nextLine || existing.currentLine || existing.officialLine;
+  patch.lineHistory = appendLineHistory(existing, patch.latestLine);
+  patch.lastSeenAt = now;
+  patch.timesSeen = num(existing.timesSeen) + 1;
+
+  if (
+    incomingFields.lineMovement ||
+    (num(existing.officialLine) && patch.latestLine && num(existing.officialLine) !== patch.latestLine)
+  ) {
+    patch.lineMovement = incomingFields.lineMovement || {
+      from: num(existing.officialLine),
+      to: patch.latestLine,
+      seenAt: now,
+    };
+  }
+
+  return {
+    ...existing,
+    ...patch,
+    officialLine: existing.officialLine,
+    pickLine: existing.pickLine,
+    lockedSide: existing.lockedSide,
+    currentEngineSide: existing.lockedSide || existing.currentEngineSide,
+    lockedScoreLedger: existing.lockedScoreLedger,
+    lockedSignalSnapshot: existing.lockedSignalSnapshot,
+    lockedPlayerState: existing.lockedPlayerState,
+    lockedVolumeProfile: existing.lockedVolumeProfile,
+    slateLocked: true,
+  };
+}
+
 function normalizeTrackedProp(pick = {}, existing = null) {
   const now = new Date().toISOString();
   const fields = mapPickToTrackedFields(pick);
   const trackedKey = getStableTrackedPropKey(pick);
-  const previousLine =
-    existing && num(existing.line) && num(existing.line) !== num(fields.line)
-      ? num(existing.line)
-      : null;
+  const slateDate = fields.slateDate || existing?.slateDate || "";
+  const locked =
+    existing?.slateLocked === true || (slateDate && isSlateLocked(slateDate));
+
+  if (locked && existing) {
+    return applySafeLockedMerge(existing, fields);
+  }
+
+  const incomingLine = num(fields.currentLine ?? fields.line);
+  const officialLine =
+    existing?.officialLine !== undefined && existing?.officialLine !== null
+      ? num(existing.officialLine)
+      : existing?.line !== undefined && existing?.line !== null
+        ? num(existing.line)
+        : incomingLine;
+  const pickLine =
+    existing?.pickLine !== undefined && existing?.pickLine !== null
+      ? num(existing.pickLine)
+      : existing?.line !== undefined && existing?.line !== null
+        ? num(existing.line)
+        : incomingLine;
+  const lockedSide =
+    existing?.lockedSide || fields.currentEngineSide || existing?.currentEngineSide || "";
+  const previousLatest =
+    existing?.latestLine ?? existing?.currentLine ?? existing?.line ?? null;
 
   return {
     ...existing,
@@ -776,11 +1139,19 @@ function normalizeTrackedProp(pick = {}, existing = null) {
     trackedId: existing?.trackedId || trackedKey,
     trackedKey,
     trackingMode: pick.trackingMode || existing?.trackingMode || TRACKING_MODE,
+    officialLine,
+    pickLine,
+    line: officialLine,
+    lockedSide,
+    currentEngineSide: lockedSide || fields.currentEngineSide,
+    latestLine: incomingLine || existing?.latestLine || officialLine,
+    currentLine: incomingLine || existing?.currentLine || officialLine,
+    lineHistory: appendLineHistory(existing || {}, incomingLine),
     lineMovement:
-      previousLine !== null
+      previousLatest !== null && num(previousLatest) !== incomingLine
         ? {
-            from: previousLine,
-            to: num(fields.line),
+            from: num(previousLatest),
+            to: incomingLine,
             seenAt: now,
           }
         : existing?.lineMovement || null,
@@ -808,41 +1179,166 @@ function normalizeTrackedProp(pick = {}, existing = null) {
   };
 }
 
+function countPropsForSlate(tracked = [], slateDate = "") {
+  return tracked.filter((item) => String(item.slateDate || "") === slateDate).length;
+}
+
+
 export function addTrackedProps(picks = []) {
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter(
     isTrackablePick
   );
   const tracked = readJSON(TRACKED_FILE, []);
   const indexByStable = buildTrackedIndex(tracked);
+  const blockedSlates = new Set();
+  const audit = {
+    blockedSlates: [],
+    blockedNewKeys: 0,
+    safeUpdates: 0,
+    newKeys: 0,
+  };
+
+  const lockedSlateCounts = new Map();
+  for (const item of tracked) {
+    const slateDate = String(item.slateDate || "");
+    if (!slateDate) continue;
+    if (isSlateLocked(slateDate) || getHistoryArchiveProps(slateDate).length) {
+      lockedSlateCounts.set(
+        slateDate,
+        (lockedSlateCounts.get(slateDate) || 0) + 1
+      );
+    }
+  }
+
+  const working = [...tracked];
 
   for (const pick of incoming) {
     if (!pick?.player) continue;
 
     const stableKey = getStableTrackedPropKey(pick);
     const legacyKey = getLegacyTrackedPropKey(pick);
+    const fields = mapPickToTrackedFields(pick);
+    const slateDate = String(fields.slateDate || "");
+    const slateLocked =
+      slateDate &&
+      (isSlateLocked(slateDate) || getHistoryArchiveProps(slateDate).length > 0);
+
+    if (slateLocked && blockedSlates.has(slateDate)) {
+      continue;
+    }
+
     const existingIndex =
       indexByStable.get(stableKey) ?? indexByStable.get(legacyKey);
 
+    if (slateLocked && existingIndex === undefined) {
+      audit.blockedNewKeys += 1;
+      continue;
+    }
+
     if (existingIndex !== undefined) {
-      const existing = tracked[existingIndex];
-      tracked[existingIndex] = normalizeTrackedProp(pick, existing);
+      const existing = working[existingIndex];
+      working[existingIndex] = normalizeTrackedProp(pick, existing);
       indexByStable.set(stableKey, existingIndex);
       if (legacyKey !== stableKey) {
         indexByStable.set(legacyKey, existingIndex);
       }
+      if (slateLocked) audit.safeUpdates += 1;
     } else {
       const normalized = normalizeTrackedProp(pick);
+      const firstLine = num(normalized.line ?? normalized.currentLine);
+      normalized.officialLine = firstLine;
+      normalized.pickLine = firstLine;
+      normalized.lockedSide =
+        normalized.lockedSide || normalized.currentEngineSide || "";
+      normalized.line = firstLine;
+      normalized.latestLine = firstLine;
+      normalized.currentLine = firstLine;
       normalized.timesSeen = 1;
-      indexByStable.set(stableKey, tracked.length);
+      indexByStable.set(stableKey, working.length);
       if (legacyKey !== stableKey) {
-        indexByStable.set(legacyKey, tracked.length);
+        indexByStable.set(legacyKey, working.length);
       }
-      tracked.push(normalized);
+      working.push(normalized);
+      audit.newKeys += 1;
     }
   }
 
-  writeJSON(TRACKED_FILE, tracked);
-  return tracked;
+  for (const [slateDate, beforeCount] of lockedSlateCounts.entries()) {
+    const afterCount = countPropsForSlate(working, slateDate);
+    if (afterCount < beforeCount) {
+      blockedSlates.add(slateDate);
+      audit.blockedSlates.push({
+        slateDate,
+        beforeCount,
+        afterCount,
+        reason: "shrink_guard",
+      });
+
+      const snapshot = getLockedSnapshot(slateDate);
+      const archiveProps = getHistoryArchiveProps(slateDate);
+      const snapshotProps = snapshot?.props?.length ? snapshot.props : archiveProps;
+      if (snapshotProps.length) {
+        const snapshotKeys = new Set(
+          snapshotProps.map((p) => p.trackedKey || p.trackedId)
+        );
+        for (let i = working.length - 1; i >= 0; i -= 1) {
+          const item = working[i];
+          if (String(item.slateDate || "") !== slateDate) continue;
+          const key = item.trackedKey || item.trackedId;
+          if (!snapshotKeys.has(key)) {
+            working.splice(i, 1);
+          }
+        }
+      }
+    }
+  }
+
+  if (audit.blockedSlates.length > 0) {
+    recordBlockedWrite({
+      type: "shrink_guard",
+      ...audit,
+    });
+  }
+
+  writeJSON(TRACKED_FILE, working);
+  return working;
+}
+
+export function applySlateLockFreeze(slateDate, frozenProps = []) {
+  const date = String(slateDate || "");
+  if (!date || !frozenProps.length) return getTrackedProps();
+
+  const tracked = readJSON(TRACKED_FILE, []);
+  const frozenByKey = new Map(
+    frozenProps.map((prop) => [prop.trackedKey || prop.trackedId, prop])
+  );
+
+  const next = tracked.map((item) => {
+    if (String(item.slateDate || "") !== date) return item;
+    const key = item.trackedKey || item.trackedId;
+    const frozen = frozenByKey.get(key);
+    return frozen ? { ...item, ...frozen, slateLocked: true } : item;
+  });
+
+  writeJSON(TRACKED_FILE, next);
+  return next;
+}
+
+export function getTrackedPropsForSlate(slateDate) {
+  const date = String(slateDate || "");
+  if (date && isSlateLocked(date)) {
+    const snapshot = getLockedSnapshot(date);
+    if (snapshot?.props?.length) {
+      return snapshot.props;
+    }
+  }
+
+  const archiveProps = getHistoryArchiveProps(date);
+  if (archiveProps.length) {
+    return archiveProps;
+  }
+
+  return getTrackedProps().filter((prop) => String(prop.slateDate || "") === date);
 }
 
 export function getTrackedProps() {
@@ -917,11 +1413,20 @@ export async function resolveTrackedProps(options = {}) {
 
     const playerStats = getCachedStatsForPick(item, statsCache);
 
-    const { statResult, pendingReason, resolveDebug } = await resolvePlayerStatForPick(
+    const { statResult, pendingReason, resolveDebug, gradingNotes, matchVerified, resultConfidence, matchedDate, matchedGameId, matchedSource } = await resolvePlayerStatForPick(
       item,
       playerStats
     );
-    const graded = gradeTrackedProp(item, statResult, { pendingReason, resolveDebug });
+    const graded = gradeTrackedProp(item, statResult, {
+      pendingReason,
+      resolveDebug,
+      gradingNotes,
+      matchVerified,
+      resultConfidence,
+      matchedDate,
+      matchedGameId,
+      matchedSource,
+    });
 
     if (isResolvedStatus(graded.status)) {
       gradedCount += 1;

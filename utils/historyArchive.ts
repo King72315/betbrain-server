@@ -146,18 +146,91 @@ function buildSavedPickEntries(picks: any[]): HistoryEntry[] {
   return entries;
 }
 
-function buildOfficialSlateEntries(
-  historySlates: any[],
-  trackedProps: any[]
+function buildEntryFromArchive(archive: any): HistoryEntry | null {
+  if (!archive?.slateDate || !Array.isArray(archive.props) || !archive.props.length) {
+    return null;
+  }
+
+  const report = archive.report || null;
+  const sectionA = report?.sections?.A || report || {};
+  const slateDate = String(archive.slateDate);
+  const slateProps = archive.props;
+  const slateLesson = report?.slateLesson || report?.sections?.J;
+  const graded = Number(sectionA.graded ?? 0);
+  const total = Number(sectionA.totalOfficialProps ?? slateProps.length);
+  const hasGradedPerformance =
+    Boolean(report && isCompletedSlate(report)) || graded > 0;
+
+  return {
+    id: `official-${slateDate}`,
+    type: "official-slate",
+    slateDate,
+    leagues: (sectionA.leagues || []).length
+      ? sectionA.leagues
+      : [...new Set(slateProps.map((prop: any) => prop.league).filter(Boolean))],
+    wins: Number(sectionA.wins ?? 0),
+    losses: Number(sectionA.losses ?? 0),
+    pushes: Number(sectionA.pushes ?? 0),
+    pending: Number(sectionA.pending ?? 0),
+    graded,
+    total,
+    winRate:
+      sectionA.overallWinRate !== null && sectionA.overallWinRate !== undefined
+        ? Math.round(Number(sectionA.overallWinRate))
+        : null,
+    netUnits: Number(sectionA.wins ?? 0) - Number(sectionA.losses ?? 0),
+    status: archive.phase === "ARCHIVED" ? "ARCHIVED LAB" : "ARCHIVED LAB",
+    hasGradedPerformance,
+    emptyLabel: hasGradedPerformance ? null : "Archive bundle stored — grading incomplete",
+    topLesson: slateLesson?.headline || slateLesson?.body || null,
+    archiveLabel:
+      archive.phase === "ARCHIVED" ? "Archived Slate" : "Archived Lab Slate",
+    picks: slateProps,
+    reportSummary: report,
+  };
+}
+
+function buildArchiveBackedEntries(
+  archives: any[] = [],
+  coveredDates: Set<string>,
+  currentLabSlateDate: string | null
 ): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
+
+  for (const archive of archives) {
+    const slateDate = String(archive?.slateDate || "");
+    if (!slateDate || slateDate === currentLabSlateDate) continue;
+    if (coveredDates.has(slateDate)) continue;
+    if (archive.phase !== "ARCHIVED") continue;
+
+    const entry = buildEntryFromArchive(archive);
+    if (entry) entries.push(entry);
+  }
+
+  return entries;
+}
+
+function buildOfficialSlateEntries(
+  historySlates: any[],
+  trackedProps: any[],
+  archives: any[] = []
+): HistoryEntry[] {
+  const entries: HistoryEntry[] = [];
+  const archiveByDate = new Map(
+    archives.map((archive) => [String(archive.slateDate || ""), archive])
+  );
 
   for (const report of historySlates) {
     if (!isCompletedSlate(report)) continue;
 
     const sectionA = report.sections?.A || report;
     const slateDate = String(report.slateDate || sectionA.slateDate || "unknown");
-    const slateProps = trackedProps.filter((prop) => prop.slateDate === slateDate);
+    const archive = archiveByDate.get(slateDate);
+    const slateProps =
+      archive?.props?.length
+        ? archive.props
+        : trackedProps.filter((prop) => prop.slateDate === slateDate);
+    const reportSummary = archive?.report || report;
     const graded = getReportGraded(report);
     const total = getReportTotalOfficial(report) || slateProps.length;
     const slateLesson = report.slateLesson || report.sections?.J;
@@ -184,21 +257,40 @@ function buildOfficialSlateEntries(
       hasGradedPerformance: true,
       emptyLabel: null,
       topLesson: slateLesson?.headline || slateLesson?.body || null,
-      archiveLabel: "Archived Lab Slate",
+      archiveLabel:
+        archive?.phase === "ARCHIVED" ? "Archived Slate" : "Archived Lab Slate",
       picks: slateProps,
-      reportSummary: report,
+      reportSummary,
     });
   }
 
   return entries;
 }
 
-export function buildHistoryEntries(picks: any[], reports: any[], trackedProps: any[]) {
-  const { historySlates } = computeSlateRotation(reports);
+export function buildHistoryEntries(
+  picks: any[],
+  reports: any[],
+  trackedProps: any[],
+  archives: any[] = []
+) {
+  const { historySlates, currentLabSlateDate } = computeSlateRotation(reports);
+
+  const officialEntries = buildOfficialSlateEntries(
+    historySlates,
+    trackedProps,
+    archives
+  );
+  const coveredDates = new Set(officialEntries.map((entry) => entry.slateDate));
+  const archiveEntries = buildArchiveBackedEntries(
+    archives,
+    coveredDates,
+    currentLabSlateDate
+  );
 
   const entries = [
     ...buildSavedPickEntries(picks),
-    ...buildOfficialSlateEntries(historySlates, trackedProps),
+    ...officialEntries,
+    ...archiveEntries,
   ];
 
   return entries.sort((a, b) => {

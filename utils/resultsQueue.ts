@@ -168,16 +168,21 @@ function buildActiveResultsSlate(
   };
 }
 
-/** In-progress slates visible in Results (today + tomorrow, excluding current Lab slate). */
+/** In-progress slates visible in Results. Hides only current Lab slate and History archives — not unlocked completed slates. */
 export function computeVisibleResultsSlates(
   trackedProps: any[] = [],
   reports: any[] = []
 ): ActiveResultsSlate[] {
   const rotation = computeSlateRotation(reports);
+  const historyDates = new Set(
+    rotation.historySlates.map((r) => String(r.slateDate || ""))
+  );
   const groups = groupTrackedPropsBySlate(trackedProps);
-  const slateDates = [...groups.keys()]
-    .filter((date) => date !== "unknown")
-    .sort((a, b) => a.localeCompare(b));
+  const slateDates = [...groups.keys()].sort((a, b) => {
+    if (a === "unknown") return 1;
+    if (b === "unknown") return -1;
+    return a.localeCompare(b);
+  });
 
   const visible: ActiveResultsSlate[] = [];
 
@@ -193,7 +198,7 @@ export function computeVisibleResultsSlates(
       continue;
     }
 
-    if (complete) {
+    if (historyDates.has(slateDate)) {
       continue;
     }
 

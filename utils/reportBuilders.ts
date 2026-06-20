@@ -352,17 +352,26 @@ function formatHistoryPickLine(pick: any, index: number) {
     pick.actualStat ??
     pick.resultMeta?.points ??
     null;
+  const officialLine = pick.officialLine ?? pick.line ?? pick.sportsbookLine;
+  const latestLine = pick.latestLine ?? pick.currentLine ?? officialLine;
 
   return joinLines([
     `[${index + 1}] ${pick.player || "Unknown"} (${pick.league || "—"}) — ${status}`,
-    `  ${pick.side || pick.pick || "—"} ${safeDisplay(pick.line ?? pick.sportsbookLine)} ${pick.stat || "Points"}`,
+    `  ${pick.side || pick.pick || pick.currentEngineSide || "—"} ${safeDisplay(officialLine)} ${pick.stat || "Points"}`,
+    latestLine !== undefined &&
+    officialLine !== undefined &&
+    Number(latestLine) !== Number(officialLine)
+      ? `  Line: official ${safeDisplay(officialLine)} → latest ${safeDisplay(latestLine)}`
+      : null,
     `  Confidence: ${safeDisplay(pick.confidence ?? pick.winProbability)}% | Risk: ${pick.riskLabel || "—"} | Tier: ${String(pick.tier || "WATCHLIST").toUpperCase()}`,
     actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
     pick.resultMargin !== undefined || pick.margin !== undefined
       ? `  Margin: ${safeDisplay(pick.resultMargin ?? pick.margin)}`
       : null,
+    pick.pendingReason ? `  Pending reason: ${pick.pendingReason}` : null,
     pick.bookCount !== undefined ? `  Books: ${safeDisplay(pick.bookCount)}` : null,
     pick.dataMode ? `  Data Mode: ${pick.dataMode}` : null,
+    pick.gameLabel || pick.game ? `  Game: ${pick.gameLabel || pick.game}` : null,
   ]);
 }
 
@@ -401,12 +410,17 @@ export function buildHistoryReport(input: {
     ]);
 
     if (!entry.hasGradedPerformance) {
-      return header;
+      const bundleLines = (entry.picks || [])
+        .slice(0, 50)
+        .map((pick, index) => formatHistoryPickLine(pick, index));
+      return joinLines([
+        header,
+        bundleLines.length ? `\nTracked Props:\n${bundleLines.join("\n\n")}` : null,
+      ]);
     }
 
     const pickLines = (entry.picks || [])
-      .filter((pick) => ["Win", "Loss", "Push"].includes(getPickStatus(pick)))
-      .slice(0, 20)
+      .slice(0, 50)
       .map((pick, index) => formatHistoryPickLine(pick, index));
 
     const engine = entry.reportSummary?.engineScorecard || entry.reportSummary?.sections?.G;
@@ -437,7 +451,7 @@ export function buildHistoryReport(input: {
   return buildPageReport({
     page: "History",
     leagueFilter: input.filter,
-    dataSource: "GET /saved-picks, /daily-slate-reports, /tracked-props (read-only)",
+    dataSource: "GET /saved-picks, /daily-slate-reports, /tracked-props, /history-archives (read-only)",
     extraContext: {
       "Archive Entries": input.entries.length,
       "Visible After Filter": input.filteredEntries.length,

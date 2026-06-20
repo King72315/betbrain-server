@@ -16,8 +16,10 @@ import PropCard, { ResultMarginText, safeDisplay } from "../../components/PropCa
 import {
   buildDailySlateReports,
   fetchDailySlateReports,
+  fetchLockedSlates,
   fetchTopProps,
   fetchTrackedProps,
+  lockSlate,
   resolveTrackedProps,
 } from "../../services/api";
 import { buildResultsReport } from "../../utils/reportBuilders";
@@ -47,6 +49,11 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function num(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function ResultsScreen() {
   const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -58,14 +65,17 @@ export default function ResultsScreen() {
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
   const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
   const [trackingMode, setTrackingMode] = useState<string | null>(null);
+  const [lockedSlates, setLockedSlates] = useState<any[]>([]);
+  const [lockingSlate, setLockingSlate] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [trackedData, reportData, topPropsData] = await Promise.all([
+      const [trackedData, reportData, topPropsData, lockedData] = await Promise.all([
         fetchTrackedProps(),
         fetchDailySlateReports(),
         fetchTopProps(),
+        fetchLockedSlates(),
       ]);
 
       setTrackedProps(trackedData.props || []);
@@ -74,7 +84,14 @@ export default function ResultsScreen() {
       setTrackingMode(
         topPropsData.trackingMode || topPropsData.filterAudit?.trackingMode || null
       );
-      setLoadError(null);
+      setLockedSlates(lockedData.slates || []);
+      if (trackedData.error) {
+        setLoadError(trackedData.error);
+      } else if (!trackedData.ok && (trackedData.props || []).length === 0) {
+        setLoadError("Could not load tracked props from backend.");
+      } else {
+        setLoadError(null);
+      }
     } catch (err) {
       console.log("LOAD RESULTS ERROR:", err);
       setLoadError(String(err));
@@ -126,6 +143,29 @@ export default function ResultsScreen() {
       setResolving(false);
     }
   };
+
+  const handleLockSlate = async (slateDate: string) => {
+    try {
+      setLockingSlate(slateDate);
+      const result = await lockSlate(slateDate, "results_ui");
+      if (!result.ok && !result.alreadyLocked) {
+        setLoadError(result.message || "Lock failed");
+        return;
+      }
+      const lockedData = await fetchLockedSlates();
+      setLockedSlates(lockedData.slates || []);
+      const trackedData = await fetchTrackedProps();
+      setTrackedProps(trackedData.props || []);
+    } catch (err) {
+      console.log("LOCK SLATE ERROR:", err);
+      setLoadError(String(err));
+    } finally {
+      setLockingSlate(null);
+    }
+  };
+
+  const isSlateLocked = (slateDate: string) =>
+    lockedSlates.some((entry) => entry.slateDate === slateDate);
 
   useFocusEffect(
     useCallback(() => {
@@ -228,18 +268,38 @@ export default function ResultsScreen() {
 
         {loading ? <Text style={styles.loadingText}>Loading grading queue...</Text> : null}
 
+        {loadError ? (
+          <View style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Backend connection error</Text>
+            <Text style={styles.errorText}>{loadError}</Text>
+          </View>
+        ) : null}
+
         {visibleSlates.map((slate) => {
           const slateSummary = slate.summary;
           const slateFiltered =
             filteredSlates.find((item) => item.slateDate === slate.slateDate)?.props ||
             [];
+          const locked = isSlateLocked(slate.slateDate);
 
           return (
             <View key={slate.slateDate} style={styles.summaryCard}>
               <Text style={styles.summaryTitle}>Slate — {formatResultsSlateLabel(slate.slateDate)}</Text>
               <Text style={styles.slateMeta}>
                 {(slate.leagues || []).join(" • ") || "—"} • {slateSummary?.total ?? 0} tracked
+                {locked ? " • 🔒 LOCKED" : ""}
               </Text>
+              {slate.isComplete && !locked ? (
+                <TouchableOpacity
+                  style={[styles.lockBtn, lockingSlate === slate.slateDate && styles.actionBtnDisabled]}
+                  onPress={() => handleLockSlate(slate.slateDate)}
+                  disabled={lockingSlate === slate.slateDate}
+                >
+                  <Text style={styles.lockBtnText}>
+                    {lockingSlate === slate.slateDate ? "Locking..." : "Lock Slate Ticket"}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               <View style={styles.recordGrid}>
                 <SummaryBox label="Total" value={slateSummary?.total ?? 0} color="#f8fafc" />
                 <SummaryBox label="Graded" value={slateSummary?.graded ?? 0} color="#22c55e" />
@@ -291,9 +351,27 @@ export default function ResultsScreen() {
                     />
                     <View style={styles.propMeta}>
                       <Text style={styles.propLine}>
-                        {prop.currentEngineSide || prop.side} {safeDisplay(prop.line)}{" "}
+                        {prop.currentEngineSide || prop.side}{" "}
+                        {safeDisplay(prop.officialLine ?? prop.line)}{" "}
                         {prop.stat || "Points"} — {status}
                       </Text>
+                      {prop.officialLine !== undefined &&
+                      prop.latestLine !== undefined &&
+                      num(prop.latestLine) !== num(prop.officialLine) ? (
+                        <Text style={styles.lineMovement}>
+                          Official {safeDisplay(prop.officialLine)} → Latest{" "}
+                          {safeDisplay(prop.latestLine)}
+                        </Text>
+                      ) : null}
+                      {Array.isArray(prop.lineHistory) && prop.lineHistory.length > 0 ? (
+                        <Text style={styles.propDetail}>
+                          Line history:{" "}
+                          {prop.lineHistory
+                            .slice(-3)
+                            .map((move: any) => `${move.from}→${move.to}`)
+                            .join(" • ")}
+                        </Text>
+                      ) : null}
                       <ResultMarginText pick={prop} />
                       <Text style={styles.propDetail}>{formatPropLabelLine(prop)}</Text>
                       {prop.lineMovement ? (
@@ -312,7 +390,7 @@ export default function ResultsScreen() {
           );
         })}
 
-        {!loading && visibleSlates.length === 0 ? (
+        {!loading && !loadError && visibleSlates.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No active Results slate.</Text>
             <Text style={styles.emptyText}>
@@ -517,6 +595,26 @@ const styles = StyleSheet.create({
     borderColor: "#334155",
     marginBottom: 14,
   },
+  errorCard: {
+    backgroundColor: "#450a0a",
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#ef4444",
+    marginBottom: 14,
+  },
+  errorTitle: {
+    color: "#fecaca",
+    fontSize: 16,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+  errorText: {
+    color: "#fca5a5",
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
   emptyTitle: {
     color: "white",
     fontSize: 18,
@@ -629,5 +727,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 6,
+  },
+  lockBtn: {
+    backgroundColor: "#713f12",
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: "#fbbf24",
+  },
+  lockBtnText: {
+    color: "#fef3c7",
+    fontWeight: "900",
+    fontSize: 14,
+    textAlign: "center",
   },
 });

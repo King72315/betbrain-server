@@ -14,6 +14,7 @@ import {
   buildDailySlateReports,
   fetchDailySlateReport,
   fetchDailySlateReports,
+  fetchHistoryArchives,
   fetchTopProps,
   fetchTrackedAnalytics,
   fetchTrackedProps,
@@ -360,6 +361,7 @@ export default function PropLab() {
   const [report, setReport] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [trackedProps, setTrackedProps] = useState<any[]>([]);
+  const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -376,7 +378,14 @@ export default function PropLab() {
     const { currentLabSlateDate: labDate } = computeSlateRotation(sorted);
 
     if (labDate) {
-      const detail = await fetchDailySlateReport(labDate);
+      const frozenReport =
+        sorted.find(
+          (r) =>
+            r.slateDate === labDate && (r.frozen === true || r.locked === true)
+        ) || null;
+      const detail = frozenReport
+        ? { ok: true, report: frozenReport }
+        : await fetchDailySlateReport(labDate);
       setReport(
         detail.report || sorted.find((r) => r.slateDate === labDate) || null
       );
@@ -388,13 +397,15 @@ export default function PropLab() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, trackedData, topPropsData] = await Promise.all([
+      const [analyticsData, trackedData, topPropsData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
         fetchTrackedProps(),
         fetchTopProps(),
+        fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
       setTrackedProps(trackedData.props || []);
+      setArchives(archiveData.archives || []);
       setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
@@ -409,13 +420,15 @@ export default function PropLab() {
       setRefreshing(true);
       await resolveTrackedProps({ requireLikelyFinished: true });
       await buildDailySlateReports();
-      const [analyticsData, trackedData, topPropsData] = await Promise.all([
+      const [analyticsData, trackedData, topPropsData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
         fetchTrackedProps(),
         fetchTopProps(),
+        fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
       setTrackedProps(trackedData.props || []);
+      setArchives(archiveData.archives || []);
       setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
@@ -457,8 +470,12 @@ export default function PropLab() {
 
   const slateTrackedProps = useMemo(() => {
     if (!currentLabSlateDate) return [];
+    const archive = archives.find(
+      (item) => String(item.slateDate) === currentLabSlateDate
+    );
+    if (archive?.props?.length) return archive.props;
     return trackedProps.filter((p) => p.slateDate === currentLabSlateDate);
-  }, [trackedProps, currentLabSlateDate]);
+  }, [trackedProps, currentLabSlateDate, archives]);
 
   const officialSlateProps = useMemo(() => {
     return slateTrackedProps.filter(

@@ -3,7 +3,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { buildEngineReportCardBundle } from "./engineReportCardService.js";
-import { getSlateDateCT, getTrackedProps } from "./trackedPropService.js";
+import { getSlateDateCT, getTrackedProps, getTrackedPropsForSlate } from "./trackedPropService.js";
+import {
+  archiveSlate,
+  getHistoryArchive,
+  getLockedSnapshot,
+  isSlateLocked,
+  promoteSlateToLab,
+  writeSlateHistoryArchive,
+} from "./slateLockService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,11 +211,86 @@ function classifyLoss(prop = {}) {
 
   if (
     dangerReasons.some((r) => /injury|limited|questionable|out/i.test(String(r))) ||
-    (prop.warningReasons || []).some((r) => /injury|limited/i.test(String(r)))
+    (prop.warningReasons || []).some((r) => /injury|limited/i.test(String(r))) ||
+    prop.availabilityGate?.statusLevel === "OUT" ||
+    prop.availabilityGate?.statusLevel === "QUESTIONABLE"
   ) {
     return {
-      missType: "injury/limited minutes",
-      explanation: "Injury or availability warning was present in the pick profile.",
+      missType: "player_availability_miss",
+      explanation: "Availability warning was present in the pick profile.",
+    };
+  }
+
+  const volumeGates = prop.volumeDangerGates?.gates || [];
+
+  if (
+    volumeGates.includes("efficiency_only_scoring") &&
+    side === "over" &&
+    actual < line
+  ) {
+    return {
+      missType: "efficiency_regression",
+      explanation: "Efficiency-only scoring profile regressed — volume did not support the over.",
+    };
+  }
+
+  if (
+    volumeGates.includes("low_volume_over_trap") ||
+    (volumeGates.includes("low_fga_floor") && side === "over")
+  ) {
+    return {
+      missType: "low_volume_over_trap",
+      explanation: "Low FGA/volume floor — over required hot shooting that did not sustain.",
+    };
+  }
+
+  if (volumeGates.includes("unstable_minutes") || volumeGates.includes("volatile_minutes")) {
+    return {
+      missType: "volume_profile_miss",
+      explanation: "Unstable/volatile minutes profile — role variance drove the miss.",
+    };
+  }
+
+  const lineDelta = num(prop.lineDelta ?? prop.marketIntelligence?.lineDelta);
+  const lineMovedAgainst =
+    prop.marketIntelligence?.lineMovedAgainstSide ||
+    (side === "over" && lineDelta > 0.5) ||
+    (side === "under" && lineDelta < -0.5);
+
+  if (lineMovedAgainst && actual < line && side === "over") {
+    return {
+      missType: "line_movement_trap",
+      explanation: `Line steamed against the over (${lineDelta >= 0 ? "+" : ""}${lineDelta}) — market was sharper.`,
+    };
+  }
+
+  if (lineMovedAgainst && actual > line && side === "under") {
+    return {
+      missType: "market_steam_against_side",
+      explanation: `Line moved against the under (${lineDelta}) — steam trap.`,
+    };
+  }
+
+  if (
+    side === "over" &&
+    lineDelta <= -0.5 &&
+    actual < line &&
+    num(prop.openingLine) > 0
+  ) {
+    return {
+      missType: "opening_line_value_miss",
+      explanation: "Line dropped from open but over still missed — value signal failed.",
+    };
+  }
+
+  if (
+    (prop.marketIntelligence?.signals || []).includes("one_book_market") ||
+    (prop.marketIntelligence?.signals || []).includes("thin_market") ||
+    (num(prop.bookCount) <= 1 && actual !== line)
+  ) {
+    return {
+      missType: "weak_market_trap",
+      explanation: "Thin/one-book market — pricing was unreliable.",
     };
   }
 
@@ -269,6 +352,45 @@ function classifyLoss(prop = {}) {
     return {
       missType: "opponent defense signal failed",
       explanation: "Opponent/matchup signal did not align with the final stat.",
+    };
+  }
+
+  if (prop.volumeDangerGates?.gates?.includes("pace_mismatch")) {
+    return {
+      missType: "pace_mismatch",
+      explanation: "Pace/tempo signal did not align with actual game flow.",
+    };
+  }
+
+  if (
+    prop.defenseResult?.defenseScore !== undefined &&
+    dangerReasons.some((r) => /defense|matchup/i.test(String(r)))
+  ) {
+    return {
+      missType: "defense_rating_miss",
+      explanation: "Defense/matchup rating signal failed on this slate.",
+    };
+  }
+
+  if (
+    prop.scoreLedger?.some?.((entry) => entry?.label?.toLowerCase?.().includes("gate")) &&
+    side === "over" &&
+    actual < line
+  ) {
+    return {
+      missType: "score_ledger_gate_miss",
+      explanation: "Score ledger gate was active but over still missed.",
+    };
+  }
+
+  if (
+    (prop.lockedScoreLedger || prop.scoreLedger || []).some?.(
+      (entry) => entry?.direction === "danger" && num(entry?.weight) >= 2
+    )
+  ) {
+    return {
+      missType: "ledger_danger_ignored",
+      explanation: "Locked score ledger flagged danger that was not respected.",
     };
   }
 
@@ -586,7 +708,62 @@ function buildCalibrationRecommendations(props = [], sections = {}) {
   };
 }
 
-function buildSlateReport(slateDate, props = []) {
+function mapTierToLabBucket(tier = "") {
+  const normalized = String(tier || "").toUpperCase();
+  if (normalized === "PREMIUM" || normalized === "PLAYABLE") return "OFFICIAL";
+  if (normalized === "WATCHLIST") return "WATCHLIST";
+  if (normalized === "LEAN") return "LEAN/TESTING";
+  return "SHADOW_TESTING";
+}
+
+function buildTierLabBuckets(props = []) {
+  const groups = {
+    OFFICIAL: [],
+    WATCHLIST: [],
+    SHADOW_TESTING: [],
+    "LEAN/TESTING": [],
+  };
+
+  for (const prop of props) {
+    const bucket = mapTierToLabBucket(prop.tier);
+    groups[bucket].push(prop);
+  }
+
+  const buckets = {};
+  for (const [key, groupProps] of Object.entries(groups)) {
+    buckets[key] = {
+      ...buildGroupPerformance(groupProps),
+      propCount: groupProps.length,
+    };
+  }
+
+  return buckets;
+}
+
+function rotateOlderLabArchives(reports = []) {
+  const finals = [...reports]
+    .filter((report) => String(report.reportStatus || report.status) === "final")
+    .sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)));
+
+  if (finals.length < 2) return;
+
+  for (let i = 1; i < finals.length; i += 1) {
+    const older = finals[i];
+    const existing = getHistoryArchive(older.slateDate);
+    if (!existing?.props?.length) continue;
+    if (existing.phase === "ARCHIVED") continue;
+    archiveSlate(older.slateDate, { report: older });
+  }
+}
+
+function getLedgerForLearning(prop = {}) {
+  if (Array.isArray(prop.lockedScoreLedger) && prop.lockedScoreLedger.length) {
+    return prop.lockedScoreLedger;
+  }
+  return prop.scoreLedger || [];
+}
+
+function buildSlateReport(slateDate, props = [], options = {}) {
   const slateProps = props.filter(
     (prop) => (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
   );
@@ -646,6 +823,8 @@ function buildSlateReport(slateDate, props = []) {
   const reportCard = buildEngineReportCardBundle(slateProps, {
     slateDate,
     reportStatus,
+    locked: Boolean(options.locked),
+    getLedger: getLedgerForLearning,
   });
 
   const sectionG = {
@@ -668,18 +847,26 @@ function buildSlateReport(slateDate, props = []) {
     ...reportCard.slateLesson,
   };
 
+  const tierLabBuckets = buildTierLabBuckets(slateProps);
+
   return {
     slateDate,
     status: reportStatus,
     reportStatus,
+    locked: Boolean(options.locked),
+    frozen: Boolean(options.frozen),
     generatedAt: now,
     updatedAt: now,
     engineScorecard: reportCard.engineScorecard,
     mistakeBreakdown: reportCard.mistakeBreakdown,
     calibrationRules: reportCard.calibrationRules,
     slateLesson: reportCard.slateLesson,
+    tierLabBuckets,
     sections: {
-      A: sectionA,
+      A: {
+        ...sectionA,
+        tierLabBuckets,
+      },
       B: sectionB,
       C: sectionC,
       D: sectionD,
@@ -689,6 +876,10 @@ function buildSlateReport(slateDate, props = []) {
       H: sectionH,
       I: sectionI,
       J: sectionJ,
+      K: {
+        title: "Tier Lab Buckets",
+        buckets: tierLabBuckets,
+      },
     },
   };
 }
@@ -738,6 +929,7 @@ export function buildDailySlateReportsFromTrackedProps(
   options = {}
 ) {
   const targetSlateDate = options.slateDate ? String(options.slateDate) : null;
+  const forceRebuild = Boolean(options.forceRebuild);
 
   const slateDates = targetSlateDate
     ? [targetSlateDate]
@@ -753,8 +945,71 @@ export function buildDailySlateReportsFromTrackedProps(
   const results = [];
 
   for (const slateDate of slateDates) {
-    const report = buildSlateReport(slateDate, trackedProps);
-    const upsert = upsertDailySlateReport(report);
+    const existing = getDailySlateReport(slateDate);
+    const locked = isSlateLocked(slateDate);
+    const snapshot = locked ? getLockedSnapshot(slateDate) : null;
+    const slateProps = snapshot?.props?.length
+      ? snapshot.props
+      : getTrackedPropsForSlate(slateDate).length
+        ? getTrackedPropsForSlate(slateDate)
+        : trackedProps.filter(
+            (prop) =>
+              (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
+          );
+
+    const preview = buildSlateReport(slateDate, slateProps, { locked });
+    const isFinal = preview.reportStatus === "final";
+
+    if (
+      !forceRebuild &&
+      existing &&
+      existing.frozen === true &&
+      existing.reportStatus === "final"
+    ) {
+      built.push(existing);
+      results.push({
+        slateDate,
+        status: existing.status,
+        reportStatus: existing.reportStatus,
+        propCount: existing.sections?.A?.totalOfficialProps ?? 0,
+        pending: existing.sections?.A?.pending ?? 0,
+        upserted: false,
+        frozen: true,
+        skipped: true,
+      });
+      continue;
+    }
+
+    if (
+      !forceRebuild &&
+      locked &&
+      isFinal &&
+      existing &&
+      existing.reportStatus === "final"
+    ) {
+      built.push(existing);
+      results.push({
+        slateDate,
+        status: existing.status,
+        reportStatus: existing.reportStatus,
+        propCount: existing.sections?.A?.totalOfficialProps ?? 0,
+        pending: existing.sections?.A?.pending ?? 0,
+        upserted: false,
+        frozen: true,
+        skipped: true,
+      });
+      continue;
+    }
+
+    const report = buildSlateReport(slateDate, slateProps, {
+      locked,
+      frozen: locked && isFinal,
+    });
+
+    const upsert = upsertDailySlateReport({
+      ...report,
+      frozen: locked && isFinal,
+    });
     built.push(report);
     results.push({
       slateDate,
@@ -763,8 +1018,20 @@ export function buildDailySlateReportsFromTrackedProps(
       propCount: report.sections.A.totalOfficialProps,
       pending: report.sections.A.pending,
       upserted: upsert.ok,
+      frozen: locked && isFinal,
+      locked,
     });
+
+    if (isFinal) {
+      writeSlateHistoryArchive(slateDate, {
+        props: slateProps,
+        report,
+      });
+      promoteSlateToLab(slateDate, { report, props: slateProps });
+    }
   }
+
+  rotateOlderLabArchives(getDailySlateReports());
 
   return {
     reports: getDailySlateReports(),

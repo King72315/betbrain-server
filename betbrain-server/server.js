@@ -28,6 +28,7 @@ import {
   fetchLast3VsOpponent,
   fetchLast5,
   fetchPlayerStats,
+  filterGamesBeforeCutoff,
   getBallPlayerTeam,
   summarizeOpponentMatchup,
   summarizeScoringProfile,
@@ -86,6 +87,8 @@ import { buildFilterAudit } from "./services/filterAuditService.js";
 import {
   TRACKING_MODE,
   addTrackedProps,
+  applySlateLockFreeze,
+  buildFlowValidationDiagnostics,
   buildTrackedPropAnalytics,
   clearTrackedProps,
   collectAllGeneratedProps,
@@ -101,7 +104,24 @@ import {
   getDailySlateReports,
 } from "./services/dailySlateReportService.js";
 
-const SERVER_BUILD = "bd1f5ef-point-strength-ledger";
+import {
+  createBackup,
+  getLastBackup,
+  listBackups,
+  restoreFromBackup,
+} from "./services/backupService.js";
+
+import {
+  countDuplicateStableKeys,
+  getAllHistoryArchives,
+  getHistoryArchive,
+  getLastBlockedWrite,
+  getLockedSlatesRegistry,
+  isSlateLocked,
+  lockSlate,
+} from "./services/slateLockService.js";
+
+const SERVER_BUILD = "courteedge-os-lock-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -126,6 +146,16 @@ function cacheFresh() {
   const ageMinutes = (Date.now() - lastRefreshTime) / 1000 / 60;
 
   return ageMinutes < CONFIG.CACHE_MINUTES;
+}
+
+/** Keep tracked-props.json aligned when serving cached board data (cache hits skip refresh). */
+function syncTrackedFromCache() {
+  if (!picksCache?.games?.length) return;
+
+  const generatedProps = collectAllGeneratedProps(picksCache.games);
+  if (generatedProps.length) {
+    addTrackedProps(generatedProps);
+  }
 }
 
 function num(value) {
@@ -716,11 +746,19 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       }
 
       const projectionData = projectionMap.get(clean(playerName)) || {};
+      const gameCutoff = game.commenceTime || game.time || game.date;
 
-      const last5 = await fetchLast5(playerName, league);
+      const last5 = await fetchLast5(playerName, league, {
+        beforeTime: gameCutoff,
+      });
 
-      const bdlSeasonGames =
+      const bdlSeasonGamesRaw =
         league === "WNBA" ? await fetchPlayerStats(playerName, league) : [];
+
+      const bdlSeasonGames = filterGamesBeforeCutoff(
+        bdlSeasonGamesRaw,
+        gameCutoff
+      );
 
       const bdlSeasonAverage =
         league === "WNBA" ? avgPoints(bdlSeasonGames) : 0;
@@ -738,7 +776,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       const matchupGames = await fetchLast3VsOpponent(
         playerName,
         opponent,
-        league
+        league,
+        { beforeTime: gameCutoff }
       );
 
       const last5Profile = summarizeScoringProfile(last5);
@@ -1482,6 +1521,7 @@ app.get("/test-ball-teams", async (req, res) => {
 app.get("/picks", async (req, res) => {
   try {
     if (cacheFresh()) {
+      syncTrackedFromCache();
       return res.json(picksCache);
     }
 
@@ -1505,6 +1545,8 @@ app.get("/top-props", async (req, res) => {
   try {
     if (!cacheFresh()) {
       await refreshAllPicks();
+    } else {
+      syncTrackedFromCache();
     }
 
     res.json({
@@ -1514,6 +1556,8 @@ app.get("/top-props", async (req, res) => {
       topNBAProps: picksCache.topNBAProps || [],
       topWNBAProps: picksCache.topWNBAProps || [],
       filterAudit: picksCache.filterAudit || null,
+      trackingMode: TRACKING_MODE,
+      generatedPropCount: picksCache.generatedPropCount ?? null,
     });
   } catch (error) {
     console.log("GET TOP PROPS ERROR:", error.message);
@@ -1539,6 +1583,8 @@ app.get("/picks/:league", async (req, res) => {
 
     if (!cacheFresh()) {
       await refreshAllPicks();
+    } else {
+      syncTrackedFromCache();
     }
 
     res.json({
@@ -1548,6 +1594,8 @@ app.get("/picks/:league", async (req, res) => {
       games: league === "NBA" ? picksCache.nbaGames : picksCache.wnbaGames,
       topProps:
         league === "NBA" ? picksCache.topNBAProps : picksCache.topWNBAProps,
+      trackingMode: TRACKING_MODE,
+      generatedPropCount: picksCache.generatedPropCount ?? null,
     });
   } catch (error) {
     console.log("GET LEAGUE PICKS ERROR:", error.message);
@@ -1774,8 +1822,12 @@ app.get("/daily-slate-reports/:slateDate", (req, res) => {
 app.post("/daily-slate-reports/build", (req, res) => {
   try {
     const slateDate = req.body?.slateDate ? String(req.body.slateDate) : null;
+    const forceRebuild = Boolean(req.body?.forceRebuild);
     const props = getTrackedProps();
-    const result = buildDailySlateReportsFromTrackedProps(props, { slateDate });
+    const result = buildDailySlateReportsFromTrackedProps(props, {
+      slateDate,
+      forceRebuild,
+    });
 
     res.json({
       ok: true,
@@ -1793,6 +1845,189 @@ app.post("/daily-slate-reports/build", (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Daily slate report build failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/slates/:slateDate/lock", (req, res) => {
+  try {
+    const slateDate = String(req.params.slateDate || "");
+    const reason = String(req.body?.reason || "manual");
+
+    const result = lockSlate(slateDate, {
+      reason,
+      getTrackedProps,
+    });
+
+    if (!result.ok) {
+      return res.status(result.alreadyLocked ? 200 : 400).json(result);
+    }
+
+    const frozenProps = result.snapshot?.props || [];
+    if (frozenProps.length) {
+      applySlateLockFreeze(slateDate, frozenProps);
+    }
+
+    res.json({
+      ...result,
+      propCount: frozenProps.length,
+    });
+  } catch (error) {
+    console.log("LOCK SLATE ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Slate lock failed",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/slates/locked", (req, res) => {
+  const registry = getLockedSlatesRegistry();
+
+  res.json({
+    ok: true,
+    slates: registry.slates || [],
+    count: registry.slates?.length || 0,
+    lastBlockedWrite: getLastBlockedWrite(),
+  });
+});
+
+app.get("/history-archives", (req, res) => {
+  const archives = getAllHistoryArchives();
+
+  res.json({
+    ok: true,
+    archives,
+    count: archives.length,
+  });
+});
+
+app.get("/history-archives/:slateDate", (req, res) => {
+  const archive = getHistoryArchive(req.params.slateDate);
+
+  if (!archive) {
+    return res.status(404).json({
+      ok: false,
+      message: "History archive not found",
+      slateDate: req.params.slateDate,
+    });
+  }
+
+  res.json({ ok: true, archive });
+});
+
+app.get("/diagnostics", (req, res) => {
+  const tracked = getTrackedProps();
+  const registry = getLockedSlatesRegistry();
+  const dupes = countDuplicateStableKeys(tracked);
+  const reports = getDailySlateReports();
+  const activeSlates = [
+    ...new Set(tracked.map((p) => p.slateDate).filter(Boolean)),
+  ].sort();
+  const league = req.query.league ? String(req.query.league).toUpperCase() : null;
+  const slateDate = req.query.slateDate ? String(req.query.slateDate) : null;
+  const labReport = slateDate
+    ? reports.find((report) => String(report.slateDate) === slateDate) || null
+    : null;
+
+  const flowValidation = buildFlowValidationDiagnostics(tracked, {
+    games: picksCache?.games || [],
+    generatedProps: picksCache?.generatedProps || [],
+    topProps: picksCache?.topProps || [],
+    league,
+    slateDate,
+    labReport,
+  });
+
+  res.json({
+    ok: true,
+    serverBuild: SERVER_BUILD,
+    engines: ENGINE_LOAD_FLAGS,
+    trackingMode: TRACKING_MODE,
+    activeSlate: activeSlates[activeSlates.length - 1] || null,
+    activeSlates,
+    lockedSlates: registry.slates || [],
+    propCounts: {
+      total: tracked.length,
+      bySlate: activeSlates.reduce((acc, date) => {
+        acc[date] = tracked.filter((p) => p.slateDate === date).length;
+        return acc;
+      }, {}),
+      duplicates: dupes,
+    },
+    flowValidation,
+    reports: {
+      total: reports.length,
+      final: reports.filter((r) => r.reportStatus === "final").length,
+      frozen: reports.filter((r) => r.frozen === true).length,
+    },
+    lastBackup: getLastBackup(),
+    lastBlockedWrite: getLastBlockedWrite(),
+    cache: {
+      fresh: cacheFresh(),
+      lastRefreshTime: lastRefreshTime
+        ? new Date(lastRefreshTime).toISOString()
+        : null,
+      generatedPropCount: picksCache?.generatedPropCount ?? null,
+      topPropsCount: picksCache?.topProps?.length ?? null,
+    },
+    time: new Date().toISOString(),
+  });
+});
+
+app.post("/admin/backup", (req, res) => {
+  try {
+    const reason = String(req.body?.reason || "manual");
+    const manifest = createBackup(reason);
+
+    res.json({
+      ok: true,
+      message: `Backup created: ${manifest.backupId}`,
+      backup: manifest,
+    });
+  } catch (error) {
+    console.log("BACKUP ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Backup failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/restore", (req, res) => {
+  try {
+    const backupId = String(req.body?.backupId || "");
+    const confirm = Boolean(req.body?.confirm);
+
+    if (!confirm) {
+      return res.status(400).json({
+        ok: false,
+        message: "Restore requires confirm: true in request body",
+        availableBackups: listBackups().slice(0, 10).map((b) => b.backupId),
+      });
+    }
+
+    const result = restoreFromBackup(backupId, {
+      merge: req.body?.merge !== false,
+      preserveGrades: req.body?.preserveGrades !== false,
+    });
+
+    if (!result.ok) {
+      return res.status(404).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.log("RESTORE ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Restore failed",
       error: error.message,
     });
   }

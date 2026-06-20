@@ -49,11 +49,21 @@ type ApiResult = {
 };
 
 async function safeJson(res: Response) {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    return { ok: false, _nonJson: true };
+  }
+
   try {
     return await res.json();
   } catch {
-    return {};
+    return { ok: false, _nonJson: true };
   }
+}
+
+function nonJsonBackendError() {
+  const mode = getBackendMode();
+  return `Backend returned HTML instead of JSON (${mode}: ${BASE_URL}). CourtEdge server may not be running on that port.`;
 }
 
 function normalizePicksResponse(data: any = {}): ApiResult {
@@ -84,6 +94,16 @@ async function apiGet(path: string): Promise<ApiResult> {
   try {
     const res = await fetch(`${BASE_URL}${path}`);
     const data = await safeJson(res);
+
+    if (data._nonJson) {
+      console.log(`API GET NON-JSON ${path}:`, nonJsonBackendError());
+
+      return normalizePicksResponse({
+        ok: false,
+        message: nonJsonBackendError(),
+        error: "NON_JSON_RESPONSE",
+      });
+    }
 
     if (!res.ok) {
       console.log(`API GET ERROR ${path}:`, data);
@@ -120,6 +140,16 @@ async function apiPost(path: string, body?: any): Promise<ApiResult> {
     });
 
     const data = await safeJson(res);
+
+    if (data._nonJson) {
+      console.log(`API POST NON-JSON ${path}:`, nonJsonBackendError());
+
+      return normalizePicksResponse({
+        ok: false,
+        message: nonJsonBackendError(),
+        error: "NON_JSON_RESPONSE",
+      });
+    }
 
     if (!res.ok) {
       console.log(`API POST ERROR ${path}:`, data);
@@ -181,6 +211,8 @@ export const fetchTopProps = async () => {
     topNBAProps: data.topNBAProps || [],
     topWNBAProps: data.topWNBAProps || [],
     filterAudit: data.filterAudit || null,
+    trackingMode: data.trackingMode || data.filterAudit?.trackingMode || null,
+    generatedPropCount: data.generatedPropCount ?? null,
   };
 };
 
@@ -406,6 +438,15 @@ export const fetchTrackedProps = async () => {
     const res = await fetch(`${BASE_URL}/tracked-props`);
     const data = await safeJson(res);
 
+    if (data._nonJson) {
+      return {
+        ok: false,
+        props: [],
+        count: 0,
+        error: nonJsonBackendError(),
+      };
+    }
+
     return {
       ok: res.ok && (data.ok ?? false),
       props: Array.isArray(data.props) ? data.props : [],
@@ -522,16 +563,20 @@ export const fetchDailySlateReport = async (slateDate: string) => {
   }
 };
 
-export const buildDailySlateReports = async (options?: { slateDate?: string }) => {
+export const buildDailySlateReports = async (options?: {
+  slateDate?: string;
+  forceRebuild?: boolean;
+}) => {
   try {
     const res = await fetch(`${BASE_URL}/daily-slate-reports/build`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(
-        options?.slateDate ? { slateDate: options.slateDate } : {}
-      ),
+      body: JSON.stringify({
+        ...(options?.slateDate ? { slateDate: options.slateDate } : {}),
+        ...(options?.forceRebuild ? { forceRebuild: true } : {}),
+      }),
     });
     const data = await safeJson(res);
 
@@ -551,6 +596,125 @@ export const buildDailySlateReports = async (options?: { slateDate?: string }) =
       reports: [],
       summary: null,
       built: [],
+    };
+  }
+};
+
+export const fetchLockedSlates = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/slates/locked`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      slates: Array.isArray(data.slates) ? data.slates : [],
+      count: data.count || 0,
+      lastBlockedWrite: data.lastBlockedWrite || null,
+    };
+  } catch (err) {
+    console.log("FETCH LOCKED SLATES FAILED:", err);
+
+    return {
+      ok: false,
+      slates: [],
+      count: 0,
+      lastBlockedWrite: null,
+    };
+  }
+};
+
+export const lockSlate = async (slateDate: string, reason = "manual") => {
+  try {
+    const res = await fetch(`${BASE_URL}/slates/${encodeURIComponent(slateDate)}/lock`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    });
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      message: data.message || "",
+      slateDate: data.slateDate || slateDate,
+      entry: data.entry || null,
+      snapshot: data.snapshot || null,
+      alreadyLocked: Boolean(data.alreadyLocked),
+    };
+  } catch (err) {
+    console.log("LOCK SLATE FAILED:", err);
+
+    return {
+      ok: false,
+      message: "Network request failed",
+      slateDate,
+      entry: null,
+      snapshot: null,
+      alreadyLocked: false,
+    };
+  }
+};
+
+export const fetchDiagnostics = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/diagnostics`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      diagnostics: data,
+    };
+  } catch (err) {
+    console.log("FETCH DIAGNOSTICS FAILED:", err);
+
+    return {
+      ok: false,
+      diagnostics: null,
+    };
+  }
+};
+
+export const fetchHistoryArchives = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/history-archives`);
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      archives: Array.isArray(data.archives) ? data.archives : [],
+      count: data.count || 0,
+    };
+  } catch (err) {
+    console.log("FETCH HISTORY ARCHIVES FAILED:", err);
+
+    return {
+      ok: false,
+      archives: [],
+      count: 0,
+    };
+  }
+};
+
+export const fetchHistoryArchive = async (slateDate: string) => {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/history-archives/${encodeURIComponent(slateDate)}`
+    );
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      archive: data.archive || null,
+      message: data.message || "",
+    };
+  } catch (err) {
+    console.log("FETCH HISTORY ARCHIVE FAILED:", err);
+
+    return {
+      ok: false,
+      archive: null,
+      message: "Network request failed",
     };
   }
 };
