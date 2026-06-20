@@ -11,12 +11,18 @@ import {
 } from "react-native";
 
 import PropCard from "../../components/PropCard";
+import CopyReportButton from "../../components/CopyReportButton";
+import FilterAuditCard from "../../components/FilterAuditCard";
+import LoadErrorBanner from "../../components/LoadErrorBanner";
 import {
     fetchTopProps,
     refreshSavedPicks,
     savePick,
 } from "../../services/api";
+import { type FilterAudit } from "../../utils/filterAudit";
+import { formatApiLoadError } from "../../utils/apiLoadError";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
+import { buildTopPropsReport } from "../../utils/reportBuilders";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
 
@@ -30,6 +36,8 @@ export default function TopPropsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTopProps();
@@ -56,11 +64,14 @@ export default function TopPropsScreen() {
       setTopNBAProps(data.topNBAProps || []);
       setTopWNBAProps(data.topWNBAProps || []);
       setLastUpdated(data.lastUpdated || null);
+      setFilterAudit(data.filterAudit || null);
+      setLoadError(formatApiLoadError(data));
     } catch (err) {
       console.log("LOAD TOP PROPS ERROR:", err);
       setTopProps([]);
       setTopNBAProps([]);
       setTopWNBAProps([]);
+      setLoadError(String(err));
     } finally {
       setLoading(false);
     }
@@ -69,10 +80,12 @@ export default function TopPropsScreen() {
   const runRefresh = async () => {
     try {
       setRefreshing(true);
-      await refreshSavedPicks();
+      const refreshed = await refreshSavedPicks();
+      setFilterAudit(refreshed.filterAudit || null);
       await loadTopProps();
     } catch (err) {
       console.log("REFRESH TOP PROPS ERROR:", err);
+      setLoadError(String(err));
     } finally {
       setRefreshing(false);
     }
@@ -116,6 +129,19 @@ export default function TopPropsScreen() {
     (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
   ).length;
 
+  const getReportText = () =>
+    buildTopPropsReport({
+      visibleProps,
+      leagueFilter,
+      lastUpdated,
+      loading,
+      premiumCount,
+      topPropsCount: topProps.length,
+      topNBACount: topNBAProps.length,
+      topWNBACount: topWNBAProps.length,
+      filterAudit,
+    });
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -129,7 +155,7 @@ export default function TopPropsScreen() {
           <Text style={styles.title}>🔥 Top Props</Text>
           <Text style={styles.subtitle}>CourtEdge — Powered by BetBrain</Text>
           <Text style={styles.motto}>
-            We Don&apos;t Guess. We Calculate. We Cash.
+            Official props auto-track to Results. Save is optional shadow mode.
           </Text>
 
           {lastUpdated && (
@@ -137,7 +163,10 @@ export default function TopPropsScreen() {
               Last updated: {formatTime(lastUpdated)}
             </Text>
           )}
+          <CopyReportButton getReportText={getReportText} />
         </View>
+
+        <FilterAuditCard audit={filterAudit} />
 
         <View style={styles.filterRow}>
           {FILTERS.map((filter) => (
@@ -192,7 +221,9 @@ export default function TopPropsScreen() {
           <Text style={styles.loadingText}>Loading top props...</Text>
         )}
 
-        {!loading && visibleProps.length === 0 && (
+        <LoadErrorBanner message={loadError} />
+
+        {!loading && !loadError && visibleProps.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No top props available.</Text>
             <Text style={styles.emptyText}>

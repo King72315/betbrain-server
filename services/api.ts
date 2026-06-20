@@ -1,24 +1,12 @@
-import { Platform } from "react-native";
-
 const LIVE_RENDER_URL = "https://betbrain-server-1.onrender.com";
-const LOCAL_DEV_URL = "http://localhost:3000";
 
-function resolveApiBaseUrl(): string {
+export function resolveApiBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (fromEnv) {
     return fromEnv.replace(/\/$/, "");
   }
 
-  // Physical phones and native builds must never default to localhost.
-  if (Platform.OS !== "web") {
-    return LIVE_RENDER_URL;
-  }
-
-  // Web dev server typically pairs with a local backend during development.
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
-    return LOCAL_DEV_URL;
-  }
-
+  // Web and native default to live Render; localhost only via explicit EXPO_PUBLIC_API_URL.
   return LIVE_RENDER_URL;
 }
 
@@ -206,6 +194,8 @@ export const fetchTopProps = async () => {
 
   return {
     ok: data.ok,
+    message: data.message || "",
+    error: data.error || "",
     lastUpdated: data.lastUpdated || null,
     topProps: data.topProps || [],
     topNBAProps: data.topNBAProps || [],
@@ -222,6 +212,8 @@ export const fetchLeaguePicks = async (league: League) => {
 
   return {
     ok: data.ok,
+    message: data.message || "",
+    error: data.error || "",
     league: safeLeague,
     lastUpdated: data.lastUpdated || null,
     games: data.games || [],

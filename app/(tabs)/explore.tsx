@@ -11,12 +11,16 @@ import {
 } from "react-native";
 
 import PropCard, { formatTime } from "../../components/PropCard";
+import CopyReportButton from "../../components/CopyReportButton";
+import LoadErrorBanner from "../../components/LoadErrorBanner";
 import {
   fetchSavedPicks,
   refreshSavedPicks,
   savePick,
 } from "../../services/api";
+import { formatApiLoadError } from "../../utils/apiLoadError";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
+import { buildLeagueBoardReport } from "../../utils/reportBuilders";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
 
@@ -29,6 +33,7 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [leagueFilter, setLeagueFilter] = useState<LeagueFilter>("ALL");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPicks();
@@ -63,10 +68,12 @@ export default function ExploreScreen() {
       setGames(data.games || []);
       setTopProps(data.topProps || []);
       setLastUpdated(data.lastUpdated || null);
+      setLoadError(formatApiLoadError(data));
     } catch (err) {
       console.log("LOAD PICKS ERROR:", err);
       setGames([]);
       setTopProps([]);
+      setLoadError(String(err));
     } finally {
       setLoading(false);
     }
@@ -79,6 +86,7 @@ export default function ExploreScreen() {
       await loadPicks();
     } catch (err) {
       console.log("REFRESH ERROR:", err);
+      setLoadError(String(err));
     } finally {
       setRefreshing(false);
     }
@@ -116,6 +124,28 @@ export default function ExploreScreen() {
     />
   );
 
+  const premiumCount = filteredTopProps.filter(
+    (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
+  ).length;
+
+  const playableCount = filteredGames.reduce((sum, game) => {
+    return sum + Number(game.playableCandidateCount || game.picks?.length || 0);
+  }, 0);
+
+  const getReportText = () =>
+    buildLeagueBoardReport({
+      page: "Full Game Board",
+      league: leagueFilter === "ALL" ? "NBA + WNBA" : leagueFilter,
+      games: filteredGames,
+      topProps: filteredTopProps,
+      lastUpdated,
+      loading,
+      premiumCount,
+      playableCount,
+      leagueFilter,
+      dataSource: "GET /picks",
+    });
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -137,6 +167,7 @@ export default function ExploreScreen() {
               Last updated: {formatTime(lastUpdated)}
             </Text>
           )}
+          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <View style={styles.filterRow}>
@@ -175,7 +206,9 @@ export default function ExploreScreen() {
           <Text style={styles.loadingText}>Loading CourtEdge picks...</Text>
         )}
 
-        {!loading && filteredTopProps.length > 0 && (
+        <LoadErrorBanner message={loadError} />
+
+        {!loading && !loadError && filteredTopProps.length > 0 && (
           <View style={styles.topSection}>
             <Text style={styles.sectionTitle}>🔥 Top CourtEdge Props</Text>
             <Text style={styles.sectionSubtext}>
@@ -193,7 +226,7 @@ export default function ExploreScreen() {
           </View>
         )}
 
-        {!loading && filteredGames.length === 0 && (
+        {!loading && !loadError && filteredGames.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No games loaded yet.</Text>
             <Text style={styles.emptyText}>

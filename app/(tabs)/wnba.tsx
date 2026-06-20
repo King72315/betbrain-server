@@ -11,12 +11,16 @@ import {
 } from "react-native";
 
 import PropCard, { formatTime } from "../../components/PropCard";
+import CopyReportButton from "../../components/CopyReportButton";
+import LoadErrorBanner from "../../components/LoadErrorBanner";
 import {
     fetchWNBAPicks,
     refreshSavedPicks,
     savePick,
 } from "../../services/api";
+import { formatApiLoadError } from "../../utils/apiLoadError";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
+import { buildLeagueBoardReport } from "../../utils/reportBuilders";
 
 export default function WNBAScreen() {
   const [games, setGames] = useState<any[]>([]);
@@ -24,6 +28,7 @@ export default function WNBAScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPicks();
@@ -53,10 +58,12 @@ export default function WNBAScreen() {
       setGames(data.games || []);
       setTopProps(data.topProps || []);
       setLastUpdated(data.lastUpdated || null);
+      setLoadError(formatApiLoadError(data));
     } catch (err) {
       console.log("LOAD WNBA PICKS ERROR:", err);
       setGames([]);
       setTopProps([]);
+      setLoadError(String(err));
     } finally {
       setLoading(false);
     }
@@ -69,6 +76,7 @@ export default function WNBAScreen() {
       await loadPicks();
     } catch (err) {
       console.log("REFRESH WNBA PICKS ERROR:", err);
+      setLoadError(String(err));
     } finally {
       setRefreshing(false);
     }
@@ -93,6 +101,19 @@ export default function WNBAScreen() {
     }
   };
 
+  const getReportText = () =>
+    buildLeagueBoardReport({
+      page: "WNBA Props",
+      league: "WNBA",
+      games,
+      topProps,
+      lastUpdated,
+      loading,
+      premiumCount,
+      playableCount,
+      dataSource: "GET /wnba-picks",
+    });
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -114,6 +135,7 @@ export default function WNBAScreen() {
               Last updated: {formatTime(lastUpdated)}
             </Text>
           )}
+          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <TouchableOpacity
@@ -137,7 +159,9 @@ export default function WNBAScreen() {
           <Text style={styles.loadingText}>Loading WNBA props...</Text>
         )}
 
-        {!loading && topProps.length > 0 && (
+        <LoadErrorBanner message={loadError} />
+
+        {!loading && !loadError && topProps.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🔥 Top WNBA Props</Text>
             <Text style={styles.sectionSubtext}>
@@ -161,7 +185,7 @@ export default function WNBAScreen() {
           </View>
         )}
 
-        {!loading && games.length === 0 && (
+        {!loading && !loadError && games.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No WNBA games loaded.</Text>
             <Text style={styles.emptyText}>
