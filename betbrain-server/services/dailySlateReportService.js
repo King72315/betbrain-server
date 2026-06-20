@@ -25,6 +25,18 @@ const BACKUP_FILE = path.join(
 
 const MIN_SAMPLE = 3;
 
+/** First slate date included in clean collectible Lab/History/report era. */
+export const CLEAN_DATA_CUTOFF = "2026-06-19";
+
+function isOnOrAfterCleanDataCutoff(slateDate) {
+  const value = String(slateDate || "");
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= CLEAN_DATA_CUTOFF;
+}
+
+function filterReportsOnOrAfterCutoff(reports = []) {
+  return reports.filter((report) => isOnOrAfterCleanDataCutoff(report?.slateDate));
+}
+
 export const WNBA_STRUCTURAL_GAPS = {
   availabilityGate:
     "skipped — evaluateAvailabilityGate returns N/A for non-NBA (no injury/status gate)",
@@ -961,7 +973,9 @@ function buildSlateReport(slateDate, props = [], options = {}) {
 
 export function getDailySlateReports() {
   const reports = readJSON(REPORTS_FILE, []);
-  return reports.sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)));
+  return filterReportsOnOrAfterCutoff(
+    reports.sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)))
+  );
 }
 
 export function getDailySlateReport(slateDate) {

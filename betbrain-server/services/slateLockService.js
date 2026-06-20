@@ -18,6 +18,14 @@ export const SLATE_PHASE = {
   ARCHIVED: "ARCHIVED",
 };
 
+/** First slate date included in clean collectible Lab/History/report era. */
+export const CLEAN_DATA_CUTOFF = "2026-06-19";
+
+function isOnOrAfterCleanDataCutoff(slateDate) {
+  const value = String(slateDate || "");
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= CLEAN_DATA_CUTOFF;
+}
+
 let lastBlockedWrite = null;
 
 function readJSON(file, fallback = null) {
@@ -77,7 +85,13 @@ function historyArchivePath(slateDate) {
 }
 
 export function getLockedSlatesRegistry() {
-  return getRegistry();
+  const registry = getRegistry();
+  return {
+    ...registry,
+    slates: (registry.slates || []).filter((entry) =>
+      isOnOrAfterCleanDataCutoff(entry?.slateDate)
+    ),
+  };
 }
 
 export function isSlateLocked(slateDate) {
@@ -106,7 +120,7 @@ export function getLockedSnapshot(slateDate) {
 
 export function getHistoryArchive(slateDate) {
   const date = String(slateDate || "");
-  if (!date) return null;
+  if (!date || !isOnOrAfterCleanDataCutoff(date)) return null;
 
   const file = historyArchivePath(date);
   if (!fs.existsSync(file)) return null;
@@ -123,6 +137,7 @@ export function getAllHistoryArchives() {
     .filter((name) => name.endsWith(".json"))
     .map((name) => readJSON(path.join(HISTORY_ARCHIVE_DIR, name), null))
     .filter(Boolean)
+    .filter((archive) => isOnOrAfterCleanDataCutoff(archive?.slateDate))
     .sort((a, b) =>
       String(b.slateDate || "").localeCompare(String(a.slateDate || ""))
     );

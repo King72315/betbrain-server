@@ -1,9 +1,13 @@
 import {
+  CLEAN_DATA_CUTOFF,
   computeSlateRotation,
   getReportGraded,
   getReportTotalOfficial,
   isCompletedSlate,
+  isOnOrAfterCleanDataCutoff,
 } from "./slateRotation";
+
+export { CLEAN_DATA_CUTOFF, isOnOrAfterCleanDataCutoff };
 
 export const HISTORY_FILTERS = [
   "All",
@@ -114,6 +118,7 @@ function buildSavedPickEntries(picks: any[]): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
 
   for (const [slateDate, groupPicks] of groups.entries()) {
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (!isCompletedSavedPickGroup(groupPicks)) continue;
 
     const record = buildRecordFromPicks(groupPicks);
@@ -199,6 +204,7 @@ function buildArchiveBackedEntries(
 
   for (const archive of archives) {
     const slateDate = String(archive?.slateDate || "");
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (!slateDate || slateDate === currentLabSlateDate) continue;
     if (coveredDates.has(slateDate)) continue;
     if (archive.phase !== "ARCHIVED") continue;
@@ -221,6 +227,7 @@ function buildOfficialSlateEntries(
   );
 
   for (const report of historySlates) {
+    if (!isOnOrAfterCleanDataCutoff(report?.slateDate)) continue;
     if (!isCompletedSlate(report)) continue;
 
     const sectionA = report.sections?.A || report;

@@ -1,3 +1,16 @@
+/** First slate date included in clean collectible Lab/History/report era. */
+export const CLEAN_DATA_CUTOFF = "2026-06-19";
+
+export function isOnOrAfterCleanDataCutoff(slateDate: string | null | undefined): boolean {
+  const value = String(slateDate || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return value >= CLEAN_DATA_CUTOFF;
+}
+
+export function filterReportsOnOrAfterCutoff(reports: any[] = []): any[] {
+  return reports.filter((report) => isOnOrAfterCleanDataCutoff(report?.slateDate));
+}
+
 export type SlateRotation = {
   currentLabSlate: any | null;
   currentLabSlateDate: string | null;
@@ -71,7 +84,7 @@ export function computeSlateRotation(
   reports: any[] = [],
   lockedSlates: any[] = []
 ): SlateRotation {
-  const allReports = sortReportsByDateDesc(reports);
+  const allReports = sortReportsByDateDesc(filterReportsOnOrAfterCutoff(reports));
   const completed = allReports.filter(isCompletedSlate);
   const currentLabSlate = completed[0] || null;
   const currentLabSlateDate = currentLabSlate?.slateDate
