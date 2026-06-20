@@ -574,6 +574,28 @@ function getPickTeams(savedPick = {}, league = "NBA") {
   };
 }
 
+function getPickOpponent(savedPick = {}, league = "NBA") {
+  const cleanLeague = normalizeLeague(league || savedPick.league || "NBA");
+  return normalizeTeam(savedPick.opponent || "", cleanLeague);
+}
+
+function getStatOpponent(stat = {}, league = "NBA") {
+  const cleanLeague = normalizeLeague(league || stat.league || "NBA");
+
+  if (stat.opponent) {
+    return normalizeTeam(String(stat.opponent), cleanLeague);
+  }
+
+  return normalizeTeam(
+    stat.Opponent ||
+      stat.OpponentTeam ||
+      stat.OpponentAbbreviation ||
+      stat.rawOpponent ||
+      "",
+    cleanLeague
+  );
+}
+
 function getStatTeam(stat = {}, league = "NBA") {
   const cleanLeague = normalizeLeague(league || stat.league || "NBA");
 
@@ -626,19 +648,108 @@ function teamMatches(savedPick = {}, stat = {}) {
   const league = normalizeLeague(savedPick.league || stat.league || "NBA");
 
   const targetTeam = normalizeTeam(savedPick.team || "", league);
+  const targetOpponent = getPickOpponent(savedPick, league);
   const statTeam = getStatTeam(stat, league);
+  const statOpponent = getStatOpponent(stat, league);
   const { teamA, teamB } = getPickTeams(savedPick, league);
 
-  if (!targetTeam && !teamA && !teamB) return true;
-  if (!statTeam) return true;
+  if (!statTeam) return false;
 
-  if (targetTeam && statTeam === targetTeam) return true;
+  if (targetTeam) {
+    if (statTeam !== targetTeam) return false;
+
+    if (targetOpponent && statOpponent && statOpponent !== targetOpponent) {
+      return false;
+    }
+
+    return true;
+  }
 
   if (teamA && teamB) {
-    return statTeam === teamA || statTeam === teamB;
+    const inGame = statTeam === teamA || statTeam === teamB;
+
+    if (!inGame) return false;
+
+    if (targetOpponent && statOpponent && statOpponent !== targetOpponent) {
+      return false;
+    }
+
+    return true;
   }
 
   return false;
+}
+
+function buildMatchConfidence(savedPick = {}, stat = {}, matchContext = {}) {
+  const league = normalizeLeague(savedPick.league || stat.league || "NBA");
+  const targetTeam = normalizeTeam(savedPick.team || "", league);
+  const targetOpponent = getPickOpponent(savedPick, league);
+  const statTeam = getStatTeam(stat, league);
+  const statOpponent = getStatOpponent(stat, league);
+  const pickGameId = savedPick.gameId || savedPick.eventId || "";
+  const statGameId =
+    stat.raw?.game?.id ||
+    stat.raw?.GameID ||
+    stat.raw?.game_id ||
+    stat.gameId ||
+    "";
+
+  let confidence = "low";
+  const reasons = [];
+
+  if (!dateMatches(savedPick, stat)) {
+    return { confidence: "rejected", reasons: ["date_mismatch"] };
+  }
+
+  if (!playerMatches(savedPick, stat)) {
+    return { confidence: "rejected", reasons: ["player_mismatch"] };
+  }
+
+  if (!teamMatches(savedPick, stat)) {
+    return { confidence: "rejected", reasons: ["team_mismatch"] };
+  }
+
+  if (pickGameId && statGameId && String(pickGameId) === String(statGameId)) {
+    confidence = "high";
+    reasons.push("game_id_match");
+  } else if (targetTeam && statTeam === targetTeam) {
+    confidence = targetOpponent && statOpponent === targetOpponent ? "high" : "medium";
+    reasons.push(
+      targetOpponent && statOpponent === targetOpponent
+        ? "team_opponent_match"
+        : "team_match_only"
+    );
+  } else {
+    confidence = "medium";
+    reasons.push("game_label_team_match");
+  }
+
+  if (matchContext.playerFallbackAttempted) {
+    confidence = confidence === "high" ? "medium" : "low";
+    reasons.push("player_stats_fallback");
+  }
+
+  return { confidence, reasons };
+}
+
+function attachMatchMeta(savedPick = {}, stat = {}, matchContext = {}) {
+  if (!stat) return null;
+
+  const { confidence, reasons } = buildMatchConfidence(savedPick, stat, matchContext);
+  const statGameId =
+    stat.raw?.game?.id ||
+    stat.raw?.GameID ||
+    stat.raw?.game_id ||
+    stat.gameId ||
+    "";
+
+  return {
+    matchedSource: stat.source || "unknown",
+    matchedDate: getStatDate(stat) || stat.date || "",
+    matchedGameId: statGameId ? String(statGameId) : "",
+    matchedConfidence: confidence,
+    matchedReasons: reasons,
+  };
 }
 
 function dateMatches(savedPick = {}, stat = {}) {
@@ -650,7 +761,7 @@ function dateMatches(savedPick = {}, stat = {}) {
   return queryDates.includes(statDate);
 }
 
-export function findPlayerResult(savedPick, playerStats = []) {
+export function findPlayerResult(savedPick, playerStats = [], matchContext = {}) {
   const league = normalizeLeague(savedPick.league || "NBA");
 
   const candidates = playerStats
@@ -660,21 +771,37 @@ export function findPlayerResult(savedPick, playerStats = []) {
 
   const exactDateMatch = candidates.find((stat) => dateMatches(savedPick, stat));
 
-  if (exactDateMatch) return exactDateMatch;
+  if (exactDateMatch) {
+    const matchMeta = attachMatchMeta(savedPick, exactDateMatch, matchContext);
+
+    if (matchMeta?.matchedConfidence === "low") {
+      console.log("RESULT MATCH LOW CONFIDENCE:", {
+        player: savedPick.player,
+        league,
+        pickDate: getPickDate(savedPick),
+        ...matchMeta,
+      });
+    }
+
+    return { ...exactDateMatch, matchMeta };
+  }
 
   if (candidates.length) {
     console.log("RESULT MATCH REJECTED - NO EXACT DATE:", {
       player: savedPick.player,
       league,
       pickDate: getPickDate(savedPick),
+      queryDates: getPickQueryDates(savedPick),
       candidateDates: candidates.map((c) => c.date),
     });
   } else {
     console.log("NO PLAYER RESULT FOUND:", {
       player: savedPick.player,
       team: savedPick.team,
+      opponent: savedPick.opponent,
       league,
       pickDate: getPickDate(savedPick),
+      queryDates: getPickQueryDates(savedPick),
       availableMatches: playerStats
         .filter(
           (stat) => clean(getStatPlayerName(stat)) === clean(savedPick.player)
@@ -683,6 +810,7 @@ export function findPlayerResult(savedPick, playerStats = []) {
           player: getStatPlayerName(stat),
           league: getStatLeague(stat),
           team: stat.team,
+          opponent: getStatOpponent(stat, league),
           date: stat.date,
           points: stat.points,
         })),
@@ -766,9 +894,11 @@ async function fetchBallPlayerStatForPick(savedPick = {}) {
     if (!queryDates.includes(gameDate)) return false;
 
     const gameTeam = normalizeTeam(game.team || "", league);
+    const gameOpponent = normalizeTeam(game.opponent || "", league);
     const mockStat = {
       league,
       team: gameTeam,
+      opponent: gameOpponent,
     };
 
     return teamMatches(savedPick, mockStat);
@@ -805,7 +935,34 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     }
   }
 
-  let statResult = findPlayerResult(savedPick, stats);
+  let statResult = findPlayerResult(savedPick, stats, {
+    playerFallbackAttempted: false,
+  });
+
+  if (statResult?.matchMeta?.matchedConfidence === "low") {
+    const gradingNotes =
+      "Weak stat match (low confidence) — grading withheld until verified";
+    console.log("RESULT WEAK MATCH WITHHELD:", {
+      player: savedPick.player,
+      league,
+      ...statResult.matchMeta,
+    });
+
+    return {
+      statResult: null,
+      pendingReason: gradingNotes,
+      resolveDebug: buildResolveDebug(savedPick, stats, null, {
+        batchQueryDates: queryDates,
+        playerFallbackAttempted: false,
+        fallbackRowCount: 0,
+        weakMatchWithheld: true,
+        matchMeta: statResult.matchMeta,
+      }),
+      gradingNotes,
+      matchVerified: false,
+      resultConfidence: "low",
+    };
+  }
 
   if (!statResult && (league === "WNBA" || league === "NBA")) {
     playerFallbackAttempted = true;
@@ -814,6 +971,43 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
 
     statResult = fallback.statResult;
     fallbackRowCount = fallback.fallbackRowCount;
+
+    if (statResult) {
+      statResult.matchMeta = attachMatchMeta(savedPick, statResult, {
+        playerFallbackAttempted: true,
+      });
+
+      if (statResult.matchMeta?.matchedConfidence === "low") {
+        console.log("RESULT FALLBACK MATCH LOW CONFIDENCE:", {
+          player: savedPick.player,
+          league,
+          ...statResult.matchMeta,
+        });
+
+        return {
+          statResult: null,
+          pendingReason:
+            "Weak fallback stat match (low confidence) — grading withheld",
+          resolveDebug: buildResolveDebug(savedPick, stats, null, {
+            batchQueryDates: queryDates,
+            playerFallbackAttempted: true,
+            fallbackRowCount,
+            weakMatchWithheld: true,
+            matchMeta: statResult.matchMeta,
+          }),
+          gradingNotes:
+            "Weak fallback stat match (low confidence) — grading withheld",
+          matchVerified: false,
+          resultConfidence: "low",
+        };
+      }
+    }
+  } else if (statResult?.matchMeta?.matchedConfidence === "low") {
+    console.log("RESULT BATCH MATCH LOW CONFIDENCE:", {
+      player: savedPick.player,
+      league,
+      ...statResult.matchMeta,
+    });
   }
 
   const pendingReason = buildPendingReason(savedPick, stats, statResult);
@@ -823,12 +1017,25 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     fallbackRowCount,
   });
 
+  const matchMeta = statResult?.matchMeta || {};
+  const resultConfidence = matchMeta.matchedConfidence || (statResult ? "medium" : null);
+  const matchVerified =
+    Boolean(statResult) &&
+    (matchMeta.matchedConfidence === "high" ||
+      matchMeta.matchedConfidence === "medium");
+
   console.log("RESULT RESOLVE DEBUG:", resolveDebug);
 
   return {
     statResult,
     pendingReason,
     resolveDebug,
+    gradingNotes: null,
+    matchVerified,
+    resultConfidence,
+    matchedDate: matchMeta.matchedDate || statResult?.date || "",
+    matchedGameId: matchMeta.matchedGameId || "",
+    matchedSource: matchMeta.matchedSource || statResult?.source || "",
   };
 }
 
@@ -860,7 +1067,11 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
         options.pendingReason ||
         savedPick.pendingReason ||
         "No exact game stat match found for pick date and league",
+      gradingNotes: options.gradingNotes || savedPick.gradingNotes || null,
       resolveDebug: options.resolveDebug || savedPick.resolveDebug || null,
+      matchVerified: options.matchVerified ?? savedPick.matchVerified ?? false,
+      resultConfidence:
+        options.resultConfidence ?? savedPick.resultConfidence ?? null,
       actualStat: null,
       actualPoints: null,
       finalPoints: null,
@@ -871,7 +1082,9 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
   }
 
   const actualPoints = getActualPoints(statResult);
-  const line = num(savedPick.line || savedPick.sportsbookLine);
+  const line = num(
+    savedPick.officialLine ?? savedPick.pickLine ?? savedPick.line ?? savedPick.sportsbookLine
+  );
   const side = normalizeSide(savedPick);
 
   if (!side || !line) {
@@ -926,6 +1139,16 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
     gradedAt,
     resolvedAt: gradedAt,
     pendingReason: null,
+    gradingNotes: options.gradingNotes || null,
+    matchVerified:
+      options.matchVerified ??
+      (statResult.matchMeta?.matchedConfidence === "high" ||
+        statResult.matchMeta?.matchedConfidence === "medium"),
+    resultConfidence:
+      options.resultConfidence || statResult.matchMeta?.matchedConfidence || "medium",
+    matchedDate: statResult.matchMeta?.matchedDate || statResult.date || "",
+    matchedGameId: statResult.matchMeta?.matchedGameId || "",
+    matchedSource: statResult.matchMeta?.matchedSource || statResult.source || "unknown",
 
     resultMeta: {
       source: statResult.source || "unknown",
@@ -938,6 +1161,11 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
       fta: statResult.fta ?? null,
       fg3a: statResult.fg3a ?? null,
       points: actualPoints,
+      matchedSource: statResult.matchMeta?.matchedSource || statResult.source || "unknown",
+      matchedDate: statResult.matchMeta?.matchedDate || statResult.date || "",
+      matchedGameId: statResult.matchMeta?.matchedGameId || "",
+      matchedConfidence: statResult.matchMeta?.matchedConfidence || "medium",
+      matchedReasons: statResult.matchMeta?.matchedReasons || [],
     },
   };
 }

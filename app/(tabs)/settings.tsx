@@ -9,7 +9,9 @@ import {
   View,
 } from "react-native";
 
+import CopyReportButton from "../../components/CopyReportButton";
 import { getApiBaseUrl, refreshSavedPicks, resolvePicks } from "../../services/api";
+import { buildSettingsReport } from "../../utils/reportBuilders";
 
 export default function Settings() {
   const [checking, setChecking] = useState(false);
@@ -88,6 +90,14 @@ export default function Settings() {
 
   const config = health?.config || {};
 
+  const getReportText = () =>
+    buildSettingsReport({
+      health,
+      checking,
+      refreshing,
+      resolving,
+    });
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -98,6 +108,7 @@ export default function Settings() {
             Backend keys stay in the server .env file. The app only talks to the
             backend.
           </Text>
+          <CopyReportButton getReportText={getReportText} />
         </View>
 
         <View style={styles.card}>

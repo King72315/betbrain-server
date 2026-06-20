@@ -4,6 +4,7 @@ export type SlateRotation = {
   historySlates: any[];
   activeResults: any[];
   allReports: any[];
+  lockedSlates: any[];
 };
 
 export function getReportSectionA(report: any) {
@@ -38,12 +39,26 @@ export function isCompletedSlate(report: any): boolean {
 
   const status = getReportStatus(report);
   const isFinal =
-    status === "final" || status === "completed" || status === "complete";
+    status === "final" ||
+    status === "completed" ||
+    status === "complete" ||
+    report?.frozen === true ||
+    report?.locked === true;
   const pending = getReportPending(report);
   const graded = getReportGraded(report);
   const total = getReportTotalOfficial(report);
 
   return isFinal && pending === 0 && graded > 0 && total > 0;
+}
+
+export function isLockedSlateEntry(entry: any): boolean {
+  if (!entry?.slateDate) return false;
+  const phase = String(entry.phase || "").toUpperCase();
+  return phase === "ACTIVE" || phase === "LAB" || entry.lockedAt;
+}
+
+export function getLockedSlatePhase(entry: any): string {
+  return String(entry?.phase || "ACTIVE").toUpperCase();
 }
 
 export function sortReportsByDateDesc(reports: any[]) {
@@ -52,7 +67,10 @@ export function sortReportsByDateDesc(reports: any[]) {
   );
 }
 
-export function computeSlateRotation(reports: any[] = []): SlateRotation {
+export function computeSlateRotation(
+  reports: any[] = [],
+  lockedSlates: any[] = []
+): SlateRotation {
   const allReports = sortReportsByDateDesc(reports);
   const completed = allReports.filter(isCompletedSlate);
   const currentLabSlate = completed[0] || null;
@@ -72,5 +90,6 @@ export function computeSlateRotation(reports: any[] = []): SlateRotation {
     historySlates,
     activeResults,
     allReports,
+    lockedSlates: lockedSlates || [],
   };
 }

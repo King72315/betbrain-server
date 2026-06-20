@@ -5,6 +5,8 @@ import { CONFIG, checkConfig } from "./config.js";
 
 import {
   buildConsensusPointProps,
+  computeBlowoutRiskFromSpread,
+  fetchConsensusGameSpread,
   fetchOddsGameCards,
   fetchPointsPropsForEvent,
   findOddsEventForGame,
@@ -228,45 +230,39 @@ function applyReliabilityAdjustedConfidence({
     opportunity.scoringVolatility?.label || ""
   ).toUpperCase();
 
+  /*
+   * evidenceReliability blend — marketQuality is the single book/market composite
+   * (oddsService.buildMarketProfile already tiers on bookCount, consensusBookCount,
+   * lineSpread, hasBothSides, over/under book counts). Do NOT add separate weights
+   * for bookCount or consensusBookCount here; that double-counts the same axis.
+   * hasBothSides kept at 5% as a light emphasis (also embedded in marketQuality).
+   */
   const reliabilityComponents = [];
 
   if (isFiniteMetric(marketQuality)) {
     reliabilityComponents.push({
-      weight: 0.3,
+      weight: 0.45,
       value: clamp(marketQuality / 100, 0, 1),
       label: `market quality (${marketQuality})`,
-    });
-  }
-
-  if (isFiniteMetric(bookCount) && bookCount > 0) {
-    reliabilityComponents.push({
-      weight: 0.2,
-      value: clamp((bookCount - 1) / 7, 0, 1),
-      label: `book coverage (${bookCount} books)`,
-    });
-  }
-
-  if (isFiniteMetric(consensusBookCount)) {
-    reliabilityComponents.push({
-      weight: 0.15,
-      value: clamp(consensusBookCount / 6, 0, 1),
-      label: `line agreement (${consensusBookCount} books)`,
+      source: "marketComposite",
     });
   }
 
   if (isFiniteMetric(opportunity.dataCoverage)) {
     reliabilityComponents.push({
-      weight: 0.2,
+      weight: 0.25,
       value: clamp(opportunity.dataCoverage / 100, 0, 1),
       label: `data coverage (${opportunity.dataCoverage}%)`,
+      source: "playerData",
     });
   }
 
   if (isFiniteMetric(opportunity.rawQuality)) {
     reliabilityComponents.push({
-      weight: 0.1,
+      weight: 0.15,
       value: clamp(opportunity.rawQuality / 100, 0, 1),
       label: `raw quality (${opportunity.rawQuality}%)`,
+      source: "playerData",
     });
   }
 
@@ -274,6 +270,7 @@ function applyReliabilityAdjustedConfidence({
     weight: 0.05,
     value: hasBothSides ? 1 : 0.4,
     label: hasBothSides ? "both sides covered" : "missing side coverage",
+    source: "marketSideCoverage",
   });
 
   const reliabilityWeight = reliabilityComponents.reduce(
@@ -393,12 +390,80 @@ function applyReliabilityAdjustedConfidence({
   );
   confidenceAdjustmentReasons.push(`Final confidence ${finalConfidence}`);
 
+  const reliabilityInputAudit = buildReliabilityInputAudit({
+    bookCount,
+    consensusBookCount,
+    marketQuality,
+    hasBothSides,
+    dataCoverage: opportunity.dataCoverage,
+    rawQuality: opportunity.rawQuality,
+    reliabilityComponents,
+    evidenceReliability,
+  });
+
   return {
     rawConfidenceBeforeReliability: raw,
     evidenceReliability,
     dangerPressure,
     finalConfidence,
     confidenceAdjustmentReasons,
+    reliabilityInputAudit,
+  };
+}
+
+function buildReliabilityInputAudit({
+  bookCount = 0,
+  consensusBookCount = 0,
+  marketQuality = null,
+  hasBothSides = false,
+  dataCoverage = null,
+  rawQuality = null,
+  reliabilityComponents = [],
+  evidenceReliability = 0,
+} = {}) {
+  return {
+    designNote:
+      "marketQuality embeds bookCount/consensusBookCount/lineSpread/hasBothSides via buildMarketProfile; separate book weights removed to avoid double-counting",
+    embeddedInMarketQuality: [
+      "bookCount",
+      "consensusBookCount",
+      "lineSpread",
+      "hasBothSides",
+      "overBookCount",
+      "underBookCount",
+    ],
+    activeBlendInputs: reliabilityComponents.map((c) => ({
+      label: c.label,
+      weight: c.weight,
+      value: c.value,
+      source: c.source,
+    })),
+    rawMarketInputs: {
+      bookCount: isFiniteMetric(bookCount) ? bookCount : null,
+      consensusBookCount: isFiniteMetric(consensusBookCount)
+        ? consensusBookCount
+        : null,
+      marketQuality: isFiniteMetric(marketQuality) ? marketQuality : null,
+      hasBothSides: Boolean(hasBothSides),
+    },
+    rawPlayerInputs: {
+      dataCoverage: isFiniteMetric(dataCoverage) ? dataCoverage : null,
+      rawQuality: isFiniteMetric(rawQuality) ? rawQuality : null,
+    },
+    evidenceReliability,
+    overlapWarnings: [
+      ...(isFiniteMetric(marketQuality) && isFiniteMetric(bookCount)
+        ? ["bookCount feeds marketQuality; not weighted separately in blend"]
+        : []),
+      ...(isFiniteMetric(marketQuality) && isFiniteMetric(consensusBookCount)
+        ? [
+            "consensusBookCount feeds marketQuality; not weighted separately in blend",
+          ]
+        : []),
+      ...(isFiniteMetric(marketQuality)
+        ? ["hasBothSides also adjusts marketQuality (-20 when missing); 5% blend weight is intentional emphasis"]
+        : []),
+    ],
   };
 }
 
@@ -406,6 +471,109 @@ function strengthFromConfidence(confidence) {
   if (confidence >= 75) return "Elite";
   if (confidence >= 68) return "Strong";
   return "Lean";
+}
+
+/*
+ * PREMIUM tier gate independence (8 checks, not 8 independent axes).
+ *
+ * Three underlying axes (user model — agree with nuance):
+ *   1) Edge/signal — supportScore vs resistanceScore → netEdge; signalStrength
+ *      is derived from netEdge + dataQuality + totalEvidence (riskComparisonEngine).
+ *   2) Data/market trust — marketQuality (composite: bookCount, consensusBookCount,
+ *      lineSpread, hasBothSides baked in via buildMarketProfile), dataCoverage,
+ *      rawQuality, hasBothSides (5% emphasis) → evidenceReliability; same market
+ *      inputs also feed dangerPressure (market weakness) and the marketQuality gate.
+ *   3) Risk/danger — chosenRisk → riskLabel and dangerPressure; resistance >
+ *      support, volatility, warnings, extraDangerPressure also feed dangerPressure.
+ *
+ * Independent gates (test a primary dimension, not a composite formula output):
+ *   - signalAndEdge (STRONG + netEdge≥10; STRONG already implies netEdge≥12)
+ *   - noPlay (playability veto from riskComparison noPlayReasons)
+ *
+ * Derivative gates (same underlying inputs, different math/threshold):
+ *   - finalConfidence — raw × (0.55+0.45×evidenceReliability) − dangerPressure×24
+ *   - evidenceReliability — marketQuality (45%, composite book/market signal),
+ *     dataCoverage (25%), rawQuality (15%), hasBothSides (5%); bookCount and
+ *     consensusBookCount are NOT separate weights (embedded in marketQuality)
+ *   - dangerPressure — chosenRisk, marketQuality weakness, resistance>support,
+ *     volatility, roleCertainty, market/risk warnings, extraDangerPressure
+ *   - riskLabel — bucketed chosenRisk (shares chosenRisk with dangerPressure)
+ *   - marketQuality≥55 — direct threshold on input also in evidenceReliability (30%)
+ *   - noSevereWarnings — marketWarnings + bookCount (overlaps bookCount/hasBothSides
+ *     in evidenceReliability)
+ *
+ * Cross-cluster coupling: finalConfidence re-checks trust+danger axes already gated
+ * separately; a pick can fail multiple gates from one weak marketQuality reading.
+ */
+function buildPremiumGateAudit({
+  finalConfidence = 0,
+  evidenceReliability = 0,
+  dangerPressure = 0,
+  riskLabel = "",
+  signal = "",
+  cleanNetEdge = 0,
+  noPlay = false,
+  cleanMarketQuality = 0,
+  severeWarnings = false,
+} = {}) {
+  return [
+    {
+      gate: "finalConfidence",
+      passed: finalConfidence >= 75,
+      axis: "derivative",
+      sharesInputWith: [
+        "evidenceReliability",
+        "dangerPressure",
+        "marketQuality",
+      ],
+    },
+    {
+      gate: "evidenceReliability",
+      passed: evidenceReliability >= 0.65,
+      axis: "derivative",
+      sharesInputWith: ["marketQuality", "finalConfidence", "noSevereWarnings"],
+    },
+    {
+      gate: "dangerPressure",
+      passed: dangerPressure <= 0.35,
+      axis: "derivative",
+      sharesInputWith: ["riskLabel", "finalConfidence", "marketQuality"],
+    },
+    {
+      gate: "signalAndEdge",
+      passed: signal === "STRONG" && cleanNetEdge >= 10,
+      axis: "independent",
+      sharesInputWith: [],
+    },
+    {
+      gate: "riskLabel",
+      passed: riskLabel !== "High Risk",
+      axis: "derivative",
+      sharesInputWith: ["dangerPressure"],
+    },
+    {
+      gate: "noPlay",
+      passed: !noPlay,
+      axis: "independent",
+      sharesInputWith: [],
+    },
+    {
+      gate: "marketQuality",
+      passed: cleanMarketQuality >= 55,
+      axis: "derivative",
+      sharesInputWith: [
+        "evidenceReliability",
+        "dangerPressure",
+        "finalConfidence",
+      ],
+    },
+    {
+      gate: "noSevereWarnings",
+      passed: !severeWarnings,
+      axis: "derivative",
+      sharesInputWith: ["evidenceReliability"],
+    },
+  ];
 }
 
 function getTier({
@@ -481,6 +649,18 @@ function getTier({
     },
   ];
 
+  const premiumGateAudit = buildPremiumGateAudit({
+    finalConfidence,
+    evidenceReliability,
+    dangerPressure,
+    riskLabel,
+    signal,
+    cleanNetEdge,
+    noPlay,
+    cleanMarketQuality,
+    severeWarnings,
+  });
+
   for (const check of premiumChecks) {
     tierReasons.push(check.reason);
   }
@@ -488,16 +668,16 @@ function getTier({
   const premiumEligible = premiumChecks.every((check) => check.pass);
 
   if (premiumEligible) {
-    return { tier: "PREMIUM", tierReasons };
+    return { tier: "PREMIUM", tierReasons, premiumGateAudit };
   }
 
   if (finalConfidence >= 60) {
     tierReasons.push(`Confidence ${finalConfidence} qualifies for WATCHLIST`);
-    return { tier: "WATCHLIST", tierReasons };
+    return { tier: "WATCHLIST", tierReasons, premiumGateAudit };
   }
 
   tierReasons.push(`Confidence ${finalConfidence} stays at LEAN tier`);
-  return { tier: "LEAN", tierReasons };
+  return { tier: "LEAN", tierReasons, premiumGateAudit };
 }
 
 function getOpponentFromGame(team, game) {
@@ -683,6 +863,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
     const rawProps = await fetchPointsPropsForEvent(oddsEvent.id, league);
     const props = buildConsensusPointProps(rawProps);
+    const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
+    const blowoutRisk = computeBlowoutRiskFromSpread(gameSpread);
 
     sideAudit.rawOverLines += rawProps.filter((prop) => prop.side === "Over").length;
     sideAudit.rawUnderLines += rawProps.filter((prop) => prop.side === "Under").length;
@@ -1006,7 +1188,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         matchupScore: overPick.matchupHitRate || 50,
         defenseScore: defenseResult.defenseScore,
         roleCertainty: opportunity.roleCertainty || 50,
-        blowoutRisk: 50,
+        blowoutRisk,
         dataQuality,
         rawQuality: opportunity.rawQuality,
         dataCoverage: opportunity.dataCoverage,
@@ -1078,6 +1260,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         dangerPressure,
         finalConfidence,
         confidenceAdjustmentReasons,
+        reliabilityInputAudit,
       } = applyReliabilityAdjustedConfidence({
         rawConfidence: bestPick.rawWinProbability,
         riskComparison,
@@ -1091,7 +1274,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         ],
       });
 
-      const { tier, tierReasons } = getTier({
+      const { tier, tierReasons, premiumGateAudit } = getTier({
         finalConfidence,
         evidenceReliability,
         dangerPressure,
@@ -1137,6 +1320,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         finalConfidence,
         confidenceAdjustmentReasons,
         tierReasons,
+        premiumGateAudit,
+        reliabilityInputAudit,
 
         winProbability: finalConfidence,
         confidence: finalConfidence,

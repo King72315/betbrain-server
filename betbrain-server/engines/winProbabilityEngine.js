@@ -144,14 +144,6 @@ function buildProjection({
   };
 }
 
-function getSignalStrength({ supportScore = 0, resistanceScore = 0, dataCoverage = 0 }) {
-  const gap = supportScore - resistanceScore;
-
-  if (dataCoverage >= 75 && supportScore >= 14 && gap >= 8) return "STRONG";
-  if (dataCoverage >= 55 && supportScore >= 8 && gap >= 3) return "MODERATE";
-  return "WEAK";
-}
-
 export function buildWinProbability({
   player = "",
   team = "",
@@ -535,12 +527,6 @@ export function buildWinProbability({
     (dataCoverageItems.filter(Boolean).length / dataCoverageItems.length) * 100
   );
 
-  const signalStrength = getSignalStrength({
-    supportScore,
-    resistanceScore,
-    dataCoverage,
-  });
-
   const rawQuality = clamp(
     Math.round(
       avg([
@@ -629,7 +615,6 @@ export function buildWinProbability({
     supportScore,
     resistanceScore,
     netEdge,
-    signalStrength,
 
     grading: {
       support: cleanSupport,
@@ -637,7 +622,6 @@ export function buildWinProbability({
       supportScore,
       resistanceScore,
       netEdge,
-      signalStrength,
       rawConfidence: finalRawProbability,
       rawQuality,
       dataCoverage,

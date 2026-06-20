@@ -93,6 +93,64 @@ function getStatTurnovers(stat = {}) {
   return num(stat.turnover ?? stat.turnovers ?? 0);
 }
 
+function parseGameDateTime(gameDate = "") {
+  const raw = String(gameDate || "").trim();
+  const direct = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (!direct) return null;
+
+  const parsed = new Date(`${direct[1]}T23:59:59.999Z`);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** Exclude games on/after the prop's scheduled start (or end of slate day). */
+export function filterGamesBeforeCutoff(games = [], cutoffTime = null) {
+  if (!cutoffTime || !Array.isArray(games) || !games.length) {
+    return games;
+  }
+
+  let cutoffMs = null;
+
+  if (cutoffTime instanceof Date) {
+    cutoffMs = cutoffTime.getTime();
+  } else {
+    const parsed = new Date(cutoffTime);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      cutoffMs = parsed.getTime();
+    } else {
+      const dayEnd = parseGameDateTime(cutoffTime);
+      cutoffMs = dayEnd ? dayEnd.getTime() : null;
+    }
+  }
+
+  if (!Number.isFinite(cutoffMs)) return games;
+
+  const filtered = games.filter((game) => {
+    const gameDate = game?.date || game?.game?.date || "";
+
+    if (!gameDate) return true;
+
+    const gameDayEnd = parseGameDateTime(gameDate);
+
+    if (!gameDayEnd) return true;
+
+    return gameDayEnd.getTime() < cutoffMs;
+  });
+
+  if (filtered.length !== games.length) {
+    console.log("BALL GAMES FILTERED BEFORE CUTOFF:", {
+      cutoffTime: String(cutoffTime),
+      before: games.length,
+      after: filtered.length,
+      removed: games.length - filtered.length,
+    });
+  }
+
+  return filtered;
+}
+
 async function ballFetch(url, label) {
   if (!API_KEY) {
     console.log(`${label} ERROR: missing BallDontLie key`);
@@ -354,11 +412,12 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
   return games;
 }
 
-export async function fetchLast5(playerName, league = "NBA") {
+export async function fetchLast5(playerName, league = "NBA", options = {}) {
   console.log("🔥 FETCH LAST5 FIRED:", league, playerName);
 
   const games = await fetchPlayerStats(playerName, league);
-  const last5 = games.slice(0, 5);
+  const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
+  const last5 = eligible.slice(0, 5);
 
   console.log(
     "🔥 LAST5 RESULT:",
@@ -380,14 +439,16 @@ export async function fetchLast5(playerName, league = "NBA") {
 export async function fetchLast3VsOpponent(
   playerName,
   opponent,
-  league = "NBA"
+  league = "NBA",
+  options = {}
 ) {
   console.log("🔥 FETCH LAST3 VS OPP FIRED:", league, playerName, opponent);
 
   const games = await fetchPlayerStats(playerName, league);
+  const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
   const opp = clean(opponent);
 
-  const matches = games
+  const matches = eligible
     .filter((g) => clean(g.opponent) === opp)
     .slice(0, 3);
 

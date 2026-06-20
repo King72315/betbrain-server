@@ -76,16 +76,6 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={() => router.push("/view-picks")}
-          >
-            <Text style={styles.buttonText}>✅ My Active Picks</Text>
-            <Text style={styles.buttonSubtext}>
-              Saved picks waiting to be graded
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.button}
             onPress={() => router.push("/results")}
           >
             <Text style={styles.buttonText}>📋 Results</Text>
@@ -111,6 +101,16 @@ export default function HomeScreen() {
             <Text style={styles.buttonText}>📚 History</Text>
             <Text style={styles.buttonSubtext}>
               Archived Lab slates (7 days) and graded saved picks
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => router.push("/view-picks")}
+          >
+            <Text style={styles.buttonText}>✅ My Active Picks</Text>
+            <Text style={styles.buttonSubtext}>
+              Saved picks waiting to be graded
             </Text>
           </TouchableOpacity>
 

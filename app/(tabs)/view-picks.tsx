@@ -225,8 +225,14 @@ export default function ViewPicksScreen() {
         <View style={styles.headerCard}>
           <Text style={styles.title}>✅ Saved Picks</Text>
           <Text style={styles.subtitle}>CourtEdge Tracking</Text>
+          <View style={styles.shadowBanner}>
+            <Text style={styles.shadowBannerText}>
+              Shadow Mode — saved picks are personal bookmarks. Official props are
+              tracked in Results.
+            </Text>
+          </View>
           <Text style={styles.motto}>
-            Every saved pick feeds the calibration system.
+            Optional bookmarks only. Official grading uses Results → Lab → History.
           </Text>
           <CopyReportButton getReportText={getReportText} />
         </View>
@@ -448,6 +454,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
+  },
+
+  shadowBanner: {
+    marginTop: 12,
+    backgroundColor: "#172554",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#1d4ed8",
+  },
+
+  shadowBannerText: {
+    color: "#bfdbfe",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
   },
 
   recordCard: {

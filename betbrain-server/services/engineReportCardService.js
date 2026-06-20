@@ -236,6 +236,62 @@ export function buildEngineScorecard(props = []) {
   const tierProps = filterWithField(props, (p) => Boolean(p.tier));
   engines.push(buildEngineEntry("Tier Engine", tierProps, tierProps.length > 0));
 
+  const premiumNbaProps = filterWithField(
+    props,
+    (p) =>
+      String(p.tier || "").toUpperCase() === "PREMIUM" &&
+      String(p.league || "").toUpperCase() === "NBA"
+  );
+  engines.push(
+    buildEngineEntry(
+      "Tier — PREMIUM (NBA)",
+      premiumNbaProps,
+      premiumNbaProps.length > 0
+    )
+  );
+
+  const premiumWnbaProps = filterWithField(
+    props,
+    (p) =>
+      String(p.tier || "").toUpperCase() === "PREMIUM" &&
+      String(p.league || "").toUpperCase() === "WNBA"
+  );
+  engines.push(
+    buildEngineEntry(
+      "Tier — PREMIUM (WNBA)",
+      premiumWnbaProps,
+      premiumWnbaProps.length > 0
+    )
+  );
+
+  const playableNbaProps = filterWithField(
+    props,
+    (p) =>
+      String(p.tier || "").toUpperCase() === "PLAYABLE" &&
+      String(p.league || "").toUpperCase() === "NBA"
+  );
+  engines.push(
+    buildEngineEntry(
+      "Tier — PLAYABLE (NBA)",
+      playableNbaProps,
+      playableNbaProps.length > 0
+    )
+  );
+
+  const playableWnbaProps = filterWithField(
+    props,
+    (p) =>
+      String(p.tier || "").toUpperCase() === "PLAYABLE" &&
+      String(p.league || "").toUpperCase() === "WNBA"
+  );
+  engines.push(
+    buildEngineEntry(
+      "Tier — PLAYABLE (WNBA)",
+      playableWnbaProps,
+      playableWnbaProps.length > 0
+    )
+  );
+
   const recentFormProps = filterWithField(props, recentFormActive);
   engines.push(
     buildEngineEntry("Recent Form", recentFormProps, recentFormProps.length > 0)
@@ -416,6 +472,129 @@ export function classifyCalibrationMistake(prop = {}) {
     };
   }
 
+  const volumeGates = prop.volumeDangerGates?.gates || [];
+  if (volumeGates.includes("low_volume_over_trap") && side === "over") {
+    return {
+      ...base,
+      category: "low_volume_over_trap",
+      label: "Low volume over trap",
+      explanation: "Over pick had low FGA/volume floor — hot shooting did not sustain.",
+    };
+  }
+
+  if (
+    volumeGates.includes("unstable_minutes") ||
+    volumeGates.includes("volatile_minutes")
+  ) {
+    return {
+      ...base,
+      category: "volume_profile_miss",
+      label: "Volume profile miss",
+      explanation: "Unstable/volatile minutes profile contributed to the loss.",
+    };
+  }
+
+  if (volumeGates.includes("efficiency_only_scoring") && side === "over") {
+    return {
+      ...base,
+      category: "efficiency_regression",
+      label: "Efficiency regression",
+      explanation: "Efficiency-only scoring profile regressed.",
+    };
+  }
+
+  if (prop.marketIntelligence?.lineMovedAgainstSide) {
+    return {
+      ...base,
+      category: side === "under" ? "market_steam_against_side" : "line_movement_trap",
+      label: side === "under" ? "Market steam against side" : "Line movement trap",
+      explanation: `Line moved against the ${side} (${prop.lineDelta ?? prop.marketIntelligence?.lineDelta}).`,
+    };
+  }
+
+  if (prop.availabilityGate?.statusLevel === "OUT" ||
+    prop.availabilityGate?.statusLevel === "QUESTIONABLE"
+  ) {
+    return {
+      ...base,
+      category: "player_availability_miss",
+      label: "Player availability miss",
+      explanation: `Availability status was ${prop.availabilityGate.statusLevel}.`,
+    };
+  }
+
+  if (
+    prop.roleChange?.recentMinutesTrend === "DOWN" ||
+    (prop.roleChange?.expectedMinutesDelta && prop.roleChange.expectedMinutesDelta < -3)
+  ) {
+    return {
+      ...base,
+      category: "usage_assumption_failed",
+      label: "Usage assumption failed",
+      explanation: "Minutes/usage trend was down — role assumption did not hold.",
+    };
+  }
+
+  if (
+    num(prop.expectedMinutes) > 0 &&
+    num(prop.playerState?.seasonMinutes) > 0 &&
+    num(prop.expectedMinutes) < num(prop.playerState.seasonMinutes) - 4 &&
+    side === "over"
+  ) {
+    return {
+      ...base,
+      category: "player_minutes_dropped",
+      label: "Player minutes dropped",
+      explanation: "Expected minutes were below season baseline — volume constrained.",
+    };
+  }
+
+  if (
+    prop.signalSnapshot?.h2hSignal &&
+    prop.signalSnapshot.h2hSignal !== "not enough data" &&
+    absMargin >= 2
+  ) {
+    return {
+      ...base,
+      category: "h2h_misleading",
+      label: "H2H misleading",
+      explanation: "Head-to-head signal did not predict this outcome.",
+    };
+  }
+
+  if (
+    prop.signalSnapshot?.opponentDefenseSignal &&
+    ["resistance", "opposes_side"].includes(
+      String(prop.signalSnapshot.opponentDefenseSignal).toLowerCase()
+    ) === false &&
+    absMargin >= 3
+  ) {
+    return {
+      ...base,
+      category: "opponent_defense_signal_failed",
+      label: "Opponent defense signal failed",
+      explanation: "Opponent/matchup defense signal did not align with result.",
+    };
+  }
+
+  if (confidence >= 75 && absMargin <= 2) {
+    return {
+      ...base,
+      category: "confidence_overreaction",
+      label: "Confidence overreaction",
+      explanation: `High confidence (${confidence}%) on a narrow miss.`,
+    };
+  }
+
+  if (absMargin >= 8) {
+    return {
+      ...base,
+      category: "blowout_game_script",
+      label: "Blowout / game script",
+      explanation: `Large miss margin (${getMargin(prop)}) suggests game script variance.`,
+    };
+  }
+
   return {
     ...base,
     category: "unknown",
@@ -440,6 +619,24 @@ export function buildMistakeBreakdown(props = []) {
     { key: "lean_promotion", label: "LEAN should not have been promoted" },
     { key: "missing_data", label: "Missing / limited data" },
     { key: "bad_fair_line", label: "Bad fair line read" },
+    { key: "volume_profile_miss", label: "Volume profile miss" },
+    { key: "efficiency_regression", label: "Efficiency regression" },
+    { key: "line_movement_trap", label: "Line movement trap" },
+    { key: "opening_line_value_miss", label: "Opening line value miss" },
+    { key: "player_availability_miss", label: "Player availability miss" },
+    { key: "market_steam_against_side", label: "Market steam against side" },
+    { key: "low_volume_over_trap", label: "Low volume over trap" },
+    { key: "weak_market_trap", label: "Weak market trap" },
+    { key: "usage_assumption_failed", label: "Usage assumption failed" },
+    { key: "player_minutes_dropped", label: "Player minutes dropped" },
+    { key: "h2h_misleading", label: "H2H misleading" },
+    { key: "opponent_defense_signal_failed", label: "Opponent defense signal failed" },
+    { key: "confidence_overreaction", label: "Confidence overreaction" },
+    { key: "blowout_game_script", label: "Blowout / game script" },
+    { key: "pace_mismatch", label: "Pace mismatch" },
+    { key: "defense_rating_miss", label: "Defense rating miss" },
+    { key: "score_ledger_gate_miss", label: "Score ledger gate miss" },
+    { key: "ledger_danger_ignored", label: "Ledger danger ignored" },
     { key: "unknown", label: "Unknown" },
   ];
 
@@ -734,10 +931,19 @@ export function buildEngineReportCardBundle(props = [], context = {}) {
     calibrationRules,
   });
 
+  const wnbaStructuralGaps = {
+    availabilityGate:
+      "skipped — evaluateAvailabilityGate returns N/A for non-NBA",
+    defenseScore:
+      "neutral default (50) — no WNBA team season stats wired",
+    primaryStatSource: "BallDontLie (BDL) primary — no SportsData projections",
+  };
+
   return {
     engineScorecard,
     mistakeBreakdown,
     calibrationRules,
     slateLesson,
+    wnbaStructuralGaps,
   };
 }

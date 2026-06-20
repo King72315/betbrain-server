@@ -1490,6 +1490,135 @@ function finalizeBucket(bucket = {}) {
   return bucket;
 }
 
+function buildLeagueCalibrationSlice(props = []) {
+  const slice = {
+    total: props.length,
+    pending: 0,
+    graded: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0,
+    accuracy: 0,
+    premium: { total: 0, wins: 0, losses: 0, pushes: 0, accuracy: 0 },
+    playable: { total: 0, wins: 0, losses: 0, pushes: 0, accuracy: 0 },
+    byTier: {},
+    byRiskLabel: {},
+  };
+
+  function tallyTierBucket(tierKey, status) {
+    if (!slice.byTier[tierKey]) {
+      slice.byTier[tierKey] = {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        pushes: 0,
+        accuracy: 0,
+      };
+    }
+    slice.byTier[tierKey].total += 1;
+    if (status === "win") slice.byTier[tierKey].wins += 1;
+    if (status === "loss") slice.byTier[tierKey].losses += 1;
+    if (status === "push") slice.byTier[tierKey].pushes += 1;
+  }
+
+  function tallyRiskBucket(riskKey, status) {
+    if (!slice.byRiskLabel[riskKey]) {
+      slice.byRiskLabel[riskKey] = {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        pushes: 0,
+        accuracy: 0,
+      };
+    }
+    slice.byRiskLabel[riskKey].total += 1;
+    if (status === "win") slice.byRiskLabel[riskKey].wins += 1;
+    if (status === "loss") slice.byRiskLabel[riskKey].losses += 1;
+    if (status === "push") slice.byRiskLabel[riskKey].pushes += 1;
+  }
+
+  function finalizeTierStats(bucket) {
+    const decided = bucket.wins + bucket.losses;
+    bucket.accuracy =
+      decided > 0 ? Number(((bucket.wins / decided) * 100).toFixed(1)) : 0;
+    return bucket;
+  }
+
+  for (const prop of props) {
+    const status = String(prop.status || "pending").toLowerCase();
+    const resolved = isResolvedStatus(status);
+    const tier = String(prop.tier || "UNKNOWN").toUpperCase();
+    const risk = prop.riskLabel || "UNKNOWN";
+
+    if (!resolved) {
+      slice.pending += 1;
+    } else {
+      slice.graded += 1;
+      if (status === "win") slice.wins += 1;
+      if (status === "loss") slice.losses += 1;
+      if (status === "push") slice.pushes += 1;
+    }
+
+    tallyTierBucket(tier, resolved ? status : null);
+    tallyRiskBucket(risk, resolved ? status : null);
+
+    if (tier === "PREMIUM") {
+      slice.premium.total += 1;
+      if (resolved) {
+        if (status === "win") slice.premium.wins += 1;
+        if (status === "loss") slice.premium.losses += 1;
+        if (status === "push") slice.premium.pushes += 1;
+      }
+    }
+    if (tier === "PLAYABLE") {
+      slice.playable.total += 1;
+      if (resolved) {
+        if (status === "win") slice.playable.wins += 1;
+        if (status === "loss") slice.playable.losses += 1;
+        if (status === "push") slice.playable.pushes += 1;
+      }
+    }
+  }
+
+  slice.total = props.length;
+  const decided = slice.wins + slice.losses;
+  slice.accuracy =
+    decided > 0 ? Number(((slice.wins / decided) * 100).toFixed(1)) : 0;
+  slice.premium = finalizeTierStats(slice.premium);
+  slice.playable = finalizeTierStats(slice.playable);
+
+  for (const key of Object.keys(slice.byTier)) {
+    slice.byTier[key] = finalizeTierStats(slice.byTier[key]);
+  }
+  for (const key of Object.keys(slice.byRiskLabel)) {
+    slice.byRiskLabel[key] = finalizeTierStats(slice.byRiskLabel[key]);
+  }
+
+  return slice;
+}
+
+function buildLeagueCalibrationAnalytics(props = []) {
+  const nbaProps = props.filter(
+    (prop) => String(prop.league || "").toUpperCase() === "NBA"
+  );
+  const wnbaProps = props.filter(
+    (prop) => String(prop.league || "").toUpperCase() === "WNBA"
+  );
+
+  return {
+    structuralNotes: {
+      availabilityGate:
+        "skipped for WNBA — evaluateAvailabilityGate returns N/A for non-NBA",
+      defenseScore:
+        "neutral default (50) for WNBA — no team season stats wired",
+      primaryStatSource:
+        "BallDontLie (BDL) primary for WNBA — no SportsData projections",
+    },
+    NBA: buildLeagueCalibrationSlice(nbaProps),
+    WNBA: buildLeagueCalibrationSlice(wnbaProps),
+  };
+}
+
 export function buildTrackedPropAnalytics(props = getTrackedProps()) {
   const analytics = {
     overall: {
@@ -1675,5 +1804,6 @@ export function buildTrackedPropAnalytics(props = getTrackedProps()) {
   }
 
   analytics.updatedAt = new Date().toISOString();
+  analytics.leagueCalibration = buildLeagueCalibrationAnalytics(props);
   return analytics;
 }

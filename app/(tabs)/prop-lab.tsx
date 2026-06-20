@@ -338,6 +338,121 @@ function CalibrationRulesSection({ rules }: { rules: any }) {
   );
 }
 
+function LeagueSplitSection({
+  leagueSplit,
+  leagueCalibration,
+}: {
+  leagueSplit: any;
+  leagueCalibration: any;
+}) {
+  if (!leagueSplit?.byLeague && !leagueCalibration) {
+    return <Text style={styles.muted}>No league-split calibration data yet.</Text>;
+  }
+
+  const structural =
+    leagueSplit?.structuralNotes || leagueCalibration?.structuralNotes || null;
+
+  return (
+    <View style={styles.breakdownSection}>
+      {structural ? (
+        <View style={styles.structuralBlock}>
+          <Text style={styles.breakdownTitle}>WNBA structural gaps (pick pipeline)</Text>
+          <Text style={styles.structuralLine}>
+            Availability gate: {structural.availabilityGate || "—"}
+          </Text>
+          <Text style={styles.structuralLine}>
+            Defense score: {structural.defenseScore || "—"}
+          </Text>
+          <Text style={styles.structuralLine}>
+            Primary stat source: {structural.primaryStatSource || "—"}
+          </Text>
+        </View>
+      ) : null}
+
+      {(["NBA", "WNBA"] as const).map((league) => {
+        const slate = leagueSplit?.byLeague?.[league];
+        const allTime = leagueCalibration?.[league];
+        if (!slate && !allTime) return null;
+
+        return (
+          <View key={league} style={styles.leagueBlock}>
+            <Text style={styles.breakdownTitle}>{league}</Text>
+            {slate?.record ? (
+              <MetricRow
+                label="Slate record"
+                value={formatRecord(
+                  slate.record.wins,
+                  slate.record.losses,
+                  slate.record.pushes,
+                  slate.record.winRate
+                )}
+              />
+            ) : null}
+            {slate?.premium ? (
+              <MetricRow
+                label="PREMIUM (slate)"
+                value={formatRecord(
+                  slate.premium.wins,
+                  slate.premium.losses,
+                  slate.premium.pushes,
+                  slate.premium.winRate
+                )}
+              />
+            ) : null}
+            {slate?.playable ? (
+              <MetricRow
+                label="PLAYABLE (slate)"
+                value={formatRecord(
+                  slate.playable.wins,
+                  slate.playable.losses,
+                  slate.playable.pushes,
+                  slate.playable.winRate
+                )}
+              />
+            ) : null}
+            {allTime ? (
+              <MetricRow
+                label="All-time tracked"
+                value={formatRecord(
+                  allTime.wins,
+                  allTime.losses,
+                  allTime.pushes,
+                  allTime.accuracy
+                )}
+              />
+            ) : null}
+            {allTime?.premium?.total > 0 ? (
+              <MetricRow
+                label="All-time PREMIUM"
+                value={formatRecord(
+                  allTime.premium.wins,
+                  allTime.premium.losses,
+                  allTime.premium.pushes,
+                  allTime.premium.accuracy
+                )}
+              />
+            ) : null}
+            {slate?.riskBuckets
+              ? Object.entries(slate.riskBuckets)
+                  .filter(([, stats]: [string, any]) => (stats.total || 0) > 0)
+                  .map(([bucket, stats]: [string, any]) => (
+                    <Text key={`${league}-${bucket}`} style={styles.breakdownLine}>
+                      {bucket} risk:{" "}
+                      {formatRecord(stats.wins, stats.losses, stats.pushes, stats.winRate)}
+                    </Text>
+                  ))
+              : null}
+          </View>
+        );
+      })}
+
+      {leagueSplit?.note ? (
+        <Text style={styles.muted}>{leagueSplit.note}</Text>
+      ) : null}
+    </View>
+  );
+}
+
 function SlateLessonSection({ lesson }: { lesson: any }) {
   if (!lesson) {
     return <Text style={styles.muted}>No slate lesson yet.</Text>;
@@ -467,6 +582,7 @@ export default function PropLab() {
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
   const slateLesson = report?.slateLesson || report?.sections?.J;
+  const leagueSplit = report?.leagueSplit || report?.sections?.L;
 
   const slateTrackedProps = useMemo(() => {
     if (!currentLabSlateDate) return [];
@@ -580,7 +696,7 @@ export default function PropLab() {
               value={String(officialSlateProps.length)}
             />
             <MetricRow
-              label="Record"
+              label="Record (pooled)"
               value={formatRecord(
                 sectionA.wins,
                 sectionA.losses,
@@ -588,10 +704,63 @@ export default function PropLab() {
                 sectionA.overallWinRate
               )}
             />
+            {leagueSplit?.byLeague?.NBA?.record ? (
+              <MetricRow
+                label="NBA record"
+                value={formatRecord(
+                  leagueSplit.byLeague.NBA.record.wins,
+                  leagueSplit.byLeague.NBA.record.losses,
+                  leagueSplit.byLeague.NBA.record.pushes,
+                  leagueSplit.byLeague.NBA.record.winRate
+                )}
+              />
+            ) : null}
+            {leagueSplit?.byLeague?.WNBA?.record ? (
+              <MetricRow
+                label="WNBA record"
+                value={formatRecord(
+                  leagueSplit.byLeague.WNBA.record.wins,
+                  leagueSplit.byLeague.WNBA.record.losses,
+                  leagueSplit.byLeague.WNBA.record.pushes,
+                  leagueSplit.byLeague.WNBA.record.winRate
+                )}
+              />
+            ) : null}
+            {leagueSplit?.byLeague?.NBA?.premium?.sample > 0 ? (
+              <MetricRow
+                label="NBA PREMIUM"
+                value={formatRecord(
+                  leagueSplit.byLeague.NBA.premium.wins,
+                  leagueSplit.byLeague.NBA.premium.losses,
+                  leagueSplit.byLeague.NBA.premium.pushes,
+                  leagueSplit.byLeague.NBA.premium.winRate
+                )}
+              />
+            ) : null}
+            {leagueSplit?.byLeague?.WNBA?.premium?.sample > 0 ? (
+              <MetricRow
+                label="WNBA PREMIUM"
+                value={formatRecord(
+                  leagueSplit.byLeague.WNBA.premium.wins,
+                  leagueSplit.byLeague.WNBA.premium.losses,
+                  leagueSplit.byLeague.WNBA.premium.pushes,
+                  leagueSplit.byLeague.WNBA.premium.winRate
+                )}
+              />
+            ) : null}
             <MetricRow label="Graded / Pending" value={`${sectionA.graded} / ${sectionA.pending}`} />
             <MetricRow
               label="Leagues"
               value={(sectionA.leagues || []).join(", ") || "—"}
+            />
+          </SectionCard>
+        ) : null}
+
+        {leagueSplit || analytics?.leagueCalibration ? (
+          <SectionCard title="League-Split Calibration">
+            <LeagueSplitSection
+              leagueSplit={leagueSplit}
+              leagueCalibration={analytics?.leagueCalibration}
             />
           </SectionCard>
         ) : null}
@@ -739,7 +908,29 @@ export default function PropLab() {
         ) : null}
 
         <SectionCard title="All-Time Analytics">
-          <MetricRow label="Tracked engine" value={allTimeRecord || "—"} />
+          <MetricRow label="Tracked engine (pooled)" value={allTimeRecord || "—"} />
+          {analytics?.leagueCalibration?.NBA ? (
+            <MetricRow
+              label="NBA all-time"
+              value={formatRecord(
+                analytics.leagueCalibration.NBA.wins,
+                analytics.leagueCalibration.NBA.losses,
+                analytics.leagueCalibration.NBA.pushes,
+                analytics.leagueCalibration.NBA.accuracy
+              )}
+            />
+          ) : null}
+          {analytics?.leagueCalibration?.WNBA ? (
+            <MetricRow
+              label="WNBA all-time"
+              value={formatRecord(
+                analytics.leagueCalibration.WNBA.wins,
+                analytics.leagueCalibration.WNBA.losses,
+                analytics.leagueCalibration.WNBA.pushes,
+                analytics.leagueCalibration.WNBA.accuracy
+              )}
+            />
+          ) : null}
           <MetricRow
             label="Fair line shadow"
             value={
@@ -960,6 +1151,26 @@ const styles = StyleSheet.create({
     color: "#cbd5e1",
     fontSize: 12,
     fontWeight: "700",
+  },
+  structuralBlock: {
+    gap: 4,
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e293b",
+  },
+  structuralLine: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
+  leagueBlock: {
+    gap: 4,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
   },
   smallNote: {
     color: "#fbbf24",

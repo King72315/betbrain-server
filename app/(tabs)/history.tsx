@@ -15,6 +15,7 @@ import CopyReportButton from "../../components/CopyReportButton";
 import PropCard, { ResultMarginText, safeDisplay } from "../../components/PropCard";
 import {
   fetchDailySlateReports,
+  fetchHistoryArchives,
   fetchPickHistory,
   fetchTrackedProps,
 } from "../../services/api";
@@ -209,6 +210,7 @@ export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [trackedProps, setTrackedProps] = useState<any[]>([]);
+  const [archives, setArchives] = useState<any[]>([]);
   const [filter, setFilter] = useState<HistoryFilter>("All");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -224,15 +226,17 @@ export default function History() {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const [pickData, reportData, trackedData] = await Promise.all([
+      const [pickData, reportData, trackedData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchTrackedProps(),
+        fetchHistoryArchives(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(reportData.reports || []);
       setTrackedProps(trackedData.props || []);
+      setArchives(archiveData.archives || []);
       setLoadError(null);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
@@ -245,15 +249,17 @@ export default function History() {
   const refreshHistory = async () => {
     try {
       setRefreshing(true);
-      const [pickData, reportData, trackedData] = await Promise.all([
+      const [pickData, reportData, trackedData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchTrackedProps(),
+        fetchHistoryArchives(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(reportData.reports || []);
       setTrackedProps(trackedData.props || []);
+      setArchives(archiveData.archives || []);
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
       setLoadError(String(err));
@@ -268,11 +274,14 @@ export default function History() {
     }, [])
   );
 
-  const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
+  const rotation = useMemo(
+    () => computeSlateRotation(reports, archives),
+    [reports, archives]
+  );
 
   const entries = useMemo(
-    () => buildHistoryEntries(picks, reports, trackedProps),
-    [picks, reports, trackedProps]
+    () => buildHistoryEntries(picks, reports, trackedProps, archives),
+    [picks, reports, trackedProps, archives]
   );
 
   const retainedEntries = useMemo(

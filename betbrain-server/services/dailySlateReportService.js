@@ -25,6 +25,15 @@ const BACKUP_FILE = path.join(
 
 const MIN_SAMPLE = 3;
 
+export const WNBA_STRUCTURAL_GAPS = {
+  availabilityGate:
+    "skipped — evaluateAvailabilityGate returns N/A for non-NBA (no injury/status gate)",
+  defenseScore:
+    "neutral default (50) — computeDefenseScore has no WNBA team season stats",
+  primaryStatSource:
+    "BallDontLie (BDL) primary — no SportsData projections, usage boost, or missing-player context",
+};
+
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -716,6 +725,62 @@ function mapTierToLabBucket(tier = "") {
   return "SHADOW_TESTING";
 }
 
+function filterByLeague(props = [], league = "NBA") {
+  return props.filter(
+    (prop) => String(prop.league || "").toUpperCase() === league
+  );
+}
+
+function buildTierPerformanceByTier(props = []) {
+  const tiers = ["PREMIUM", "PLAYABLE", "WATCHLIST", "LEAN"];
+  const result = {};
+
+  for (const tier of tiers) {
+    const tierProps = props.filter(
+      (prop) => String(prop.tier || "").toUpperCase() === tier
+    );
+    if (tierProps.length === 0) continue;
+    result[tier] = {
+      ...buildGroupPerformance(tierProps),
+      propCount: tierProps.length,
+    };
+  }
+
+  return result;
+}
+
+export function buildLeagueSplitCalibration(props = []) {
+  const leagues = ["NBA", "WNBA"];
+  const byLeague = {};
+
+  for (const league of leagues) {
+    const leagueProps = filterByLeague(props, league);
+    byLeague[league] = {
+      propCount: leagueProps.length,
+      record: buildRecord(leagueProps),
+      premium: buildGroupPerformance(
+        leagueProps.filter(
+          (prop) => String(prop.tier || "").toUpperCase() === "PREMIUM"
+        )
+      ),
+      playable: buildGroupPerformance(
+        leagueProps.filter(
+          (prop) => String(prop.tier || "").toUpperCase() === "PLAYABLE"
+        )
+      ),
+      tierBuckets: buildTierPerformanceByTier(leagueProps),
+      tierLabBuckets: buildTierLabBuckets(leagueProps),
+      riskBuckets: buildRiskBucketBreakdown(leagueProps),
+    };
+  }
+
+  return {
+    structuralNotes: WNBA_STRUCTURAL_GAPS,
+    byLeague,
+    note: "Calibration split by league — WNBA picks use same tier/confidence math but skip availability gate and use neutral defense defaults.",
+  };
+}
+
 function buildTierLabBuckets(props = []) {
   const groups = {
     OFFICIAL: [],
@@ -848,6 +913,12 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   };
 
   const tierLabBuckets = buildTierLabBuckets(slateProps);
+  const leagueSplit = buildLeagueSplitCalibration(slateProps);
+
+  const sectionL = {
+    title: "League-Split Calibration",
+    ...leagueSplit,
+  };
 
   return {
     slateDate,
@@ -861,11 +932,14 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     mistakeBreakdown: reportCard.mistakeBreakdown,
     calibrationRules: reportCard.calibrationRules,
     slateLesson: reportCard.slateLesson,
+    wnbaStructuralGaps: reportCard.wnbaStructuralGaps,
     tierLabBuckets,
+    leagueSplit,
     sections: {
       A: {
         ...sectionA,
         tierLabBuckets,
+        leagueSplit,
       },
       B: sectionB,
       C: sectionC,
@@ -880,6 +954,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
         title: "Tier Lab Buckets",
         buckets: tierLabBuckets,
       },
+      L: sectionL,
     },
   };
 }

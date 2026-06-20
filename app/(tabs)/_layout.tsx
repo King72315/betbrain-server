@@ -36,16 +36,16 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="view-picks"
+        name="results"
         options={{
-          title: "Saved",
+          title: "Results",
         }}
       />
 
       <Tabs.Screen
-        name="results"
+        name="prop-lab"
         options={{
-          title: "Results",
+          title: "Lab",
         }}
       />
 
@@ -57,9 +57,10 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="prop-lab"
+        name="view-picks"
         options={{
-          title: "Lab",
+          title: "Saved",
+          href: null,
         }}
       />
 

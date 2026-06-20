@@ -287,6 +287,65 @@ export async function findOddsEventForGame(
   return match;
 }
 
+export function computeBlowoutRiskFromSpread(spreadAbs) {
+  if (spreadAbs === null || spreadAbs === undefined) return 50;
+
+  const abs = Math.abs(Number(spreadAbs));
+
+  if (!Number.isFinite(abs)) return 50;
+
+  // Higher score = more blowout risk (compareOverUnderRisk triggers at >= 70).
+  // Pick'em (~0) → ~25; tight (~3) → ~37; moderate (~7) → ~53; wide (~12+) → ~73+.
+  return Math.max(20, Math.min(90, Math.round(25 + abs * 4)));
+}
+
+export async function fetchConsensusGameSpread(eventId, league = "NBA") {
+  if (!API_KEY || !eventId) {
+    return null;
+  }
+
+  const data = await oddsGet(
+    `${getOddsBase(league)}/events/${eventId}/odds`,
+    {
+      apiKey: API_KEY,
+      regions: "us",
+      markets: "spreads",
+      oddsFormat: "american",
+    },
+    `FETCH GAME SPREAD (${league})`
+  );
+
+  if (!data) return null;
+
+  const spreadPoints = [];
+
+  for (const book of data?.bookmakers || []) {
+    for (const market of book.markets || []) {
+      if (market.key !== "spreads") continue;
+
+      for (const outcome of market.outcomes || []) {
+        const point = Number(outcome.point);
+
+        if (Number.isFinite(point)) {
+          spreadPoints.push(Math.abs(point));
+        }
+      }
+    }
+  }
+
+  if (!spreadPoints.length) return null;
+
+  spreadPoints.sort((a, b) => a - b);
+  const mid = Math.floor(spreadPoints.length / 2);
+
+  const median =
+    spreadPoints.length % 2 === 1
+      ? spreadPoints[mid]
+      : (spreadPoints[mid - 1] + spreadPoints[mid]) / 2;
+
+  return Number(median.toFixed(1));
+}
+
 export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
   if (!API_KEY || !eventId) {
     console.log("FETCH POINT PROPS SKIPPED:", {
@@ -422,6 +481,8 @@ function buildMarketProfile({
   lineSpread = 0,
   hasBothSides = false,
 }) {
+  // Composite market trust score — downstream evidenceReliability uses marketQuality
+  // as the single book/market weight; do not also weight bookCount/consensusBookCount.
   let marketQuality = 50;
   const warnings = [];
   const strengths = [];

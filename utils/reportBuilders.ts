@@ -622,6 +622,65 @@ export function buildResultsReport(input: {
   });
 }
 
+function formatLeagueSplitRecord(leagueData: any) {
+  if (!leagueData?.record) return "—";
+  const { wins, losses, pushes, winRate } = leagueData.record;
+  return `${wins}-${losses}-${pushes} (${winRate ?? "—"}%) • ${leagueData.propCount ?? 0} props`;
+}
+
+function formatLeagueTierPerf(perf: any) {
+  if (!perf || !perf.sample) return "—";
+  return `${perf.wins}-${perf.losses}-${perf.pushes} (${perf.winRate ?? "—"}%) • n=${perf.sample}`;
+}
+
+function buildLeagueSplitReportLines(leagueSplit: any, leagueCalibration: any) {
+  const lines: string[] = [];
+  const byLeague = leagueSplit?.byLeague || {};
+  const structural =
+    leagueSplit?.structuralNotes || leagueCalibration?.structuralNotes || null;
+
+  if (structural) {
+    lines.push("WNBA structural gaps (pick pipeline — not calibration pool):");
+    lines.push(`• availability gate: ${structural.availabilityGate || "—"}`);
+    lines.push(`• defense score: ${structural.defenseScore || "—"}`);
+    lines.push(`• primary stat source: ${structural.primaryStatSource || "—"}`);
+  }
+
+  for (const league of ["NBA", "WNBA"]) {
+    const slate = byLeague[league];
+    const allTime = leagueCalibration?.[league];
+    lines.push(`\n${league} — slate record: ${slate ? formatLeagueSplitRecord(slate) : "—"}`);
+    lines.push(
+      `${league} PREMIUM (slate): ${slate ? formatLeagueTierPerf(slate.premium) : "—"}`
+    );
+    lines.push(
+      `${league} PLAYABLE (slate): ${slate ? formatLeagueTierPerf(slate.playable) : "—"}`
+    );
+    if (allTime) {
+      lines.push(
+        `${league} all-time tracked: ${allTime.wins}-${allTime.losses}-${allTime.pushes} (${allTime.accuracy ?? "—"}%) • PREMIUM ${allTime.premium?.wins ?? 0}-${allTime.premium?.losses ?? 0}-${allTime.premium?.pushes ?? 0} (${allTime.premium?.accuracy ?? "—"}%)`
+      );
+    }
+    if (slate?.riskBuckets) {
+      const riskLines = Object.entries(slate.riskBuckets)
+        .filter(([, stats]: [string, any]) => (stats.total || 0) > 0)
+        .map(
+          ([bucket, stats]: [string, any]) =>
+            `${bucket}: ${stats.wins}-${stats.losses}-${stats.pushes} (${stats.winRate ?? "—"}%)`
+        );
+      if (riskLines.length) {
+        lines.push(`${league} risk buckets: ${riskLines.join(" | ")}`);
+      }
+    }
+  }
+
+  if (leagueSplit?.note) {
+    lines.push(`\nNote: ${leagueSplit.note}`);
+  }
+
+  return lines;
+}
+
 export function buildPropLabReport(input: {
   reports: any[];
   rotation: SlateRotation;
@@ -643,6 +702,7 @@ export function buildPropLabReport(input: {
   const mistakeBreakdown = input.report?.mistakeBreakdown || input.report?.sections?.H;
   const calibrationRules = input.report?.calibrationRules || input.report?.sections?.I;
   const slateLesson = input.report?.slateLesson || input.report?.sections?.J;
+  const leagueSplit = input.report?.leagueSplit || input.report?.sections?.L;
   const status = sectionA?.reportStatus || input.report?.status || "—";
   const currentLabSlateDate = input.rotation.currentLabSlateDate;
 
@@ -708,6 +768,8 @@ export function buildPropLabReport(input: {
   ].filter(Boolean) as string[];
 
   const analyticsOverall = input.analytics?.overall;
+  const leagueCalibration = input.analytics?.leagueCalibration;
+  const leagueSplitLines = buildLeagueSplitReportLines(leagueSplit, leagueCalibration);
   const backendUrl = getApiBaseUrl();
   const backendMode = getBackendMode();
 
@@ -737,7 +799,19 @@ export function buildPropLabReport(input: {
         ? `Official props: ${sectionA.totalOfficialProps || 0} | Graded/Pending: ${sectionA.graded}/${sectionA.pending}`
         : null,
       sectionA
-        ? `Slate record: ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`
+        ? `Slate record (pooled): ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`
+        : null,
+      leagueSplit?.byLeague?.NBA
+        ? `NBA slate record: ${formatLeagueSplitRecord(leagueSplit.byLeague.NBA)}`
+        : null,
+      leagueSplit?.byLeague?.WNBA
+        ? `WNBA slate record: ${formatLeagueSplitRecord(leagueSplit.byLeague.WNBA)}`
+        : null,
+      leagueSplit?.byLeague?.NBA?.premium
+        ? `NBA PREMIUM (slate): ${formatLeagueTierPerf(leagueSplit.byLeague.NBA.premium)}`
+        : null,
+      leagueSplit?.byLeague?.WNBA?.premium
+        ? `WNBA PREMIUM (slate): ${formatLeagueTierPerf(leagueSplit.byLeague.WNBA.premium)}`
         : null,
       slateLesson?.headline || null,
       input.rotation.historySlates.length
@@ -756,6 +830,9 @@ export function buildPropLabReport(input: {
         : null,
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
+        : null,
+      leagueSplitLines.length
+        ? `\nLeague-Split Calibration\n${leagueSplitLines.join("\n")}`
         : null,
       slateLessonLines.length
         ? `\nSlate Lesson\n${slateLessonLines.join("\n")}`
