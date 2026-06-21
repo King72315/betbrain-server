@@ -132,6 +132,13 @@ import {
   getTodayLocalDate,
 } from "./services/slateScopeService.js";
 
+import {
+  getOfficialFreezeInfo,
+  OFFICIAL_FREEZE_CATALOG,
+  rehydrateLockedSlatesOnStartup,
+  restoreOfficialSlate,
+} from "./services/slateRestoreService.js";
+
 const SERVER_BUILD = "courteedge-results-today-only-v1";
 
 const ENGINE_LOAD_FLAGS = {
@@ -175,6 +182,8 @@ function requireAdminSecret(req, res, next) {
 
 let picksCache = null;
 let lastRefreshTime = 0;
+let refreshesTodayCount = 0;
+let refreshesTodayDate = "";
 
 function cacheFresh() {
   if (!picksCache) return false;
@@ -1708,6 +1717,12 @@ async function refreshAllPicks() {
 
   picksCache = result;
   lastRefreshTime = Date.now();
+  const refreshDay = getTodayLocalDate();
+  if (refreshesTodayDate !== refreshDay) {
+    refreshesTodayDate = refreshDay;
+    refreshesTodayCount = 0;
+  }
+  refreshesTodayCount += 1;
 
   console.log("REFRESH SIDE AUDIT:", result.sideAuditSummary);
 
@@ -2215,6 +2230,7 @@ app.get("/diagnostics", (req, res) => {
       lastRefreshTime: lastRefreshTime
         ? new Date(lastRefreshTime).toISOString()
         : null,
+      refreshesTodayCount,
       generatedPropCount: picksCache?.generatedPropCount ?? null,
       topPropsCount: picksCache?.topProps?.length ?? null,
     },
@@ -2320,6 +2336,57 @@ app.post("/admin/restore", (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Restore failed",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/admin/official-freeze/:slateDate", requireAdminSecret, (req, res) => {
+  try {
+    res.json(getOfficialFreezeInfo(req.params.slateDate));
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
+  try {
+    const slateDate = String(req.body?.slateDate || "");
+    const confirm = Boolean(req.body?.confirm);
+
+    if (!confirm) {
+      return res.status(400).json({
+        ok: false,
+        message: "Restore requires confirm: true and slateDate in request body",
+        catalog: Object.keys(OFFICIAL_FREEZE_CATALOG),
+      });
+    }
+
+    if (!slateDate) {
+      return res.status(400).json({
+        ok: false,
+        message: "Missing slateDate (e.g. 2026-06-21)",
+      });
+    }
+
+    const result = restoreOfficialSlate(slateDate, {
+      props: Array.isArray(req.body?.props) ? req.body.props : null,
+      reason: req.body?.reason,
+      lock: req.body?.lock !== false,
+      source: req.body?.source || "admin_restore_endpoint",
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.log("RESTORE OFFICIAL SLATE ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Official slate restore failed",
       error: error.message,
     });
   }
@@ -2507,9 +2574,18 @@ if (process.env.RUN_AUDIT === "1") {
       process.exit(1);
     });
 } else {
+  const rehydrateResult = rehydrateLockedSlatesOnStartup();
+
   app.listen(CONFIG.PORT, () => {
     console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
     console.log("CONFIG:", checkConfig());
+
+    if (rehydrateResult.results?.length) {
+      console.log(
+        "STARTUP REHYDRATION SUMMARY:",
+        JSON.stringify(rehydrateResult.results)
+      );
+    }
 
     setInterval(async () => {
       if (autoResolveRunning) return;
