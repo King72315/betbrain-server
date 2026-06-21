@@ -741,7 +741,6 @@ export function buildPropLabReport(input: {
   loading: boolean;
   building: boolean;
   refreshing: boolean;
-  filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
   const sectionA = input.report?.sections?.A;
@@ -893,9 +892,6 @@ export function buildPropLabReport(input: {
       currentLabSlateDate
         ? `Current Lab Slate (${selectedSlateLabel(currentLabSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
         : "No completed Lab slate yet. Current active slate remains in Results.",
-      input.filterAudit
-        ? `\nLatest Filter Audit (from Top Props scan)\n${formatFilterAuditSummary(input.filterAudit)}`
-        : null,
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
         : null,

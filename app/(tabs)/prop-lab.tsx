@@ -15,15 +15,12 @@ import {
   fetchDailySlateReport,
   fetchDailySlateReports,
   fetchHistoryArchives,
-  fetchTopProps,
   fetchTrackedAnalytics,
   fetchTrackedProps,
   resolveTrackedProps,
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
-import FilterAuditCard from "../../components/FilterAuditCard";
 import { buildPropLabReport } from "../../utils/reportBuilders";
-import { type FilterAudit } from "../../utils/filterAudit";
 import {
   computeSlateRotation,
   filterCompletedDailyReports,
@@ -484,7 +481,6 @@ export default function PropLab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
-  const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
 
   const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
   const currentLabSlateDate = rotation.currentLabSlateDate;
@@ -522,16 +518,14 @@ export default function PropLab() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, trackedData, topPropsData, archiveData] = await Promise.all([
+      const [analyticsData, trackedData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
         fetchTrackedProps(),
-        fetchTopProps(),
         fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
       setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
-      setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
       console.log("LOAD PROP LAB ERROR:", err);
@@ -545,16 +539,14 @@ export default function PropLab() {
       setRefreshing(true);
       await resolveTrackedProps({ requireLikelyFinished: true });
       await buildDailySlateReports();
-      const [analyticsData, trackedData, topPropsData, archiveData] = await Promise.all([
+      const [analyticsData, trackedData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
         fetchTrackedProps(),
-        fetchTopProps(),
         fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
       setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
-      setFilterAudit(topPropsData.filterAudit || null);
       await loadReports();
     } catch (err) {
       console.log("REFRESH PROP LAB ERROR:", err);
@@ -627,7 +619,6 @@ export default function PropLab() {
       loading,
       building,
       refreshing,
-      filterAudit,
     });
 
   return (
@@ -652,8 +643,6 @@ export default function PropLab() {
           />
           <CopyReportButton getReportText={getReportText} />
         </View>
-
-        <FilterAuditCard audit={filterAudit} compact />
 
         <View style={styles.actionRow}>
           <TouchableOpacity
