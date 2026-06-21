@@ -25,12 +25,23 @@ import {
 import { buildResultsReport } from "../../utils/reportBuilders";
 import {
   RESULTS_FILTERS,
+  AWAITING_STATS_LABEL,
+  PRIOR_SLATE_STILL_ACTIVE_LABEL,
+  buildKeyTakeaways,
+  computeAccuracySummary,
+  computePendingCheckSummary,
   computeVisibleResultsSlates,
   filterResultsProps,
+  formatResultsAwaitingStatsReason,
   formatResultsSlateLabel,
   getTrackedPropStatus,
+  groupResultsPropsByGame,
+  groupResultsPropsByGameState,
+  isPriorSlateStillActive,
+  pickResolveCheckMessage,
   type ResultsFilter,
 } from "../../utils/resultsQueue";
+import { computeSlateRotation, getTodayLocalDate } from "../../utils/slateRotation";
 import { type FilterAudit } from "../../utils/filterAudit";
 import { formatPropLabelLine, getPropDisplayLabels } from "../../utils/propLabels";
 
@@ -40,7 +51,7 @@ function StatusBadge({ status }: { status: string }) {
   if (normalized === "WIN") style = styles.statusWin;
   else if (normalized === "LOSS") style = styles.statusLoss;
   else if (normalized === "PUSH") style = styles.statusPush;
-  else if (normalized === "FAILED") style = styles.statusFailed;
+  else if (normalized === "AWAITING STATS") style = styles.statusFailed;
 
   return (
     <View style={[styles.statusBadge, style]}>
@@ -63,10 +74,12 @@ export default function ResultsScreen() {
   const [resolving, setResolving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
+  const [resolveCheckMessage, setResolveCheckMessage] = useState<string | null>(null);
   const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
   const [trackingMode, setTrackingMode] = useState<string | null>(null);
   const [lockedSlates, setLockedSlates] = useState<any[]>([]);
   const [lockingSlate, setLockingSlate] = useState<string | null>(null);
+  const [todayLocalDate, setTodayLocalDate] = useState(() => getTodayLocalDate());
 
   const loadData = async () => {
     try {
@@ -126,16 +139,33 @@ export default function ResultsScreen() {
   const handleResolveAll = async () => {
     try {
       setResolving(true);
+      const beforeVisible = computeVisibleResultsSlates(trackedProps, reports, getTodayLocalDate());
+
       const resolved = await resolveTrackedProps({ requireLikelyFinished: false });
       setLastResolveSummary(resolved.summary || null);
 
+      const nextTracked = resolved.props?.length ? resolved.props : trackedProps;
       if (resolved.props?.length) {
         setTrackedProps(resolved.props);
       }
 
       await buildDailySlateReports();
       const reportData = await fetchDailySlateReports();
-      setReports(reportData.reports || []);
+      const nextReports = reportData.reports || [];
+      setReports(nextReports);
+
+      const afterVisible = computeVisibleResultsSlates(nextTracked, nextReports, getTodayLocalDate());
+      const afterRotation = computeSlateRotation(nextReports, lockedSlates);
+      const afterAccuracy = computeAccuracySummary(afterVisible);
+      setResolveCheckMessage(
+        pickResolveCheckMessage({
+          beforeVisible,
+          afterVisible,
+          afterRotation,
+          gradedCount: resolved.summary?.gradedCount ?? 0,
+          awaitingStatsCount: afterAccuracy.awaitingStats,
+        })
+      );
     } catch (err) {
       console.log("RESOLVE RESULTS ERROR:", err);
       setLoadError(String(err));
@@ -169,14 +199,18 @@ export default function ResultsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setTodayLocalDate(getTodayLocalDate());
       loadData();
     }, [])
   );
 
   const visibleSlates = useMemo(
-    () => computeVisibleResultsSlates(trackedProps, reports),
-    [trackedProps, reports]
+    () => computeVisibleResultsSlates(trackedProps, reports, todayLocalDate),
+    [trackedProps, reports, todayLocalDate]
   );
+
+  const activeSlateDate = visibleSlates[0]?.slateDate || null;
+  const priorSlateStillActive = isPriorSlateStillActive(activeSlateDate, todayLocalDate);
 
   const filteredSlates = useMemo(() => {
     return visibleSlates.map((slate) => ({
@@ -184,6 +218,21 @@ export default function ResultsScreen() {
       props: filterResultsProps(slate.props, filter),
     }));
   }, [visibleSlates, filter]);
+
+  const accuracySummary = useMemo(
+    () => computeAccuracySummary(visibleSlates),
+    [visibleSlates]
+  );
+
+  const pendingCheckSummary = useMemo(
+    () => computePendingCheckSummary(lastResolveSummary, visibleSlates),
+    [lastResolveSummary, visibleSlates]
+  );
+
+  const keyTakeaways = useMemo(
+    () => buildKeyTakeaways(accuracySummary),
+    [accuracySummary]
+  );
 
   const getReportText = () =>
     buildResultsReport({
@@ -194,6 +243,7 @@ export default function ResultsScreen() {
       refreshing,
       trackingMode,
       lastResolveSummary,
+      resolveCheckMessage,
       error: loadError,
       filterAudit,
     });
@@ -216,13 +266,41 @@ export default function ResultsScreen() {
           </Text>
           <Text style={styles.motto}>
             {trackingMode === "ALL_GENERATED_PROPS"
-              ? "Every board-generated prop auto-tracks here for testing — Premium, Playable, Lean, and Watchlist. Saved picks stay Shadow Mode only."
-              : "Official tracked props live here until graded. No manual save required — Top Props auto-track on refresh."}
+              ? "Results is the active grading queue. Board-generated props appear here until graded and moved to Lab."
+              : "Results is the active grading queue. Official props appear here until graded and moved to Lab."}
           </Text>
-          <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
         </View>
 
-        <FilterAuditCard audit={filterAudit} />
+        <View style={styles.dashboardCard}>
+          <Text style={styles.dashboardTitle}>Accuracy Summary</Text>
+          <Text style={styles.currentSlateLabel}>
+            Current Results Slate: {activeSlateDate || todayLocalDate}
+            {activeSlateDate && activeSlateDate !== todayLocalDate
+              ? ` (today: ${todayLocalDate})`
+              : ""}
+          </Text>
+          {priorSlateStillActive ? (
+            <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
+          ) : null}
+          <View style={styles.accuracyGrid}>
+            <SummaryBox label="Total Tracked" value={accuracySummary.total} color="#f8fafc" />
+            <SummaryBox label="Graded" value={accuracySummary.graded} color="#22c55e" />
+            <SummaryBox label="Pending" value={accuracySummary.pending} color="#93c5fd" />
+            <SummaryBox
+              label="Awaiting Stats"
+              value={accuracySummary.awaitingStats}
+              color="#f97316"
+            />
+            <SummaryBox label="Wins" value={accuracySummary.wins} color="#4ade80" />
+            <SummaryBox label="Losses" value={accuracySummary.losses} color="#f87171" />
+            <SummaryBox label="Pushes" value={accuracySummary.pushes} color="#fbbf24" />
+            <SummaryBox
+              label="Win Rate"
+              value={accuracySummary.winRateLabel}
+              color="#e2e8f0"
+            />
+          </View>
+        </View>
 
         <TouchableOpacity
           style={[styles.actionBtn, (refreshing || resolving) && styles.actionBtnDisabled]}
@@ -230,17 +308,46 @@ export default function ResultsScreen() {
           disabled={loading || refreshing || resolving}
         >
           <Text style={styles.actionBtnText}>
-            {resolving ? "Grading..." : "Check / Refresh Grading"}
+            {resolving ? "Checking..." : "Check / Refresh Grading"}
           </Text>
         </TouchableOpacity>
 
-        {lastResolveSummary ? (
-          <Text style={styles.resolveMeta}>
-            Last check: graded {lastResolveSummary.gradedCount ?? 0} • still pending{" "}
-            {lastResolveSummary.stillPending ?? 0} • skipped{" "}
-            {lastResolveSummary.skippedNotReady ?? 0}
-          </Text>
+        {resolveCheckMessage ? (
+          <Text style={styles.resolveMeta}>{resolveCheckMessage}</Text>
         ) : null}
+
+        {pendingCheckSummary ? (
+          <View style={styles.dashboardCard}>
+            <Text style={styles.dashboardTitle}>Pending Check Summary</Text>
+            <View style={styles.pendingCheckGrid}>
+              <SummaryBox label="Checked" value={pendingCheckSummary.checked} color="#e2e8f0" />
+              <SummaryBox label="Graded" value={pendingCheckSummary.graded} color="#22c55e" />
+              <SummaryBox
+                label="Still Pending"
+                value={pendingCheckSummary.stillPending}
+                color="#93c5fd"
+              />
+              <SummaryBox
+                label="Awaiting Stats"
+                value={pendingCheckSummary.awaitingStats}
+                color="#f97316"
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {keyTakeaways.length > 0 ? (
+          <View style={styles.dashboardCard}>
+            <Text style={styles.dashboardTitle}>Key Takeaways</Text>
+            {keyTakeaways.map((line) => (
+              <Text key={line} style={styles.takeawayLine}>
+                • {line}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
 
         <ScrollView
           horizontal
@@ -281,6 +388,102 @@ export default function ResultsScreen() {
             filteredSlates.find((item) => item.slateDate === slate.slateDate)?.props ||
             [];
           const locked = isSlateLocked(slate.slateDate);
+          const gameStateGroups = groupResultsPropsByGameState(slateFiltered);
+
+          const renderPropCard = (prop: any, index: number) => {
+            const status = getTrackedPropStatus(prop);
+            const displayStatus = status.toLowerCase();
+            const labels = getPropDisplayLabels(prop);
+            const awaitingLabel = formatResultsAwaitingStatsReason(prop);
+
+            return (
+              <View
+                key={prop.trackedId || prop.trackedKey || `${prop.player}-${index}`}
+                style={[
+                  styles.propCard,
+                  status === "Win" && styles.winCard,
+                  status === "Loss" && styles.lossCard,
+                  status === "Awaiting stats" && styles.failedCard,
+                ]}
+              >
+                <View style={styles.propHeader}>
+                  <StatusBadge status={status} />
+                  <Text style={styles.propRank}>#{prop.rank ?? index + 1}</Text>
+                </View>
+                <View style={styles.labelRow}>
+                  {labels.badges.map((badge) => (
+                    <View key={`${prop.trackedKey}-${badge}`} style={styles.labelChip}>
+                      <Text style={styles.labelChipText}>{badge}</Text>
+                    </View>
+                  ))}
+                </View>
+                <PropCard
+                  pick={{
+                    ...prop,
+                    side: prop.currentEngineSide || prop.side,
+                    status: displayStatus,
+                  }}
+                  index={index}
+                />
+                <View style={styles.propMeta}>
+                  <Text style={styles.propLine}>
+                    {prop.currentEngineSide || prop.side}{" "}
+                    {safeDisplay(prop.officialLine ?? prop.line)}{" "}
+                    {prop.stat || "Points"} — {status}
+                  </Text>
+                  {prop.officialLine !== undefined &&
+                  prop.latestLine !== undefined &&
+                  num(prop.latestLine) !== num(prop.officialLine) ? (
+                    <Text style={styles.lineMovement}>
+                      Official {safeDisplay(prop.officialLine)} → Latest{" "}
+                      {safeDisplay(prop.latestLine)}
+                    </Text>
+                  ) : null}
+                  {Array.isArray(prop.lineHistory) && prop.lineHistory.length > 0 ? (
+                    <Text style={styles.propDetail}>
+                      Line history:{" "}
+                      {prop.lineHistory
+                        .slice(-3)
+                        .map((move: any) => `${move.from}→${move.to}`)
+                        .join(" • ")}
+                    </Text>
+                  ) : null}
+                  <ResultMarginText pick={prop} />
+                  <Text style={styles.propDetail}>{formatPropLabelLine(prop)}</Text>
+                  {prop.lineMovement ? (
+                    <Text style={styles.lineMovement}>
+                      Line moved {prop.lineMovement.from} → {prop.lineMovement.to}
+                    </Text>
+                  ) : null}
+                  {awaitingLabel ? (
+                    <Text style={styles.pendingReason}>{awaitingLabel}</Text>
+                  ) : null}
+                </View>
+              </View>
+            );
+          };
+
+          const renderGameStateSection = (
+            title: string,
+            props: any[],
+            note?: string
+          ) => {
+            if (!props.length) return null;
+            const byGame = groupResultsPropsByGame(props);
+
+            return (
+              <View style={styles.gameStateSection}>
+                <Text style={styles.gameStateTitle}>{title}</Text>
+                {note ? <Text style={styles.gameStateNote}>{note}</Text> : null}
+                {[...byGame.entries()].map(([game, gameProps]) => (
+                  <View key={`${slate.slateDate}-${title}-${game}`} style={styles.gameGroup}>
+                    <Text style={styles.gameGroupTitle}>{game}</Text>
+                    {gameProps.map((prop, index) => renderPropCard(prop, index))}
+                  </View>
+                ))}
+              </View>
+            );
+          };
 
           return (
             <View key={slate.slateDate} style={styles.summaryCard}>
@@ -300,102 +503,32 @@ export default function ResultsScreen() {
                   </Text>
                 </TouchableOpacity>
               ) : null}
-              <View style={styles.recordGrid}>
-                <SummaryBox label="Total" value={slateSummary?.total ?? 0} color="#f8fafc" />
-                <SummaryBox label="Graded" value={slateSummary?.graded ?? 0} color="#22c55e" />
-                <SummaryBox label="Pending" value={slateSummary?.pending ?? 0} color="#93c5fd" />
-                <SummaryBox label="Failed" value={slateSummary?.failed ?? 0} color="#f97316" />
-              </View>
-              <Text style={styles.recordLine}>
-                Record: {slateSummary?.wins ?? 0}-{slateSummary?.losses ?? 0}-{slateSummary?.pushes ?? 0}
-              </Text>
-              {slate.isComplete ? (
-                <View style={styles.completeBanner}>
-                  <Text style={styles.completeText}>Slate complete — ready for Lab</Text>
-                </View>
-              ) : null}
 
-              {slateFiltered.map((prop, index) => {
-                const status = getTrackedPropStatus(prop);
-                const displayStatus = status.toLowerCase();
-                const labels = getPropDisplayLabels(prop);
-
-                return (
-                  <View
-                    key={prop.trackedId || prop.trackedKey || `${prop.player}-${index}`}
-                    style={[
-                      styles.propCard,
-                      status === "Win" && styles.winCard,
-                      status === "Loss" && styles.lossCard,
-                      status === "Failed" && styles.failedCard,
-                    ]}
-                  >
-                    <View style={styles.propHeader}>
-                      <StatusBadge status={status} />
-                      <Text style={styles.propRank}>#{prop.rank ?? index + 1}</Text>
-                    </View>
-                    <View style={styles.labelRow}>
-                      {labels.badges.map((badge) => (
-                        <View key={`${prop.trackedKey}-${badge}`} style={styles.labelChip}>
-                          <Text style={styles.labelChipText}>{badge}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    <PropCard
-                      pick={{
-                        ...prop,
-                        side: prop.currentEngineSide || prop.side,
-                        status: displayStatus,
-                      }}
-                      index={index}
-                    />
-                    <View style={styles.propMeta}>
-                      <Text style={styles.propLine}>
-                        {prop.currentEngineSide || prop.side}{" "}
-                        {safeDisplay(prop.officialLine ?? prop.line)}{" "}
-                        {prop.stat || "Points"} — {status}
-                      </Text>
-                      {prop.officialLine !== undefined &&
-                      prop.latestLine !== undefined &&
-                      num(prop.latestLine) !== num(prop.officialLine) ? (
-                        <Text style={styles.lineMovement}>
-                          Official {safeDisplay(prop.officialLine)} → Latest{" "}
-                          {safeDisplay(prop.latestLine)}
-                        </Text>
-                      ) : null}
-                      {Array.isArray(prop.lineHistory) && prop.lineHistory.length > 0 ? (
-                        <Text style={styles.propDetail}>
-                          Line history:{" "}
-                          {prop.lineHistory
-                            .slice(-3)
-                            .map((move: any) => `${move.from}→${move.to}`)
-                            .join(" • ")}
-                        </Text>
-                      ) : null}
-                      <ResultMarginText pick={prop} />
-                      <Text style={styles.propDetail}>{formatPropLabelLine(prop)}</Text>
-                      {prop.lineMovement ? (
-                        <Text style={styles.lineMovement}>
-                          Line moved {prop.lineMovement.from} → {prop.lineMovement.to}
-                        </Text>
-                      ) : null}
-                      {prop.pendingReason ? (
-                        <Text style={styles.pendingReason}>{prop.pendingReason}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
+              {renderGameStateSection(
+                "Graded",
+                gameStateGroups.graded
+              )}
+              {renderGameStateSection(
+                "Final — Awaiting Stats",
+                gameStateGroups.awaitingStats,
+                AWAITING_STATS_LABEL
+              )}
+              {renderGameStateSection(
+                "Game Not Final — Live / Upcoming",
+                gameStateGroups.livePending
+              )}
             </View>
           );
         })}
+
+        <FilterAuditCard audit={filterAudit} />
 
         {!loading && !loadError && visibleSlates.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No active Results slate.</Text>
             <Text style={styles.emptyText}>
-              Board-generated props from Props/NBA/WNBA auto-track here during testing.
-              When the slate fully grades, it moves to Lab for analysis.
+              No unresolved slates in the Results queue. Completed slates move to Lab.
+              {todayLocalDate ? ` Today (${todayLocalDate}) may have props still on the board.` : ""}
             </Text>
           </View>
         ) : null}
@@ -458,6 +591,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
+  },
+  dashboardCard: {
+    backgroundColor: "#0f172a",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    marginBottom: 14,
+  },
+  dashboardTitle: {
+    color: "#e2e8f0",
+    fontSize: 16,
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  currentSlateLabel: {
+    color: "#facc15",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 10,
+  },
+  priorSlateNote: {
+    color: "#fdba74",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  accuracyGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  pendingCheckGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  takeawayLine: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 20,
+    marginBottom: 6,
   },
   summaryCard: {
     backgroundColor: "#111827",
@@ -535,7 +712,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     backgroundColor: "#2563eb",
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 16,
     marginBottom: 10,
   },
@@ -545,7 +722,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: "white",
     fontWeight: "900",
-    fontSize: 16,
+    fontSize: 17,
     textAlign: "center",
   },
   resolveMeta: {
@@ -727,6 +904,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 6,
+  },
+  gameStateSection: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  gameStateTitle: {
+    color: "#38bdf8",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  gameStateNote: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  gameGroup: {
+    marginBottom: 10,
+  },
+  gameGroupTitle: {
+    color: "#e2e8f0",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
   },
   lockBtn: {
     backgroundColor: "#713f12",

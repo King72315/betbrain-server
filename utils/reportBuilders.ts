@@ -16,10 +16,18 @@ import {
 import { type SlateRotation } from "./slateRotation";
 import {
   type ActiveResultsSlate,
-  computeAggregateResultsSummary,
+  buildKeyTakeaways,
+  computeAccuracySummary,
+  computePendingCheckSummary,
   formatTrackedPropGameLabel,
   getTrackedPropStatus,
+  groupResultsPropsByGame,
+  groupResultsPropsByGameState,
+  isPriorSlateStillActive,
+  AWAITING_STATS_LABEL,
+  PRIOR_SLATE_STILL_ACTIVE_LABEL,
 } from "./resultsQueue";
+import { filterCompletedDailyReports, getTodayLocalDate, isOnOrAfterCleanDataCutoff } from "./slateRotation";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -385,7 +393,10 @@ export function buildHistoryReport(input: {
   displayCleared?: boolean;
   currentLabSlateDate?: string | null;
 }) {
-  const summaryLines = input.filteredEntries.map((entry) => {
+  const cleanFilteredEntries = input.filteredEntries.filter((entry) =>
+    isOnOrAfterCleanDataCutoff(entry.slateDate)
+  );
+  const summaryLines = cleanFilteredEntries.map((entry) => {
     const typeLabel =
       entry.type === "saved-picks"
         ? "Saved Picks"
@@ -396,7 +407,7 @@ export function buildHistoryReport(input: {
     return `${formatSlateDateLabel(entry.slateDate)} | ${typeLabel} | ${(entry.leagues || []).join("/") || "—"} | ${performance}${entry.topLesson ? ` | Lesson: ${entry.topLesson}` : ""}`;
   });
 
-  const detailBlocks = input.filteredEntries.slice(0, 12).map((entry) => {
+  const detailBlocks = cleanFilteredEntries.slice(0, 12).map((entry) => {
     const header = joinLines([
       `--- ${formatSlateDateLabel(entry.slateDate)} (${entry.type === "saved-picks" ? "Saved Picks" : entry.archiveLabel || "Archived Lab Slate"}) ---`,
       `Leagues: ${(entry.leagues || []).join(", ") || "—"}`,
@@ -500,13 +511,21 @@ export function buildResultsReport(input: {
   refreshing: boolean;
   trackingMode?: string | null;
   lastResolveSummary?: any;
+  resolveCheckMessage?: string | null;
   filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
   const isAllGeneratedMode = input.trackingMode === "ALL_GENERATED_PROPS";
   const propLabel = isAllGeneratedMode ? "Generated Props" : "Official Props";
-  const aggregate = computeAggregateResultsSummary(input.visibleSlates);
-  const visiblePending = aggregate.pending + aggregate.failed;
+  const accuracy = computeAccuracySummary(input.visibleSlates);
+  const pendingCheck = computePendingCheckSummary(
+    input.lastResolveSummary,
+    input.visibleSlates
+  );
+  const takeaways = buildKeyTakeaways(accuracy);
+  const todayLocalDate = getTodayLocalDate();
+  const activeSlateDate = input.visibleSlates[0]?.slateDate || todayLocalDate;
+  const priorSlateStillActive = isPriorSlateStillActive(activeSlateDate, todayLocalDate);
 
   const formatResultPropLine = (prop: any, index: number) => {
     const status = getTrackedPropStatus(prop);
@@ -525,40 +544,80 @@ export function buildResultsReport(input: {
 
   const slateSections = input.filteredSlates.map((slate) => {
     const slateProps = slate.props.slice(0, 40);
-    const propLines = slateProps.map((prop, index) => formatResultPropLine(prop, index));
+    const gameState = groupResultsPropsByGameState(slateProps);
+
+    const formatGameStateBlock = (
+      title: string,
+      props: any[],
+      note?: string
+    ) => {
+      if (!props.length) return null;
+      const byGame = groupResultsPropsByGame(props);
+      const lines: string[] = [`--- ${title} ---`];
+      if (note) lines.push(note);
+      for (const [game, gameProps] of byGame.entries()) {
+        lines.push(`Game: ${game}`);
+        gameProps.forEach((prop, index) => {
+          lines.push(formatResultPropLine(prop, index));
+        });
+      }
+      return lines.join("\n");
+    };
 
     return joinLines([
-      `--- Active Grading Queue: ${slate.slateDate} ---`,
-      `${propLabel} entered queue: ${slate.summary?.total ?? slateProps.length}`,
-      propLines.length ? propLines.join("\n\n") : `No ${propLabel.toLowerCase()} in this view.`,
+      `--- Active Slate: ${slate.slateDate} ---`,
+      `Current Results Slate: ${activeSlateDate}`,
+      `${propLabel} in queue: ${slate.summary?.total ?? slateProps.length}`,
+      `Graded: ${slate.summary?.graded ?? 0} | Pending: ${slate.summary?.pending ?? 0} | Awaiting Stats: ${slate.summary?.failed ?? 0}`,
+      slate.summary?.graded
+        ? `Record: ${slate.summary.wins}-${slate.summary.losses}-${slate.summary.pushes}`
+        : null,
+      formatGameStateBlock("Graded", gameState.graded),
+      formatGameStateBlock(
+        "Final — Awaiting Stats",
+        gameState.awaitingStats,
+        AWAITING_STATS_LABEL
+      ),
+      formatGameStateBlock("Game Not Final — Live / Upcoming", gameState.livePending),
+      !slateProps.length ? `No ${propLabel.toLowerCase()} in this view.` : null,
     ]);
   });
 
-  const backendPendingTotal = input.lastResolveSummary?.pendingTotal;
-  const resolveDelta =
-    backendPendingTotal !== undefined && backendPendingTotal !== null
-      ? backendPendingTotal - visiblePending
+  const accuracyBlock = joinLines([
+    "--- Accuracy Summary ---",
+    `Current Results Slate: ${activeSlateDate}`,
+    priorSlateStillActive ? PRIOR_SLATE_STILL_ACTIVE_LABEL : null,
+    `Today (CT): ${todayLocalDate}`,
+    `Total Tracked: ${accuracy.total}`,
+    `Graded: ${accuracy.graded}`,
+    `Pending: ${accuracy.pending}`,
+    `Awaiting Stats: ${accuracy.awaitingStats}`,
+    `Wins: ${accuracy.wins} | Losses: ${accuracy.losses} | Pushes: ${accuracy.pushes}`,
+    `Win Rate: ${accuracy.winRateLabel} (pushes excluded)`,
+  ]);
+
+  const pendingCheckBlock = pendingCheck
+    ? joinLines([
+        "--- Pending Check Summary ---",
+        `Checked: ${pendingCheck.checked}`,
+        `Graded: ${pendingCheck.graded}`,
+        `Still Pending: ${pendingCheck.stillPending}`,
+        `Awaiting Stats: ${pendingCheck.awaitingStats}`,
+        input.resolveCheckMessage ? `Last check message: ${input.resolveCheckMessage}` : null,
+      ])
+    : input.resolveCheckMessage
+      ? joinLines([
+          "--- Pending Check Summary ---",
+          `Last check message: ${input.resolveCheckMessage}`,
+        ])
       : null;
 
-  const resolveLines = input.lastResolveSummary
-    ? joinLines([
-        `pending total (backend all tracked): ${backendPendingTotal ?? "—"}`,
-        `visible queue pending: ${visiblePending}`,
-        resolveDelta !== null && resolveDelta !== 0
-          ? `delta: ${resolveDelta > 0 ? "+" : ""}${resolveDelta} — backend counts all pending tracked props; Results shows in-progress slates only. Props missing slateDate are grouped via gameDate/commenceTime fallback. Completed Lab slates are excluded.`
-          : resolveDelta === 0
-            ? "delta: 0 — backend pending matches visible Results queue."
-            : null,
-        `gradeable: ${input.lastResolveSummary.gradeable ?? "—"}`,
-        `graded this run: ${input.lastResolveSummary.gradedCount ?? "—"}`,
-        `still pending: ${input.lastResolveSummary.stillPending ?? "—"}`,
-        `skipped not ready: ${input.lastResolveSummary.skippedNotReady ?? "—"}`,
-      ])
-    : "No resolve run captured this session.";
+  const takeawaysBlock = takeaways.length
+    ? joinLines(["--- Key Takeaways ---", ...takeaways.map((line) => `• ${line}`)])
+    : null;
 
-  const debugNotes = isAllGeneratedMode
-    ? "All generated props auto-track on board refresh. Results is the active grading queue only — not saved picks."
-    : "Official Top Props auto-track on board refresh. Results is the active grading queue only — not saved picks.";
+  const debugNotes =
+    "Results shows the oldest unresolved clean-era slate (one at a time). Future slates stay on the board until active. Completed slates move to Lab; archived slates appear in History.";
 
   return buildPageReport({
     page: "Results",
@@ -566,38 +625,37 @@ export function buildResultsReport(input: {
     dataSource: "GET /tracked-props + POST /resolve-tracked-props",
     extraContext: {
       "Active Slates": input.visibleSlates.length,
-      [`Total ${propLabel} in Queue`]: aggregate.total,
-      "Total Pending": visiblePending,
-      "Total Graded": aggregate.graded,
-      "Total Failed": aggregate.failed,
+      [`Total ${propLabel} in Queue`]: accuracy.total,
+      Pending: accuracy.pending,
+      "Awaiting Stats": accuracy.awaitingStats,
+      Graded: accuracy.graded,
       Loading: input.loading,
       Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
+      `Current Results Slate: ${activeSlateDate}`,
+      priorSlateStillActive ? PRIOR_SLATE_STILL_ACTIVE_LABEL : null,
+      `Today (CT): ${todayLocalDate}`,
       input.visibleSlates.length
-        ? `Active Slates: ${input.visibleSlates.length}`
-        : "No active grading slate.",
-      aggregate.total
-        ? `Total ${propLabel}: ${aggregate.total} | Pending: ${visiblePending} | Graded: ${aggregate.graded} | Failed: ${aggregate.failed}`
+        ? `Active queue: ${input.visibleSlates.length} slate (${activeSlateDate})`
+        : "No active Results slate.",
+      accuracy.total
+        ? `Total ${propLabel}: ${accuracy.total} | Graded: ${accuracy.graded} | Pending: ${accuracy.pending} | Awaiting Stats: ${accuracy.awaitingStats}`
         : null,
-      aggregate.graded
-        ? `Record: ${aggregate.wins}-${aggregate.losses}-${aggregate.pushes}`
-        : null,
-      input.visibleSlates.some((slate) => slate.isComplete)
-        ? "One or more slates complete — ready for Lab."
+      accuracy.graded
+        ? `Record: ${accuracy.wins}-${accuracy.losses}-${accuracy.pushes} | Win Rate: ${accuracy.winRateLabel}`
         : null,
       `Filter: ${input.filter}`,
     ]),
     mainData: joinLines([
+      accuracyBlock,
+      "",
+      pendingCheckBlock,
+      pendingCheckBlock ? "" : null,
+      takeawaysBlock,
+      takeawaysBlock ? "" : null,
       input.visibleSlates.length
-        ? joinLines([
-            `Active Slates: ${input.visibleSlates.length}`,
-            `Total ${propLabel} in Queue: ${aggregate.total}`,
-            `Total Pending: ${visiblePending}`,
-            `Total Graded: ${aggregate.graded}`,
-            `Total Failed: ${aggregate.failed}`,
-            "",
-          ])
+        ? "--- Active Slate Details ---"
         : "--- No active Results slate ---",
       slateSections.length
         ? slateSections.join("\n\n")
@@ -605,16 +663,10 @@ export function buildResultsReport(input: {
       input.filterAudit
         ? `\nLatest scan filter audit: ${input.filterAudit.filteredOut ?? 0} filtered of ${input.filterAudit.totalScanned ?? 0} scanned`
         : null,
-      "",
-      "--- Last Resolve Summary ---",
-      resolveLines,
     ]),
     warnings: joinLines([
       !input.loading && input.visibleSlates.length === 0
-        ? "No in-progress grading slate. Completed slates move to Lab; older ones archive in History."
-        : null,
-      input.visibleSlates.some((slate) => slate.isComplete)
-        ? "All props graded for one or more slates. Build/refresh Lab report when ready."
+        ? "No active Results slate. Completed slates move to Lab."
         : null,
     ]) || undefined,
     errors: input.error || undefined,
@@ -772,6 +824,20 @@ export function buildPropLabReport(input: {
   const leagueSplitLines = buildLeagueSplitReportLines(leagueSplit, leagueCalibration);
   const backendUrl = getApiBaseUrl();
   const backendMode = getBackendMode();
+  const validCompletedReports = filterCompletedDailyReports(
+    (input.reports || []).filter((report) =>
+      isOnOrAfterCleanDataCutoff(report?.slateDate)
+    )
+  );
+  const reportsAvailable = validCompletedReports.length;
+  const hasLabSlate = Boolean(currentLabSlateDate && input.report);
+  const allTimeRecord = hasLabSlate && analyticsOverall?.currentEngine
+    ? `${analyticsOverall.currentEngine.wins}-${analyticsOverall.currentEngine.losses}-${analyticsOverall.currentEngine.pushes} (${analyticsOverall.currentEngine.accuracy}%)`
+    : "—";
+  const trackedTotal = hasLabSlate ? analyticsOverall?.total || 0 : 0;
+  const fairLineShadowRecord = hasLabSlate && analyticsOverall?.fairLineShadow
+    ? `${analyticsOverall.fairLineShadow.wins}-${analyticsOverall.fairLineShadow.losses}-${analyticsOverall.fairLineShadow.pushes} (${analyticsOverall.fairLineShadow.accuracy}%)`
+    : "—";
 
   return buildPageReport({
     page: "Prop Lab",
@@ -781,9 +847,9 @@ export function buildPropLabReport(input: {
     extraContext: {
       "Current Lab Slate": currentLabSlateDate || "—",
       "History Slates": input.rotation.historySlates.length,
-      "Active / In-Progress": input.rotation.activeResults.length,
-      "Report Status": status,
-      "Reports Available": input.reports.length,
+      "Active / In-Progress": 0,
+      "Report Status": hasLabSlate ? status : "—",
+      "Reports Available": reportsAvailable,
       "Backend URL": backendUrl,
       "Backend Mode": backendMode,
       Loading: input.loading,
@@ -793,8 +859,8 @@ export function buildPropLabReport(input: {
     visibleSummary: joinLines([
       currentLabSlateDate
         ? `Current Lab Slate: ${selectedSlateLabel(currentLabSlateDate)}`
-        : "Waiting for completed slate.",
-      `Report status: ${String(status).toUpperCase()}`,
+        : "No completed Lab slate yet. Current active slate remains in Results.",
+      hasLabSlate ? `Report status: ${String(status).toUpperCase()}` : null,
       sectionA
         ? `Official props: ${sectionA.totalOfficialProps || 0} | Graded/Pending: ${sectionA.graded}/${sectionA.pending}`
         : null,
@@ -817,14 +883,16 @@ export function buildPropLabReport(input: {
       input.rotation.historySlates.length
         ? `Archived in History: ${input.rotation.historySlates.length} older completed slate(s)`
         : null,
-      analyticsOverall?.currentEngine
-        ? `All-time tracked engine: ${analyticsOverall.currentEngine.wins}-${analyticsOverall.currentEngine.losses}-${analyticsOverall.currentEngine.pushes} (${analyticsOverall.currentEngine.accuracy}%)`
-        : null,
+      analyticsOverall?.currentEngine && hasLabSlate
+        ? `All-time tracked engine: ${allTimeRecord}`
+        : hasLabSlate
+          ? null
+          : "All-time tracked engine: —",
     ]),
     mainData: joinLines([
       currentLabSlateDate
         ? `Current Lab Slate (${selectedSlateLabel(currentLabSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
-        : "No completed Lab slate yet — in-progress slates stay in Results.",
+        : "No completed Lab slate yet. Current active slate remains in Results.",
       input.filterAudit
         ? `\nLatest Filter Audit (from Top Props scan)\n${formatFilterAuditSummary(input.filterAudit)}`
         : null,
@@ -864,13 +932,9 @@ export function buildPropLabReport(input: {
       recLines.length
         ? `\nLegacy Calibration Recommendations\n${bulletList(recLines)}`
         : null,
-      analyticsOverall
-        ? `\nTracked Props Summary\nTotal tracked: ${analyticsOverall.total || 0} | Fair line shadow: ${
-            analyticsOverall.fairLineShadow
-              ? `${analyticsOverall.fairLineShadow.wins}-${analyticsOverall.fairLineShadow.losses}-${analyticsOverall.fairLineShadow.pushes} (${analyticsOverall.fairLineShadow.accuracy}%)`
-              : "—"
-          }`
-        : null,
+      hasLabSlate
+        ? `\nTracked Props Summary\nTotal tracked: ${trackedTotal} | Fair line shadow: ${fairLineShadowRecord}`
+        : `\nTracked Props Summary\nTotal tracked: 0 | Fair line shadow: —`,
       input.rotation.historySlates.length
         ? `\nHistory Rotation\n${input.rotation.historySlates
             .slice(0, 8)
@@ -878,16 +942,7 @@ export function buildPropLabReport(input: {
               (item) =>
                 `${item.slateDate}: archived • ${item.sections?.A?.wins ?? 0}-${item.sections?.A?.losses ?? 0}-${item.sections?.A?.pushes ?? 0}`
             )
-            .join("\n")}`
-        : null,
-      input.rotation.activeResults.length
-        ? `\nIn-Progress (not in Lab)\n${input.rotation.activeResults
-            .slice(0, 8)
-            .map(
-              (item) =>
-                `${item.slateDate}: ${item.status || item.sections?.A?.reportStatus || "in-progress"} • pending ${item.sections?.A?.pending ?? "—"}`
-            )
-            .join("\n")}`
+            .join("\n")}` 
         : null,
       `\nBackend URL: ${backendUrl}`,
       `Backend Mode: ${backendMode}`,
@@ -899,7 +954,9 @@ export function buildPropLabReport(input: {
           ? `${sectionA.pending} prop(s) still pending — report updates when all grade.`
           : undefined,
     errors: input.error || undefined,
-    debugNotes: `Lab rotation: current=${currentLabSlateDate || "none"} | history=${input.rotation.historySlates.length} | active=${input.rotation.activeResults.length}. Backend: ${backendUrl} (${backendMode})`,
+    debugNotes: hasLabSlate
+      ? `Lab rotation: current=${currentLabSlateDate || "none"} | history=${input.rotation.historySlates.length} | active=${input.rotation.activeResults.length}. Backend: ${backendUrl} (${backendMode})`
+      : `Lab rotation: no completed slate. Active slates remain in Results. Backend: ${backendUrl} (${backendMode})`,
   });
 }
 

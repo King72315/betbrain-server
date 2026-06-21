@@ -24,7 +24,11 @@ import CopyReportButton from "../../components/CopyReportButton";
 import FilterAuditCard from "../../components/FilterAuditCard";
 import { buildPropLabReport } from "../../utils/reportBuilders";
 import { type FilterAudit } from "../../utils/filterAudit";
-import { computeSlateRotation } from "../../utils/slateRotation";
+import {
+  computeSlateRotation,
+  filterCompletedDailyReports,
+  filterValidDailyReports,
+} from "../../utils/slateRotation";
 import { formatPropLabelLine } from "../../utils/propLabels";
 
 function formatPct(value: number | null | undefined) {
@@ -484,17 +488,23 @@ export default function PropLab() {
 
   const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
   const currentLabSlateDate = rotation.currentLabSlateDate;
+  const validCompletedReports = useMemo(
+    () => filterCompletedDailyReports(reports),
+    [reports]
+  );
+  const hasCompletedLabSlate = Boolean(currentLabSlateDate && report);
 
   const loadReports = async () => {
     const list = await fetchDailySlateReports();
-    const sorted = list.reports || [];
-    setReports(sorted);
+    const rawReports = list.reports || [];
+    const validReports = filterValidDailyReports(rawReports);
+    setReports(validReports);
 
-    const { currentLabSlateDate: labDate } = computeSlateRotation(sorted);
+    const { currentLabSlateDate: labDate } = computeSlateRotation(validReports);
 
     if (labDate) {
       const frozenReport =
-        sorted.find(
+        validReports.find(
           (r) =>
             r.slateDate === labDate && (r.frozen === true || r.locked === true)
         ) || null;
@@ -502,7 +512,7 @@ export default function PropLab() {
         ? { ok: true, report: frozenReport }
         : await fetchDailySlateReport(labDate);
       setReport(
-        detail.report || sorted.find((r) => r.slateDate === labDate) || null
+        detail.report || validReports.find((r) => r.slateDate === labDate) || null
       );
     } else {
       setReport(null);
@@ -600,10 +610,13 @@ export default function PropLab() {
   }, [slateTrackedProps]);
 
   const allTimeRecord = useMemo(() => {
+    if (!hasCompletedLabSlate) return null;
     const o = analytics?.overall?.currentEngine;
-    if (!o) return null;
+    if (!o || (o.wins + o.losses + o.pushes === 0 && analytics?.overall?.total === 0)) {
+      return null;
+    }
     return formatRecord(o.wins, o.losses, o.pushes, o.accuracy);
-  }, [analytics]);
+  }, [analytics, hasCompletedLabSlate]);
 
   const getReportText = () =>
     buildPropLabReport({
@@ -630,10 +643,13 @@ export default function PropLab() {
           <Text style={styles.title}>Prop Lab</Text>
           <Text style={styles.subtitle}>Current Completed Slate — Learning & Calibration</Text>
           <Text style={styles.note}>
-            Lab analyzes all tracked props after the slate completes — tier, risk, confidence,
-            book count, and data mode breakdowns included. Official Premium performance is
-            shown separately for comparison.
+            Lab analyzes completed slates only — tier, risk, confidence, book count, and data mode
+            breakdowns. Active grading stays in Results until the slate is fully graded.
           </Text>
+          <MetricRow
+            label="Reports Available"
+            value={String(validCompletedReports.length)}
+          />
           <CopyReportButton getReportText={getReportText} />
         </View>
 
@@ -655,17 +671,10 @@ export default function PropLab() {
 
         {!loading && !report ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Waiting for completed slate.</Text>
+            <Text style={styles.emptyTitle}>No completed Lab slate yet.</Text>
             <Text style={styles.emptyText}>
-              Lab shows the most recent fully graded official slate. In-progress slates remain
-              in Results until all props grade and the report is final.
+              Current active slate remains in Results.
             </Text>
-            {rotation.activeResults.length > 0 ? (
-              <Text style={styles.activeNote}>
-                {rotation.activeResults.length} in-progress slate report
-                {rotation.activeResults.length === 1 ? "" : "s"} — not shown in Lab yet.
-              </Text>
-            ) : null}
           </View>
         ) : null}
 
@@ -909,7 +918,7 @@ export default function PropLab() {
 
         <SectionCard title="All-Time Analytics">
           <MetricRow label="Tracked engine (pooled)" value={allTimeRecord || "—"} />
-          {analytics?.leagueCalibration?.NBA ? (
+          {hasCompletedLabSlate && analytics?.leagueCalibration?.NBA ? (
             <MetricRow
               label="NBA all-time"
               value={formatRecord(
@@ -920,7 +929,7 @@ export default function PropLab() {
               )}
             />
           ) : null}
-          {analytics?.leagueCalibration?.WNBA ? (
+          {hasCompletedLabSlate && analytics?.leagueCalibration?.WNBA ? (
             <MetricRow
               label="WNBA all-time"
               value={formatRecord(
@@ -934,7 +943,7 @@ export default function PropLab() {
           <MetricRow
             label="Fair line shadow"
             value={
-              analytics?.overall?.fairLineShadow
+              hasCompletedLabSlate && analytics?.overall?.fairLineShadow
                 ? formatRecord(
                     analytics.overall.fairLineShadow.wins,
                     analytics.overall.fairLineShadow.losses,
@@ -946,7 +955,7 @@ export default function PropLab() {
           />
           <MetricRow
             label="Total tracked"
-            value={String(analytics?.overall?.total || 0)}
+            value={String(hasCompletedLabSlate ? analytics?.overall?.total || 0 : 0)}
           />
         </SectionCard>
 

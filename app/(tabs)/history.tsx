@@ -37,7 +37,7 @@ import {
   type HistoryDisplayClear,
 } from "../../utils/historyRetention";
 import { buildHistoryReport } from "../../utils/reportBuilders";
-import { computeSlateRotation } from "../../utils/slateRotation";
+import { computeSlateRotation, filterValidDailyReports } from "../../utils/slateRotation";
 
 function TypeBadge({ type, archiveLabel }: { type: HistoryEntry["type"]; archiveLabel?: string | null }) {
   const isSaved = type === "saved-picks";
@@ -234,7 +234,7 @@ export default function History() {
       ]);
 
       setPicks(pickData.picks || []);
-      setReports(reportData.reports || []);
+      setReports(filterValidDailyReports(reportData.reports || []));
       setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
       setLoadError(null);
@@ -257,7 +257,7 @@ export default function History() {
       ]);
 
       setPicks(pickData.picks || []);
-      setReports(reportData.reports || []);
+      setReports(filterValidDailyReports(reportData.reports || []));
       setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
     } catch (err) {

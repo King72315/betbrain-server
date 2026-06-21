@@ -4,8 +4,10 @@ import { fileURLToPath } from "url";
 
 import {
   fetchFinalPlayerStats,
+  evaluateGradingBlock,
   getCachedStatsForPick,
   getPickDate,
+  getPickSlateDate,
   gradePointsPick,
   isPickGameStarted,
   isPickLikelyFinished,
@@ -14,11 +16,17 @@ import {
 } from "./resultService.js";
 
 import {
-  getLockedSnapshot,
   getHistoryArchiveProps,
   isSlateLocked,
   recordBlockedWrite,
 } from "./slateLockService.js";
+import {
+  filterCompletedDailyReports,
+  getTodayLocalDate,
+  isCompletedSlate,
+  isFutureSlateDate,
+  isOnOrAfterCleanDataCutoff,
+} from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1345,6 +1353,53 @@ export function getTrackedProps() {
   return readJSON(TRACKED_FILE, []);
 }
 
+/** Props eligible for Lab/History analytics — completed slates only, never active/future/pre-cutoff. */
+export function getAnalyticsScopeProps(
+  trackedProps = getTrackedProps(),
+  reports = [],
+  archives = []
+) {
+  const today = getTodayLocalDate();
+  const completedDates = new Set(
+    filterCompletedDailyReports(reports, today).map((report) =>
+      String(report.slateDate)
+    )
+  );
+
+  for (const archive of archives || []) {
+    const slateDate = String(archive?.slateDate || "");
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isFutureSlateDate(slateDate, today)) continue;
+    if (completedDates.has(slateDate)) continue;
+
+    const archiveReport = archive.report;
+    if (archiveReport && isCompletedSlate(archiveReport)) {
+      completedDates.add(slateDate);
+    }
+  }
+
+  const scoped = [];
+
+  for (const slateDate of completedDates) {
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+
+    const archive = archives.find((item) => String(item?.slateDate) === slateDate);
+    if (archive?.props?.length) {
+      scoped.push(...archive.props);
+      continue;
+    }
+
+    scoped.push(
+      ...trackedProps.filter((prop) => {
+        const propDate = String(prop.slateDate || getPickSlateDate(prop) || "");
+        return propDate === slateDate;
+      })
+    );
+  }
+
+  return scoped;
+}
+
 export function deleteTrackedProp(id) {
   const targetId = String(id || "");
   if (!targetId) return { ok: false, message: "Missing tracked prop id" };
@@ -1373,6 +1428,106 @@ export function clearTrackedProps() {
 
   writeJSON(TRACKED_FILE, []);
   return { ok: true, message: "Tracked props cleared", props: [] };
+}
+
+const CHI_DAL_RESET_PLAYERS = new Set([
+  "Gabriela Jaquez",
+  "Arike Ogunbowale",
+  "Sydney Taylor",
+  "Azzi Fudd",
+  "Awak Kuier",
+]);
+
+function isChiDalEarlyGradeProp(prop = {}) {
+  const slateDate = prop.slateDate || prop.gameDate || "";
+  if (slateDate !== "2026-06-20") return false;
+  if (!CHI_DAL_RESET_PLAYERS.has(prop.player)) return false;
+
+  const team = String(prop.team || "").toLowerCase();
+  const opponent = String(prop.opponent || "").toLowerCase();
+  const pair = new Set([team, opponent]);
+
+  return pair.has("chicagosky") && pair.has("dallaswings");
+}
+
+function buildChiDalResetProp(prop = {}, options = {}) {
+  const pendingReason =
+    options.pendingReason === undefined ? "Game not final yet." : options.pendingReason;
+
+  return {
+    ...prop,
+    status: "pending",
+    pendingReason,
+    actualStat: null,
+    actualPoints: null,
+    finalPoints: null,
+    result: null,
+    resultMargin: null,
+    margin: null,
+    gradedAt: null,
+    resolvedAt: null,
+    matchedSource: null,
+    matchedDate: null,
+    matchedGameId: null,
+    matchVerified: false,
+    resultConfidence: null,
+    gradingNotes: null,
+    resultSource: null,
+    resultMeta: null,
+    hit: null,
+    push: null,
+    currentEngineResult: null,
+    currentEngineWon: null,
+    currentEngineMargin: null,
+    fairLineShadowResult: null,
+    fairLineShadowWon: null,
+    fairLineShadowMargin: null,
+    resolveDebug: {
+      ...(prop.resolveDebug || {}),
+      resetReason: "chi-dal-early-grade-reset-20260621",
+      resetAt: new Date().toISOString(),
+    },
+  };
+}
+
+/** Reset CHI/DAL 2026-06-20 props graded from live in-game stats. Preserves pick metadata. */
+export function resetChiDalBadGrades(options = {}) {
+  const tracked = readJSON(TRACKED_FILE, []);
+  const backupSuffix = String(options.backupSuffix || "before-chi-dal-reset-20260621");
+  const backupPath = `${TRACKED_FILE}-${backupSuffix}`;
+
+  fs.copyFileSync(TRACKED_FILE, backupPath);
+
+  let resetCount = 0;
+  const resetPlayers = [];
+
+  const next = tracked.map((prop) => {
+    if (!isChiDalEarlyGradeProp(prop)) return prop;
+    resetCount += 1;
+    resetPlayers.push(prop.player);
+    return buildChiDalResetProp(prop, options);
+  });
+
+  if (resetCount === 0) {
+    return {
+      ok: false,
+      status: 404,
+      message: "No matching CHI/DAL 2026-06-20 props found to reset",
+      backup: backupPath,
+      resetCount: 0,
+    };
+  }
+
+  writeJSON(TRACKED_FILE, next);
+
+  return {
+    ok: true,
+    message: `Reset ${resetCount} CHI/DAL early-grade prop(s) to pending`,
+    backup: backupPath,
+    resetCount,
+    resetPlayers,
+    props: next,
+  };
 }
 
 export async function resolveTrackedProps(options = {}) {
@@ -1405,6 +1560,25 @@ export async function resolveTrackedProps(options = {}) {
       continue;
     }
 
+    const gradingBlock = evaluateGradingBlock(item);
+    if (gradingBlock.blocked) {
+      skippedNotReady += 1;
+      updated.push({
+        ...item,
+        resolveDebug: {
+          ...(item.resolveDebug || {}),
+          gameStarted: gradingBlock.gameStarted,
+          gameLikelyFinished: gradingBlock.gameLikelyFinished,
+          blockedByFutureGame: gradingBlock.blockedByFutureGame,
+          blockedByCommenceTime: gradingBlock.blockedByCommenceTime,
+          blockedByGameNotStarted: gradingBlock.blockedByGameNotStarted,
+          blocked: true,
+          at: new Date().toISOString(),
+        },
+      });
+      continue;
+    }
+
     if (!isReadyToGrade(item)) {
       skippedNotReady += 1;
       updated.push(item);
@@ -1417,6 +1591,26 @@ export async function resolveTrackedProps(options = {}) {
       item,
       playerStats
     );
+
+    if (statResult && resolveDebug?.blockedByGameNotFinal) {
+      stillPending += 1;
+      updated.push({
+        ...item,
+        status: "pending",
+        pendingReason: pendingReason || "Game not final yet.",
+        resolveDebug,
+        actualStat: null,
+        result: null,
+        resultMargin: null,
+        margin: null,
+        gradedAt: null,
+        matchedSource: null,
+        matchedDate: null,
+        matchedGameId: null,
+      });
+      continue;
+    }
+
     const graded = gradeTrackedProp(item, statResult, {
       pendingReason,
       resolveDebug,

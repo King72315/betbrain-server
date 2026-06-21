@@ -95,7 +95,9 @@ import {
   clearTrackedProps,
   collectAllGeneratedProps,
   deleteTrackedProp,
+  getAnalyticsScopeProps,
   getTrackedProps,
+  resetChiDalBadGrades,
   resolveTrackedProps,
 } from "./services/trackedPropService.js";
 
@@ -104,6 +106,7 @@ import {
   buildDailySlateReportsFromTrackedProps,
   getDailySlateReport,
   getDailySlateReports,
+  getRawDailySlateReports,
 } from "./services/dailySlateReportService.js";
 
 import {
@@ -123,7 +126,12 @@ import {
   lockSlate,
 } from "./services/slateLockService.js";
 
-const SERVER_BUILD = "courteedge-os-lock-v1";
+import {
+  buildCourtEdgeFlowDiagnostics,
+  getTodayLocalDate,
+} from "./services/slateScopeService.js";
+
+const SERVER_BUILD = "courteedge-game-final-guard-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -138,6 +146,31 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+function requireAdminSecret(req, res, next) {
+  const secret = String(process.env.ADMIN_SECRET || "").trim();
+  if (!secret) {
+    return res.status(503).json({
+      ok: false,
+      message: "ADMIN_SECRET is not configured on this server",
+    });
+  }
+
+  const provided = String(
+    req.headers["x-admin-secret"] ||
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "") ||
+      ""
+  ).trim();
+
+  if (provided !== secret) {
+    return res.status(401).json({
+      ok: false,
+      message: "Unauthorized — provide x-admin-secret header",
+    });
+  }
+
+  next();
+}
 
 let picksCache = null;
 let lastRefreshTime = 0;
@@ -1923,13 +1956,17 @@ app.get("/tracked-props", (req, res) => {
 });
 
 app.get("/tracked-props/analytics", (req, res) => {
-  const props = getTrackedProps();
-  const analytics = buildTrackedPropAnalytics(props);
+  const trackedProps = getTrackedProps();
+  const rawReports = getRawDailySlateReports();
+  const archives = getAllHistoryArchives();
+  const scopedProps = getAnalyticsScopeProps(trackedProps, rawReports, archives);
+  const analytics = buildTrackedPropAnalytics(scopedProps);
 
   res.json({
     ok: true,
     analytics,
-    count: props.length,
+    count: scopedProps.length,
+    scope: "completed_lab_history_only",
   });
 });
 
@@ -1944,7 +1981,13 @@ app.post("/resolve-tracked-props", async (req, res) => {
       message: "Tracked props resolved",
       props,
       summary,
-      analytics: buildTrackedPropAnalytics(props),
+      analytics: buildTrackedPropAnalytics(
+        getAnalyticsScopeProps(
+          props,
+          getRawDailySlateReports(),
+          getAllHistoryArchives()
+        )
+      ),
     });
   } catch (error) {
     console.log("RESOLVE TRACKED PROPS ERROR:", error.message);
@@ -2108,6 +2151,7 @@ app.get("/diagnostics", (req, res) => {
   const tracked = getTrackedProps();
   const registry = getLockedSlatesRegistry();
   const dupes = countDuplicateStableKeys(tracked);
+  const rawReports = getRawDailySlateReports();
   const reports = getDailySlateReports();
   const activeSlates = [
     ...new Set(tracked.map((p) => p.slateDate).filter(Boolean)),
@@ -2127,6 +2171,19 @@ app.get("/diagnostics", (req, res) => {
     labReport,
   });
 
+  const archives = getAllHistoryArchives();
+  const courtEdgeFlow = buildCourtEdgeFlowDiagnostics(
+    tracked,
+    rawReports,
+    archives,
+    getTodayLocalDate()
+  );
+  courtEdgeFlow.analyticsScopeCount = getAnalyticsScopeProps(
+    tracked,
+    rawReports,
+    archives
+  ).length;
+
   res.json({
     ok: true,
     serverBuild: SERVER_BUILD,
@@ -2143,6 +2200,7 @@ app.get("/diagnostics", (req, res) => {
       }, {}),
       duplicates: dupes,
     },
+    courtEdgeFlow,
     flowValidation,
     reports: {
       total: reports.length,
@@ -2179,6 +2237,39 @@ app.post("/admin/backup", (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Backup failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/reset-chi-dal-bad-grades", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+
+    if (!confirm) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "Reset requires confirm: true in request body. Resets CHI/DAL 2026-06-20 early grades only.",
+      });
+    }
+
+    const result = resetChiDalBadGrades({
+      backupSuffix: "before-prod-chi-dal-reset-20260621",
+      pendingReason: "Game not final yet.",
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 500).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.log("RESET CHI/DAL BAD GRADES ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Reset CHI/DAL bad grades failed",
       error: error.message,
     });
   }
@@ -2414,9 +2505,14 @@ if (process.env.RUN_AUDIT === "1") {
           requireLikelyFinished: true,
         });
 
-        const { summary: trackedSummary } = await resolveTrackedProps({
+        const { props, summary: trackedSummary } = await resolveTrackedProps({
           requireLikelyFinished: true,
         });
+
+        // Safe auto-build: only when auto-resolve leaves zero still-pending props.
+        if (trackedSummary.stillPending === 0) {
+          attemptDailySlateReportBuild(props);
+        }
 
         console.log("AUTO RESOLVE PICKS:", summary);
         console.log("AUTO RESOLVE TRACKED PROPS:", trackedSummary);

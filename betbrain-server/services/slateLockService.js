@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { createBackup } from "./backupService.js";
+import { getTodayLocalDate, hasUnresolvedGradingProps, isFutureSlateDate } from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -174,6 +175,19 @@ export function lockSlate(slateDate, options = {}) {
     return { ok: false, message: "Missing slateDate" };
   }
 
+  if (isFutureSlateDate(date, getTodayLocalDate())) {
+    recordBlockedWrite({
+      action: "lockSlate",
+      slateDate: date,
+      reason: "future_slate",
+    });
+    return {
+      ok: false,
+      message: `Slate ${date} is in the future — lock blocked`,
+      blockedByFutureGame: true,
+    };
+  }
+
   if (isSlateLocked(date)) {
     const existing = getSlateLockEntry(date);
     return {
@@ -287,6 +301,27 @@ export function promoteSlateToLab(slateDate, options = {}) {
   const date = String(slateDate || "");
   if (!date) return { ok: false, message: "Missing slateDate" };
 
+  if (!isOnOrAfterCleanDataCutoff(date)) {
+    return {
+      ok: false,
+      message: `Slate ${date} is before clean data cutoff — Lab promotion skipped`,
+      skippedPreCutoff: true,
+    };
+  }
+
+  if (isFutureSlateDate(date, getTodayLocalDate())) {
+    recordBlockedWrite({
+      action: "promoteSlateToLab",
+      slateDate: date,
+      reason: "future_slate",
+    });
+    return {
+      ok: false,
+      message: `Slate ${date} is in the future — Lab promotion blocked`,
+      blockedByFutureGame: true,
+    };
+  }
+
   const snapshot = getLockedSnapshot(date) || { props: [] };
   const passedProps = Array.isArray(options.props) ? options.props : [];
   const props =
@@ -300,6 +335,14 @@ export function promoteSlateToLab(slateDate, options = {}) {
 
   if (!props.length) {
     return { ok: false, message: `No props available to promote slate ${date}` };
+  }
+
+  if (hasUnresolvedGradingProps(props)) {
+    return {
+      ok: false,
+      message: `Slate ${date} has unresolved props — Lab promotion blocked`,
+      blockedByUnresolvedGrades: true,
+    };
   }
 
   const archiveResult = writeSlateHistoryArchive(date, {

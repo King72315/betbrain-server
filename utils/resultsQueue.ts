@@ -2,22 +2,35 @@ import { formatTeam } from "../components/PropCard";
 import { getPickSlateDate } from "./historyArchive";
 import {
   computeSlateRotation,
+  getTodayLocalDate,
   isCompletedSlate,
+  isFutureSlateDate,
+  isOnOrAfterCleanDataCutoff,
+  isPriorSlateStillActive,
+  PRIOR_SLATE_STILL_ACTIVE_LABEL,
+  slateHasUnresolvedProps,
   type SlateRotation,
 } from "./slateRotation";
+
+export { PRIOR_SLATE_STILL_ACTIVE_LABEL, isPriorSlateStillActive };
 
 export const RESULTS_FILTERS = [
   "All",
   "Pending",
   "Graded",
-  "Failed",
+  "Awaiting stats",
   "NBA",
   "WNBA",
 ] as const;
 
 export type ResultsFilter = (typeof RESULTS_FILTERS)[number];
 
-export type TrackedPropStatus = "Win" | "Loss" | "Push" | "Pending" | "Failed";
+export type TrackedPropStatus = "Win" | "Loss" | "Push" | "Pending" | "Awaiting stats";
+
+export type ResultsGameStateGroup = "graded" | "awaitingStats" | "livePending";
+
+export const AWAITING_STATS_LABEL =
+  "Final game — awaiting official player stats";
 
 export type ActiveResultsSlate = {
   slateDate: string;
@@ -37,18 +50,110 @@ export type ActiveResultsSlate = {
   leagues: string[];
 };
 
+function isAwaitingOfficialStats(prop: any): boolean {
+  const resolveDebug = prop.resolveDebug || {};
+  const pendingReason = String(prop.pendingReason || "").toLowerCase();
+
+  if (resolveDebug.gameFinal === true) {
+    return true;
+  }
+
+  if (pendingReason.includes("awaiting official player stat")) {
+    return true;
+  }
+
+  if (
+    pendingReason.includes("awaiting stats") &&
+    !pendingReason.includes("game not final")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isGameNotFinal(prop: any): boolean {
+  const resolveDebug = prop.resolveDebug || {};
+  const pendingReason = String(prop.pendingReason || "").toLowerCase();
+
+  if (resolveDebug.gameFinal === false) return true;
+  if (resolveDebug.blockedByGameNotFinal || resolveDebug.blockedByLiveGame) {
+    return true;
+  }
+  if (pendingReason.includes("game not final")) return true;
+
+  return false;
+}
+
 export function getTrackedPropStatus(prop: any): TrackedPropStatus {
   const raw = String(prop.status || "pending").toLowerCase();
 
-  if (raw === "win") return "Win";
-  if (raw === "loss") return "Loss";
-  if (raw === "push") return "Push";
+  if (raw === "win" || raw === "loss" || raw === "push") {
+    const resolveDebug = prop.resolveDebug || {};
+    if (resolveDebug.gameFinal === false) {
+      return "Pending";
+    }
+    return raw === "win" ? "Win" : raw === "loss" ? "Loss" : "Push";
+  }
 
-  if (raw === "pending" && prop.pendingReason) {
-    return "Failed";
+  if (isAwaitingOfficialStats(prop)) {
+    return "Awaiting stats";
   }
 
   return "Pending";
+}
+
+export function getResultsPropGameState(prop: any): ResultsGameStateGroup {
+  const raw = String(prop.status || "pending").toLowerCase();
+  const resolveDebug = prop.resolveDebug || {};
+
+  if (["win", "loss", "push"].includes(raw)) {
+    if (resolveDebug.gameFinal === false) {
+      return "livePending";
+    }
+    return "graded";
+  }
+
+  if (isAwaitingOfficialStats(prop)) {
+    return "awaitingStats";
+  }
+
+  if (isGameNotFinal(prop)) {
+    return "livePending";
+  }
+
+  return "livePending";
+}
+
+export function groupResultsPropsByGameState(props: any[] = []) {
+  const groups = {
+    graded: [] as any[],
+    awaitingStats: [] as any[],
+    livePending: [] as any[],
+  };
+
+  for (const prop of props) {
+    groups[getResultsPropGameState(prop)].push(prop);
+  }
+
+  return groups;
+}
+
+export function groupResultsPropsByGame(props: any[] = []) {
+  const groups = new Map<string, any[]>();
+
+  for (const prop of props) {
+    const game = formatTrackedPropGameLabel(prop);
+    if (!groups.has(game)) groups.set(game, []);
+    groups.get(game)!.push(prop);
+  }
+
+  return groups;
+}
+
+export function formatResultsAwaitingStatsReason(prop: any): string {
+  if (getTrackedPropStatus(prop) !== "Awaiting stats") return "";
+  return prop.pendingReason || AWAITING_STATS_LABEL;
 }
 
 /** Derive slate date for Results grouping (matches backend CT slate when possible). */
@@ -80,18 +185,6 @@ export function formatTrackedPropGameLabel(prop: any): string {
   return "—";
 }
 
-function groupTrackedPropsBySlate(trackedProps: any[]) {
-  const groups = new Map<string, any[]>();
-
-  for (const prop of trackedProps) {
-    const slateDate = getResultsPropSlateDate(prop);
-    if (!groups.has(slateDate)) groups.set(slateDate, []);
-    groups.get(slateDate)!.push(prop);
-  }
-
-  return groups;
-}
-
 export function computeAggregateResultsSummary(slates: ActiveResultsSlate[]) {
   return slates.reduce(
     (acc, slate) => ({
@@ -115,12 +208,110 @@ export function computeAggregateResultsSummary(slates: ActiveResultsSlate[]) {
   );
 }
 
+export type AccuracySummary = {
+  total: number;
+  graded: number;
+  pending: number;
+  awaitingStats: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  winRate: number | null;
+  winRateLabel: string;
+};
+
+/** Aggregate accuracy stats from visible Results queue slates. */
+export function computeAccuracySummary(
+  visibleSlates: ActiveResultsSlate[] = []
+): AccuracySummary {
+  const agg = computeAggregateResultsSummary(visibleSlates);
+  const decided = agg.wins + agg.losses;
+  const winRate =
+    decided > 0 ? Math.round((agg.wins / decided) * 100) : null;
+
+  return {
+    total: agg.total,
+    graded: agg.graded,
+    pending: agg.pending,
+    awaitingStats: agg.failed,
+    wins: agg.wins,
+    losses: agg.losses,
+    pushes: agg.pushes,
+    winRate,
+    winRateLabel: winRate !== null ? `${winRate}%` : "—",
+  };
+}
+
+export type PendingCheckSummary = {
+  checked: number;
+  graded: number;
+  stillPending: number;
+  awaitingStats: number;
+};
+
+/** User-facing summary from the last resolve check — avoids raw backend counts in UI. */
+export function computePendingCheckSummary(
+  lastResolveSummary: any | null,
+  visibleSlates: ActiveResultsSlate[] = []
+): PendingCheckSummary | null {
+  if (!lastResolveSummary) return null;
+
+  const accuracy = computeAccuracySummary(visibleSlates);
+
+  return {
+    checked: lastResolveSummary.gradeable ?? 0,
+    graded: lastResolveSummary.gradedCount ?? 0,
+    stillPending: lastResolveSummary.stillPending ?? 0,
+    awaitingStats: accuracy.awaitingStats,
+  };
+}
+
+/** Plain-English takeaways from accuracy counts for the Results dashboard. */
+export function buildKeyTakeaways(summary: AccuracySummary): string[] {
+  if (summary.total === 0) {
+    return ["No props in the active Results queue."];
+  }
+
+  const bullets: string[] = [];
+
+  if (summary.graded > 0) {
+    bullets.push(
+      `${summary.graded} of ${summary.total} props graded — record ${summary.wins}-${summary.losses}-${summary.pushes} (${summary.winRateLabel} win rate, pushes excluded).`
+    );
+  } else {
+    bullets.push(`${summary.total} props tracked; none graded yet.`);
+  }
+
+  if (summary.pending > 0) {
+    bullets.push(
+      `${summary.pending} prop${summary.pending === 1 ? "" : "s"} still waiting on final scores.`
+    );
+  }
+
+  if (summary.awaitingStats > 0) {
+    bullets.push(
+      `${summary.awaitingStats} prop${summary.awaitingStats === 1 ? "" : "s"} awaiting stats from source.`
+    );
+  }
+
+  if (
+    summary.graded > 0 &&
+    summary.pending === 0 &&
+    summary.awaitingStats === 0 &&
+    summary.graded === summary.total
+  ) {
+    bullets.push("All props graded — slate complete. Moved to Lab.");
+  }
+
+  return bullets;
+}
+
 function buildSlateSummary(props: any[]) {
   const wins = props.filter((prop) => getTrackedPropStatus(prop) === "Win").length;
   const losses = props.filter((prop) => getTrackedPropStatus(prop) === "Loss").length;
   const pushes = props.filter((prop) => getTrackedPropStatus(prop) === "Push").length;
   const pending = props.filter((prop) => getTrackedPropStatus(prop) === "Pending").length;
-  const failed = props.filter((prop) => getTrackedPropStatus(prop) === "Failed").length;
+  const failed = props.filter((prop) => getTrackedPropStatus(prop) === "Awaiting stats").length;
   const graded = wins + losses + pushes;
 
   return {
@@ -135,12 +326,44 @@ function buildSlateSummary(props: any[]) {
 }
 
 
-/** Newest official tracked slate that is not yet the completed Lab slate. */
+/** Oldest unresolved clean-era slate eligible for the Results queue. */
+export function pickActiveResultsSlateDate(
+  trackedProps: any[] = [],
+  reports: any[] = [],
+  today: string = getTodayLocalDate()
+): string | null {
+  const rotation = computeSlateRotation(reports);
+  const historyDates = new Set(
+    rotation.historySlates.map((report) => String(report.slateDate || ""))
+  );
+  const labDate = rotation.currentLabSlateDate;
+  const candidates = new Set<string>();
+
+  for (const prop of trackedProps) {
+    const slateDate = getResultsPropSlateDate(prop);
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isFutureSlateDate(slateDate, today)) continue;
+    if (labDate && slateDate === labDate) continue;
+    if (historyDates.has(slateDate)) continue;
+
+    const report =
+      reports.find((item) => String(item.slateDate) === slateDate) || null;
+    if (isCompletedSlate(report)) continue;
+
+    candidates.add(slateDate);
+  }
+
+  const sorted = [...candidates].sort();
+  return sorted[0] || null;
+}
+
+/** Oldest unresolved clean-era slate visible in Results (one at a time). */
 export function computeActiveResultsSlate(
   trackedProps: any[] = [],
-  reports: any[] = []
+  reports: any[] = [],
+  today: string = getTodayLocalDate()
 ): ActiveResultsSlate | null {
-  const visible = computeVisibleResultsSlates(trackedProps, reports);
+  const visible = computeVisibleResultsSlates(trackedProps, reports, today);
   return visible[0] || null;
 }
 
@@ -162,50 +385,35 @@ function buildActiveResultsSlate(
     props,
     report,
     rotation,
-    isComplete: summary.pending === 0 && summary.failed === 0 && summary.graded > 0,
+    isComplete:
+      summary.pending === 0 &&
+      summary.failed === 0 &&
+      summary.graded > 0 &&
+      !slateHasUnresolvedProps(props),
     summary,
     leagues,
   };
 }
 
-/** In-progress slates visible in Results. Hides only current Lab slate and History archives — not unlocked completed slates. */
+/** In-progress clean-era slates visible in Results — oldest unresolved slate only. */
 export function computeVisibleResultsSlates(
   trackedProps: any[] = [],
-  reports: any[] = []
+  reports: any[] = [],
+  today: string = getTodayLocalDate()
 ): ActiveResultsSlate[] {
   const rotation = computeSlateRotation(reports);
-  const historyDates = new Set(
-    rotation.historySlates.map((r) => String(r.slateDate || ""))
+  const activeSlateDate = pickActiveResultsSlateDate(trackedProps, reports, today);
+  if (!activeSlateDate) return [];
+
+  const slateProps = trackedProps.filter(
+    (prop) => getResultsPropSlateDate(prop) === activeSlateDate
   );
-  const groups = groupTrackedPropsBySlate(trackedProps);
-  const slateDates = [...groups.keys()].sort((a, b) => {
-    if (a === "unknown") return 1;
-    if (b === "unknown") return -1;
-    return a.localeCompare(b);
-  });
 
-  const visible: ActiveResultsSlate[] = [];
+  if (!slateProps.length) return [];
 
-  for (const slateDate of slateDates) {
-    const props = groups.get(slateDate) || [];
-    if (!props.length) continue;
-
-    const report =
-      reports.find((item) => String(item.slateDate) === slateDate) || null;
-    const complete = isCompletedSlate(report);
-
-    if (complete && slateDate === rotation.currentLabSlateDate) {
-      continue;
-    }
-
-    if (historyDates.has(slateDate)) {
-      continue;
-    }
-
-    visible.push(buildActiveResultsSlate(slateDate, props, reports, rotation));
-  }
-
-  return visible;
+  return [
+    buildActiveResultsSlate(activeSlateDate, slateProps, reports, rotation),
+  ];
 }
 
 export function filterResultsProps(props: any[], filter: ResultsFilter) {
@@ -220,8 +428,8 @@ export function filterResultsProps(props: any[], filter: ResultsFilter) {
       ["Win", "Loss", "Push"].includes(getTrackedPropStatus(prop))
     );
   }
-  if (filter === "Failed") {
-    return props.filter((prop) => getTrackedPropStatus(prop) === "Failed");
+  if (filter === "Awaiting stats") {
+    return props.filter((prop) => getTrackedPropStatus(prop) === "Awaiting stats");
   }
 
   return props;
@@ -238,4 +446,47 @@ export function formatResultsSlateLabel(slateDate: string) {
     year: "numeric",
     timeZone: "America/Chicago",
   });
+}
+
+export type ResolveCheckMessageInput = {
+  beforeVisible: ActiveResultsSlate[];
+  afterVisible: ActiveResultsSlate[];
+  afterRotation: SlateRotation;
+  gradedCount: number;
+  awaitingStatsCount?: number;
+};
+
+/** User-facing message after Check / Refresh Grading — UI only, no grading side effects. */
+export function pickResolveCheckMessage(input: ResolveCheckMessageInput): string {
+  const { beforeVisible, afterVisible, afterRotation, gradedCount, awaitingStatsCount } =
+    input;
+
+  const beforeDates = new Set(beforeVisible.map((slate) => slate.slateDate));
+  const afterDates = new Set(afterVisible.map((slate) => slate.slateDate));
+  const labDate = afterRotation.currentLabSlateDate;
+  const awaitingStats =
+    awaitingStatsCount ?? computeAccuracySummary(afterVisible).awaitingStats;
+
+  if (labDate && beforeDates.has(labDate) && !afterDates.has(labDate)) {
+    const labReport =
+      afterRotation.allReports.find((report) => String(report.slateDate) === labDate) ||
+      null;
+    if (isCompletedSlate(labReport)) {
+      return "Slate complete. Moved to Lab.";
+    }
+  }
+
+  if (beforeVisible.length === 0 && labDate) {
+    return "This slate is already in Lab. Rechecked grades.";
+  }
+
+  if (gradedCount > 0) {
+    return "Checked pending results.";
+  }
+
+  if (awaitingStats > 0) {
+    return "Awaiting stats from source";
+  }
+
+  return "No new final scores yet.";
 }

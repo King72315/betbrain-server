@@ -12,6 +12,14 @@ import {
   promoteSlateToLab,
   writeSlateHistoryArchive,
 } from "./slateLockService.js";
+import {
+  filterReportsOnOrAfterCutoff,
+  filterValidDailyReports,
+  getTodayLocalDate,
+  hasUnresolvedGradingProps,
+  isFutureSlateDate,
+  isOnOrAfterCleanDataCutoff,
+} from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,16 +34,7 @@ const BACKUP_FILE = path.join(
 const MIN_SAMPLE = 3;
 
 /** First slate date included in clean collectible Lab/History/report era. */
-export const CLEAN_DATA_CUTOFF = "2026-06-19";
-
-function isOnOrAfterCleanDataCutoff(slateDate) {
-  const value = String(slateDate || "");
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= CLEAN_DATA_CUTOFF;
-}
-
-function filterReportsOnOrAfterCutoff(reports = []) {
-  return reports.filter((report) => isOnOrAfterCleanDataCutoff(report?.slateDate));
-}
+export { CLEAN_DATA_CUTOFF } from "./slateScopeService.js";
 
 export const WNBA_STRUCTURAL_GAPS = {
   availabilityGate:
@@ -89,6 +88,8 @@ ensureReportsFile();
 function isResolvedStatus(status = "") {
   return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
 }
+
+export { hasUnresolvedGradingProps } from "./slateScopeService.js";
 
 function normalizeRiskBucket(riskLabel = "") {
   const label = String(riskLabel || "").toLowerCase();
@@ -818,7 +819,7 @@ function buildTierLabBuckets(props = []) {
 }
 
 function rotateOlderLabArchives(reports = []) {
-  const finals = [...reports]
+  const finals = filterReportsOnOrAfterCutoff(reports)
     .filter((report) => String(report.reportStatus || report.status) === "final")
     .sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)));
 
@@ -845,7 +846,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     (prop) => (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
   );
   const record = buildRecord(slateProps);
-  const allGraded = record.pending === 0 && slateProps.length > 0;
+  const allGraded =
+    record.pending === 0 &&
+    slateProps.length > 0 &&
+    !hasUnresolvedGradingProps(slateProps);
   const now = new Date().toISOString();
   const reportStatus = allGraded ? "final" : "in-progress";
 
@@ -971,11 +975,18 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   };
 }
 
-export function getDailySlateReports() {
-  const reports = readJSON(REPORTS_FILE, []);
-  return filterReportsOnOrAfterCutoff(
-    reports.sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)))
+function sortReportsByDateDesc(reports = []) {
+  return [...reports].sort((a, b) =>
+    String(b.slateDate).localeCompare(String(a.slateDate))
   );
+}
+
+export function getRawDailySlateReports() {
+  return sortReportsByDateDesc(readJSON(REPORTS_FILE, []));
+}
+
+export function getDailySlateReports() {
+  return filterValidDailyReports(getRawDailySlateReports());
 }
 
 export function getDailySlateReport(slateDate) {
@@ -1034,6 +1045,24 @@ export function buildDailySlateReportsFromTrackedProps(
   const results = [];
 
   for (const slateDate of slateDates) {
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) {
+      results.push({
+        slateDate,
+        skipped: true,
+        skipReason: "pre_cutoff_slate",
+      });
+      continue;
+    }
+
+    if (isFutureSlateDate(slateDate, getTodayLocalDate())) {
+      results.push({
+        slateDate,
+        skipped: true,
+        skipReason: "future_slate",
+      });
+      continue;
+    }
+
     const existing = getDailySlateReport(slateDate);
     const locked = isSlateLocked(slateDate);
     const snapshot = locked ? getLockedSnapshot(slateDate) : null;
@@ -1112,11 +1141,17 @@ export function buildDailySlateReportsFromTrackedProps(
     });
 
     if (isFinal) {
-      writeSlateHistoryArchive(slateDate, {
-        props: slateProps,
-        report,
-      });
-      promoteSlateToLab(slateDate, { report, props: slateProps });
+      if (hasUnresolvedGradingProps(slateProps)) {
+        results[results.length - 1].labPromotionBlocked = true;
+        results[results.length - 1].labPromotionReason =
+          "Slate has props awaiting stats or unresolved grades";
+      } else {
+        writeSlateHistoryArchive(slateDate, {
+          props: slateProps,
+          report,
+        });
+        promoteSlateToLab(slateDate, { report, props: slateProps });
+      }
     }
   }
 

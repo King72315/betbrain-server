@@ -1,6 +1,8 @@
 import fetch from "node-fetch";
 import { CONFIG } from "../config.js";
 import { fetchPlayerStats } from "./ballService.js";
+import { fetchWnbaFallbackStatsForPick } from "./wnbaGradingFallbackService.js";
+import { verifyPickGameIsFinal } from "./gameFinalVerificationService.js";
 
 const SPORTS_BASE = "https://api.sportsdata.io/api/nba";
 const SPORTS_KEY = CONFIG.SPORTS_KEY;
@@ -541,6 +543,63 @@ export function isPickLikelyFinished(
   return now.getTime() >= startTime.getTime() + bufferMs;
 }
 
+export function getTodayLocalDate(now = new Date()) {
+  return now.toLocaleDateString("en-CA", {
+    timeZone: CONFIG.TIMEZONE || "America/Chicago",
+  });
+}
+
+export function getPickSlateDate(savedPick = {}) {
+  if (savedPick.slateDate) {
+    return getSlateDateKey(savedPick.slateDate);
+  }
+
+  return getPickDate(savedPick) || getSlateDateCT(savedPick.commenceTime || savedPick.time);
+}
+
+export function isFutureSlateDate(slateDate, today = getTodayLocalDate()) {
+  const value = String(slateDate || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return value > today;
+}
+
+export function isCommenceTimeInFuture(savedPick = {}, now = new Date()) {
+  const commenceSource = savedPick.commenceTime || savedPick.time || null;
+  if (!commenceSource) return false;
+
+  const parsed = new Date(commenceSource);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  return parsed.getTime() > now.getTime();
+}
+
+/** Hard guard — block grading for future slates/games or before game start. */
+export function evaluateGradingBlock(savedPick = {}, now = new Date()) {
+  const today = getTodayLocalDate(now);
+  const slateDate = getPickSlateDate(savedPick);
+  const gameStarted = isPickGameStarted(savedPick, now);
+  const gameLikelyFinished = isPickLikelyFinished(savedPick, now);
+  const blockedByFutureGame = isFutureSlateDate(slateDate, today);
+  const blockedByCommenceTime = isCommenceTimeInFuture(savedPick, now);
+  const blockedByGameNotStarted = !gameStarted;
+
+  const blocked =
+    blockedByFutureGame ||
+    blockedByCommenceTime ||
+    blockedByGameNotStarted;
+
+  return {
+    blocked,
+    slateDate,
+    today,
+    gameStarted,
+    gameLikelyFinished,
+    blockedByFutureGame,
+    blockedByCommenceTime,
+    blockedByGameNotStarted,
+  };
+}
+
 function getStatDate(stat = {}) {
   return stat.date ? formatDate(stat.date) : "";
 }
@@ -724,9 +783,17 @@ function buildMatchConfidence(savedPick = {}, stat = {}, matchContext = {}) {
     reasons.push("game_label_team_match");
   }
 
-  if (matchContext.playerFallbackAttempted) {
+  if (matchContext.playerFallbackAttempted && !matchContext.wnbaOfficialFallback && !matchContext.espnFallback) {
     confidence = confidence === "high" ? "medium" : "low";
     reasons.push("player_stats_fallback");
+  }
+
+  if (matchContext.wnbaOfficialFallback) {
+    reasons.push("wnba_official_fallback");
+  }
+
+  if (matchContext.espnFallback) {
+    reasons.push("espn_boxscore_fallback");
   }
 
   return { confidence, reasons };
@@ -820,14 +887,32 @@ export function findPlayerResult(savedPick, playerStats = [], matchContext = {})
   return null;
 }
 
-function buildPendingReason(savedPick = {}, playerStats = [], statResult = null) {
+function hasWnbaPlayerStatHistory(extras = {}) {
+  return (
+    Number(extras.fallbackRowCount || 0) > 0 ||
+    Number(extras.officialRowCount || 0) > 0 ||
+    Number(extras.espnRowCount || 0) > 0
+  );
+}
+
+function buildPendingReason(savedPick = {}, playerStats = [], statResult = null, extras = {}) {
   if (statResult) return null;
 
+  const hasPlayerHistory = hasWnbaPlayerStatHistory(extras);
+
   if (!Array.isArray(playerStats) || playerStats.length === 0) {
+    if (isPickLikelyFinished(savedPick) && hasPlayerHistory) {
+      return "Game final, awaiting official player stat row from source.";
+    }
+
     return "Final player stats unavailable from source";
   }
 
   if (isPickLikelyFinished(savedPick)) {
+    if (hasPlayerHistory) {
+      return "Game final, awaiting official player stat row from source.";
+    }
+
     return "Game final, but player stat row unavailable from source";
   }
 
@@ -836,21 +921,46 @@ function buildPendingReason(savedPick = {}, playerStats = [], statResult = null)
 
 function buildResolveDebug(savedPick = {}, playerStats = [], statResult = null, extras = {}) {
   const queryDates = getPickQueryDates(savedPick);
-  const pendingReason = buildPendingReason(savedPick, playerStats, statResult);
+  const pendingReason = buildPendingReason(savedPick, playerStats, statResult, extras);
+  const now = extras.now ? new Date(extras.now) : new Date();
+  const gradingBlock = evaluateGradingBlock(savedPick, now);
+  const gameFinalCheck = extras.gameFinalCheck || {};
 
   return {
     player: savedPick.player || "",
     gameDate: savedPick.gameDate || savedPick.date || "",
     commenceTime: savedPick.commenceTime || savedPick.time || "",
     resolvedSlateDate: getPickDate(savedPick),
+    slateDate: savedPick.slateDate || getPickDate(savedPick),
     queryDates,
     batchQueryDates: extras.batchQueryDates || queryDates,
     playerFallbackAttempted: Boolean(extras.playerFallbackAttempted),
+    wnbaOfficialFallbackAttempted: Boolean(extras.wnbaOfficialFallbackAttempted),
+    espnFallbackAttempted: Boolean(extras.espnFallbackAttempted),
     batchRowCount: Array.isArray(playerStats) ? playerStats.length : 0,
     fallbackRowCount: Number(extras.fallbackRowCount || 0),
+    officialRowCount: Number(extras.officialRowCount || 0),
+    espnRowCount: Number(extras.espnRowCount || 0),
     matchedPlayerRow: Boolean(statResult),
+    matchedSource: statResult?.matchMeta?.matchedSource || statResult?.source || "",
+    matchedDate: statResult?.matchMeta?.matchedDate || statResult?.date || "",
+    matchVerified:
+      Boolean(statResult) &&
+      (statResult?.matchMeta?.matchedConfidence === "high" ||
+        statResult?.matchMeta?.matchedConfidence === "medium"),
+    gameStarted: gradingBlock.gameStarted,
+    gameLikelyFinished: gradingBlock.gameLikelyFinished,
+    blockedByFutureGame: gradingBlock.blockedByFutureGame,
+    blockedByCommenceTime: gradingBlock.blockedByCommenceTime,
+    blockedByGameNotStarted: gradingBlock.blockedByGameNotStarted,
+    gameStatus: gameFinalCheck.gameStatus || extras.gameStatus || "",
+    gameFinal: Boolean(gameFinalCheck.gameFinal),
+    blockedByGameNotFinal: Boolean(gameFinalCheck.blockedByGameNotFinal),
+    blockedByLiveGame: Boolean(gameFinalCheck.blockedByLiveGame),
+    gameFinalVerifiedSource: gameFinalCheck.verifiedSource || extras.gameFinalVerifiedSource || "",
+    blocked: gradingBlock.blocked || Boolean(gameFinalCheck.blockedByGameNotFinal),
     pendingReason,
-    at: new Date().toISOString(),
+    at: now.toISOString(),
   };
 }
 
@@ -914,13 +1024,71 @@ async function fetchBallPlayerStatForPick(savedPick = {}) {
   };
 }
 
-export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null) {
+export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null, options = {}) {
+  const now = new Date();
+  const gradingBlock = evaluateGradingBlock(savedPick, now);
+
+  if (gradingBlock.blocked) {
+    const pendingReason = gradingBlock.blockedByFutureGame
+      ? "Future slate/game — grading blocked until slate date"
+      : gradingBlock.blockedByCommenceTime
+        ? "Game has not started yet — grading blocked"
+        : "Game has not started yet — grading blocked";
+
+    const resolveDebug = buildResolveDebug(savedPick, batchStats || [], null, {
+      now,
+      gradingBlocked: true,
+    });
+
+    return {
+      statResult: null,
+      pendingReason,
+      resolveDebug,
+      gradingNotes: pendingReason,
+      matchVerified: false,
+      resultConfidence: null,
+      matchedDate: "",
+      matchedGameId: "",
+      matchedSource: "",
+      gradingBlocked: true,
+    };
+  }
+
+  const gameFinalCheck =
+    options.gameFinalOverride ||
+    (await verifyPickGameIsFinal(savedPick));
+
+  if (!gameFinalCheck.gameFinal) {
+    const pendingReason = "Game not final yet.";
+
+    return {
+      statResult: null,
+      pendingReason,
+      resolveDebug: buildResolveDebug(savedPick, batchStats || [], null, {
+        now,
+        gameFinalCheck,
+        gradingBlocked: true,
+      }),
+      gradingNotes: pendingReason,
+      matchVerified: false,
+      resultConfidence: null,
+      matchedDate: "",
+      matchedGameId: "",
+      matchedSource: "",
+      gradingBlocked: true,
+    };
+  }
+
   const league = normalizeLeague(savedPick.league || "NBA");
   const queryDates = getPickQueryDates(savedPick);
 
   let stats = batchStats;
   let playerFallbackAttempted = false;
   let fallbackRowCount = 0;
+  let wnbaOfficialFallbackAttempted = false;
+  let espnFallbackAttempted = false;
+  let officialRowCount = 0;
+  let espnRowCount = 0;
 
   if (!stats) {
     stats = [];
@@ -992,6 +1160,56 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
             batchQueryDates: queryDates,
             playerFallbackAttempted: true,
             fallbackRowCount,
+            wnbaOfficialFallbackAttempted,
+            espnFallbackAttempted,
+            officialRowCount,
+            espnRowCount,
+            weakMatchWithheld: true,
+            matchMeta: statResult.matchMeta,
+          }),
+          gradingNotes:
+            "Weak fallback stat match (low confidence) — grading withheld",
+          matchVerified: false,
+          resultConfidence: "low",
+        };
+      }
+    }
+  }
+
+  if (!statResult && league === "WNBA") {
+    const wnbaFallback = await fetchWnbaFallbackStatsForPick(savedPick, {
+      getPickQueryDates,
+      getPickTeams,
+      findPlayerResult,
+    });
+
+    wnbaOfficialFallbackAttempted = wnbaFallback.officialAttempted;
+    espnFallbackAttempted = wnbaFallback.espnAttempted;
+    officialRowCount = wnbaFallback.officialRowCount;
+    espnRowCount = wnbaFallback.espnRowCount;
+
+    if (wnbaFallback.statResult) {
+      statResult = wnbaFallback.statResult;
+
+      if (statResult.matchMeta?.matchedConfidence === "low") {
+        console.log("RESULT WNBA FALLBACK MATCH LOW CONFIDENCE:", {
+          player: savedPick.player,
+          league,
+          ...statResult.matchMeta,
+        });
+
+        return {
+          statResult: null,
+          pendingReason:
+            "Weak fallback stat match (low confidence) — grading withheld",
+          resolveDebug: buildResolveDebug(savedPick, stats, null, {
+            batchQueryDates: queryDates,
+            playerFallbackAttempted,
+            fallbackRowCount,
+            wnbaOfficialFallbackAttempted,
+            espnFallbackAttempted,
+            officialRowCount,
+            espnRowCount,
             weakMatchWithheld: true,
             matchMeta: statResult.matchMeta,
           }),
@@ -1010,11 +1228,20 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     });
   }
 
-  const pendingReason = buildPendingReason(savedPick, stats, statResult);
+  const pendingReason = buildPendingReason(savedPick, stats, statResult, {
+    fallbackRowCount,
+    officialRowCount,
+    espnRowCount,
+  });
   const resolveDebug = buildResolveDebug(savedPick, stats, statResult, {
     batchQueryDates: queryDates,
     playerFallbackAttempted,
     fallbackRowCount,
+    wnbaOfficialFallbackAttempted,
+    espnFallbackAttempted,
+    officialRowCount,
+    espnRowCount,
+    gameFinalCheck,
   });
 
   const matchMeta = statResult?.matchMeta || {};
