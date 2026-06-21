@@ -222,10 +222,15 @@ export function lockSlate(slateDate, options = {}) {
   const frozenProps = slateProps.map(freezePropAtLock);
   const now = new Date().toISOString();
 
+  const autoLocked = Boolean(
+    options.autoLocked ?? String(reason).startsWith("auto_")
+  );
+
   const snapshot = {
     slateDate: date,
     lockedAt: now,
     lockReason: reason,
+    autoLocked,
     phase: SLATE_PHASE.ACTIVE,
     propCount: frozenProps.length,
     props: frozenProps,
@@ -235,11 +240,13 @@ export function lockSlate(slateDate, options = {}) {
   writeJSON(snapshotPath(date), snapshot);
 
   const registry = getRegistry();
+
   registry.slates.push({
     slateDate: date,
     phase: SLATE_PHASE.ACTIVE,
     lockedAt: now,
     lockReason: reason,
+    autoLocked,
     propCount: frozenProps.length,
     snapshotFile: `slate-snapshots/${date}.json`,
     backupId,

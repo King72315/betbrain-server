@@ -17,7 +17,9 @@ import {
 
 import {
   getHistoryArchiveProps,
+  getLockedSnapshot,
   isSlateLocked,
+  lockSlate,
   recordBlockedWrite,
 } from "./slateLockService.js";
 import {
@@ -1196,6 +1198,34 @@ function countPropsForSlate(tracked = [], slateDate = "") {
   return tracked.filter((item) => String(item.slateDate || "") === slateDate).length;
 }
 
+function maybeAutoLockTodaySlate(working = [], audit = {}) {
+  const today = getTodayLocalDate();
+  if (!today || isSlateLocked(today)) {
+    return null;
+  }
+
+  const todayPropCount = countPropsForSlate(working, today);
+  if (todayPropCount === 0) {
+    return null;
+  }
+
+  const lockResult = lockSlate(today, {
+    reason: "auto_results_track",
+    autoLocked: true,
+    trackedProps: working,
+  });
+
+  if (!lockResult.ok) {
+    return lockResult;
+  }
+
+  audit.autoLocked = true;
+  audit.autoLockSlateDate = today;
+  audit.autoLockPropCount = lockResult.snapshot?.propCount ?? 0;
+
+  return lockResult;
+}
+
 
 export function addTrackedProps(picks = []) {
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter(
@@ -1325,6 +1355,15 @@ export function addTrackedProps(picks = []) {
   }
 
   writeJSON(TRACKED_FILE, working);
+
+  const autoLock = maybeAutoLockTodaySlate(working, audit);
+  if (autoLock?.ok && autoLock.snapshot?.props?.length) {
+    return applySlateLockFreeze(
+      autoLock.slateDate,
+      autoLock.snapshot.props
+    );
+  }
+
   return working;
 }
 

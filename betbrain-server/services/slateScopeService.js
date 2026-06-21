@@ -1,4 +1,5 @@
 import { CONFIG } from "../config.js";
+import { getSlateLockEntry, isSlateLocked } from "./slateLockService.js";
 
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
@@ -374,10 +375,35 @@ export function buildCourtEdgeFlowDiagnostics(
     }
   }
 
+  const slateFrozen = isSlateLocked(today);
+  const lockEntry = getSlateLockEntry(today);
+  const slateFrozenAt = lockEntry?.lockedAt || null;
+  const autoLocked = Boolean(lockEntry?.autoLocked);
+  const todaysProps = trackedProps.filter(
+    (prop) => String(prop.slateDate || "") === today
+  );
+  const generatedAtTimes = todaysProps
+    .map((prop) => prop.generatedAt)
+    .filter(Boolean)
+    .sort();
+  const lastPropAddedAt = generatedAtTimes.length
+    ? generatedAtTimes[generatedAtTimes.length - 1]
+    : null;
+  const propsAddedAfterFreezeCount = slateFrozenAt
+    ? todaysProps.filter(
+        (prop) => prop.generatedAt && prop.generatedAt > slateFrozenAt
+      ).length
+    : 0;
+
   return {
     todayLocalDate: today,
     cleanDataCutoff: CLEAN_DATA_CUTOFF,
     resultsRule: "today_only",
+    slateFrozen,
+    slateFrozenAt,
+    autoLocked,
+    lastPropAddedAt,
+    propsAddedAfterFreezeCount,
     rawReportCount: (rawReports || []).length,
     validCleanReportCount: validCleanReports.length,
     completedCleanReportCount: completedCleanReports.length,

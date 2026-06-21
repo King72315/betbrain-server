@@ -17,7 +17,6 @@ import {
   fetchDailySlateReports,
   fetchLockedSlates,
   fetchTrackedProps,
-  lockSlate,
   resolveTrackedProps,
 } from "../../services/api";
 import { buildResultsReport } from "../../utils/reportBuilders";
@@ -71,7 +70,6 @@ export default function ResultsScreen() {
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
   const [resolveCheckMessage, setResolveCheckMessage] = useState<string | null>(null);
   const [lockedSlates, setLockedSlates] = useState<any[]>([]);
-  const [lockingSlate, setLockingSlate] = useState<string | null>(null);
   const [todayLocalDate, setTodayLocalDate] = useState(() => getTodayLocalDate());
 
   const loadData = async () => {
@@ -159,26 +157,6 @@ export default function ResultsScreen() {
       setLoadError(String(err));
     } finally {
       setResolving(false);
-    }
-  };
-
-  const handleLockSlate = async (slateDate: string) => {
-    try {
-      setLockingSlate(slateDate);
-      const result = await lockSlate(slateDate, "results_ui");
-      if (!result.ok && !result.alreadyLocked) {
-        setLoadError(result.message || "Lock failed");
-        return;
-      }
-      const lockedData = await fetchLockedSlates();
-      setLockedSlates(lockedData.slates || []);
-      const trackedData = await fetchTrackedProps();
-      setTrackedProps(trackedData.props || []);
-    } catch (err) {
-      console.log("LOCK SLATE ERROR:", err);
-      setLoadError(String(err));
-    } finally {
-      setLockingSlate(null);
     }
   };
 
@@ -463,17 +441,6 @@ export default function ResultsScreen() {
                 {(slate.leagues || []).join(" • ") || "—"} • {slateSummary?.total ?? 0} tracked
                 {locked ? " • 🔒 LOCKED" : ""}
               </Text>
-              {slate.isComplete && !locked ? (
-                <TouchableOpacity
-                  style={[styles.lockBtn, lockingSlate === slate.slateDate && styles.actionBtnDisabled]}
-                  onPress={() => handleLockSlate(slate.slateDate)}
-                  disabled={lockingSlate === slate.slateDate}
-                >
-                  <Text style={styles.lockBtnText}>
-                    {lockingSlate === slate.slateDate ? "Locking..." : "Lock Slate Ticket"}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
 
               {renderGameStateSection(
                 "Graded",
