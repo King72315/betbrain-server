@@ -1031,9 +1031,7 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
   if (gradingBlock.blocked) {
     const pendingReason = gradingBlock.blockedByFutureGame
       ? "Future slate/game — grading blocked until slate date"
-      : gradingBlock.blockedByCommenceTime
-        ? "Game has not started yet — grading blocked"
-        : "Game has not started yet — grading blocked";
+      : "Game not started yet.";
 
     const resolveDebug = buildResolveDebug(savedPick, batchStats || [], null, {
       now,

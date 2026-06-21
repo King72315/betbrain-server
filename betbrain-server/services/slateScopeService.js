@@ -199,34 +199,49 @@ export function computeSlateRotation(reports = []) {
   };
 }
 
-/** Oldest unresolved clean-era slate for the Results queue. */
+/** Today's slate date when tracked props exist for today (America/Chicago). */
 export function pickActiveResultsSlateDate(
   trackedProps = [],
-  reports = [],
+  _reports = [],
   today = getTodayLocalDate()
 ) {
+  const hasTodayProps = trackedProps.some((prop) => {
+    const slateDate = String(prop.slateDate || "");
+    return slateDate === today && isOnOrAfterCleanDataCutoff(slateDate);
+  });
+
+  return hasTodayProps ? today : null;
+}
+
+function isDirtyLegacyGrade(prop = {}) {
+  const status = String(prop.status || "").toLowerCase();
+  const resolveDebug = prop.resolveDebug || {};
+  return isResolvedPropStatus(status) && resolveDebug.gameFinal !== true;
+}
+
+function collectStaleUnresolvedBySlate(trackedProps = [], reports = [], today = getTodayLocalDate()) {
   const rotation = computeSlateRotation(reports);
   const historyDates = new Set(
     rotation.historySlates.map((report) => String(report.slateDate || ""))
   );
   const labDate = rotation.currentLabSlateDate;
-  const candidates = new Set();
+  const staleBySlate = {};
 
   for (const prop of trackedProps) {
     const slateDate = String(prop.slateDate || "");
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
-    if (isFutureSlateDate(slateDate, today)) continue;
+    if (!isPastSlateDate(slateDate, today)) continue;
     if (labDate && slateDate === labDate) continue;
     if (historyDates.has(slateDate)) continue;
 
-    const report =
-      reports.find((item) => String(item.slateDate) === slateDate) || null;
+    const report = reports.find((item) => String(item.slateDate) === slateDate) || null;
     if (isCompletedSlate(report)) continue;
 
-    candidates.add(slateDate);
+    if (!staleBySlate[slateDate]) staleBySlate[slateDate] = [];
+    staleBySlate[slateDate].push(prop);
   }
 
-  return [...candidates].sort()[0] || null;
+  return staleBySlate;
 }
 
 export function countIgnoredPreCutoffReports(reports = []) {
@@ -250,6 +265,30 @@ export function buildCourtEdgeFlowDiagnostics(
     rawReports,
     today
   );
+
+  const staleBySlate = collectStaleUnresolvedBySlate(trackedProps, rawReports, today);
+  const staleUnresolvedSlates = Object.keys(staleBySlate).sort();
+  const staleProps = staleUnresolvedSlates.flatMap((slateDate) => staleBySlate[slateDate]);
+  const staleUnresolvedCount = staleProps.length;
+  const staleDirtyGradeCount = staleProps.filter(isDirtyLegacyGrade).length;
+  const stalePendingCount = staleProps.filter(
+    (prop) => String(prop.status || "pending").toLowerCase() === "pending"
+  ).length;
+
+  let dirtyLegacyGradeCount = 0;
+  let legacyResolvedWithoutGameFinalCount = 0;
+  let officialLineNullCount = 0;
+
+  for (const prop of trackedProps) {
+    if (prop.officialLine === undefined || prop.officialLine === null) {
+      officialLineNullCount += 1;
+    }
+
+    if (isDirtyLegacyGrade(prop)) {
+      dirtyLegacyGradeCount += 1;
+      legacyResolvedWithoutGameFinalCount += 1;
+    }
+  }
 
   const pendingBySlate = {};
   const awaitingStatsBySlate = {};
@@ -290,14 +329,21 @@ export function buildCourtEdgeFlowDiagnostics(
   return {
     todayLocalDate: today,
     cleanDataCutoff: CLEAN_DATA_CUTOFF,
+    resultsRule: "today_only",
     rawReportCount: (rawReports || []).length,
     validCleanReportCount: validCleanReports.length,
     completedCleanReportCount: completedCleanReports.length,
     ignoredPreCutoffReportCount,
     activeResultsSlateDate,
-    priorSlateStillActive: Boolean(
-      activeResultsSlateDate && activeResultsSlateDate < today
-    ),
+    priorSlateStillActive: false,
+    staleUnresolvedSlates,
+    staleUnresolvedCount,
+    staleDirtyGradeCount,
+    stalePendingCount,
+    staleCleanupNeeded: staleUnresolvedCount > 0,
+    dirtyLegacyGradeCount,
+    legacyResolvedWithoutGameFinalCount,
+    officialLineNullCount,
     currentLabSlateDate: rotation.currentLabSlateDate,
     historySlateCount: rotation.historySlates.length,
     futureTrackedCount,

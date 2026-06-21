@@ -49,7 +49,7 @@ async function testResolveBlocksFutureGame() {
   assert.equal(resolved.resolveDebug.blockedByFutureGame, true);
   assert.equal(resolved.resolveDebug.gameStarted, false);
   assert.equal(resolved.resolveDebug.matchVerified, false);
-  assert.match(resolved.pendingReason, /blocked/i);
+  assert.match(resolved.pendingReason, /blocked until slate date/i);
 }
 
 async function testPastSlateNotFutureBlocked() {

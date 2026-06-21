@@ -11,13 +11,11 @@ import {
 } from "react-native";
 
 import CopyReportButton from "../../components/CopyReportButton";
-import FilterAuditCard from "../../components/FilterAuditCard";
 import PropCard, { ResultMarginText, safeDisplay } from "../../components/PropCard";
 import {
   buildDailySlateReports,
   fetchDailySlateReports,
   fetchLockedSlates,
-  fetchTopProps,
   fetchTrackedProps,
   lockSlate,
   resolveTrackedProps,
@@ -26,7 +24,6 @@ import { buildResultsReport } from "../../utils/reportBuilders";
 import {
   RESULTS_FILTERS,
   AWAITING_STATS_LABEL,
-  PRIOR_SLATE_STILL_ACTIVE_LABEL,
   buildKeyTakeaways,
   computeAccuracySummary,
   computePendingCheckSummary,
@@ -37,12 +34,10 @@ import {
   getTrackedPropStatus,
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
-  isPriorSlateStillActive,
   pickResolveCheckMessage,
   type ResultsFilter,
 } from "../../utils/resultsQueue";
 import { computeSlateRotation, getTodayLocalDate } from "../../utils/slateRotation";
-import { type FilterAudit } from "../../utils/filterAudit";
 import { formatPropLabelLine, getPropDisplayLabels } from "../../utils/propLabels";
 
 function StatusBadge({ status }: { status: string }) {
@@ -75,8 +70,6 @@ export default function ResultsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
   const [resolveCheckMessage, setResolveCheckMessage] = useState<string | null>(null);
-  const [filterAudit, setFilterAudit] = useState<FilterAudit | null>(null);
-  const [trackingMode, setTrackingMode] = useState<string | null>(null);
   const [lockedSlates, setLockedSlates] = useState<any[]>([]);
   const [lockingSlate, setLockingSlate] = useState<string | null>(null);
   const [todayLocalDate, setTodayLocalDate] = useState(() => getTodayLocalDate());
@@ -84,19 +77,14 @@ export default function ResultsScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [trackedData, reportData, topPropsData, lockedData] = await Promise.all([
+      const [trackedData, reportData, lockedData] = await Promise.all([
         fetchTrackedProps(),
         fetchDailySlateReports(),
-        fetchTopProps(),
         fetchLockedSlates(),
       ]);
 
       setTrackedProps(trackedData.props || []);
       setReports(reportData.reports || []);
-      setFilterAudit(topPropsData.filterAudit || null);
-      setTrackingMode(
-        topPropsData.trackingMode || topPropsData.filterAudit?.trackingMode || null
-      );
       setLockedSlates(lockedData.slates || []);
       if (trackedData.error) {
         setLoadError(trackedData.error);
@@ -209,9 +197,6 @@ export default function ResultsScreen() {
     [trackedProps, reports, todayLocalDate]
   );
 
-  const activeSlateDate = visibleSlates[0]?.slateDate || null;
-  const priorSlateStillActive = isPriorSlateStillActive(activeSlateDate, todayLocalDate);
-
   const filteredSlates = useMemo(() => {
     return visibleSlates.map((slate) => ({
       ...slate,
@@ -241,11 +226,9 @@ export default function ResultsScreen() {
       filter,
       loading,
       refreshing,
-      trackingMode,
       lastResolveSummary,
       resolveCheckMessage,
       error: loadError,
-      filterAudit,
     });
 
   return (
@@ -259,29 +242,17 @@ export default function ResultsScreen() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>📋 Results</Text>
-          <Text style={styles.subtitle}>
-            {trackingMode === "ALL_GENERATED_PROPS"
-              ? "All Generated Props — Grading Queue"
-              : "Official Grading Queue"}
-          </Text>
+          <Text style={styles.subtitle}>Official Grading Queue</Text>
           <Text style={styles.motto}>
-            {trackingMode === "ALL_GENERATED_PROPS"
-              ? "Results is the active grading queue. Board-generated props appear here until graded and moved to Lab."
-              : "Results is the active grading queue. Official props appear here until graded and moved to Lab."}
+            Today's tracked props only. Props appear here until graded and moved to Lab.
           </Text>
         </View>
 
         <View style={styles.dashboardCard}>
           <Text style={styles.dashboardTitle}>Accuracy Summary</Text>
           <Text style={styles.currentSlateLabel}>
-            Current Results Slate: {activeSlateDate || todayLocalDate}
-            {activeSlateDate && activeSlateDate !== todayLocalDate
-              ? ` (today: ${todayLocalDate})`
-              : ""}
+            Today ({todayLocalDate}) — {visibleSlates.length ? `${accuracySummary.total} tracked` : "no props yet"}
           </Text>
-          {priorSlateStillActive ? (
-            <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
-          ) : null}
           <View style={styles.accuracyGrid}>
             <SummaryBox label="Total Tracked" value={accuracySummary.total} color="#f8fafc" />
             <SummaryBox label="Graded" value={accuracySummary.graded} color="#22c55e" />
@@ -521,14 +492,11 @@ export default function ResultsScreen() {
           );
         })}
 
-        <FilterAuditCard audit={filterAudit} />
-
         {!loading && !loadError && visibleSlates.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No active Results slate.</Text>
+            <Text style={styles.emptyTitle}>No tracked props for today yet.</Text>
             <Text style={styles.emptyText}>
-              No unresolved slates in the Results queue. Completed slates move to Lab.
-              {todayLocalDate ? ` Today (${todayLocalDate}) may have props still on the board.` : ""}
+              Refresh the board to generate today's props.
             </Text>
           </View>
         ) : null}

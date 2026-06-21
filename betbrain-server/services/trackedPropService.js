@@ -1111,6 +1111,18 @@ function applySafeLockedMerge(existing = {}, incomingFields = {}) {
   };
 }
 
+function resolveInitialOfficialLine(existing = null, fields = {}) {
+  if (existing?.officialLine !== undefined && existing?.officialLine !== null) {
+    return num(existing.officialLine);
+  }
+
+  const incomingLine = num(fields.currentLine ?? fields.line);
+  const fallback = incomingLine ||
+    num(existing?.line ?? existing?.currentLine ?? existing?.latestLine ?? existing?.pickLine);
+
+  return fallback || null;
+}
+
 function normalizeTrackedProp(pick = {}, existing = null) {
   const now = new Date().toISOString();
   const fields = mapPickToTrackedFields(pick);
@@ -1124,18 +1136,11 @@ function normalizeTrackedProp(pick = {}, existing = null) {
   }
 
   const incomingLine = num(fields.currentLine ?? fields.line);
-  const officialLine =
-    existing?.officialLine !== undefined && existing?.officialLine !== null
-      ? num(existing.officialLine)
-      : existing?.line !== undefined && existing?.line !== null
-        ? num(existing.line)
-        : incomingLine;
+  const officialLine = resolveInitialOfficialLine(existing, fields);
   const pickLine =
     existing?.pickLine !== undefined && existing?.pickLine !== null
       ? num(existing.pickLine)
-      : existing?.line !== undefined && existing?.line !== null
-        ? num(existing.line)
-        : incomingLine;
+      : officialLine ?? incomingLine ?? null;
   const lockedSide =
     existing?.lockedSide || fields.currentEngineSide || existing?.currentEngineSide || "";
   const previousLatest =
@@ -1253,14 +1258,25 @@ export function addTrackedProps(picks = []) {
       if (slateLocked) audit.safeUpdates += 1;
     } else {
       const normalized = normalizeTrackedProp(pick);
-      const firstLine = num(normalized.line ?? normalized.currentLine);
-      normalized.officialLine = firstLine;
-      normalized.pickLine = firstLine;
+      const fallbackLine = num(
+        normalized.line ??
+          normalized.currentLine ??
+          normalized.latestLine ??
+          normalized.pickLine
+      );
+      if (
+        (normalized.officialLine === undefined || normalized.officialLine === null) &&
+        fallbackLine
+      ) {
+        normalized.officialLine = fallbackLine;
+      }
+      const firstLine = num(normalized.officialLine ?? fallbackLine);
+      normalized.pickLine = normalized.pickLine ?? firstLine;
       normalized.lockedSide =
         normalized.lockedSide || normalized.currentEngineSide || "";
-      normalized.line = firstLine;
-      normalized.latestLine = firstLine;
-      normalized.currentLine = firstLine;
+      normalized.line = firstLine || normalized.line;
+      normalized.latestLine = firstLine || normalized.latestLine;
+      normalized.currentLine = firstLine || normalized.currentLine;
       normalized.timesSeen = 1;
       indexByStable.set(stableKey, working.length);
       if (legacyKey !== stableKey) {
@@ -1398,6 +1414,44 @@ export function getAnalyticsScopeProps(
   }
 
   return scoped;
+}
+
+/** Backfill officialLine from line/currentLine/latestLine when null — never overwrites existing. */
+export function backfillOfficialLines() {
+  const tracked = readJSON(TRACKED_FILE, []);
+  let updated = 0;
+
+  const next = tracked.map((prop) => {
+    if (prop.officialLine !== undefined && prop.officialLine !== null) {
+      return prop;
+    }
+
+    const fallback = num(prop.line ?? prop.currentLine ?? prop.latestLine ?? prop.pickLine);
+    if (!fallback) return prop;
+
+    updated += 1;
+    return {
+      ...prop,
+      officialLine: fallback,
+      line: prop.line ?? fallback,
+      pickLine: prop.pickLine ?? fallback,
+      latestLine: prop.latestLine ?? fallback,
+      currentLine: prop.currentLine ?? fallback,
+    };
+  });
+
+  if (updated) {
+    writeJSON(TRACKED_FILE, next);
+  }
+
+  return {
+    ok: true,
+    updated,
+    total: next.length,
+    officialLineNullCount: next.filter(
+      (prop) => prop.officialLine === undefined || prop.officialLine === null
+    ).length,
+  };
 }
 
 export function deleteTrackedProp(id) {

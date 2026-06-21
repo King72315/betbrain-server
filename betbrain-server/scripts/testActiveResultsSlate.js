@@ -38,7 +38,7 @@ function makeCompletedReport(slateDate) {
   };
 }
 
-console.log("testActiveResultsSlate: oldest unresolved slate selection");
+console.log("testActiveResultsSlate: today-only Results slate selection");
 
 {
   const tracked = [
@@ -47,14 +47,20 @@ console.log("testActiveResultsSlate: oldest unresolved slate selection");
   ];
   const reports = [];
   const active = pickActiveResultsSlateDate(tracked, reports, TODAY);
-  assert.equal(active, "2026-06-20", "should pick oldest unresolved slate");
+  assert.equal(active, "2026-06-21", "should pick today even when prior slate unresolved");
+}
+
+{
+  const tracked = [makeProp("2026-06-20", "pending")];
+  const active = pickActiveResultsSlateDate(tracked, [], TODAY);
+  assert.equal(active, null, "no today props means empty Results");
 }
 
 {
   const tracked = [makeProp("2026-06-20", "win", { actualStat: 18, result: "win" })];
   const reports = [makeCompletedReport("2026-06-20")];
   const active = pickActiveResultsSlateDate(tracked, reports, TODAY);
-  assert.equal(active, null, "completed slate excluded from Results");
+  assert.equal(active, null, "prior slate alone does not appear in Results");
 }
 
 {
@@ -72,23 +78,26 @@ console.log("testActiveResultsSlate: oldest unresolved slate selection");
 {
   const tracked = [
     makeProp("2026-06-19", "pending"),
-    makeProp("2026-06-20", "pending"),
+    makeProp("2026-06-21", "pending"),
   ];
   const reports = [makeCompletedReport("2026-06-19")];
   const active = pickActiveResultsSlateDate(tracked, reports, TODAY);
-  assert.equal(active, "2026-06-20", "skip completed lab slate, show next oldest");
+  assert.equal(active, "2026-06-21", "today props only — skip stale prior slate");
 }
 
 {
   const flow = buildCourtEdgeFlowDiagnostics(
-    [makeProp("2026-06-20", "pending"), makeProp("2026-06-22", "pending")],
+    [makeProp("2026-06-20", "pending"), makeProp("2026-06-21", "pending")],
     [],
     [],
     TODAY
   );
-  assert.equal(flow.activeResultsSlateDate, "2026-06-20");
-  assert.equal(flow.priorSlateStillActive, true);
-  assert.equal(flow.futureTrackedCount, 1);
+  assert.equal(flow.activeResultsSlateDate, "2026-06-21");
+  assert.equal(flow.resultsRule, "today_only");
+  assert.equal(flow.priorSlateStillActive, false);
+  assert.equal(flow.staleUnresolvedCount, 1);
+  assert.deepEqual(flow.staleUnresolvedSlates, ["2026-06-20"]);
+  assert.equal(flow.staleCleanupNeeded, true);
 }
 
 console.log("testActiveResultsSlate: all passed");

@@ -94,6 +94,7 @@ import {
   buildTrackedPropAnalytics,
   clearTrackedProps,
   collectAllGeneratedProps,
+  backfillOfficialLines,
   deleteTrackedProp,
   getAnalyticsScopeProps,
   getTrackedProps,
@@ -131,7 +132,7 @@ import {
   getTodayLocalDate,
 } from "./services/slateScopeService.js";
 
-const SERVER_BUILD = "courteedge-game-final-guard-v1";
+const SERVER_BUILD = "courteedge-results-today-only-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2237,6 +2238,21 @@ app.post("/admin/backup", (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Backup failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/backfill-official-lines", requireAdminSecret, (req, res) => {
+  try {
+    const result = backfillOfficialLines();
+    res.json(result);
+  } catch (error) {
+    console.log("BACKFILL OFFICIAL LINES ERROR:", error.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "Backfill official lines failed",
       error: error.message,
     });
   }

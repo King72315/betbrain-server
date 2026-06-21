@@ -54,6 +54,13 @@ function isAwaitingOfficialStats(prop: any): boolean {
   const resolveDebug = prop.resolveDebug || {};
   const pendingReason = String(prop.pendingReason || "").toLowerCase();
 
+  if (
+    resolveDebug.gameFinal === true &&
+    pendingReason.includes("final player stats unavailable")
+  ) {
+    return true;
+  }
+
   if (resolveDebug.gameFinal === true) {
     return true;
   }
@@ -269,7 +276,7 @@ export function computePendingCheckSummary(
 /** Plain-English takeaways from accuracy counts for the Results dashboard. */
 export function buildKeyTakeaways(summary: AccuracySummary): string[] {
   if (summary.total === 0) {
-    return ["No props in the active Results queue."];
+    return ["No tracked props for today yet. Refresh the board to generate today's props."];
   }
 
   const bullets: string[] = [];
@@ -326,38 +333,21 @@ function buildSlateSummary(props: any[]) {
 }
 
 
-/** Oldest unresolved clean-era slate eligible for the Results queue. */
+/** Today's slate date when tracked props exist for today (America/Chicago). */
 export function pickActiveResultsSlateDate(
   trackedProps: any[] = [],
-  reports: any[] = [],
+  _reports: any[] = [],
   today: string = getTodayLocalDate()
 ): string | null {
-  const rotation = computeSlateRotation(reports);
-  const historyDates = new Set(
-    rotation.historySlates.map((report) => String(report.slateDate || ""))
-  );
-  const labDate = rotation.currentLabSlateDate;
-  const candidates = new Set<string>();
-
-  for (const prop of trackedProps) {
+  const hasTodayProps = trackedProps.some((prop) => {
     const slateDate = getResultsPropSlateDate(prop);
-    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
-    if (isFutureSlateDate(slateDate, today)) continue;
-    if (labDate && slateDate === labDate) continue;
-    if (historyDates.has(slateDate)) continue;
+    return slateDate === today && isOnOrAfterCleanDataCutoff(slateDate);
+  });
 
-    const report =
-      reports.find((item) => String(item.slateDate) === slateDate) || null;
-    if (isCompletedSlate(report)) continue;
-
-    candidates.add(slateDate);
-  }
-
-  const sorted = [...candidates].sort();
-  return sorted[0] || null;
+  return hasTodayProps ? today : null;
 }
 
-/** Oldest unresolved clean-era slate visible in Results (one at a time). */
+/** Active Results slate for today only. */
 export function computeActiveResultsSlate(
   trackedProps: any[] = [],
   reports: any[] = [],
@@ -395,7 +385,7 @@ function buildActiveResultsSlate(
   };
 }
 
-/** In-progress clean-era slates visible in Results — oldest unresolved slate only. */
+/** Today's tracked props only — Results clipboard for the current CT date. */
 export function computeVisibleResultsSlates(
   trackedProps: any[] = [],
   reports: any[] = [],
@@ -403,10 +393,10 @@ export function computeVisibleResultsSlates(
 ): ActiveResultsSlate[] {
   const rotation = computeSlateRotation(reports);
   const activeSlateDate = pickActiveResultsSlateDate(trackedProps, reports, today);
-  if (!activeSlateDate) return [];
+  if (!activeSlateDate || activeSlateDate !== today) return [];
 
   const slateProps = trackedProps.filter(
-    (prop) => getResultsPropSlateDate(prop) === activeSlateDate
+    (prop) => getResultsPropSlateDate(prop) === today
   );
 
   if (!slateProps.length) return [];

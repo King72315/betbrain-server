@@ -23,9 +23,7 @@ import {
   getTrackedPropStatus,
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
-  isPriorSlateStillActive,
   AWAITING_STATS_LABEL,
-  PRIOR_SLATE_STILL_ACTIVE_LABEL,
 } from "./resultsQueue";
 import { filterCompletedDailyReports, getTodayLocalDate, isOnOrAfterCleanDataCutoff } from "./slateRotation";
 
@@ -509,14 +507,11 @@ export function buildResultsReport(input: {
   filter: string;
   loading: boolean;
   refreshing: boolean;
-  trackingMode?: string | null;
   lastResolveSummary?: any;
   resolveCheckMessage?: string | null;
-  filterAudit?: FilterAudit | null;
   error?: string | null;
 }) {
-  const isAllGeneratedMode = input.trackingMode === "ALL_GENERATED_PROPS";
-  const propLabel = isAllGeneratedMode ? "Generated Props" : "Official Props";
+  const propLabel = "Official Props";
   const accuracy = computeAccuracySummary(input.visibleSlates);
   const pendingCheck = computePendingCheckSummary(
     input.lastResolveSummary,
@@ -525,7 +520,6 @@ export function buildResultsReport(input: {
   const takeaways = buildKeyTakeaways(accuracy);
   const todayLocalDate = getTodayLocalDate();
   const activeSlateDate = input.visibleSlates[0]?.slateDate || todayLocalDate;
-  const priorSlateStillActive = isPriorSlateStillActive(activeSlateDate, todayLocalDate);
 
   const formatResultPropLine = (prop: any, index: number) => {
     const status = getTrackedPropStatus(prop);
@@ -585,9 +579,8 @@ export function buildResultsReport(input: {
 
   const accuracyBlock = joinLines([
     "--- Accuracy Summary ---",
-    `Current Results Slate: ${activeSlateDate}`,
-    priorSlateStillActive ? PRIOR_SLATE_STILL_ACTIVE_LABEL : null,
     `Today (CT): ${todayLocalDate}`,
+    `Results rule: today's tracked props only`,
     `Total Tracked: ${accuracy.total}`,
     `Graded: ${accuracy.graded}`,
     `Pending: ${accuracy.pending}`,
@@ -617,7 +610,7 @@ export function buildResultsReport(input: {
     : null;
 
   const debugNotes =
-    "Results shows the oldest unresolved clean-era slate (one at a time). Future slates stay on the board until active. Completed slates move to Lab; archived slates appear in History.";
+    "Results shows today's tracked props only (America/Chicago). Stale unresolved slates are excluded from Results and surfaced in backend diagnostics. Completed slates move to Lab; archived slates appear in History.";
 
   return buildPageReport({
     page: "Results",
@@ -633,12 +626,11 @@ export function buildResultsReport(input: {
       Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
-      `Current Results Slate: ${activeSlateDate}`,
-      priorSlateStillActive ? PRIOR_SLATE_STILL_ACTIVE_LABEL : null,
       `Today (CT): ${todayLocalDate}`,
+      `Results rule: today's tracked props only`,
       input.visibleSlates.length
-        ? `Active queue: ${input.visibleSlates.length} slate (${activeSlateDate})`
-        : "No active Results slate.",
+        ? `Today's queue: ${accuracy.total} props`
+        : "No tracked props for today yet.",
       accuracy.total
         ? `Total ${propLabel}: ${accuracy.total} | Graded: ${accuracy.graded} | Pending: ${accuracy.pending} | Awaiting Stats: ${accuracy.awaitingStats}`
         : null,
@@ -655,18 +647,15 @@ export function buildResultsReport(input: {
       takeawaysBlock,
       takeawaysBlock ? "" : null,
       input.visibleSlates.length
-        ? "--- Active Slate Details ---"
-        : "--- No active Results slate ---",
+        ? "--- Today's Slate Details ---"
+        : "--- No tracked props for today ---",
       slateSections.length
         ? slateSections.join("\n\n")
-        : `No ${propLabel.toLowerCase()} in this view.`,
-      input.filterAudit
-        ? `\nLatest scan filter audit: ${input.filterAudit.filteredOut ?? 0} filtered of ${input.filterAudit.totalScanned ?? 0} scanned`
-        : null,
+        : `No ${propLabel.toLowerCase()} for today.`,
     ]),
     warnings: joinLines([
       !input.loading && input.visibleSlates.length === 0
-        ? "No active Results slate. Completed slates move to Lab."
+        ? "No tracked props for today yet. Refresh the board to generate today's props."
         : null,
     ]) || undefined,
     errors: input.error || undefined,

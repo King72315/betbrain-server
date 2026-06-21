@@ -662,7 +662,8 @@ export default function PropLab() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No completed Lab slate yet.</Text>
             <Text style={styles.emptyText}>
-              Current active slate remains in Results.
+              Today's active slate remains in Results until every prop grades. Completed
+              slates appear here automatically.
             </Text>
           </View>
         ) : null}

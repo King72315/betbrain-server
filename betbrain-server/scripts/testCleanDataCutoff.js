@@ -112,7 +112,7 @@ console.log("testCleanDataCutoff: clean completed slate becomes current Lab");
   );
 }
 
-console.log("testCleanDataCutoff: active prior-day unresolved still works");
+console.log("testCleanDataCutoff: today-only Results with stale prior slate flagged");
 
 {
   const tracked = [makeProp("2026-06-20", "pending"), makeProp("2026-06-21", "pending")];
@@ -120,9 +120,12 @@ console.log("testCleanDataCutoff: active prior-day unresolved still works");
   const active = pickActiveResultsSlateDate(tracked, rawReports, TODAY);
   const flow = buildCourtEdgeFlowDiagnostics(tracked, rawReports, [], TODAY);
 
-  assert.equal(active, "2026-06-20");
-  assert.equal(flow.activeResultsSlateDate, "2026-06-20");
-  assert.equal(flow.priorSlateStillActive, true);
+  assert.equal(active, "2026-06-21");
+  assert.equal(flow.activeResultsSlateDate, "2026-06-21");
+  assert.equal(flow.resultsRule, "today_only");
+  assert.equal(flow.priorSlateStillActive, false);
+  assert.equal(flow.staleUnresolvedCount, 1);
+  assert.equal(flow.staleCleanupNeeded, true);
 }
 
 console.log("testCleanDataCutoff: history rotation excludes pre-cutoff");
