@@ -278,10 +278,58 @@ export function buildCourtEdgeFlowDiagnostics(
   let dirtyLegacyGradeCount = 0;
   let legacyResolvedWithoutGameFinalCount = 0;
   let officialLineNullCount = 0;
+  let legacyOfficialLineNullCount = 0;
+  let todaysTrackedCount = 0;
+  let todaysOfficialLineNullCount = 0;
+  let todaysMissingLineCount = 0;
+  let todaysMissingGameIdCount = 0;
+  let todaysMissingCommenceTimeCount = 0;
+  let todaysPendingCount = 0;
+  let todaysGradedCount = 0;
+  let todaysAwaitingStatsCount = 0;
 
   for (const prop of trackedProps) {
-    if (prop.officialLine === undefined || prop.officialLine === null) {
+    const slateDate = String(prop.slateDate || "");
+    const officialLineMissing =
+      prop.officialLine === undefined || prop.officialLine === null;
+
+    if (officialLineMissing) {
       officialLineNullCount += 1;
+      if (slateDate !== today) {
+        legacyOfficialLineNullCount += 1;
+      }
+    }
+
+    if (slateDate === today) {
+      todaysTrackedCount += 1;
+      if (officialLineMissing) todaysOfficialLineNullCount += 1;
+
+      const line = prop.line ?? prop.currentLine ?? prop.latestLine ?? prop.pickLine;
+      if (line === undefined || line === null || line === "") {
+        todaysMissingLineCount += 1;
+      }
+      if (!String(prop.gameId || "").trim()) {
+        todaysMissingGameIdCount += 1;
+      }
+      if (!String(prop.commenceTime || "").trim()) {
+        todaysMissingCommenceTimeCount += 1;
+      }
+
+      const status = String(prop.status || "pending").toLowerCase();
+      if (["win", "loss", "push"].includes(status)) {
+        todaysGradedCount += 1;
+      } else {
+        todaysPendingCount += 1;
+      }
+
+      const resolveDebug = prop.resolveDebug || {};
+      const pendingReason = String(prop.pendingReason || "").toLowerCase();
+      if (
+        resolveDebug.gameFinal === true ||
+        pendingReason.includes("awaiting official player stat")
+      ) {
+        todaysAwaitingStatsCount += 1;
+      }
     }
 
     if (isDirtyLegacyGrade(prop)) {
@@ -344,6 +392,16 @@ export function buildCourtEdgeFlowDiagnostics(
     dirtyLegacyGradeCount,
     legacyResolvedWithoutGameFinalCount,
     officialLineNullCount,
+    totalOfficialLineNullCount: officialLineNullCount,
+    legacyOfficialLineNullCount,
+    todaysTrackedCount,
+    todaysOfficialLineNullCount,
+    todaysMissingLineCount,
+    todaysMissingGameIdCount,
+    todaysMissingCommenceTimeCount,
+    todaysPendingCount,
+    todaysGradedCount,
+    todaysAwaitingStatsCount,
     currentLabSlateDate: rotation.currentLabSlateDate,
     historySlateCount: rotation.historySlates.length,
     futureTrackedCount,
