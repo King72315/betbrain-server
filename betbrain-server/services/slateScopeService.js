@@ -177,6 +177,78 @@ function sortReportsByDateDesc(reports = []) {
   );
 }
 
+/** Locked ACTIVE slates that still need grading (oldest first). */
+export function getActiveLockedUnresolvedSlateDates(
+  trackedProps = [],
+  lockedSlates = [],
+  reports = [],
+  today = getTodayLocalDate()
+) {
+  const propsBySlate = {};
+
+  for (const prop of trackedProps) {
+    const slateDate = String(prop.slateDate || "");
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isFutureSlateDate(slateDate, today)) continue;
+    if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
+    propsBySlate[slateDate].push(prop);
+  }
+
+  const lockedActiveDates = (lockedSlates || [])
+    .filter((entry) => {
+      const phase = String(entry.phase || "ACTIVE").toUpperCase();
+      return phase === "ACTIVE" && isOnOrAfterCleanDataCutoff(entry.slateDate);
+    })
+    .map((entry) => String(entry.slateDate || ""))
+    .filter(Boolean)
+    .sort();
+
+  return lockedActiveDates.filter((slateDate) => {
+    const report =
+      reports.find((item) => String(item.slateDate) === slateDate) || null;
+    if (isCompletedSlate(report)) return false;
+
+    const props = propsBySlate[slateDate] || [];
+    if (!props.length) return true;
+    return hasUnresolvedGradingProps(props);
+  });
+}
+
+export function getBlockingActiveResultsSlateDate(
+  trackedProps = [],
+  lockedSlates = [],
+  reports = [],
+  today = getTodayLocalDate()
+) {
+  const unresolved = getActiveLockedUnresolvedSlateDates(
+    trackedProps,
+    lockedSlates,
+    reports,
+    today
+  );
+  return unresolved[0] || null;
+}
+
+export function countStagedHomeProps(trackedProps = [], today = getTodayLocalDate()) {
+  const staged = trackedProps.filter((prop) => prop.homeStaged === true);
+  if (!staged.length) return { slateDate: null, count: 0 };
+
+  const dates = [
+    ...new Set(
+      staged
+        .map((prop) => String(prop.slateDate || ""))
+        .filter((date) => date && isOnOrAfterCleanDataCutoff(date))
+    ),
+  ].sort();
+
+  const latest = dates[dates.length - 1] || null;
+  const count = latest
+    ? staged.filter((prop) => String(prop.slateDate || "") === latest).length
+    : staged.length;
+
+  return { slateDate: latest, count };
+}
+
 export function computeSlateRotation(reports = []) {
   const allReports = sortReportsByDateDesc(filterValidDailyReports(reports));
   const completed = allReports.filter(isCompletedSlate);
@@ -200,15 +272,28 @@ export function computeSlateRotation(reports = []) {
   };
 }
 
-/** Today's slate date when tracked props exist for today (America/Chicago). */
+/** Active Results slate: locked ACTIVE unresolved first, then today when unblocked. */
 export function pickActiveResultsSlateDate(
   trackedProps = [],
-  _reports = [],
-  today = getTodayLocalDate()
+  reports = [],
+  today = getTodayLocalDate(),
+  lockedSlates = []
 ) {
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    trackedProps,
+    lockedSlates,
+    reports,
+    today
+  );
+  if (blockingSlate) return blockingSlate;
+
   const hasTodayProps = trackedProps.some((prop) => {
     const slateDate = String(prop.slateDate || "");
-    return slateDate === today && isOnOrAfterCleanDataCutoff(slateDate);
+    return (
+      slateDate === today &&
+      isOnOrAfterCleanDataCutoff(slateDate) &&
+      prop.homeStaged !== true
+    );
   });
 
   return hasTodayProps ? today : null;
@@ -255,7 +340,8 @@ export function buildCourtEdgeFlowDiagnostics(
   trackedProps = [],
   rawReports = [],
   archives = [],
-  today = getTodayLocalDate()
+  today = getTodayLocalDate(),
+  lockedSlates = []
 ) {
   const ignoredPreCutoffReportCount = countIgnoredPreCutoffReports(rawReports);
   const validCleanReports = filterValidDailyReports(rawReports, today);
@@ -264,8 +350,38 @@ export function buildCourtEdgeFlowDiagnostics(
   const activeResultsSlateDate = pickActiveResultsSlateDate(
     trackedProps,
     rawReports,
+    today,
+    lockedSlates
+  );
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    trackedProps,
+    lockedSlates,
+    rawReports,
     today
   );
+  const activeResultsProps = activeResultsSlateDate
+    ? trackedProps.filter(
+        (prop) => String(prop.slateDate || "") === activeResultsSlateDate
+      )
+    : [];
+  const activeLockEntry = (lockedSlates || []).find(
+    (entry) => String(entry.slateDate) === activeResultsSlateDate
+  );
+  const stagedHome = countStagedHomeProps(trackedProps, today);
+  const activeResultsPendingCount = activeResultsProps.filter(
+    (prop) => String(prop.status || "pending").toLowerCase() === "pending"
+  ).length;
+  const activeResultsGradedCount = activeResultsProps.filter((prop) =>
+    ["win", "loss", "push"].includes(String(prop.status || "").toLowerCase())
+  ).length;
+  const activeResultsAwaitingStatsCount = activeResultsProps.filter((prop) => {
+    const resolveDebug = prop.resolveDebug || {};
+    const pendingReason = String(prop.pendingReason || "").toLowerCase();
+    return (
+      resolveDebug.gameFinal === true ||
+      pendingReason.includes("awaiting official player stat")
+    );
+  }).length;
 
   const staleBySlate = collectStaleUnresolvedBySlate(trackedProps, rawReports, today);
   const staleUnresolvedSlates = Object.keys(staleBySlate).sort();
@@ -398,10 +514,10 @@ export function buildCourtEdgeFlowDiagnostics(
   return {
     todayLocalDate: today,
     cleanDataCutoff: CLEAN_DATA_CUTOFF,
-    resultsRule: "today_only",
-    slateFrozen,
-    slateFrozenAt,
-    autoLocked,
+    resultsRule: "active_locked_unresolved",
+    slateFrozen: isSlateLocked(activeResultsSlateDate || today),
+    slateFrozenAt: activeLockEntry?.lockedAt || lockEntry?.lockedAt || null,
+    autoLocked: Boolean(activeLockEntry?.autoLocked ?? lockEntry?.autoLocked),
     lastPropAddedAt,
     propsAddedAfterFreezeCount,
     rawReportCount: (rawReports || []).length,
@@ -409,7 +525,26 @@ export function buildCourtEdgeFlowDiagnostics(
     completedCleanReportCount: completedCleanReports.length,
     ignoredPreCutoffReportCount,
     activeResultsSlateDate,
-    priorSlateStillActive: false,
+    activeResultsPhase: activeLockEntry?.phase || null,
+    activeResultsLocked: Boolean(activeLockEntry),
+    activeResultsPropCount: activeResultsProps.length,
+    activeResultsPendingCount,
+    activeResultsGradedCount,
+    activeResultsAwaitingStatsCount,
+    stagedHomeSlateDate: stagedHome.slateDate,
+    stagedHomePropCount: stagedHome.count,
+    nextSlateWaitingOnHome: Boolean(blockingSlate && stagedHome.count > 0),
+    resultsSlateBlockedByActiveSlate: blockingSlate,
+    blockedResultsPromotionReason: blockingSlate
+      ? `Active locked slate ${blockingSlate} still unresolved`
+      : null,
+    pendingActiveResultsCount: activeResultsPendingCount + activeResultsAwaitingStatsCount,
+    activeResultsCanPromoteToLab:
+      activeResultsProps.length > 0 &&
+      !hasUnresolvedGradingProps(activeResultsProps),
+    priorSlateStillActive: Boolean(
+      activeResultsSlateDate && activeResultsSlateDate < today
+    ),
     staleUnresolvedSlates,
     staleUnresolvedCount,
     staleDirtyGradeCount,

@@ -112,17 +112,30 @@ console.log("testCleanDataCutoff: clean completed slate becomes current Lab");
   );
 }
 
-console.log("testCleanDataCutoff: today-only Results with stale prior slate flagged");
+console.log("testCleanDataCutoff: active locked slate blocks today-only bypass");
 
 {
   const tracked = [makeProp("2026-06-20", "pending"), makeProp("2026-06-21", "pending")];
   const rawReports = [makeInProgressReport("2026-06-20")];
-  const active = pickActiveResultsSlateDate(tracked, rawReports, TODAY);
-  const flow = buildCourtEdgeFlowDiagnostics(tracked, rawReports, [], TODAY);
+  const lockedSlates = [
+    {
+      slateDate: "2026-06-21",
+      phase: "ACTIVE",
+      lockedAt: "2026-06-21T12:00:00.000Z",
+    },
+  ];
+  const active = pickActiveResultsSlateDate(tracked, rawReports, TODAY, lockedSlates);
+  const flow = buildCourtEdgeFlowDiagnostics(
+    tracked,
+    rawReports,
+    [],
+    TODAY,
+    lockedSlates
+  );
 
   assert.equal(active, "2026-06-21");
   assert.equal(flow.activeResultsSlateDate, "2026-06-21");
-  assert.equal(flow.resultsRule, "today_only");
+  assert.equal(flow.resultsRule, "active_locked_unresolved");
   assert.equal(flow.priorSlateStillActive, false);
   assert.equal(flow.staleUnresolvedCount, 1);
   assert.equal(flow.staleCleanupNeeded, true);

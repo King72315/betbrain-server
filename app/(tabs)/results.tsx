@@ -34,6 +34,9 @@ import {
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
   pickResolveCheckMessage,
+  isPriorSlateStillActive,
+  PRIOR_SLATE_STILL_ACTIVE_LABEL,
+  summarizeActiveResultsSlate,
   type ResultsFilter,
 } from "../../utils/resultsQueue";
 import { computeSlateRotation, getTodayLocalDate } from "../../utils/slateRotation";
@@ -125,7 +128,12 @@ export default function ResultsScreen() {
   const handleResolveAll = async () => {
     try {
       setResolving(true);
-      const beforeVisible = computeVisibleResultsSlates(trackedProps, reports, getTodayLocalDate());
+      const beforeVisible = computeVisibleResultsSlates(
+        trackedProps,
+        reports,
+        getTodayLocalDate(),
+        lockedSlates
+      );
 
       const resolved = await resolveTrackedProps({ requireLikelyFinished: false });
       setLastResolveSummary(resolved.summary || null);
@@ -140,7 +148,12 @@ export default function ResultsScreen() {
       const nextReports = reportData.reports || [];
       setReports(nextReports);
 
-      const afterVisible = computeVisibleResultsSlates(nextTracked, nextReports, getTodayLocalDate());
+      const afterVisible = computeVisibleResultsSlates(
+        nextTracked,
+        nextReports,
+        getTodayLocalDate(),
+        lockedSlates
+      );
       const afterRotation = computeSlateRotation(nextReports, lockedSlates);
       const afterAccuracy = computeAccuracySummary(afterVisible);
       setResolveCheckMessage(
@@ -171,8 +184,18 @@ export default function ResultsScreen() {
   );
 
   const visibleSlates = useMemo(
-    () => computeVisibleResultsSlates(trackedProps, reports, todayLocalDate),
-    [trackedProps, reports, todayLocalDate]
+    () => computeVisibleResultsSlates(trackedProps, reports, todayLocalDate, lockedSlates),
+    [trackedProps, reports, todayLocalDate, lockedSlates]
+  );
+
+  const activeResultsSummary = useMemo(
+    () => summarizeActiveResultsSlate(trackedProps, reports, todayLocalDate, lockedSlates),
+    [trackedProps, reports, todayLocalDate, lockedSlates]
+  );
+
+  const priorSlateStillActive = isPriorSlateStillActive(
+    activeResultsSummary.activeSlateDate,
+    todayLocalDate
   );
 
   const filteredSlates = useMemo(() => {
@@ -222,15 +245,20 @@ export default function ResultsScreen() {
           <Text style={styles.title}>📋 Results</Text>
           <Text style={styles.subtitle}>Official Grading Queue</Text>
           <Text style={styles.motto}>
-            Today's tracked props only. Props appear here until graded and moved to Lab.
+            Active locked grading slate. New props stay on Home until this slate moves to Lab.
           </Text>
         </View>
 
         <View style={styles.dashboardCard}>
           <Text style={styles.dashboardTitle}>Accuracy Summary</Text>
           <Text style={styles.currentSlateLabel}>
-            Today ({todayLocalDate}) — {visibleSlates.length ? `${accuracySummary.total} tracked` : "no props yet"}
+            {activeResultsSummary.activeSlateDate
+              ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${accuracySummary.total} tracked`
+              : `Today (${todayLocalDate}) — no active Results slate`}
           </Text>
+          {priorSlateStillActive ? (
+            <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
+          ) : null}
           <View style={styles.accuracyGrid}>
             <SummaryBox label="Total Tracked" value={accuracySummary.total} color="#f8fafc" />
             <SummaryBox label="Graded" value={accuracySummary.graded} color="#22c55e" />

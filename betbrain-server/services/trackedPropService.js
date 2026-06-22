@@ -17,6 +17,7 @@ import {
 
 import {
   getHistoryArchiveProps,
+  getLockedSlatesRegistry,
   getLockedSnapshot,
   isSlateLocked,
   lockSlate,
@@ -24,6 +25,7 @@ import {
 } from "./slateLockService.js";
 import {
   filterCompletedDailyReports,
+  getBlockingActiveResultsSlateDate,
   getTodayLocalDate,
   isCompletedSlate,
   isFutureSlateDate,
@@ -1204,6 +1206,19 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
     return null;
   }
 
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    working,
+    lockedSlates,
+    [],
+    today
+  );
+  if (blockingSlate && blockingSlate !== today) {
+    audit.autoLockBlocked = true;
+    audit.autoLockBlockedBy = blockingSlate;
+    return null;
+  }
+
   const todayPropCount = countPropsForSlate(working, today);
   if (todayPropCount === 0) {
     return null;
@@ -1217,6 +1232,12 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
 
   if (!lockResult.ok) {
     return lockResult;
+  }
+
+  for (let i = 0; i < working.length; i += 1) {
+    if (String(working[i].slateDate || "") === today && working[i].homeStaged) {
+      working[i] = { ...working[i], homeStaged: false };
+    }
   }
 
   audit.autoLocked = true;
@@ -1242,6 +1263,14 @@ export function addTrackedProps(picks = []) {
   };
 
   const lockedSlateCounts = new Map();
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    tracked,
+    lockedSlates,
+    [],
+    getTodayLocalDate()
+  );
+
   for (const item of tracked) {
     const slateDate = String(item.slateDate || "");
     if (!slateDate) continue;
@@ -1288,6 +1317,15 @@ export function addTrackedProps(picks = []) {
       if (slateLocked) audit.safeUpdates += 1;
     } else {
       const normalized = normalizeTrackedProp(pick);
+      if (
+        blockingSlate &&
+        slateDate &&
+        slateDate !== blockingSlate &&
+        !isSlateLocked(slateDate)
+      ) {
+        normalized.homeStaged = true;
+        audit.homeStagedKeys = (audit.homeStagedKeys || 0) + 1;
+      }
       const fallbackLine = num(
         normalized.line ??
           normalized.currentLine ??

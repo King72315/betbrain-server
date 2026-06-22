@@ -2,7 +2,9 @@ import { formatTeam } from "../components/PropCard";
 import { getPickSlateDate } from "./historyArchive";
 import {
   computeSlateRotation,
+  getBlockingActiveResultsSlateDate,
   getTodayLocalDate,
+  hasUnresolvedGradingProps,
   isCompletedSlate,
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
@@ -333,27 +335,46 @@ function buildSlateSummary(props: any[]) {
 }
 
 
-/** Today's slate date when tracked props exist for today (America/Chicago). */
+/** Active Results slate: locked ACTIVE unresolved first, then today when unblocked. */
 export function pickActiveResultsSlateDate(
   trackedProps: any[] = [],
-  _reports: any[] = [],
-  today: string = getTodayLocalDate()
+  reports: any[] = [],
+  today: string = getTodayLocalDate(),
+  lockedSlates: any[] = []
 ): string | null {
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    trackedProps,
+    lockedSlates,
+    reports,
+    today
+  );
+  if (blockingSlate) return blockingSlate;
+
   const hasTodayProps = trackedProps.some((prop) => {
     const slateDate = getResultsPropSlateDate(prop);
-    return slateDate === today && isOnOrAfterCleanDataCutoff(slateDate);
+    return (
+      slateDate === today &&
+      isOnOrAfterCleanDataCutoff(slateDate) &&
+      prop.homeStaged !== true
+    );
   });
 
   return hasTodayProps ? today : null;
 }
 
-/** Active Results slate for today only. */
+/** Active Results slate for the current locked/unresolved queue. */
 export function computeActiveResultsSlate(
   trackedProps: any[] = [],
   reports: any[] = [],
-  today: string = getTodayLocalDate()
+  today: string = getTodayLocalDate(),
+  lockedSlates: any[] = []
 ): ActiveResultsSlate | null {
-  const visible = computeVisibleResultsSlates(trackedProps, reports, today);
+  const visible = computeVisibleResultsSlates(
+    trackedProps,
+    reports,
+    today,
+    lockedSlates
+  );
   return visible[0] || null;
 }
 
@@ -385,18 +406,24 @@ function buildActiveResultsSlate(
   };
 }
 
-/** Today's tracked props only — Results clipboard for the current CT date. */
+/** Active locked Results slate — holds unresolved slate across CT midnight. */
 export function computeVisibleResultsSlates(
   trackedProps: any[] = [],
   reports: any[] = [],
-  today: string = getTodayLocalDate()
+  today: string = getTodayLocalDate(),
+  lockedSlates: any[] = []
 ): ActiveResultsSlate[] {
-  const rotation = computeSlateRotation(reports);
-  const activeSlateDate = pickActiveResultsSlateDate(trackedProps, reports, today);
-  if (!activeSlateDate || activeSlateDate !== today) return [];
+  const rotation = computeSlateRotation(reports, lockedSlates);
+  const activeSlateDate = pickActiveResultsSlateDate(
+    trackedProps,
+    reports,
+    today,
+    lockedSlates
+  );
+  if (!activeSlateDate) return [];
 
   const slateProps = trackedProps.filter(
-    (prop) => getResultsPropSlateDate(prop) === today
+    (prop) => getResultsPropSlateDate(prop) === activeSlateDate
   );
 
   if (!slateProps.length) return [];
@@ -404,6 +431,76 @@ export function computeVisibleResultsSlates(
   return [
     buildActiveResultsSlate(activeSlateDate, slateProps, reports, rotation),
   ];
+}
+
+export function countStagedHomeProps(
+  trackedProps: any[] = [],
+  today: string = getTodayLocalDate()
+): { slateDate: string | null; count: number } {
+  const staged = trackedProps.filter((prop) => prop.homeStaged === true);
+  if (!staged.length) return { slateDate: null, count: 0 };
+
+  const dates = [
+    ...new Set(
+      staged
+        .map((prop) => String(prop.slateDate || ""))
+        .filter((date) => date && isOnOrAfterCleanDataCutoff(date))
+    ),
+  ].sort();
+
+  const latest = dates[dates.length - 1] || null;
+  const count = latest
+    ? staged.filter((prop) => String(prop.slateDate || "") === latest).length
+    : staged.length;
+
+  return { slateDate: latest, count };
+}
+
+export function summarizeActiveResultsSlate(
+  trackedProps: any[] = [],
+  reports: any[] = [],
+  today: string = getTodayLocalDate(),
+  lockedSlates: any[] = []
+) {
+  const activeSlateDate = pickActiveResultsSlateDate(
+    trackedProps,
+    reports,
+    today,
+    lockedSlates
+  );
+  const props = activeSlateDate
+    ? trackedProps.filter(
+        (prop) => getResultsPropSlateDate(prop) === activeSlateDate
+      )
+    : [];
+
+  const pending = props.filter(
+    (prop) => getTrackedPropStatus(prop) === "Pending"
+  ).length;
+  const awaitingStats = props.filter(
+    (prop) => getTrackedPropStatus(prop) === "Awaiting stats"
+  ).length;
+  const graded = props.filter((prop) =>
+    ["Win", "Loss", "Push"].includes(getTrackedPropStatus(prop))
+  ).length;
+
+  const lockEntry = lockedSlates.find(
+    (entry) => String(entry.slateDate) === activeSlateDate
+  );
+
+  return {
+    activeSlateDate,
+    propCount: props.length,
+    pending,
+    awaitingStats,
+    graded,
+    locked: Boolean(lockEntry),
+    phase: lockEntry?.phase || null,
+    canPromoteToLab:
+      props.length > 0 &&
+      !hasUnresolvedGradingProps(props) &&
+      !slateHasUnresolvedProps(props),
+  };
 }
 
 export function filterResultsProps(props: any[], filter: ResultsFilter) {

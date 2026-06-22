@@ -182,6 +182,100 @@ export function isPriorSlateStillActive(
   return value < today;
 }
 
+function isResolvedPropStatus(status = ""): boolean {
+  return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
+}
+
+/** True when any prop is pending, awaiting stats, or graded before game final. */
+export function hasUnresolvedGradingProps(props: any[] = []): boolean {
+  return props.some((prop) => {
+    const status = String(prop.status || "").toLowerCase();
+    const pendingReason = String(prop.pendingReason || "").toLowerCase();
+    const resolveDebug = prop.resolveDebug || {};
+
+    if (resolveDebug.blockedByGameNotFinal || resolveDebug.blockedByLiveGame) {
+      return true;
+    }
+
+    if (pendingReason.includes("game not final yet")) {
+      return true;
+    }
+
+    if (pendingReason.includes("awaiting official player stat")) {
+      return true;
+    }
+
+    if (status === "pending") {
+      return true;
+    }
+
+    if (isResolvedPropStatus(status)) {
+      if (prop.actualStat == null || prop.result == null) {
+        return true;
+      }
+
+      if (resolveDebug.gameFinal === false) {
+        return true;
+      }
+
+      return false;
+    }
+
+    return true;
+  });
+}
+
+/** Locked ACTIVE slates that still need grading (oldest first). */
+export function getActiveLockedUnresolvedSlateDates(
+  trackedProps: any[] = [],
+  lockedSlates: any[] = [],
+  reports: any[] = [],
+  today: string = getTodayLocalDate()
+): string[] {
+  const propsBySlate: Record<string, any[]> = {};
+
+  for (const prop of trackedProps) {
+    const slateDate = String(prop.slateDate || "");
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isFutureSlateDate(slateDate, today)) continue;
+    if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
+    propsBySlate[slateDate].push(prop);
+  }
+
+  const lockedActiveDates = (lockedSlates || [])
+    .filter((entry) => {
+      const phase = getLockedSlatePhase(entry);
+      return phase === "ACTIVE" && isOnOrAfterCleanDataCutoff(entry.slateDate);
+    })
+    .map((entry) => String(entry.slateDate || ""))
+    .filter(Boolean)
+    .sort();
+
+  return lockedActiveDates.filter((slateDate) => {
+    const report = reports.find((item) => String(item.slateDate) === slateDate) || null;
+    if (isCompletedSlate(report)) return false;
+
+    const props = propsBySlate[slateDate] || [];
+    if (!props.length) return true;
+    return hasUnresolvedGradingProps(props);
+  });
+}
+
+export function getBlockingActiveResultsSlateDate(
+  trackedProps: any[] = [],
+  lockedSlates: any[] = [],
+  reports: any[] = [],
+  today: string = getTodayLocalDate()
+): string | null {
+  const unresolved = getActiveLockedUnresolvedSlateDates(
+    trackedProps,
+    lockedSlates,
+    reports,
+    today
+  );
+  return unresolved[0] || null;
+}
+
 export function computeSlateRotation(
   reports: any[] = [],
   lockedSlates: any[] = []

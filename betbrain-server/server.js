@@ -2192,7 +2192,8 @@ app.get("/diagnostics", (req, res) => {
     tracked,
     rawReports,
     archives,
-    getTodayLocalDate()
+    getTodayLocalDate(),
+    registry.slates || []
   );
   courtEdgeFlow.analyticsScopeCount = getAnalyticsScopeProps(
     tracked,

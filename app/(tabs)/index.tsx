@@ -80,7 +80,7 @@ export default function HomeScreen() {
           >
             <Text style={styles.buttonText}>📋 Results</Text>
             <Text style={styles.buttonSubtext}>
-              Official Top Props grading queue for the current slate
+              Official grading queue for the active locked slate
             </Text>
           </TouchableOpacity>
 
