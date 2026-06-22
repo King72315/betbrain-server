@@ -2725,19 +2725,28 @@ if (process.env.RUN_AUDIT === "1") {
 } else {
   const rehydrateResult = rehydrateLockedSlatesOnStartup();
 
-  if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
-    try {
-      const reslateResult = reslate0622V1({
-        source: "startup_reslate_0622_v1",
-        boardPicks: [],
-      });
-      console.log("STARTUP RESLATE 0622 V1:", JSON.stringify(reslateResult));
-    } catch (error) {
-      console.log("STARTUP RESLATE 0622 V1 ERROR:", error.message);
-    }
-  }
+  async function startServer() {
+    if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
+      try {
+        let boardPicks = [];
+        try {
+          const refreshed = await refreshAllPicks();
+          boardPicks = refreshed.topWNBAProps || refreshed.topProps || [];
+        } catch (error) {
+          console.log("STARTUP RESLATE refresh warning:", error.message);
+        }
 
-  app.listen(CONFIG.PORT, () => {
+        const reslateResult = reslate0622V1({
+          source: "startup_reslate_0622_v1",
+          boardPicks,
+        });
+        console.log("STARTUP RESLATE 0622 V1:", JSON.stringify(reslateResult));
+      } catch (error) {
+        console.log("STARTUP RESLATE 0622 V1 ERROR:", error.message);
+      }
+    }
+
+    app.listen(CONFIG.PORT, () => {
     console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
     console.log("CONFIG:", checkConfig());
 
@@ -2779,5 +2788,11 @@ if (process.env.RUN_AUDIT === "1") {
     console.log(
       `AUTO RESOLVE scheduled every ${AUTO_RESOLVE_INTERVAL_MS / 60000} minutes`
     );
+  });
+  }
+
+  startServer().catch((error) => {
+    console.error("SERVER START ERROR:", error);
+    process.exit(1);
   });
 }

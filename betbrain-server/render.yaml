@@ -19,3 +19,5 @@ services:
         sync: false
       - key: ADMIN_SECRET
         sync: false
+      - key: COURTEDGE_RESLATE_0622_V1
+        value: "true"

@@ -23,7 +23,7 @@ import {
   lockSlate,
   recordBlockedWrite,
 } from "./slateLockService.js";
-import { isWnbaOfficialEligiblePick } from "../engines/wnbaOfficialEngine.js";
+import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
@@ -377,6 +377,13 @@ export function isTrackablePick(pick = {}) {
   if (!passesBaseTrackableGate(pick)) return false;
 
   if (TRACKING_MODE === "OFFICIAL_ONLY") {
+    return isOfficialTrackablePick(pick);
+  }
+
+  if (
+    String(pick.league || "").toUpperCase() === "WNBA" &&
+    isCourteEdgeWnbaV1Enabled()
+  ) {
     return isOfficialTrackablePick(pick);
   }
 
@@ -1250,7 +1257,12 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
     return null;
   }
 
-  const todayPropCount = countPropsForSlate(working, today);
+  const todayPropCount = working.filter(
+    (item) =>
+      String(item.slateDate || "") === today &&
+      isOfficialResultsProp(item) &&
+      isOfficialTrackablePick(item)
+  ).length;
   if (todayPropCount === 0) {
     return null;
   }
