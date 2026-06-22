@@ -1,4 +1,5 @@
 import { getPickScore } from "./pickRanker.js";
+import { computeLineMovementAgainstSide } from "./marketIntelligenceEngine.js";
 import { probeWnbaDefenseDataSources } from "./defenseScoreEngine.js";
 
 function num(value, fallback = 0) {
@@ -35,17 +36,9 @@ export function isWnbaLimitedData(pick = {}) {
 }
 
 /**
- * Correct line-movement danger: line down = danger for Over, line up = danger for Under.
- * (Official marketIntelligence uses inverted semantics — shadow layer corrects this.)
+ * Canonical line-movement danger: line down hurts Over, line up hurts Under.
  */
-export function computeLineMovementAgainstSide(pickSide = "", lineDelta = 0) {
-  const side = normalizeSide(pickSide);
-  const delta = num(lineDelta);
-  if (!side || delta === 0) return false;
-  if (side === "OVER") return delta < -0.5;
-  if (side === "UNDER") return delta > 0.5;
-  return false;
-}
+export { computeLineMovementAgainstSide };
 
 export function getProjectionGap(pick = {}, side = "") {
   const pickSide = normalizeSide(side || pick.side || pick.pick || pick.currentEngineSide);
@@ -209,10 +202,9 @@ export function applyWnbaShadowRecalibration(pick = {}, options = {}) {
   const lineDelta = num(
     pick.lineDelta ?? pick.marketIntelligence?.lineDelta
   );
-  const lineMovementAgainstSide = computeLineMovementAgainstSide(
-    pickSide,
-    lineDelta
-  );
+  const lineMovementAgainstSide =
+    pick.marketIntelligence?.lineMovementAgainstSide ??
+    computeLineMovementAgainstSide(pickSide, lineDelta);
   const gapEval = evaluateWnbaGapFloor(pick, pickSide);
   const fairLineShadow = applyWnbaFairLineShadowDemotion(pick);
 

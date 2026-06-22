@@ -14,6 +14,19 @@ function normalizeSide(side = "") {
   return "";
 }
 
+/**
+ * Canonical WNBA/NBA points line movement:
+ * line down hurts Over; line up hurts Under.
+ */
+export function computeLineMovementAgainstSide(pickSide = "", lineDelta = 0) {
+  const side = normalizeSide(pickSide);
+  const delta = num(lineDelta);
+  if (!side || delta === 0) return false;
+  if (side === "OVER") return delta < -0.5;
+  if (side === "UNDER") return delta > 0.5;
+  return false;
+}
+
 export function buildMarketIntelligence({
   prop = {},
   marketSnapshot = {},
@@ -59,8 +72,8 @@ export function buildMarketIntelligence({
     num(volumeProfile.recentFGA) < 10;
 
   if (lineDelta !== 0 && pickSide) {
-    const movedAgainstOver = lineDelta > 0.5;
-    const movedAgainstUnder = lineDelta < -0.5;
+    const movedAgainstOver = lineDelta < -0.5;
+    const movedAgainstUnder = lineDelta > 0.5;
 
     if (pickSide === "OVER" && movedAgainstOver) {
       signals.push("line_moved_against_over");
@@ -154,11 +167,7 @@ export function buildMarketIntelligence({
     dangerPressure: clamp(dangerPressure, 0, 0.35),
     supportScore,
     resistanceScore,
-    lineMovedAgainstSide:
-      (pickSide === "OVER" && lineDelta > 0.5) ||
-      (pickSide === "UNDER" && lineDelta < -0.5),
-    lineMovementAgainstSide:
-      (pickSide === "OVER" && lineDelta < -0.5) ||
-      (pickSide === "UNDER" && lineDelta > 0.5),
+    lineMovementAgainstSide: computeLineMovementAgainstSide(pickSide, lineDelta),
+    lineMovedAgainstSide: computeLineMovementAgainstSide(pickSide, lineDelta),
   };
 }

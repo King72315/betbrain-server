@@ -114,16 +114,15 @@ export function buildScoreLedger({
   }
 
   if (marketIntelligence.lineDelta !== 0) {
+    const lineAgainst =
+      marketIntelligence.lineMovementAgainstSide ??
+      marketIntelligence.lineMovedAgainstSide;
     pushRow(rows, {
       category: "line movement",
-      side: marketIntelligence.lineMovedAgainstSide ? pickSide : "NEUTRAL",
-      pressure: marketIntelligence.lineMovedAgainstSide
-        ? num(marketIntelligence.dangerPressure)
-        : null,
-      score: marketIntelligence.lineMovedAgainstSide
-        ? null
-        : num(marketIntelligence.supportScore),
-      label: marketIntelligence.lineMovedAgainstSide
+      side: lineAgainst ? pickSide : "NEUTRAL",
+      pressure: lineAgainst ? num(marketIntelligence.dangerPressure) : null,
+      score: lineAgainst ? null : num(marketIntelligence.supportScore),
+      label: lineAgainst
         ? "Line moved against side"
         : "Line movement neutral/favorable",
       explanation: `Open ${marketIntelligence.openingLine} → ${marketIntelligence.currentLine} (${marketIntelligence.lineDelta >= 0 ? "+" : ""}${marketIntelligence.lineDelta})`,

@@ -503,7 +503,7 @@ export function classifyCalibrationMistake(prop = {}) {
     };
   }
 
-  if (prop.marketIntelligence?.lineMovedAgainstSide) {
+  if (prop.marketIntelligence?.lineMovementAgainstSide ?? prop.marketIntelligence?.lineMovedAgainstSide) {
     return {
       ...base,
       category: side === "under" ? "market_steam_against_side" : "line_movement_trap",

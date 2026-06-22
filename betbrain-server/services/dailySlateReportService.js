@@ -331,9 +331,9 @@ function classifyLoss(prop = {}) {
   const lineMovedAgainst =
     prop.wnbaShadow?.lineMovementAgainstSide ??
     prop.marketIntelligence?.lineMovementAgainstSide ??
-    prop.marketIntelligence?.lineMovedAgainstSide ||
-    (side === "over" && lineDelta < -0.5) ||
-    (side === "under" && lineDelta > 0.5);
+    prop.marketIntelligence?.lineMovedAgainstSide ??
+    ((side === "over" && lineDelta < -0.5) ||
+      (side === "under" && lineDelta > 0.5));
 
   if (lineMovedAgainst && actual < line && side === "over") {
     return {

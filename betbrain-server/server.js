@@ -2171,7 +2171,7 @@ app.get("/history-archives", (req, res) => {
   });
 });
 
-app.get("/history-archives/:slateDate", (req, res) => {
+function sendHistoryArchiveByDate(req, res) {
   const archive = getHistoryArchive(req.params.slateDate);
 
   if (!archive) {
@@ -2183,7 +2183,10 @@ app.get("/history-archives/:slateDate", (req, res) => {
   }
 
   res.json({ ok: true, archive });
-});
+}
+
+app.get("/history-archives/:slateDate", sendHistoryArchiveByDate);
+app.get("/history-archive/:slateDate", sendHistoryArchiveByDate);
 
 app.get("/diagnostics", (req, res) => {
   const tracked = getTrackedProps();
