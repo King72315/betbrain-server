@@ -157,5 +157,8 @@ export function buildMarketIntelligence({
     lineMovedAgainstSide:
       (pickSide === "OVER" && lineDelta > 0.5) ||
       (pickSide === "UNDER" && lineDelta < -0.5),
+    lineMovementAgainstSide:
+      (pickSide === "OVER" && lineDelta < -0.5) ||
+      (pickSide === "UNDER" && lineDelta > 0.5),
   };
 }

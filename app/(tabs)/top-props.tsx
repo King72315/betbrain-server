@@ -25,6 +25,8 @@ import { groupByDayBucket } from "../../utils/groupByDayBucket";
 import { buildTopPropsReport } from "../../utils/reportBuilders";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
+const WNBA_SHADOW_UI =
+  process.env.EXPO_PUBLIC_WNBA_SHADOW_RECALIBRATION === "true";
 
 type LeagueFilter = (typeof FILTERS)[number];
 
@@ -157,6 +159,11 @@ export default function TopPropsScreen() {
           <Text style={styles.motto}>
             Official props auto-track to Results. Save is optional shadow mode.
           </Text>
+          {WNBA_SHADOW_UI ? (
+            <Text style={styles.shadowNote}>
+              WNBA shadow recalibration active — badges show shadow tier only, not official.
+            </Text>
+          ) : null}
 
           {lastUpdated && (
             <Text style={styles.lastUpdated}>
@@ -295,6 +302,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
+  },
+
+  shadowNote: {
+    color: "#fde68a",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
   },
 
   lastUpdated: {

@@ -71,6 +71,11 @@ import {
 } from "./engines/scoreLedgerEngine.js";
 import { buildVolumeProfile } from "./engines/volumeProfileEngine.js";
 import { evaluateVolumeDangerGates } from "./engines/volumeDangerGatesEngine.js";
+import {
+  applyWnbaShadowRecalibration,
+  buildWnbaDefenseShadowContext,
+  isWnbaShadowRecalibrationEnabled,
+} from "./engines/wnbaShadowEngine.js";
 
 import {
   appendMarketSnapshot,
@@ -1480,6 +1485,23 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         riskComparison,
         dataQuality,
       });
+
+      if (league === "WNBA" && isWnbaShadowRecalibrationEnabled()) {
+        const defenseShadow = await buildWnbaDefenseShadowContext({
+          opponentTeam: opponent,
+          league,
+        });
+        bestPick.wnbaShadow = applyWnbaShadowRecalibration(bestPick, {
+          wnbaDefenseProbe: defenseShadow.wnbaDefenseProbe,
+          wnbaDefenseScore: defenseShadow.wnbaDefenseScore,
+        });
+        if (bestPick.wnbaShadow) {
+          bestPick.marketIntelligence = {
+            ...bestPick.marketIntelligence,
+            lineMovementAgainstSide: bestPick.wnbaShadow.lineMovementAgainstSide,
+          };
+        }
+      }
 
       if (fairLine.fairLineSide === "OVER") {
         sideAudit.fairLineOver += 1;

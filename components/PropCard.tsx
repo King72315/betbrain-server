@@ -37,6 +37,12 @@ export default function PropCard({
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
+  const wnbaShadowEnabled =
+    process.env.EXPO_PUBLIC_WNBA_SHADOW_RECALIBRATION === "true";
+  const wnbaShadow = pick.wnbaShadow || null;
+  const shadowTier = wnbaShadow?.shadowTier
+    ? String(wnbaShadow.shadowTier).toUpperCase()
+    : null;
   const confidence = pick.confidence ?? pick.winProbability ?? 0;
   const side = pick.side || pick.pick || "";
   const line = pick.line ?? pick.sportsbookLine;
@@ -99,6 +105,9 @@ export default function PropCard({
           ) : null}
           {dataMode ? (
             <Text style={styles.dataModeBadge}>{formatDataMode(dataMode)}</Text>
+          ) : null}
+          {wnbaShadowEnabled && wnbaShadow && shadowTier ? (
+            <Text style={styles.shadowTierBadge}>Shadow {shadowTier}</Text>
           ) : null}
         </View>
 
@@ -747,6 +756,16 @@ const styles = StyleSheet.create({
   premiumBadge: {
     color: "#fef9c3",
     backgroundColor: "#713f12",
+  },
+  shadowTierBadge: {
+    color: "#fde68a",
+    backgroundColor: "#78350f",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
   },
   dataModeBadge: {
     color: "#e9d5ff",

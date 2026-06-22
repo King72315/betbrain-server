@@ -1,3 +1,6 @@
+import fetch from "node-fetch";
+import { CONFIG } from "../config.js";
+
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -123,4 +126,118 @@ export function computeDefenseScore({
     pace: pace || null,
     reasons,
   };
+}
+
+function describeShape(value, depth = 0) {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (Array.isArray(value)) {
+    const sample = value[0];
+    return `array(len=${value.length}${sample ? `, item=${describeShape(sample, depth + 1)}` : ""})`;
+  }
+  if (typeof value !== "object") return typeof value;
+  if (depth >= 2) return `object(keys=${Object.keys(value).length})`;
+  const keys = Object.keys(value).slice(0, 12);
+  const parts = keys.map((key) => `${key}:${describeShape(value[key], depth + 1)}`);
+  return `object{${parts.join(", ")}}`;
+}
+
+function extractWnbaDefenseCandidate(record = {}) {
+  const opponentPPG = getOpponentPointsAllowed(record);
+  const pace = getPace(record);
+  if (opponentPPG <= 0) return null;
+
+  const leagueAvg = 82;
+  const shadowDefenseScore = clamp(
+    Math.round(50 + (opponentPPG - leagueAvg) * 2.2),
+    20,
+    80
+  );
+
+  return {
+    shadowDefenseScore,
+    opponentPPG,
+    pace: pace || null,
+    source: "wnba_shadow_probe",
+  };
+}
+
+/**
+ * Shadow-only probe of BDL/Odds/SportsData shapes for WNBA team defense.
+ * Logs response shapes internally; returns sanitized summary (no API keys).
+ */
+export async function probeWnbaDefenseDataSources(opponentTeam = "") {
+  const summary = {
+    opponentTeam,
+    bdl: { attempted: false, status: null, shape: null, matched: false },
+    shadowDefenseScore: null,
+    opponentPPG: null,
+    pace: null,
+    logSummary: "",
+  };
+
+  const key = normalizeTeamKey(opponentTeam);
+  if (!key) {
+    summary.logSummary = "WNBA defense probe skipped — no opponent team";
+    return summary;
+  }
+
+  try {
+    summary.bdl.attempted = true;
+    const url = `https://api.balldontlie.io/wnba/v1/team_season_averages?season=2025`;
+    const res = await fetch(url, {
+      headers: CONFIG.BALLDONTLIE_KEY
+        ? { Authorization: CONFIG.BALLDONTLIE_KEY }
+        : {},
+    });
+    summary.bdl.status = res.status;
+
+    if (res.ok) {
+      const payload = await res.json();
+      const rows = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
+      summary.bdl.shape = describeShape(payload);
+
+      const match =
+        rows.find((row) => {
+          const teamKey = normalizeTeamKey(
+            row?.team?.full_name ||
+              row?.team?.name ||
+              row?.team?.abbreviation ||
+              row?.Team ||
+              row?.Name ||
+              ""
+          );
+          return teamKey && (teamKey === key || teamKey.includes(key) || key.includes(teamKey));
+        }) || null;
+
+      if (match) {
+        summary.bdl.matched = true;
+        const candidate = extractWnbaDefenseCandidate(match);
+        if (candidate) {
+          summary.shadowDefenseScore = candidate.shadowDefenseScore;
+          summary.opponentPPG = candidate.opponentPPG;
+          summary.pace = candidate.pace;
+        }
+      }
+    }
+  } catch (err) {
+    summary.bdl.shape = `error:${String(err.message || err)}`;
+  }
+
+  summary.logSummary = [
+    `BDL WNBA team_season_averages status=${summary.bdl.status}`,
+    `shape=${summary.bdl.shape || "n/a"}`,
+    `matched=${summary.bdl.matched}`,
+    summary.shadowDefenseScore
+      ? `shadowDefenseScore=${summary.shadowDefenseScore} oppPPG=${summary.opponentPPG}`
+      : "shadowDefenseScore=unavailable",
+  ].join(" | ");
+
+  console.log("WNBA DEFENSE SHADOW PROBE:", summary.logSummary);
+
+  return summary;
 }

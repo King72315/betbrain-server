@@ -192,6 +192,28 @@ function classifyLoss(prop = {}) {
     };
   }
 
+  const isWnbaLimited =
+    String(prop.league || "").toUpperCase() === "WNBA" ||
+    String(prop.dataMode || prop.playerState?.dataMode || "").includes(
+      "WNBA_LIMITED"
+    );
+  if (isWnbaLimited && projection !== null && line > 0) {
+    const underGap = line - projection;
+    const overGap = projection - line;
+    if (side === "under" && underGap < 3) {
+      return {
+        missType: "under_gap_too_small",
+        explanation: `Under gap was ${underGap.toFixed(1)} — below WNBA 3.0 floor for limited data.`,
+      };
+    }
+    if (side === "over" && overGap < 4) {
+      return {
+        missType: "over_gap_too_small",
+        explanation: `Over gap was ${overGap.toFixed(1)} — below WNBA 4.0 floor for limited data.`,
+      };
+    }
+  }
+
   if (confidence >= 75 && Math.abs(margin) <= 2) {
     return {
       missType: "confidence overreaction",
@@ -233,11 +255,41 @@ function classifyLoss(prop = {}) {
     };
   }
 
+  const isWnba =
+    String(prop.league || "").toUpperCase() === "WNBA" ||
+    String(prop.dataMode || prop.playerState?.dataMode || "").includes(
+      "WNBA_LIMITED"
+    );
+  const availabilityApplicable = prop.availabilityGate?.applicable !== false;
+
+  if (isWnba && !availabilityApplicable) {
+    const hasRealAvailabilitySignal = [
+      ...(prop.dangerReasons || []),
+      ...(prop.warningReasons || []),
+      ...(prop.resistance || []),
+    ].some((r) =>
+      /injury|questionable|out|inactive|gtd|doubtful/i.test(String(r))
+    );
+
+    if (hasRealAvailabilitySignal) {
+      return {
+        missType: "wnba_availability_unknown",
+        explanation:
+          "WNBA has no availability gate — injury wording is unverified, not a confirmed availability miss.",
+      };
+    }
+  }
+
   if (
-    dangerReasons.some((r) => /injury|limited|questionable|out/i.test(String(r))) ||
-    (prop.warningReasons || []).some((r) => /injury|limited/i.test(String(r))) ||
-    prop.availabilityGate?.statusLevel === "OUT" ||
-    prop.availabilityGate?.statusLevel === "QUESTIONABLE"
+    availabilityApplicable &&
+    (dangerReasons.some((r) =>
+      /injury|questionable|out|inactive|gtd|doubtful/i.test(String(r))
+    ) ||
+      (prop.warningReasons || []).some((r) =>
+        /injury|questionable|out|inactive|gtd|doubtful/i.test(String(r))
+      ) ||
+      prop.availabilityGate?.statusLevel === "OUT" ||
+      prop.availabilityGate?.statusLevel === "QUESTIONABLE")
   ) {
     return {
       missType: "player_availability_miss",
@@ -277,9 +329,11 @@ function classifyLoss(prop = {}) {
 
   const lineDelta = num(prop.lineDelta ?? prop.marketIntelligence?.lineDelta);
   const lineMovedAgainst =
+    prop.wnbaShadow?.lineMovementAgainstSide ??
+    prop.marketIntelligence?.lineMovementAgainstSide ??
     prop.marketIntelligence?.lineMovedAgainstSide ||
-    (side === "over" && lineDelta > 0.5) ||
-    (side === "under" && lineDelta < -0.5);
+    (side === "over" && lineDelta < -0.5) ||
+    (side === "under" && lineDelta > 0.5);
 
   if (lineMovedAgainst && actual < line && side === "over") {
     return {
