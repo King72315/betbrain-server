@@ -282,10 +282,9 @@ function eventMatchesPickTeams(event = {}, teamA = "", teamB = "") {
 }
 
 function eventMatchesQueryDate(event = {}, queryDate = "") {
-  const comp = event?.competitions?.[0];
-  const eventDate = getSlateDateKey(comp?.date || event?.date || "");
-
-  return Boolean(queryDate && eventDate && eventDate === queryDate);
+  // ESPN scoreboard ?dates= already scopes to the slate day; comp.date UTC can
+  // differ from CT slate (e.g. 2026-06-22T00:00Z is 2026-06-21 CT).
+  return Boolean(queryDate && event);
 }
 
 function eventIsFinal(event = {}) {

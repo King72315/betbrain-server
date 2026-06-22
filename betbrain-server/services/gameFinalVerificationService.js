@@ -382,9 +382,6 @@ async function checkEspnGameFinal(queryDate, teamA, teamB) {
   const match =
     events.find((event) => {
       const comp = event?.competitions?.[0];
-      const eventDate = getSlateDateKey(comp?.date || event?.date || "");
-
-      if (queryDate && eventDate && eventDate !== queryDate) return false;
 
       const competitors = comp?.competitors || [];
       const eventTeams = competitors
