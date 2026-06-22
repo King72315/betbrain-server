@@ -1,0 +1,11 @@
+{
+  "slateDate": "2026-06-22",
+  "phase": "ACTIVE",
+  "expectedPropCount": 13,
+  "actual": {
+    "propCount": 13,
+    "locked": 13,
+    "pending": 13
+  },
+  "sourceBackup": "safe-backups/pre-wnba-v1-engine-fix-2026-06-22T07-35-55-785Z"
+}

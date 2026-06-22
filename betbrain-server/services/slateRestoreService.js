@@ -42,6 +42,16 @@ export const OFFICIAL_FREEZE_CATALOG = {
   },
 };
 
+/** Active locked slates that must survive deploy wipes (today's Results clipboard). */
+export const ACTIVE_SLATE_BUNDLE_CATALOG = {
+  "2026-06-22": {
+    bundleDir: "active-bundles/2026-06-22",
+    expectedPropCount: 13,
+    phase: SLATE_PHASE.ACTIVE,
+    lockReason: "auto_results_track",
+  },
+};
+
 /** Completed Lab/History bundles — rehydrated after Render disk wipes. */
 export const LAB_SLATE_BUNDLE_CATALOG = {
   "2026-06-21": {
@@ -152,6 +162,122 @@ function loadBundledFreeze(slateDate) {
     meta: raw?.meta || null,
     source: entry.file,
     checksum,
+  };
+}
+
+function activeBundleDirFor(slateDate) {
+  const entry = ACTIVE_SLATE_BUNDLE_CATALOG[slateDate];
+  if (!entry?.bundleDir) return null;
+  return path.join(SERVER_ROOT, entry.bundleDir);
+}
+
+function loadActiveBundle(slateDate) {
+  const date = String(slateDate || "");
+  const entry = ACTIVE_SLATE_BUNDLE_CATALOG[date];
+  if (!entry) return { ok: false, message: `No active bundle catalog entry for ${date}` };
+
+  const dir = activeBundleDirFor(date);
+  if (!dir || !fs.existsSync(dir)) {
+    return { ok: false, message: `Active bundle directory missing: ${entry.bundleDir}` };
+  }
+
+  const trackedRaw = readJSON(path.join(dir, "tracked-props.json"), null);
+  const props = Array.isArray(trackedRaw?.props)
+    ? trackedRaw.props
+    : Array.isArray(trackedRaw)
+      ? trackedRaw
+      : [];
+  const slateProps = props.filter((p) => String(p.slateDate || "") === date);
+
+  if (slateProps.length !== entry.expectedPropCount) {
+    return {
+      ok: false,
+      message: `Active bundle prop count mismatch for ${date}`,
+      expected: entry.expectedPropCount,
+      actual: slateProps.length,
+    };
+  }
+
+  return {
+    ok: true,
+    slateDate: date,
+    props: slateProps,
+    snapshot: readJSON(path.join(dir, "slate-snapshot.json"), null),
+    registryEntry: readJSON(path.join(dir, "locked-slate-entry.json"), null),
+    source: entry.bundleDir,
+    lockReason: entry.lockReason || "startup_active_bundle",
+  };
+}
+
+export function needsActiveSlateRestore(slateDate) {
+  const date = String(slateDate || "");
+  if (!ACTIVE_SLATE_BUNDLE_CATALOG[date]) return false;
+  return countPropsForSlate(getTrackedProps(), date) === 0;
+}
+
+export function restoreActiveSlateBundle(slateDate, options = {}) {
+  const date = String(slateDate || "");
+  const loaded = loadActiveBundle(date);
+  if (!loaded.ok) return loaded;
+
+  let backupId = null;
+  try {
+    const backup = createBackup(`pre-active-restore-${date}`);
+    backupId = backup.backupId;
+  } catch (err) {
+    console.log("ACTIVE RESTORE BACKUP WARNING:", err.message);
+  }
+
+  const existing = readJSON(TRACKED_FILE, []);
+  const preserved = existing.filter((p) => String(p.slateDate || "") !== date);
+  writeJSON(TRACKED_FILE, [...preserved, ...loaded.props]);
+
+  if (!fs.existsSync(SNAPSHOTS_DIR)) {
+    fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+  }
+
+  const snapshot =
+    loaded.snapshot?.props?.length
+      ? loaded.snapshot
+      : {
+          slateDate: date,
+          lockedAt: loaded.registryEntry?.lockedAt || new Date().toISOString(),
+          lockReason: loaded.lockReason,
+          autoLocked: true,
+          phase: SLATE_PHASE.ACTIVE,
+          propCount: loaded.props.length,
+          props: loaded.props,
+        };
+
+  writeJSON(path.join(SNAPSHOTS_DIR, `${date}.json`), snapshot);
+
+  const registry = readJSON(REGISTRY_FILE, { slates: [] });
+  const slates = Array.isArray(registry.slates) ? [...registry.slates] : [];
+  const index = slates.findIndex((s) => s.slateDate === date);
+  const nextEntry = {
+    ...(index >= 0 ? slates[index] : {}),
+    ...(loaded.registryEntry || {}),
+    slateDate: date,
+    phase: SLATE_PHASE.ACTIVE,
+    propCount: loaded.props.length,
+    snapshotFile: `slate-snapshots/${date}.json`,
+  };
+  if (index >= 0) slates[index] = nextEntry;
+  else slates.push(nextEntry);
+  writeJSON(REGISTRY_FILE, { ...registry, slates, updatedAt: new Date().toISOString() });
+
+  applySlateLockFreeze(date, loaded.props);
+
+  const restoredCount = countPropsForSlate(getTrackedProps(), date);
+  return {
+    ok: true,
+    message: `Restored active slate ${date}`,
+    slateDate: date,
+    mode: "active",
+    propCount: restoredCount,
+    backupId,
+    source: options.source || loaded.source,
+    lockReason: loaded.lockReason,
   };
 }
 
@@ -512,6 +638,23 @@ export function restoreOfficialSlate(slateDate, options = {}) {
 export function rehydrateLockedSlatesOnStartup() {
   const results = [];
   const registry = getLockedSlatesRegistry();
+
+  for (const date of Object.keys(ACTIVE_SLATE_BUNDLE_CATALOG)) {
+    if (!needsActiveSlateRestore(date)) {
+      results.push({ slateDate: date, action: "skip_active_bundle_intact" });
+      continue;
+    }
+
+    const restored = restoreActiveSlateBundle(date, {
+      source: "startup_rehydrate_active_bundle",
+    });
+
+    results.push({
+      slateDate: date,
+      action: restored.ok ? "restored_active_bundle" : "active_restore_failed",
+      ...restored,
+    });
+  }
 
   for (const date of Object.keys(LAB_SLATE_BUNDLE_CATALOG)) {
     if (!needsCompletedLabRestore(date)) {
