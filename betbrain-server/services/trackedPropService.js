@@ -333,7 +333,35 @@ function passesBaseTrackableGate(pick = {}) {
   return true;
 }
 
+export function isPreV1ShadowProp(pick = {}) {
+  if (pick.preV1Shadow === true) return true;
+  if (pick.excludedFromV1OfficialRecord === true) return true;
+  if (String(pick.shadowLabel || "") === "PRE_V1_LOCKED_PROPS") return true;
+  return false;
+}
+
+export function labelPreV1ShadowProps(props = [], metadata = {}) {
+  const now = new Date().toISOString();
+  return props.map((prop) => ({
+    ...prop,
+    preV1Shadow: true,
+    shadowLabel: metadata.shadowLabel || "PRE_V1_LOCKED_PROPS",
+    generatedBeforeWnbaV1Engine: true,
+    excludedFromV1OfficialRecord: true,
+    preV1ArchivedAt: metadata.archivedAt || now,
+    preV1ArchiveReason: metadata.archiveReason || "pre_v1_shadow",
+    slateLocked: false,
+    homeStaged: false,
+  }));
+}
+
+export function isOfficialResultsProp(pick = {}) {
+  if (isPreV1ShadowProp(pick)) return false;
+  return true;
+}
+
 export function isOfficialTrackablePick(pick = {}) {
+  if (isPreV1ShadowProp(pick)) return false;
   if (!passesBaseTrackableGate(pick)) return false;
 
   const tier = String(pick.tier || "").toUpperCase();
@@ -1447,6 +1475,18 @@ export function getTrackedPropsForSlate(slateDate) {
 
 export function getTrackedProps() {
   return readJSON(TRACKED_FILE, []);
+}
+
+/** Replace all tracked props for one slate date; returns full merged list. */
+export function replaceTrackedPropsForSlate(slateDate, nextSlateProps = []) {
+  const date = String(slateDate || "");
+  const tracked = readJSON(TRACKED_FILE, []);
+  const preserved = tracked.filter(
+    (prop) => String(prop.slateDate || "") !== date
+  );
+  const merged = [...preserved, ...(Array.isArray(nextSlateProps) ? nextSlateProps : [])];
+  writeJSON(TRACKED_FILE, merged);
+  return merged;
 }
 
 /** Props eligible for Lab/History analytics — completed slates only, never active/future/pre-cutoff. */

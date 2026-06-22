@@ -1,5 +1,6 @@
 import { CONFIG } from "../config.js";
 import { getSlateLockEntry, isSlateLocked } from "./slateLockService.js";
+import { isOfficialResultsProp } from "./trackedPropService.js";
 
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
@@ -190,6 +191,7 @@ export function getActiveLockedUnresolvedSlateDates(
     const slateDate = String(prop.slateDate || "");
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (isFutureSlateDate(slateDate, today)) continue;
+    if (!isOfficialResultsProp(prop)) continue;
     if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
     propsBySlate[slateDate].push(prop);
   }
@@ -292,7 +294,8 @@ export function pickActiveResultsSlateDate(
     return (
       slateDate === today &&
       isOnOrAfterCleanDataCutoff(slateDate) &&
-      prop.homeStaged !== true
+      prop.homeStaged !== true &&
+      isOfficialResultsProp(prop)
     );
   });
 
@@ -361,7 +364,9 @@ export function buildCourtEdgeFlowDiagnostics(
   );
   const activeResultsProps = activeResultsSlateDate
     ? trackedProps.filter(
-        (prop) => String(prop.slateDate || "") === activeResultsSlateDate
+        (prop) =>
+          String(prop.slateDate || "") === activeResultsSlateDate &&
+          isOfficialResultsProp(prop)
       )
     : [];
   const activeLockEntry = (lockedSlates || []).find(

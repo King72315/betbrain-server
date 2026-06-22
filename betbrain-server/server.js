@@ -153,6 +153,12 @@ import {
   restoreCompletedLabSlate,
   restoreOfficialSlate,
 } from "./services/slateRestoreService.js";
+import {
+  anyGameStarted,
+  classifyV1BoardProps,
+  reslate0622V1,
+  RESLATE_SLATE_DATE,
+} from "./services/reslate0622V1Service.js";
 
 const SERVER_BUILD = "courteedge-wnba-v1-engine-fix";
 
@@ -2431,6 +2437,60 @@ app.get("/admin/lab-bundle/:slateDate", requireAdminSecret, (req, res) => {
   }
 });
 
+app.post("/admin/reslate-0622-v1", requireAdminSecret, async (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Reslate requires confirm: true or dryRun: true",
+        slateDate: RESLATE_SLATE_DATE,
+      });
+    }
+
+    let boardPicks = Array.isArray(req.body?.boardPicks) ? req.body.boardPicks : null;
+    if (!boardPicks?.length) {
+      if (!cacheFresh()) {
+        await refreshAllPicks();
+      }
+      boardPicks = picksCache?.topWNBAProps || picksCache?.topProps || [];
+    }
+
+    const boardEval = classifyV1BoardProps(boardPicks);
+    const result = reslate0622V1({
+      dryRun,
+      boardPicks,
+      source: req.body?.source || "admin_reslate_0622_v1",
+    });
+
+    if (!result.ok) {
+      return res.status(result.blocked ? 409 : 400).json(result);
+    }
+
+    if (!dryRun) {
+      await refreshAllPicks();
+    }
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "06/22 v1 reslate dry-run complete"
+        : "06/22 v1 reslate applied",
+      boardEval,
+      result,
+    });
+  } catch (error) {
+    console.log("RESLATE 0622 V1 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "06/22 v1 reslate failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
   try {
     const slateDate = String(req.body?.slateDate || "");
@@ -2664,6 +2724,18 @@ if (process.env.RUN_AUDIT === "1") {
     });
 } else {
   const rehydrateResult = rehydrateLockedSlatesOnStartup();
+
+  if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
+    try {
+      const reslateResult = reslate0622V1({
+        source: "startup_reslate_0622_v1",
+        boardPicks: [],
+      });
+      console.log("STARTUP RESLATE 0622 V1:", JSON.stringify(reslateResult));
+    } catch (error) {
+      console.log("STARTUP RESLATE 0622 V1 ERROR:", error.message);
+    }
+  }
 
   app.listen(CONFIG.PORT, () => {
     console.log(`CourtEdge server running on port ${CONFIG.PORT}`);

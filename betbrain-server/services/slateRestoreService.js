@@ -43,14 +43,7 @@ export const OFFICIAL_FREEZE_CATALOG = {
 };
 
 /** Active locked slates that must survive deploy wipes (today's Results clipboard). */
-export const ACTIVE_SLATE_BUNDLE_CATALOG = {
-  "2026-06-22": {
-    bundleDir: "active-bundles/2026-06-22",
-    expectedPropCount: 13,
-    phase: SLATE_PHASE.ACTIVE,
-    lockReason: "auto_results_track",
-  },
-};
+export const ACTIVE_SLATE_BUNDLE_CATALOG = {};
 
 /** Completed Lab/History bundles — rehydrated after Render disk wipes. */
 export const LAB_SLATE_BUNDLE_CATALOG = {
