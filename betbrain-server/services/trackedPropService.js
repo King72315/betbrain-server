@@ -1764,6 +1764,13 @@ export async function resolveTrackedProps(options = {}) {
 
   writeJSON(TRACKED_FILE, updated);
 
+  try {
+    const { syncLockedSlateGradesFromLive } = await import("./slateLockService.js");
+    syncLockedSlateGradesFromLive(updated);
+  } catch (err) {
+    console.log("LOCKED SLATE GRADE SYNC WARNING:", err.message);
+  }
+
   return {
     props: updated,
     summary: {

@@ -215,9 +215,19 @@ export default function ResultsScreen() {
     [lastResolveSummary, visibleSlates]
   );
 
+  const slateRotation = useMemo(
+    () => computeSlateRotation(reports, lockedSlates),
+    [reports, lockedSlates]
+  );
+
   const keyTakeaways = useMemo(
-    () => buildKeyTakeaways(accuracySummary),
-    [accuracySummary]
+    () =>
+      buildKeyTakeaways(accuracySummary, {
+        slateDate: activeResultsSummary.activeSlateDate,
+        rotation: slateRotation,
+        reports,
+      }),
+    [accuracySummary, activeResultsSummary.activeSlateDate, slateRotation, reports]
   );
 
   const getReportText = () =>

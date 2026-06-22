@@ -299,6 +299,143 @@ export function hasHistoryArchive(slateDate) {
   return Boolean(archive?.props?.length);
 }
 
+const LIVE_GRADING_FIELDS = [
+  "status",
+  "result",
+  "actualStat",
+  "margin",
+  "resultMargin",
+  "gradedAt",
+  "resolveDebug",
+  "matchedSource",
+  "pendingReason",
+  "gradingNotes",
+  "matchedDate",
+  "matchedGameId",
+  "matchVerified",
+  "resultConfidence",
+  "resolvedAt",
+  "currentEngineResult",
+  "currentEngineWon",
+  "currentEngineMargin",
+];
+
+function indexLiveProps(liveProps = []) {
+  const byId = new Map();
+  const byKey = new Map();
+
+  for (const prop of liveProps) {
+    if (prop.trackedId) byId.set(String(prop.trackedId), prop);
+    if (prop.trackedKey) byKey.set(String(prop.trackedKey), prop);
+  }
+
+  return { byId, byKey };
+}
+
+function findLivePropForSnapshot(snapshotProp = {}, index = {}) {
+  const trackedId = snapshotProp.trackedId ? String(snapshotProp.trackedId) : "";
+  if (trackedId && index.byId?.has(trackedId)) {
+    return index.byId.get(trackedId);
+  }
+
+  const trackedKey = snapshotProp.trackedKey ? String(snapshotProp.trackedKey) : "";
+  if (trackedKey && index.byKey?.has(trackedKey)) {
+    return index.byKey.get(trackedKey);
+  }
+
+  return null;
+}
+
+/** Keep locked snapshot identity; overlay live grading fields by trackedId/trackedKey. */
+export function mergeSnapshotPropsWithLiveGrades(snapshotProps = [], liveProps = []) {
+  if (!Array.isArray(snapshotProps) || !snapshotProps.length) {
+    return Array.isArray(liveProps) ? [...liveProps] : [];
+  }
+
+  if (!Array.isArray(liveProps) || !liveProps.length) {
+    return snapshotProps.map((prop) => ({ ...prop }));
+  }
+
+  const index = indexLiveProps(liveProps);
+
+  return snapshotProps.map((snapshotProp) => {
+    const live = findLivePropForSnapshot(snapshotProp, index);
+    if (!live) return { ...snapshotProp };
+
+    const merged = { ...snapshotProp };
+    for (const field of LIVE_GRADING_FIELDS) {
+      if (live[field] !== undefined) {
+        merged[field] = live[field];
+      }
+    }
+
+    return merged;
+  });
+}
+
+export function syncGradedPropsToLockedSlate(slateDate, mergedProps = []) {
+  const date = String(slateDate || "");
+  if (!date || !isSlateLocked(date)) {
+    return { ok: false, skipped: true, message: "Slate not locked" };
+  }
+
+  if (!Array.isArray(mergedProps) || !mergedProps.length) {
+    return { ok: false, message: "Missing merged props" };
+  }
+
+  const snapshot = getLockedSnapshot(date);
+  if (!snapshot?.props?.length) {
+    return { ok: false, message: "Missing locked snapshot" };
+  }
+
+  const now = new Date().toISOString();
+
+  writeJSON(snapshotPath(date), {
+    ...snapshot,
+    props: mergedProps,
+    propCount: mergedProps.length,
+    gradesSyncedAt: now,
+  });
+
+  const archive = getHistoryArchive(date);
+  if (archive?.props?.length) {
+    writeJSON(historyArchivePath(date), {
+      ...archive,
+      props: mergedProps,
+      propCount: mergedProps.length,
+      gradesSyncedAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return { ok: true, slateDate: date, propCount: mergedProps.length };
+}
+
+export function syncLockedSlateGradesFromLive(liveProps = [], slateDate = null) {
+  const targets = slateDate
+    ? [String(slateDate)]
+    : getRegistry()
+        .slates.filter((entry) => isOnOrAfterCleanDataCutoff(entry?.slateDate))
+        .map((entry) => entry.slateDate);
+
+  const results = [];
+
+  for (const date of targets) {
+    if (!isSlateLocked(date)) continue;
+
+    const snapshot = getLockedSnapshot(date);
+    if (!snapshot?.props?.length) continue;
+
+    const slateLiveProps = liveProps.filter((prop) => String(prop.slateDate || "") === date);
+    if (!slateLiveProps.length) continue;
+
+    const merged = mergeSnapshotPropsWithLiveGrades(snapshot.props, slateLiveProps);
+    results.push(syncGradedPropsToLockedSlate(date, merged));
+  }
+
+  return results;
+}
+
 export function getHistoryArchiveProps(slateDate) {
   const archive = getHistoryArchive(String(slateDate || ""));
   return archive?.props || [];
@@ -342,6 +479,19 @@ export function promoteSlateToLab(slateDate, options = {}) {
 
   if (!props.length) {
     return { ok: false, message: `No props available to promote slate ${date}` };
+  }
+
+  if (report) {
+    const reportStatus = String(report.reportStatus || report.status || "").toLowerCase();
+    const pending = Number(report.sections?.A?.pending ?? report.pending ?? 0);
+
+    if (reportStatus !== "final" || pending > 0) {
+      return {
+        ok: false,
+        message: `Slate ${date} daily report is not final — Lab promotion blocked`,
+        blockedByIncompleteReport: true,
+      };
+    }
   }
 
   if (hasUnresolvedGradingProps(props)) {

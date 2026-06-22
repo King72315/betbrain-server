@@ -9,7 +9,9 @@ import {
   getHistoryArchive,
   getLockedSnapshot,
   isSlateLocked,
+  mergeSnapshotPropsWithLiveGrades,
   promoteSlateToLab,
+  syncGradedPropsToLockedSlate,
   writeSlateHistoryArchive,
 } from "./slateLockService.js";
 import {
@@ -1066,14 +1068,20 @@ export function buildDailySlateReportsFromTrackedProps(
     const existing = getDailySlateReport(slateDate);
     const locked = isSlateLocked(slateDate);
     const snapshot = locked ? getLockedSnapshot(slateDate) : null;
-    const slateProps = snapshot?.props?.length
-      ? snapshot.props
-      : getTrackedPropsForSlate(slateDate).length
-        ? getTrackedPropsForSlate(slateDate)
-        : trackedProps.filter(
-            (prop) =>
-              (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
-          );
+    const liveSlateProps = getTrackedPropsForSlate(slateDate).length
+      ? getTrackedPropsForSlate(slateDate)
+      : trackedProps.filter(
+          (prop) =>
+            (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
+        );
+
+    let slateProps = liveSlateProps;
+    if (locked && snapshot?.props?.length) {
+      slateProps = mergeSnapshotPropsWithLiveGrades(snapshot.props, liveSlateProps);
+      syncGradedPropsToLockedSlate(slateDate, slateProps);
+    } else if (snapshot?.props?.length) {
+      slateProps = snapshot.props;
+    }
 
     const preview = buildSlateReport(slateDate, slateProps, { locked });
     const isFinal = preview.reportStatus === "final";

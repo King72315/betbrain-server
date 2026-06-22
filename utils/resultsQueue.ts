@@ -3,6 +3,7 @@ import { getPickSlateDate } from "./historyArchive";
 import {
   computeSlateRotation,
   getBlockingActiveResultsSlateDate,
+  getReportPending,
   getTodayLocalDate,
   hasUnresolvedGradingProps,
   isCompletedSlate,
@@ -276,7 +277,14 @@ export function computePendingCheckSummary(
 }
 
 /** Plain-English takeaways from accuracy counts for the Results dashboard. */
-export function buildKeyTakeaways(summary: AccuracySummary): string[] {
+export function buildKeyTakeaways(
+  summary: AccuracySummary,
+  options?: {
+    slateDate?: string | null;
+    rotation?: { currentLabSlateDate?: string | null; allReports?: any[] } | null;
+    reports?: any[];
+  }
+): string[] {
   if (summary.total === 0) {
     return ["No tracked props for today yet. Refresh the board to generate today's props."];
   }
@@ -309,7 +317,16 @@ export function buildKeyTakeaways(summary: AccuracySummary): string[] {
     summary.awaitingStats === 0 &&
     summary.graded === summary.total
   ) {
-    bullets.push("All props graded — slate complete. Moved to Lab.");
+    const slateDate = options?.slateDate || null;
+    const promoted =
+      slateDate &&
+      isSlatePromotedToLab(slateDate, options?.rotation || null, options?.reports);
+
+    bullets.push(
+      promoted
+        ? "All props graded — slate complete. Moved to Lab."
+        : "All props graded. Lab report build pending."
+    );
   }
 
   return bullets;
@@ -543,6 +560,21 @@ export type ResolveCheckMessageInput = {
   awaitingStatsCount?: number;
 };
 
+export function isSlatePromotedToLab(
+  slateDate: string | null | undefined,
+  rotation: { currentLabSlateDate?: string | null; allReports?: any[] } | null,
+  reports?: any[]
+): boolean {
+  if (!slateDate) return false;
+  if (rotation?.currentLabSlateDate !== slateDate) return false;
+
+  const reportList = reports || rotation?.allReports || [];
+  const report =
+    reportList.find((item) => String(item.slateDate) === slateDate) || null;
+
+  return Boolean(report && isCompletedSlate(report) && getReportPending(report) === 0);
+}
+
 /** User-facing message after Check / Refresh Grading — UI only, no grading side effects. */
 export function pickResolveCheckMessage(input: ResolveCheckMessageInput): string {
   const { beforeVisible, afterVisible, afterRotation, gradedCount, awaitingStatsCount } =
@@ -555,12 +587,10 @@ export function pickResolveCheckMessage(input: ResolveCheckMessageInput): string
     awaitingStatsCount ?? computeAccuracySummary(afterVisible).awaitingStats;
 
   if (labDate && beforeDates.has(labDate) && !afterDates.has(labDate)) {
-    const labReport =
-      afterRotation.allReports.find((report) => String(report.slateDate) === labDate) ||
-      null;
-    if (isCompletedSlate(labReport)) {
+    if (isSlatePromotedToLab(labDate, afterRotation)) {
       return "Slate complete. Moved to Lab.";
     }
+    return "All props graded. Lab report build pending.";
   }
 
   if (beforeVisible.length === 0 && labDate) {
