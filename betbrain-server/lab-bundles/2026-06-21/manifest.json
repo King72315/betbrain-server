@@ -1,0 +1,20 @@
+{
+  "slateDate": "2026-06-21",
+  "phase": "LAB",
+  "expectedPropCount": 14,
+  "expectedRecord": "5-9-0",
+  "expectedGraded": 14,
+  "actual": {
+    "propCount": 14,
+    "graded": 14,
+    "record": "5-9-0"
+  },
+  "files": [
+    "tracked-props.json",
+    "daily-slate-report.json",
+    "history-archive.json",
+    "slate-snapshot.json",
+    "locked-slate-entry.json"
+  ],
+  "sourceBackup": "safe-backups/pre-wnba-v1-engine-fix-2026-06-22T07-35-55-785Z"
+}

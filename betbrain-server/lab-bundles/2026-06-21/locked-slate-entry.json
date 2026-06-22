@@ -1,0 +1,13 @@
+{
+  "slateDate": "2026-06-21",
+  "phase": "LAB",
+  "lockedAt": "2026-06-22T03:18:15.853Z",
+  "lockReason": "official_freeze_14_props",
+  "autoLocked": false,
+  "propCount": 14,
+  "snapshotFile": "slate-snapshots/2026-06-21.json",
+  "backupId": "2026-06-22T03-18-15-847Z-pre-lock-2026-06-21",
+  "labPromotedAt": "2026-06-22T04:56:25.812Z",
+  "historyArchiveFile": "history-archive/2026-06-21.json",
+  "finalReportAt": "2026-06-22T04:56:25.812Z"
+}

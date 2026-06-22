@@ -1,0 +1,3524 @@
+{
+  "slateDate": "2026-06-21",
+  "status": "final",
+  "reportStatus": "final",
+  "locked": true,
+  "frozen": true,
+  "generatedAt": "2026-06-22T04:57:43.964Z",
+  "updatedAt": "2026-06-22T05:06:26.332Z",
+  "engineScorecard": {
+    "engines": [
+      {
+        "engine": "Projection Engine",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Fair Line Engine",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Market Quality / Book Count",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Confidence Engine",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Risk Label Engine",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Tier Engine",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Tier — PREMIUM (NBA)",
+        "record": "0-0-0",
+        "winRate": null,
+        "sampleSize": 0,
+        "gradedCount": 0,
+        "avgMargin": null,
+        "status": "NOT ENOUGH DATA",
+        "earlySignal": false,
+        "lesson": "Field not present on tracked props — cannot score this engine yet.",
+        "hasData": false
+      },
+      {
+        "engine": "Tier — PREMIUM (WNBA)",
+        "record": "0-0-0",
+        "winRate": null,
+        "sampleSize": 0,
+        "gradedCount": 0,
+        "avgMargin": null,
+        "status": "NOT ENOUGH DATA",
+        "earlySignal": false,
+        "lesson": "Field not present on tracked props — cannot score this engine yet.",
+        "hasData": false
+      },
+      {
+        "engine": "Tier — PLAYABLE (NBA)",
+        "record": "0-0-0",
+        "winRate": null,
+        "sampleSize": 0,
+        "gradedCount": 0,
+        "avgMargin": null,
+        "status": "NOT ENOUGH DATA",
+        "earlySignal": false,
+        "lesson": "Field not present on tracked props — cannot score this engine yet.",
+        "hasData": false
+      },
+      {
+        "engine": "Tier — PLAYABLE (WNBA)",
+        "record": "0-0-0",
+        "winRate": null,
+        "sampleSize": 0,
+        "gradedCount": 0,
+        "avgMargin": null,
+        "status": "NOT ENOUGH DATA",
+        "earlySignal": false,
+        "lesson": "Field not present on tracked props — cannot score this engine yet.",
+        "hasData": false
+      },
+      {
+        "engine": "Recent Form",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Minutes / Opportunity",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Data Coverage",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "League — NBA",
+        "record": "0-0-0",
+        "winRate": null,
+        "sampleSize": 0,
+        "gradedCount": 0,
+        "avgMargin": null,
+        "status": "NOT ENOUGH DATA",
+        "earlySignal": false,
+        "lesson": "Field not present on tracked props — cannot score this engine yet.",
+        "hasData": false
+      },
+      {
+        "engine": "League — WNBA",
+        "record": "5-9-0",
+        "winRate": 35.7,
+        "sampleSize": 14,
+        "gradedCount": 14,
+        "avgMargin": -0.86,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "hasData": true
+      },
+      {
+        "engine": "Side — Over",
+        "record": "1-3-0",
+        "winRate": 25,
+        "sampleSize": 4,
+        "gradedCount": 4,
+        "avgMargin": -3.75,
+        "status": "FAILING",
+        "earlySignal": true,
+        "lesson": "25% win rate — engine underperformed this slate; review before trusting. Average margin -3.75.",
+        "hasData": true
+      },
+      {
+        "engine": "Side — Under",
+        "record": "4-6-0",
+        "winRate": 40,
+        "sampleSize": 10,
+        "gradedCount": 10,
+        "avgMargin": 0.3,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "40% win rate — engine underperformed this slate; review before trusting. Average margin +0.3.",
+        "hasData": true
+      },
+      {
+        "engine": "Miss Type Engine",
+        "record": "0-9-0",
+        "winRate": 0,
+        "sampleSize": 9,
+        "gradedCount": 9,
+        "avgMargin": -5.06,
+        "status": "FAILING",
+        "earlySignal": false,
+        "lesson": "0% win rate — engine underperformed this slate; review before trusting. Average margin -5.06.",
+        "hasData": true
+      }
+    ],
+    "summary": {
+      "totalEngines": 18,
+      "working": 0,
+      "weak": 0,
+      "failing": 13,
+      "notEnoughData": 5
+    }
+  },
+  "mistakeBreakdown": {
+    "totalLosses": 9,
+    "categories": {
+      "close_miss": {
+        "key": "close_miss",
+        "label": "Close miss (0.5–1.5 margin)",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "bad_projection": {
+        "key": "bad_projection",
+        "label": "Bad projection (edge but loss 4+)",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "weak_market": {
+        "key": "weak_market",
+        "label": "Weak market / thin books",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "one_book_trap": {
+        "key": "one_book_trap",
+        "label": "1-book trap",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "wrong_risk_label": {
+        "key": "wrong_risk_label",
+        "label": "Wrong risk label (Low Risk, loss 4+)",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "low_confidence_trap": {
+        "key": "low_confidence_trap",
+        "label": "Low confidence trap",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "lean_promotion": {
+        "key": "lean_promotion",
+        "label": "LEAN should not have been promoted",
+        "count": 9,
+        "pct": 100,
+        "losses": [
+          {
+            "player": "A'ja Wilson",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Over",
+            "line": 25.5,
+            "actualStat": 19,
+            "margin": -6.5,
+            "confidence": 41,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Cecilia Zandalasini",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 12,
+            "margin": -3.5,
+            "confidence": 25,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Erica Wheeler",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 15,
+            "margin": -6.5,
+            "confidence": 47,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Gabby Williams",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Over",
+            "line": 15.5,
+            "actualStat": 10,
+            "margin": -5.5,
+            "confidence": 55,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Georgia Amoore",
+            "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+            "side": "Under",
+            "line": 6.5,
+            "actualStat": 8,
+            "margin": -1.5,
+            "confidence": 25,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Jewell Loyd",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Under",
+            "line": 7.5,
+            "actualStat": 14,
+            "margin": -6.5,
+            "confidence": 26,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Kelsey Plum",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Over",
+            "line": 20.5,
+            "actualStat": 12,
+            "margin": -8.5,
+            "confidence": 31,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Leonie Fiebich",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 13,
+            "margin": -4.5,
+            "confidence": 28,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Marine Johannes",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 7.5,
+            "actualStat": 10,
+            "margin": -2.5,
+            "confidence": 27,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          }
+        ]
+      },
+      "missing_data": {
+        "key": "missing_data",
+        "label": "Missing / limited data",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "bad_fair_line": {
+        "key": "bad_fair_line",
+        "label": "Bad fair line read",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "volume_profile_miss": {
+        "key": "volume_profile_miss",
+        "label": "Volume profile miss",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "efficiency_regression": {
+        "key": "efficiency_regression",
+        "label": "Efficiency regression",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "line_movement_trap": {
+        "key": "line_movement_trap",
+        "label": "Line movement trap",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "opening_line_value_miss": {
+        "key": "opening_line_value_miss",
+        "label": "Opening line value miss",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "player_availability_miss": {
+        "key": "player_availability_miss",
+        "label": "Player availability miss",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "market_steam_against_side": {
+        "key": "market_steam_against_side",
+        "label": "Market steam against side",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "low_volume_over_trap": {
+        "key": "low_volume_over_trap",
+        "label": "Low volume over trap",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "weak_market_trap": {
+        "key": "weak_market_trap",
+        "label": "Weak market trap",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "usage_assumption_failed": {
+        "key": "usage_assumption_failed",
+        "label": "Usage assumption failed",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "player_minutes_dropped": {
+        "key": "player_minutes_dropped",
+        "label": "Player minutes dropped",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "h2h_misleading": {
+        "key": "h2h_misleading",
+        "label": "H2H misleading",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "opponent_defense_signal_failed": {
+        "key": "opponent_defense_signal_failed",
+        "label": "Opponent defense signal failed",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "confidence_overreaction": {
+        "key": "confidence_overreaction",
+        "label": "Confidence overreaction",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "blowout_game_script": {
+        "key": "blowout_game_script",
+        "label": "Blowout / game script",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "pace_mismatch": {
+        "key": "pace_mismatch",
+        "label": "Pace mismatch",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "defense_rating_miss": {
+        "key": "defense_rating_miss",
+        "label": "Defense rating miss",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "score_ledger_gate_miss": {
+        "key": "score_ledger_gate_miss",
+        "label": "Score ledger gate miss",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "ledger_danger_ignored": {
+        "key": "ledger_danger_ignored",
+        "label": "Ledger danger ignored",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      },
+      "unknown": {
+        "key": "unknown",
+        "label": "Unknown",
+        "count": 0,
+        "pct": 0,
+        "losses": []
+      }
+    },
+    "losses": [
+      {
+        "player": "A'ja Wilson",
+        "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+        "side": "Over",
+        "line": 25.5,
+        "actualStat": 19,
+        "margin": -6.5,
+        "confidence": 41,
+        "risk": "Low Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Cecilia Zandalasini",
+        "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+        "side": "Under",
+        "line": 8.5,
+        "actualStat": 12,
+        "margin": -3.5,
+        "confidence": 25,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Erica Wheeler",
+        "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+        "side": "Under",
+        "line": 8.5,
+        "actualStat": 15,
+        "margin": -6.5,
+        "confidence": 47,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Gabby Williams",
+        "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+        "side": "Over",
+        "line": 15.5,
+        "actualStat": 10,
+        "margin": -5.5,
+        "confidence": 55,
+        "risk": "Low Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Georgia Amoore",
+        "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+        "side": "Under",
+        "line": 6.5,
+        "actualStat": 8,
+        "margin": -1.5,
+        "confidence": 25,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Jewell Loyd",
+        "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+        "side": "Under",
+        "line": 7.5,
+        "actualStat": 14,
+        "margin": -6.5,
+        "confidence": 26,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Kelsey Plum",
+        "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+        "side": "Over",
+        "line": 20.5,
+        "actualStat": 12,
+        "margin": -8.5,
+        "confidence": 31,
+        "risk": "Low Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Leonie Fiebich",
+        "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+        "side": "Under",
+        "line": 8.5,
+        "actualStat": 13,
+        "margin": -4.5,
+        "confidence": 28,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      },
+      {
+        "player": "Marine Johannes",
+        "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+        "side": "Under",
+        "line": 7.5,
+        "actualStat": 10,
+        "margin": -2.5,
+        "confidence": 27,
+        "risk": "Medium Risk",
+        "tier": "LEAN",
+        "category": "lean_promotion",
+        "label": "Lean should not have been promoted (LEAN loss)",
+        "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+      }
+    ],
+    "topCategory": {
+      "key": "lean_promotion",
+      "label": "LEAN should not have been promoted",
+      "count": 9,
+      "pct": 100,
+      "losses": [
+        {
+          "player": "A'ja Wilson",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Over",
+          "line": 25.5,
+          "actualStat": 19,
+          "margin": -6.5,
+          "confidence": 41,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Cecilia Zandalasini",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 12,
+          "margin": -3.5,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Erica Wheeler",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 15,
+          "margin": -6.5,
+          "confidence": 47,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Gabby Williams",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Over",
+          "line": 15.5,
+          "actualStat": 10,
+          "margin": -5.5,
+          "confidence": 55,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Georgia Amoore",
+          "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+          "side": "Under",
+          "line": 6.5,
+          "actualStat": 8,
+          "margin": -1.5,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Jewell Loyd",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 14,
+          "margin": -6.5,
+          "confidence": 26,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Kelsey Plum",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Over",
+          "line": 20.5,
+          "actualStat": 12,
+          "margin": -8.5,
+          "confidence": 31,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Leonie Fiebich",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 13,
+          "margin": -4.5,
+          "confidence": 28,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Marine Johannes",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 10,
+          "margin": -2.5,
+          "confidence": 27,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        }
+      ]
+    }
+  },
+  "calibrationRules": {
+    "rules": [
+      {
+        "id": "no_lean_official",
+        "priority": "high",
+        "rule": "Don't show LEAN as official Top Props",
+        "reason": "LEAN tier is for directional signal only — not official plays.",
+        "triggered": true
+      },
+      {
+        "id": "no_premium_found",
+        "priority": "medium",
+        "rule": "If Premium=0, show \"No Premium Plays Found\" and move best LEAN to Watchlist",
+        "reason": "No PREMIUM tier props on this slate.",
+        "triggered": true
+      },
+      {
+        "id": "wnba_stronger_edge",
+        "priority": "medium",
+        "rule": "Require stronger edge for WNBA_LIMITED_DATA",
+        "reason": "14 WNBA/limited-data prop(s) on slate — edge bar should be higher.",
+        "triggered": true
+      },
+      {
+        "id": "track_side_separately",
+        "priority": "medium",
+        "rule": "Track Over/Under separately in calibration",
+        "reason": "Over 1-3-0 vs Under 4-6-0.",
+        "triggered": true
+      },
+      {
+        "id": "lean_promotion_loss",
+        "priority": "high",
+        "rule": "Block LEAN from auto-track pipeline",
+        "reason": "9 LEAN loss(es) — LEAN should never be official.",
+        "triggered": true
+      },
+      {
+        "id": "engine_failing_projection_engine",
+        "priority": "medium",
+        "rule": "Review Projection Engine — status FAILING (35.7% on 14)",
+        "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "triggered": true
+      },
+      {
+        "id": "engine_failing_fair_line_engine",
+        "priority": "medium",
+        "rule": "Review Fair Line Engine — status FAILING (35.7% on 14)",
+        "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "triggered": true
+      },
+      {
+        "id": "engine_failing_market_quality_/_book_count",
+        "priority": "medium",
+        "rule": "Review Market Quality / Book Count — status FAILING (35.7% on 14)",
+        "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+        "triggered": true
+      }
+    ],
+    "totalRules": 8,
+    "doNotAdjustYet": false,
+    "note": "Calibration rules are advisory — no engine weights were changed."
+  },
+  "slateLesson": {
+    "slateDate": "2026-06-21",
+    "headline": "Rough slate — 5-9-0 (35.7%).",
+    "body": "Average margin -0.86. Enough graded props to start comparing engine performance across slates.",
+    "bullets": [
+      "Engines failing: Projection Engine, Fair Line Engine, Market Quality / Book Count — review before next slate.",
+      "Top loss pattern: LEAN should not have been promoted (9 of 9).",
+      "Priority fix: Don't show LEAN as official Top Props."
+    ],
+    "reportStatus": "final"
+  },
+  "wnbaStructuralGaps": {
+    "availabilityGate": "skipped — evaluateAvailabilityGate returns N/A for non-NBA",
+    "defenseScore": "neutral default (50) — no WNBA team season stats wired",
+    "primaryStatSource": "BallDontLie (BDL) primary — no SportsData projections"
+  },
+  "tierLabBuckets": {
+    "OFFICIAL": {
+      "sample": 0,
+      "pending": 0,
+      "graded": 0,
+      "wins": 0,
+      "losses": 0,
+      "pushes": 0,
+      "winRate": null,
+      "needsMoreData": true,
+      "smallSampleNote": "No graded props in this group",
+      "propCount": 0
+    },
+    "WATCHLIST": {
+      "sample": 0,
+      "pending": 0,
+      "graded": 0,
+      "wins": 0,
+      "losses": 0,
+      "pushes": 0,
+      "winRate": null,
+      "needsMoreData": true,
+      "smallSampleNote": "No graded props in this group",
+      "propCount": 0
+    },
+    "SHADOW_TESTING": {
+      "sample": 0,
+      "pending": 0,
+      "graded": 0,
+      "wins": 0,
+      "losses": 0,
+      "pushes": 0,
+      "winRate": null,
+      "needsMoreData": true,
+      "smallSampleNote": "No graded props in this group",
+      "propCount": 0
+    },
+    "LEAN/TESTING": {
+      "sample": 14,
+      "pending": 0,
+      "graded": 14,
+      "wins": 5,
+      "losses": 9,
+      "pushes": 0,
+      "winRate": 35.7,
+      "needsMoreData": false,
+      "smallSampleNote": null,
+      "propCount": 14
+    }
+  },
+  "leagueSplit": {
+    "structuralNotes": {
+      "availabilityGate": "skipped — evaluateAvailabilityGate returns N/A for non-NBA (no injury/status gate)",
+      "defenseScore": "neutral default (50) — computeDefenseScore has no WNBA team season stats",
+      "primaryStatSource": "BallDontLie (BDL) primary — no SportsData projections, usage boost, or missing-player context"
+    },
+    "byLeague": {
+      "NBA": {
+        "propCount": 0,
+        "record": {
+          "total": 0,
+          "graded": 0,
+          "pending": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "netUnits": 0
+        },
+        "premium": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group"
+        },
+        "playable": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group"
+        },
+        "tierBuckets": {},
+        "tierLabBuckets": {
+          "OFFICIAL": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "WATCHLIST": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "SHADOW_TESTING": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "LEAN/TESTING": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          }
+        },
+        "riskBuckets": {
+          "LOW": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "MEDIUM": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          },
+          "HIGH": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          }
+        }
+      },
+      "WNBA": {
+        "propCount": 14,
+        "record": {
+          "total": 14,
+          "graded": 14,
+          "pending": 0,
+          "wins": 5,
+          "losses": 9,
+          "pushes": 0,
+          "winRate": 35.7,
+          "netUnits": -4
+        },
+        "premium": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group"
+        },
+        "playable": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group"
+        },
+        "tierBuckets": {
+          "LEAN": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null,
+            "propCount": 14
+          }
+        },
+        "tierLabBuckets": {
+          "OFFICIAL": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "WATCHLIST": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "SHADOW_TESTING": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group",
+            "propCount": 0
+          },
+          "LEAN/TESTING": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null,
+            "propCount": 14
+          }
+        },
+        "riskBuckets": {
+          "LOW": {
+            "total": 4,
+            "graded": 4,
+            "pending": 0,
+            "wins": 1,
+            "losses": 3,
+            "pushes": 0,
+            "winRate": 25,
+            "netUnits": -2,
+            "avgConfidence": 44.25,
+            "avgFairLineEdge": 1.62,
+            "avgProjectionEdge": 1,
+            "avgSupport": 38.25,
+            "avgDanger": 15.93,
+            "avgSupportDangerGap": 22.32,
+            "smallSampleNote": null
+          },
+          "MEDIUM": {
+            "total": 10,
+            "graded": 10,
+            "pending": 0,
+            "wins": 4,
+            "losses": 6,
+            "pushes": 0,
+            "winRate": 40,
+            "netUnits": -2,
+            "avgConfidence": 30.4,
+            "avgFairLineEdge": 0.32,
+            "avgProjectionEdge": -1.07,
+            "avgSupport": 26.2,
+            "avgDanger": 13.68,
+            "avgSupportDangerGap": 12.52,
+            "smallSampleNote": null
+          },
+          "HIGH": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0,
+            "avgConfidence": null,
+            "avgFairLineEdge": null,
+            "avgProjectionEdge": null,
+            "avgSupport": null,
+            "avgDanger": null,
+            "avgSupportDangerGap": null,
+            "smallSampleNote": null
+          }
+        }
+      }
+    },
+    "note": "Calibration split by league — WNBA picks use same tier/confidence math but skip availability gate and use neutral defense defaults."
+  },
+  "sections": {
+    "A": {
+      "title": "Slate Summary",
+      "slateDate": "2026-06-21",
+      "reportStatus": "final",
+      "totalOfficialProps": 14,
+      "graded": 14,
+      "pending": 0,
+      "wins": 5,
+      "losses": 9,
+      "pushes": 0,
+      "overallWinRate": 35.7,
+      "leagues": [
+        "WNBA"
+      ],
+      "generatedAt": "2026-06-22T05:06:26.330Z",
+      "updatedAt": "2026-06-22T05:06:26.330Z",
+      "tierLabBuckets": {
+        "OFFICIAL": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "WATCHLIST": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "SHADOW_TESTING": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "LEAN/TESTING": {
+          "sample": 14,
+          "pending": 0,
+          "graded": 14,
+          "wins": 5,
+          "losses": 9,
+          "pushes": 0,
+          "winRate": 35.7,
+          "needsMoreData": false,
+          "smallSampleNote": null,
+          "propCount": 14
+        }
+      },
+      "leagueSplit": {
+        "structuralNotes": {
+          "availabilityGate": "skipped — evaluateAvailabilityGate returns N/A for non-NBA (no injury/status gate)",
+          "defenseScore": "neutral default (50) — computeDefenseScore has no WNBA team season stats",
+          "primaryStatSource": "BallDontLie (BDL) primary — no SportsData projections, usage boost, or missing-player context"
+        },
+        "byLeague": {
+          "NBA": {
+            "propCount": 0,
+            "record": {
+              "total": 0,
+              "graded": 0,
+              "pending": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "netUnits": 0
+            },
+            "premium": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "playable": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "tierBuckets": {},
+            "tierLabBuckets": {
+              "OFFICIAL": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "WATCHLIST": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "SHADOW_TESTING": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "LEAN/TESTING": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              }
+            },
+            "riskBuckets": {
+              "LOW": {
+                "total": 0,
+                "graded": 0,
+                "pending": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "netUnits": 0,
+                "avgConfidence": null,
+                "avgFairLineEdge": null,
+                "avgProjectionEdge": null,
+                "avgSupport": null,
+                "avgDanger": null,
+                "avgSupportDangerGap": null,
+                "smallSampleNote": null
+              },
+              "MEDIUM": {
+                "total": 0,
+                "graded": 0,
+                "pending": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "netUnits": 0,
+                "avgConfidence": null,
+                "avgFairLineEdge": null,
+                "avgProjectionEdge": null,
+                "avgSupport": null,
+                "avgDanger": null,
+                "avgSupportDangerGap": null,
+                "smallSampleNote": null
+              },
+              "HIGH": {
+                "total": 0,
+                "graded": 0,
+                "pending": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "netUnits": 0,
+                "avgConfidence": null,
+                "avgFairLineEdge": null,
+                "avgProjectionEdge": null,
+                "avgSupport": null,
+                "avgDanger": null,
+                "avgSupportDangerGap": null,
+                "smallSampleNote": null
+              }
+            }
+          },
+          "WNBA": {
+            "propCount": 14,
+            "record": {
+              "total": 14,
+              "graded": 14,
+              "pending": 0,
+              "wins": 5,
+              "losses": 9,
+              "pushes": 0,
+              "winRate": 35.7,
+              "netUnits": -4
+            },
+            "premium": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "playable": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group"
+            },
+            "tierBuckets": {
+              "LEAN": {
+                "sample": 14,
+                "pending": 0,
+                "graded": 14,
+                "wins": 5,
+                "losses": 9,
+                "pushes": 0,
+                "winRate": 35.7,
+                "needsMoreData": false,
+                "smallSampleNote": null,
+                "propCount": 14
+              }
+            },
+            "tierLabBuckets": {
+              "OFFICIAL": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "WATCHLIST": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "SHADOW_TESTING": {
+                "sample": 0,
+                "pending": 0,
+                "graded": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "needsMoreData": true,
+                "smallSampleNote": "No graded props in this group",
+                "propCount": 0
+              },
+              "LEAN/TESTING": {
+                "sample": 14,
+                "pending": 0,
+                "graded": 14,
+                "wins": 5,
+                "losses": 9,
+                "pushes": 0,
+                "winRate": 35.7,
+                "needsMoreData": false,
+                "smallSampleNote": null,
+                "propCount": 14
+              }
+            },
+            "riskBuckets": {
+              "LOW": {
+                "total": 4,
+                "graded": 4,
+                "pending": 0,
+                "wins": 1,
+                "losses": 3,
+                "pushes": 0,
+                "winRate": 25,
+                "netUnits": -2,
+                "avgConfidence": 44.25,
+                "avgFairLineEdge": 1.62,
+                "avgProjectionEdge": 1,
+                "avgSupport": 38.25,
+                "avgDanger": 15.93,
+                "avgSupportDangerGap": 22.32,
+                "smallSampleNote": null
+              },
+              "MEDIUM": {
+                "total": 10,
+                "graded": 10,
+                "pending": 0,
+                "wins": 4,
+                "losses": 6,
+                "pushes": 0,
+                "winRate": 40,
+                "netUnits": -2,
+                "avgConfidence": 30.4,
+                "avgFairLineEdge": 0.32,
+                "avgProjectionEdge": -1.07,
+                "avgSupport": 26.2,
+                "avgDanger": 13.68,
+                "avgSupportDangerGap": 12.52,
+                "smallSampleNote": null
+              },
+              "HIGH": {
+                "total": 0,
+                "graded": 0,
+                "pending": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "winRate": null,
+                "netUnits": 0,
+                "avgConfidence": null,
+                "avgFairLineEdge": null,
+                "avgProjectionEdge": null,
+                "avgSupport": null,
+                "avgDanger": null,
+                "avgSupportDangerGap": null,
+                "smallSampleNote": null
+              }
+            }
+          }
+        },
+        "note": "Calibration split by league — WNBA picks use same tier/confidence math but skip availability gate and use neutral defense defaults."
+      }
+    },
+    "B": {
+      "title": "Risk Bucket Breakdown",
+      "buckets": {
+        "LOW": {
+          "total": 4,
+          "graded": 4,
+          "pending": 0,
+          "wins": 1,
+          "losses": 3,
+          "pushes": 0,
+          "winRate": 25,
+          "netUnits": -2,
+          "avgConfidence": 44.25,
+          "avgFairLineEdge": 1.62,
+          "avgProjectionEdge": 1,
+          "avgSupport": 38.25,
+          "avgDanger": 15.93,
+          "avgSupportDangerGap": 22.32,
+          "smallSampleNote": null
+        },
+        "MEDIUM": {
+          "total": 10,
+          "graded": 10,
+          "pending": 0,
+          "wins": 4,
+          "losses": 6,
+          "pushes": 0,
+          "winRate": 40,
+          "netUnits": -2,
+          "avgConfidence": 30.4,
+          "avgFairLineEdge": 0.32,
+          "avgProjectionEdge": -1.07,
+          "avgSupport": 26.2,
+          "avgDanger": 13.68,
+          "avgSupportDangerGap": 12.52,
+          "smallSampleNote": null
+        },
+        "HIGH": {
+          "total": 0,
+          "graded": 0,
+          "pending": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "netUnits": 0,
+          "avgConfidence": null,
+          "avgFairLineEdge": null,
+          "avgProjectionEdge": null,
+          "avgSupport": null,
+          "avgDanger": null,
+          "avgSupportDangerGap": null,
+          "smallSampleNote": null
+        }
+      }
+    },
+    "C": {
+      "title": "Projection/Fair Line Accuracy",
+      "sample": 14,
+      "projectionSideWinRate": 35.7,
+      "avgProjected": 11.16,
+      "avgFairLine": 12.34,
+      "avgActual": 10.36,
+      "avgError": 0.81,
+      "avgAbsError": 6.32,
+      "bias": "balanced",
+      "bestCall": {
+        "player": "Sonia Citron",
+        "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+        "side": "Over",
+        "line": 15.5,
+        "projection": 17.8,
+        "fairLine": 17.6,
+        "actualStat": 21,
+        "error": -3.2
+      },
+      "worstMiss": {
+        "player": "Kelsey Plum",
+        "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+        "side": "Over",
+        "line": 20.5,
+        "projection": 24.9,
+        "fairLine": 24,
+        "actualStat": 12,
+        "error": 12.9
+      },
+      "edgeBucketPerformance": {
+        "2.5-3.9": {
+          "sample": 5,
+          "pending": 0,
+          "graded": 5,
+          "wins": 2,
+          "losses": 3,
+          "pushes": 0,
+          "winRate": 40,
+          "needsMoreData": false,
+          "smallSampleNote": null
+        },
+        "Under 1.5": {
+          "sample": 5,
+          "pending": 0,
+          "graded": 5,
+          "wins": 0,
+          "losses": 5,
+          "pushes": 0,
+          "winRate": 0,
+          "needsMoreData": false,
+          "smallSampleNote": null
+        },
+        "4+": {
+          "sample": 3,
+          "pending": 0,
+          "graded": 3,
+          "wins": 2,
+          "losses": 1,
+          "pushes": 0,
+          "winRate": 66.7,
+          "needsMoreData": false,
+          "smallSampleNote": null
+        },
+        "1.5-2.4": {
+          "sample": 1,
+          "pending": 0,
+          "graded": 1,
+          "wins": 1,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": 100,
+          "needsMoreData": true,
+          "smallSampleNote": "Only 1 decided prop(s) — treat as directional only"
+        }
+      },
+      "needsMoreData": false
+    },
+    "D": {
+      "title": "Engine/Signal Performance",
+      "groups": {
+        "last5": {
+          "supports_side": {
+            "sample": 9,
+            "pending": 0,
+            "graded": 9,
+            "wins": 3,
+            "losses": 6,
+            "pushes": 0,
+            "winRate": 33.3,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "opposes_side": {
+            "sample": 3,
+            "pending": 0,
+            "graded": 3,
+            "wins": 2,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 66.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "neutral": {
+            "sample": 2,
+            "pending": 0,
+            "graded": 2,
+            "wins": 0,
+            "losses": 2,
+            "pushes": 0,
+            "winRate": 0,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 2 decided prop(s) — treat as directional only"
+          }
+        },
+        "seasonAverage": {
+          "neutral": {
+            "sample": 8,
+            "pending": 0,
+            "graded": 8,
+            "wins": 2,
+            "losses": 6,
+            "pushes": 0,
+            "winRate": 25,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "supports_side": {
+            "sample": 4,
+            "pending": 0,
+            "graded": 4,
+            "wins": 2,
+            "losses": 2,
+            "pushes": 0,
+            "winRate": 50,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "opposes_side": {
+            "sample": 2,
+            "pending": 0,
+            "graded": 2,
+            "wins": 1,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 50,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 2 decided prop(s) — treat as directional only"
+          }
+        },
+        "h2h": {
+          "not enough data": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "opponentDefense": {
+          "NO_DIRECT_HISTORY": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "usageMinutes": {
+          "minutes_up": {
+            "sample": 4,
+            "pending": 0,
+            "graded": 4,
+            "wins": 2,
+            "losses": 2,
+            "pushes": 0,
+            "winRate": 50,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "stable": {
+            "sample": 9,
+            "pending": 0,
+            "graded": 9,
+            "wins": 3,
+            "losses": 6,
+            "pushes": 0,
+            "winRate": 33.3,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "minutes_down": {
+            "sample": 1,
+            "pending": 0,
+            "graded": 1,
+            "wins": 0,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 0,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 1 decided prop(s) — treat as directional only"
+          }
+        },
+        "injuryAvailability": {
+          "availability_risk": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "homeAway": {
+          "not enough data": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "restTravel": {
+          "not enough data": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "pace": {
+          "not enough data": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "marketBookCount": {
+          "5-7": {
+            "sample": 11,
+            "pending": 0,
+            "graded": 11,
+            "wins": 4,
+            "losses": 7,
+            "pushes": 0,
+            "winRate": 36.4,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "3-4": {
+            "sample": 3,
+            "pending": 0,
+            "graded": 3,
+            "wins": 1,
+            "losses": 2,
+            "pushes": 0,
+            "winRate": 33.3,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "supportDangerGap": {
+          "20+": {
+            "sample": 6,
+            "pending": 0,
+            "graded": 6,
+            "wins": 2,
+            "losses": 4,
+            "pushes": 0,
+            "winRate": 33.3,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "10-19": {
+            "sample": 4,
+            "pending": 0,
+            "graded": 4,
+            "wins": 0,
+            "losses": 4,
+            "pushes": 0,
+            "winRate": 0,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "Under 5": {
+            "sample": 2,
+            "pending": 0,
+            "graded": 2,
+            "wins": 1,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 50,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 2 decided prop(s) — treat as directional only"
+          },
+          "5-9": {
+            "sample": 2,
+            "pending": 0,
+            "graded": 2,
+            "wins": 2,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": 100,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 2 decided prop(s) — treat as directional only"
+          }
+        },
+        "confidenceBucket": {
+          "Under 55": {
+            "sample": 13,
+            "pending": 0,
+            "graded": 13,
+            "wins": 5,
+            "losses": 8,
+            "pushes": 0,
+            "winRate": 38.5,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "55-59": {
+            "sample": 1,
+            "pending": 0,
+            "graded": 1,
+            "wins": 0,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 0,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 1 decided prop(s) — treat as directional only"
+          }
+        },
+        "projectionEdgeBucket": {
+          "2.5-3.9": {
+            "sample": 5,
+            "pending": 0,
+            "graded": 5,
+            "wins": 2,
+            "losses": 3,
+            "pushes": 0,
+            "winRate": 40,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "Under 1.5": {
+            "sample": 5,
+            "pending": 0,
+            "graded": 5,
+            "wins": 0,
+            "losses": 5,
+            "pushes": 0,
+            "winRate": 0,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "4+": {
+            "sample": 3,
+            "pending": 0,
+            "graded": 3,
+            "wins": 2,
+            "losses": 1,
+            "pushes": 0,
+            "winRate": 66.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "1.5-2.4": {
+            "sample": 1,
+            "pending": 0,
+            "graded": 1,
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": 100,
+            "needsMoreData": true,
+            "smallSampleNote": "Only 1 decided prop(s) — treat as directional only"
+          }
+        },
+        "riskBucket": {
+          "LOW": {
+            "sample": 4,
+            "pending": 0,
+            "graded": 4,
+            "wins": 1,
+            "losses": 3,
+            "pushes": 0,
+            "winRate": 25,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          },
+          "MEDIUM": {
+            "sample": 10,
+            "pending": 0,
+            "graded": 10,
+            "wins": 4,
+            "losses": 6,
+            "pushes": 0,
+            "winRate": 40,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        },
+        "tier": {
+          "LEAN": {
+            "sample": 14,
+            "pending": 0,
+            "graded": 14,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "needsMoreData": false,
+            "smallSampleNote": null
+          }
+        }
+      }
+    },
+    "E": {
+      "title": "Loss/Miss Type Report",
+      "losses": [
+        {
+          "player": "A'ja Wilson",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "propType": "Points",
+          "side": "Over",
+          "line": 25.5,
+          "actualStat": 19,
+          "confidence": 41,
+          "risk": "Low Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Cecilia Zandalasini",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "propType": "Points",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 12,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Erica Wheeler",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "propType": "Points",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 15,
+          "confidence": 47,
+          "risk": "Medium Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Gabby Williams",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "propType": "Points",
+          "side": "Over",
+          "line": 15.5,
+          "actualStat": 10,
+          "confidence": 55,
+          "risk": "Low Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Georgia Amoore",
+          "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+          "propType": "Points",
+          "side": "Under",
+          "line": 6.5,
+          "actualStat": 8,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Jewell Loyd",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "propType": "Points",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 14,
+          "confidence": 26,
+          "risk": "Medium Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Kelsey Plum",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "propType": "Points",
+          "side": "Over",
+          "line": 20.5,
+          "actualStat": 12,
+          "confidence": 31,
+          "risk": "Low Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Leonie Fiebich",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "propType": "Points",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 13,
+          "confidence": 28,
+          "risk": "Medium Risk",
+          "missType": "player_availability_miss",
+          "explanation": "Availability warning was present in the pick profile."
+        },
+        {
+          "player": "Marine Johannes",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "propType": "Points",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 10,
+          "confidence": 27,
+          "risk": "Medium Risk",
+          "missType": "usage assumption failed",
+          "explanation": "Role/minutes trend was down — usage assumption did not hold."
+        }
+      ],
+      "totalLosses": 9
+    },
+    "F": {
+      "title": "Calibration Recommendations",
+      "signalsToTrustMore": [
+        "last5 → opposes_side (66.7% on 3 graded)",
+        "projectionEdgeBucket → 4+ (66.7% on 3 graded)"
+      ],
+      "signalsToTrustLess": [
+        "last5 → supports_side (33.3% on 9 graded)",
+        "seasonAverage → neutral (25% on 8 graded)",
+        "opponentDefense → NO_DIRECT_HISTORY (35.7% on 14 graded)",
+        "usageMinutes → stable (33.3% on 9 graded)",
+        "injuryAvailability → availability_risk (35.7% on 14 graded)"
+      ],
+      "riskBucketNotes": [
+        "LOW: underperforming at 25% — review sizing",
+        "MEDIUM: underperforming at 40% — review sizing",
+        "HIGH: insufficient sample (0 decided)"
+      ],
+      "projectionNotes": [
+        "Projection bias appears balanced."
+      ],
+      "sampleSizeGaps": [
+        "last5/neutral: needs more data",
+        "seasonAverage/opposes_side: needs more data",
+        "h2h/not enough data: needs more data",
+        "usageMinutes/minutes_down: needs more data",
+        "homeAway/not enough data: needs more data",
+        "restTravel/not enough data: needs more data",
+        "pace/not enough data: needs more data",
+        "supportDangerGap/Under 5: needs more data"
+      ],
+      "nextAdjustment": "Review loss/miss patterns after more slates grade.",
+      "doNotAdjustYet": false,
+      "note": "Report only — no engine weights were changed."
+    },
+    "G": {
+      "title": "Engine Scorecard",
+      "engines": [
+        {
+          "engine": "Projection Engine",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Fair Line Engine",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Market Quality / Book Count",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Confidence Engine",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Risk Label Engine",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Tier Engine",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Tier — PREMIUM (NBA)",
+          "record": "0-0-0",
+          "winRate": null,
+          "sampleSize": 0,
+          "gradedCount": 0,
+          "avgMargin": null,
+          "status": "NOT ENOUGH DATA",
+          "earlySignal": false,
+          "lesson": "Field not present on tracked props — cannot score this engine yet.",
+          "hasData": false
+        },
+        {
+          "engine": "Tier — PREMIUM (WNBA)",
+          "record": "0-0-0",
+          "winRate": null,
+          "sampleSize": 0,
+          "gradedCount": 0,
+          "avgMargin": null,
+          "status": "NOT ENOUGH DATA",
+          "earlySignal": false,
+          "lesson": "Field not present on tracked props — cannot score this engine yet.",
+          "hasData": false
+        },
+        {
+          "engine": "Tier — PLAYABLE (NBA)",
+          "record": "0-0-0",
+          "winRate": null,
+          "sampleSize": 0,
+          "gradedCount": 0,
+          "avgMargin": null,
+          "status": "NOT ENOUGH DATA",
+          "earlySignal": false,
+          "lesson": "Field not present on tracked props — cannot score this engine yet.",
+          "hasData": false
+        },
+        {
+          "engine": "Tier — PLAYABLE (WNBA)",
+          "record": "0-0-0",
+          "winRate": null,
+          "sampleSize": 0,
+          "gradedCount": 0,
+          "avgMargin": null,
+          "status": "NOT ENOUGH DATA",
+          "earlySignal": false,
+          "lesson": "Field not present on tracked props — cannot score this engine yet.",
+          "hasData": false
+        },
+        {
+          "engine": "Recent Form",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Minutes / Opportunity",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Data Coverage",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "League — NBA",
+          "record": "0-0-0",
+          "winRate": null,
+          "sampleSize": 0,
+          "gradedCount": 0,
+          "avgMargin": null,
+          "status": "NOT ENOUGH DATA",
+          "earlySignal": false,
+          "lesson": "Field not present on tracked props — cannot score this engine yet.",
+          "hasData": false
+        },
+        {
+          "engine": "League — WNBA",
+          "record": "5-9-0",
+          "winRate": 35.7,
+          "sampleSize": 14,
+          "gradedCount": 14,
+          "avgMargin": -0.86,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "hasData": true
+        },
+        {
+          "engine": "Side — Over",
+          "record": "1-3-0",
+          "winRate": 25,
+          "sampleSize": 4,
+          "gradedCount": 4,
+          "avgMargin": -3.75,
+          "status": "FAILING",
+          "earlySignal": true,
+          "lesson": "25% win rate — engine underperformed this slate; review before trusting. Average margin -3.75.",
+          "hasData": true
+        },
+        {
+          "engine": "Side — Under",
+          "record": "4-6-0",
+          "winRate": 40,
+          "sampleSize": 10,
+          "gradedCount": 10,
+          "avgMargin": 0.3,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "40% win rate — engine underperformed this slate; review before trusting. Average margin +0.3.",
+          "hasData": true
+        },
+        {
+          "engine": "Miss Type Engine",
+          "record": "0-9-0",
+          "winRate": 0,
+          "sampleSize": 9,
+          "gradedCount": 9,
+          "avgMargin": -5.06,
+          "status": "FAILING",
+          "earlySignal": false,
+          "lesson": "0% win rate — engine underperformed this slate; review before trusting. Average margin -5.06.",
+          "hasData": true
+        }
+      ],
+      "summary": {
+        "totalEngines": 18,
+        "working": 0,
+        "weak": 0,
+        "failing": 13,
+        "notEnoughData": 5
+      }
+    },
+    "H": {
+      "title": "Mistake Breakdown",
+      "totalLosses": 9,
+      "categories": {
+        "close_miss": {
+          "key": "close_miss",
+          "label": "Close miss (0.5–1.5 margin)",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "bad_projection": {
+          "key": "bad_projection",
+          "label": "Bad projection (edge but loss 4+)",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "weak_market": {
+          "key": "weak_market",
+          "label": "Weak market / thin books",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "one_book_trap": {
+          "key": "one_book_trap",
+          "label": "1-book trap",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "wrong_risk_label": {
+          "key": "wrong_risk_label",
+          "label": "Wrong risk label (Low Risk, loss 4+)",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "low_confidence_trap": {
+          "key": "low_confidence_trap",
+          "label": "Low confidence trap",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "lean_promotion": {
+          "key": "lean_promotion",
+          "label": "LEAN should not have been promoted",
+          "count": 9,
+          "pct": 100,
+          "losses": [
+            {
+              "player": "A'ja Wilson",
+              "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+              "side": "Over",
+              "line": 25.5,
+              "actualStat": 19,
+              "margin": -6.5,
+              "confidence": 41,
+              "risk": "Low Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Cecilia Zandalasini",
+              "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+              "side": "Under",
+              "line": 8.5,
+              "actualStat": 12,
+              "margin": -3.5,
+              "confidence": 25,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Erica Wheeler",
+              "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+              "side": "Under",
+              "line": 8.5,
+              "actualStat": 15,
+              "margin": -6.5,
+              "confidence": 47,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Gabby Williams",
+              "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+              "side": "Over",
+              "line": 15.5,
+              "actualStat": 10,
+              "margin": -5.5,
+              "confidence": 55,
+              "risk": "Low Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Georgia Amoore",
+              "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+              "side": "Under",
+              "line": 6.5,
+              "actualStat": 8,
+              "margin": -1.5,
+              "confidence": 25,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Jewell Loyd",
+              "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+              "side": "Under",
+              "line": 7.5,
+              "actualStat": 14,
+              "margin": -6.5,
+              "confidence": 26,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Kelsey Plum",
+              "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+              "side": "Over",
+              "line": 20.5,
+              "actualStat": 12,
+              "margin": -8.5,
+              "confidence": 31,
+              "risk": "Low Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Leonie Fiebich",
+              "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+              "side": "Under",
+              "line": 8.5,
+              "actualStat": 13,
+              "margin": -4.5,
+              "confidence": 28,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            },
+            {
+              "player": "Marine Johannes",
+              "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+              "side": "Under",
+              "line": 7.5,
+              "actualStat": 10,
+              "margin": -2.5,
+              "confidence": 27,
+              "risk": "Medium Risk",
+              "tier": "LEAN",
+              "category": "lean_promotion",
+              "label": "Lean should not have been promoted (LEAN loss)",
+              "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+            }
+          ]
+        },
+        "missing_data": {
+          "key": "missing_data",
+          "label": "Missing / limited data",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "bad_fair_line": {
+          "key": "bad_fair_line",
+          "label": "Bad fair line read",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "volume_profile_miss": {
+          "key": "volume_profile_miss",
+          "label": "Volume profile miss",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "efficiency_regression": {
+          "key": "efficiency_regression",
+          "label": "Efficiency regression",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "line_movement_trap": {
+          "key": "line_movement_trap",
+          "label": "Line movement trap",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "opening_line_value_miss": {
+          "key": "opening_line_value_miss",
+          "label": "Opening line value miss",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "player_availability_miss": {
+          "key": "player_availability_miss",
+          "label": "Player availability miss",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "market_steam_against_side": {
+          "key": "market_steam_against_side",
+          "label": "Market steam against side",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "low_volume_over_trap": {
+          "key": "low_volume_over_trap",
+          "label": "Low volume over trap",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "weak_market_trap": {
+          "key": "weak_market_trap",
+          "label": "Weak market trap",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "usage_assumption_failed": {
+          "key": "usage_assumption_failed",
+          "label": "Usage assumption failed",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "player_minutes_dropped": {
+          "key": "player_minutes_dropped",
+          "label": "Player minutes dropped",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "h2h_misleading": {
+          "key": "h2h_misleading",
+          "label": "H2H misleading",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "opponent_defense_signal_failed": {
+          "key": "opponent_defense_signal_failed",
+          "label": "Opponent defense signal failed",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "confidence_overreaction": {
+          "key": "confidence_overreaction",
+          "label": "Confidence overreaction",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "blowout_game_script": {
+          "key": "blowout_game_script",
+          "label": "Blowout / game script",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "pace_mismatch": {
+          "key": "pace_mismatch",
+          "label": "Pace mismatch",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "defense_rating_miss": {
+          "key": "defense_rating_miss",
+          "label": "Defense rating miss",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "score_ledger_gate_miss": {
+          "key": "score_ledger_gate_miss",
+          "label": "Score ledger gate miss",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "ledger_danger_ignored": {
+          "key": "ledger_danger_ignored",
+          "label": "Ledger danger ignored",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        },
+        "unknown": {
+          "key": "unknown",
+          "label": "Unknown",
+          "count": 0,
+          "pct": 0,
+          "losses": []
+        }
+      },
+      "losses": [
+        {
+          "player": "A'ja Wilson",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Over",
+          "line": 25.5,
+          "actualStat": 19,
+          "margin": -6.5,
+          "confidence": 41,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Cecilia Zandalasini",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 12,
+          "margin": -3.5,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Erica Wheeler",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 15,
+          "margin": -6.5,
+          "confidence": 47,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Gabby Williams",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Over",
+          "line": 15.5,
+          "actualStat": 10,
+          "margin": -5.5,
+          "confidence": 55,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Georgia Amoore",
+          "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+          "side": "Under",
+          "line": 6.5,
+          "actualStat": 8,
+          "margin": -1.5,
+          "confidence": 25,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Jewell Loyd",
+          "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 14,
+          "margin": -6.5,
+          "confidence": 26,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Kelsey Plum",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Over",
+          "line": 20.5,
+          "actualStat": 12,
+          "margin": -8.5,
+          "confidence": 31,
+          "risk": "Low Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Leonie Fiebich",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 8.5,
+          "actualStat": 13,
+          "margin": -4.5,
+          "confidence": 28,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        },
+        {
+          "player": "Marine Johannes",
+          "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+          "side": "Under",
+          "line": 7.5,
+          "actualStat": 10,
+          "margin": -2.5,
+          "confidence": 27,
+          "risk": "Medium Risk",
+          "tier": "LEAN",
+          "category": "lean_promotion",
+          "label": "Lean should not have been promoted (LEAN loss)",
+          "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+        }
+      ],
+      "topCategory": {
+        "key": "lean_promotion",
+        "label": "LEAN should not have been promoted",
+        "count": 9,
+        "pct": 100,
+        "losses": [
+          {
+            "player": "A'ja Wilson",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Over",
+            "line": 25.5,
+            "actualStat": 19,
+            "margin": -6.5,
+            "confidence": 41,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Cecilia Zandalasini",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 12,
+            "margin": -3.5,
+            "confidence": 25,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Erica Wheeler",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 15,
+            "margin": -6.5,
+            "confidence": 47,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Gabby Williams",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Over",
+            "line": 15.5,
+            "actualStat": 10,
+            "margin": -5.5,
+            "confidence": 55,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Georgia Amoore",
+            "game": "WASHINGTONMYSTICS vs MINNESOTALYNX",
+            "side": "Under",
+            "line": 6.5,
+            "actualStat": 8,
+            "margin": -1.5,
+            "confidence": 25,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Jewell Loyd",
+            "game": "GOLDENSTATEVALKYRIES vs LASVEGASACES",
+            "side": "Under",
+            "line": 7.5,
+            "actualStat": 14,
+            "margin": -6.5,
+            "confidence": 26,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Kelsey Plum",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Over",
+            "line": 20.5,
+            "actualStat": 12,
+            "margin": -8.5,
+            "confidence": 31,
+            "risk": "Low Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Leonie Fiebich",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 8.5,
+            "actualStat": 13,
+            "margin": -4.5,
+            "confidence": 28,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          },
+          {
+            "player": "Marine Johannes",
+            "game": "NEWYORKLIBERTY vs LOSANGELESSPARKS",
+            "side": "Under",
+            "line": 7.5,
+            "actualStat": 10,
+            "margin": -2.5,
+            "confidence": 27,
+            "risk": "Medium Risk",
+            "tier": "LEAN",
+            "category": "lean_promotion",
+            "label": "Lean should not have been promoted (LEAN loss)",
+            "explanation": "LEAN tier pick lost — LEAN should not appear as official Top Props."
+          }
+        ]
+      }
+    },
+    "I": {
+      "title": "Calibration Rules",
+      "rules": [
+        {
+          "id": "no_lean_official",
+          "priority": "high",
+          "rule": "Don't show LEAN as official Top Props",
+          "reason": "LEAN tier is for directional signal only — not official plays.",
+          "triggered": true
+        },
+        {
+          "id": "no_premium_found",
+          "priority": "medium",
+          "rule": "If Premium=0, show \"No Premium Plays Found\" and move best LEAN to Watchlist",
+          "reason": "No PREMIUM tier props on this slate.",
+          "triggered": true
+        },
+        {
+          "id": "wnba_stronger_edge",
+          "priority": "medium",
+          "rule": "Require stronger edge for WNBA_LIMITED_DATA",
+          "reason": "14 WNBA/limited-data prop(s) on slate — edge bar should be higher.",
+          "triggered": true
+        },
+        {
+          "id": "track_side_separately",
+          "priority": "medium",
+          "rule": "Track Over/Under separately in calibration",
+          "reason": "Over 1-3-0 vs Under 4-6-0.",
+          "triggered": true
+        },
+        {
+          "id": "lean_promotion_loss",
+          "priority": "high",
+          "rule": "Block LEAN from auto-track pipeline",
+          "reason": "9 LEAN loss(es) — LEAN should never be official.",
+          "triggered": true
+        },
+        {
+          "id": "engine_failing_projection_engine",
+          "priority": "medium",
+          "rule": "Review Projection Engine — status FAILING (35.7% on 14)",
+          "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "triggered": true
+        },
+        {
+          "id": "engine_failing_fair_line_engine",
+          "priority": "medium",
+          "rule": "Review Fair Line Engine — status FAILING (35.7% on 14)",
+          "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "triggered": true
+        },
+        {
+          "id": "engine_failing_market_quality_/_book_count",
+          "priority": "medium",
+          "rule": "Review Market Quality / Book Count — status FAILING (35.7% on 14)",
+          "reason": "35.7% win rate — engine underperformed this slate; review before trusting. Average margin -0.86.",
+          "triggered": true
+        }
+      ],
+      "totalRules": 8,
+      "doNotAdjustYet": false,
+      "note": "Calibration rules are advisory — no engine weights were changed."
+    },
+    "J": {
+      "title": "Slate Lesson",
+      "slateDate": "2026-06-21",
+      "headline": "Rough slate — 5-9-0 (35.7%).",
+      "body": "Average margin -0.86. Enough graded props to start comparing engine performance across slates.",
+      "bullets": [
+        "Engines failing: Projection Engine, Fair Line Engine, Market Quality / Book Count — review before next slate.",
+        "Top loss pattern: LEAN should not have been promoted (9 of 9).",
+        "Priority fix: Don't show LEAN as official Top Props."
+      ],
+      "reportStatus": "final"
+    },
+    "K": {
+      "title": "Tier Lab Buckets",
+      "buckets": {
+        "OFFICIAL": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "WATCHLIST": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "SHADOW_TESTING": {
+          "sample": 0,
+          "pending": 0,
+          "graded": 0,
+          "wins": 0,
+          "losses": 0,
+          "pushes": 0,
+          "winRate": null,
+          "needsMoreData": true,
+          "smallSampleNote": "No graded props in this group",
+          "propCount": 0
+        },
+        "LEAN/TESTING": {
+          "sample": 14,
+          "pending": 0,
+          "graded": 14,
+          "wins": 5,
+          "losses": 9,
+          "pushes": 0,
+          "winRate": 35.7,
+          "needsMoreData": false,
+          "smallSampleNote": null,
+          "propCount": 14
+        }
+      }
+    },
+    "L": {
+      "title": "League-Split Calibration",
+      "structuralNotes": {
+        "availabilityGate": "skipped — evaluateAvailabilityGate returns N/A for non-NBA (no injury/status gate)",
+        "defenseScore": "neutral default (50) — computeDefenseScore has no WNBA team season stats",
+        "primaryStatSource": "BallDontLie (BDL) primary — no SportsData projections, usage boost, or missing-player context"
+      },
+      "byLeague": {
+        "NBA": {
+          "propCount": 0,
+          "record": {
+            "total": 0,
+            "graded": 0,
+            "pending": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "netUnits": 0
+          },
+          "premium": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group"
+          },
+          "playable": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group"
+          },
+          "tierBuckets": {},
+          "tierLabBuckets": {
+            "OFFICIAL": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "WATCHLIST": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "SHADOW_TESTING": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "LEAN/TESTING": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            }
+          },
+          "riskBuckets": {
+            "LOW": {
+              "total": 0,
+              "graded": 0,
+              "pending": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "netUnits": 0,
+              "avgConfidence": null,
+              "avgFairLineEdge": null,
+              "avgProjectionEdge": null,
+              "avgSupport": null,
+              "avgDanger": null,
+              "avgSupportDangerGap": null,
+              "smallSampleNote": null
+            },
+            "MEDIUM": {
+              "total": 0,
+              "graded": 0,
+              "pending": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "netUnits": 0,
+              "avgConfidence": null,
+              "avgFairLineEdge": null,
+              "avgProjectionEdge": null,
+              "avgSupport": null,
+              "avgDanger": null,
+              "avgSupportDangerGap": null,
+              "smallSampleNote": null
+            },
+            "HIGH": {
+              "total": 0,
+              "graded": 0,
+              "pending": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "netUnits": 0,
+              "avgConfidence": null,
+              "avgFairLineEdge": null,
+              "avgProjectionEdge": null,
+              "avgSupport": null,
+              "avgDanger": null,
+              "avgSupportDangerGap": null,
+              "smallSampleNote": null
+            }
+          }
+        },
+        "WNBA": {
+          "propCount": 14,
+          "record": {
+            "total": 14,
+            "graded": 14,
+            "pending": 0,
+            "wins": 5,
+            "losses": 9,
+            "pushes": 0,
+            "winRate": 35.7,
+            "netUnits": -4
+          },
+          "premium": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group"
+          },
+          "playable": {
+            "sample": 0,
+            "pending": 0,
+            "graded": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "winRate": null,
+            "needsMoreData": true,
+            "smallSampleNote": "No graded props in this group"
+          },
+          "tierBuckets": {
+            "LEAN": {
+              "sample": 14,
+              "pending": 0,
+              "graded": 14,
+              "wins": 5,
+              "losses": 9,
+              "pushes": 0,
+              "winRate": 35.7,
+              "needsMoreData": false,
+              "smallSampleNote": null,
+              "propCount": 14
+            }
+          },
+          "tierLabBuckets": {
+            "OFFICIAL": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "WATCHLIST": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "SHADOW_TESTING": {
+              "sample": 0,
+              "pending": 0,
+              "graded": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "needsMoreData": true,
+              "smallSampleNote": "No graded props in this group",
+              "propCount": 0
+            },
+            "LEAN/TESTING": {
+              "sample": 14,
+              "pending": 0,
+              "graded": 14,
+              "wins": 5,
+              "losses": 9,
+              "pushes": 0,
+              "winRate": 35.7,
+              "needsMoreData": false,
+              "smallSampleNote": null,
+              "propCount": 14
+            }
+          },
+          "riskBuckets": {
+            "LOW": {
+              "total": 4,
+              "graded": 4,
+              "pending": 0,
+              "wins": 1,
+              "losses": 3,
+              "pushes": 0,
+              "winRate": 25,
+              "netUnits": -2,
+              "avgConfidence": 44.25,
+              "avgFairLineEdge": 1.62,
+              "avgProjectionEdge": 1,
+              "avgSupport": 38.25,
+              "avgDanger": 15.93,
+              "avgSupportDangerGap": 22.32,
+              "smallSampleNote": null
+            },
+            "MEDIUM": {
+              "total": 10,
+              "graded": 10,
+              "pending": 0,
+              "wins": 4,
+              "losses": 6,
+              "pushes": 0,
+              "winRate": 40,
+              "netUnits": -2,
+              "avgConfidence": 30.4,
+              "avgFairLineEdge": 0.32,
+              "avgProjectionEdge": -1.07,
+              "avgSupport": 26.2,
+              "avgDanger": 13.68,
+              "avgSupportDangerGap": 12.52,
+              "smallSampleNote": null
+            },
+            "HIGH": {
+              "total": 0,
+              "graded": 0,
+              "pending": 0,
+              "wins": 0,
+              "losses": 0,
+              "pushes": 0,
+              "winRate": null,
+              "netUnits": 0,
+              "avgConfidence": null,
+              "avgFairLineEdge": null,
+              "avgProjectionEdge": null,
+              "avgSupport": null,
+              "avgDanger": null,
+              "avgSupportDangerGap": null,
+              "smallSampleNote": null
+            }
+          }
+        }
+      },
+      "note": "Calibration split by league — WNBA picks use same tier/confidence math but skip availability gate and use neutral defense defaults."
+    }
+  }
+}

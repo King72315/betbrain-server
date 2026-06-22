@@ -145,9 +145,12 @@ import {
 } from "./services/slateScopeService.js";
 
 import {
+  getLabBundleInfo,
   getOfficialFreezeInfo,
+  LAB_SLATE_BUNDLE_CATALOG,
   OFFICIAL_FREEZE_CATALOG,
   rehydrateLockedSlatesOnStartup,
+  restoreCompletedLabSlate,
   restoreOfficialSlate,
 } from "./services/slateRestoreService.js";
 
@@ -2420,6 +2423,14 @@ app.get("/admin/official-freeze/:slateDate", requireAdminSecret, (req, res) => {
   }
 });
 
+app.get("/admin/lab-bundle/:slateDate", requireAdminSecret, (req, res) => {
+  try {
+    res.json(getLabBundleInfo(req.params.slateDate));
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
 app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
   try {
     const slateDate = String(req.body?.slateDate || "");
@@ -2430,6 +2441,7 @@ app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
         ok: false,
         message: "Restore requires confirm: true and slateDate in request body",
         catalog: Object.keys(OFFICIAL_FREEZE_CATALOG),
+        labBundles: Object.keys(LAB_SLATE_BUNDLE_CATALOG),
       });
     }
 
@@ -2440,12 +2452,18 @@ app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
       });
     }
 
-    const result = restoreOfficialSlate(slateDate, {
-      props: Array.isArray(req.body?.props) ? req.body.props : null,
-      reason: req.body?.reason,
-      lock: req.body?.lock !== false,
-      source: req.body?.source || "admin_restore_endpoint",
-    });
+    const mode = String(req.body?.mode || "official").toLowerCase();
+    const result =
+      mode === "lab"
+        ? restoreCompletedLabSlate(slateDate, {
+            source: req.body?.source || "admin_restore_lab_endpoint",
+          })
+        : restoreOfficialSlate(slateDate, {
+            props: Array.isArray(req.body?.props) ? req.body.props : null,
+            reason: req.body?.reason,
+            lock: req.body?.lock !== false,
+            source: req.body?.source || "admin_restore_endpoint",
+          });
 
     if (!result.ok) {
       return res.status(result.status || 400).json(result);
