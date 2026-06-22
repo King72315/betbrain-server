@@ -39,6 +39,8 @@ export const CONFIG = {
     process.env.WNBA_SHADOW_RECALIBRATION === "true" ||
     process.env.COURTEDGE_WNBA_SHADOW === "true",
 
+  COURTEDGE_WNBA_V1: process.env.COURTEDGE_WNBA_V1 !== "false",
+
   NODE_ENV: process.env.NODE_ENV || "development",
 };
 
@@ -67,6 +69,7 @@ export function checkConfig() {
     nbaEnabled: CONFIG.NBA_ENABLED,
     wnbaEnabled: CONFIG.WNBA_ENABLED,
     wnbaShadowRecalibration: CONFIG.WNBA_SHADOW_RECALIBRATION,
+    courteEdgeWnbaV1: CONFIG.COURTEDGE_WNBA_V1,
 
     environment: CONFIG.NODE_ENV,
   };

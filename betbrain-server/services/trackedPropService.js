@@ -23,6 +23,7 @@ import {
   lockSlate,
   recordBlockedWrite,
 } from "./slateLockService.js";
+import { isWnbaOfficialEligiblePick } from "../engines/wnbaOfficialEngine.js";
 import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
@@ -338,6 +339,8 @@ export function isOfficialTrackablePick(pick = {}) {
   const tier = String(pick.tier || "").toUpperCase();
   if (tier === "LEAN") return false;
   if (tier === "WATCHLIST") return false;
+
+  if (!isWnbaOfficialEligiblePick(pick)) return false;
 
   return true;
 }

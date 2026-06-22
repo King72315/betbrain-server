@@ -163,10 +163,22 @@ function extractWnbaDefenseCandidate(record = {}) {
 }
 
 /**
- * Shadow-only probe of BDL/Odds/SportsData shapes for WNBA team defense.
- * Logs response shapes internally; returns sanitized summary (no API keys).
+ * Shadow-only probe — disabled when CourtEdge WNBA v1 uses games proxy.
  */
 export async function probeWnbaDefenseDataSources(opponentTeam = "") {
+  if (process.env.COURTEDGE_WNBA_V1 !== "false") {
+    const summary = {
+      opponentTeam,
+      bdl: { attempted: false, status: null, shape: null, matched: false },
+      shadowDefenseScore: null,
+      opponentPPG: null,
+      pace: null,
+      logSummary:
+        "WNBA v1: team_season_averages probe disabled — use games/player_stats proxy",
+      disabled: true,
+    };
+    return summary;
+  }
   const summary = {
     opponentTeam,
     bdl: { attempted: false, status: null, shape: null, matched: false },

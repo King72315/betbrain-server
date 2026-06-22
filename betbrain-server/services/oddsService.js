@@ -299,7 +299,16 @@ export function computeBlowoutRiskFromSpread(spreadAbs) {
   return Math.max(20, Math.min(90, Math.round(25 + abs * 4)));
 }
 
-export async function fetchConsensusGameSpread(eventId, league = "NBA") {
+function medianNumeric(values = []) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+async function fetchConsensusMarketPoints(eventId, league = "NBA", marketKey = "spreads") {
   if (!API_KEY || !eventId) {
     return null;
   }
@@ -309,41 +318,39 @@ export async function fetchConsensusGameSpread(eventId, league = "NBA") {
     {
       apiKey: API_KEY,
       regions: "us",
-      markets: "spreads",
+      markets: marketKey,
       oddsFormat: "american",
     },
-    `FETCH GAME SPREAD (${league})`
+    `FETCH GAME ${marketKey.toUpperCase()} (${league})`
   );
 
   if (!data) return null;
 
-  const spreadPoints = [];
+  const points = [];
 
   for (const book of data?.bookmakers || []) {
     for (const market of book.markets || []) {
-      if (market.key !== "spreads") continue;
+      if (market.key !== marketKey) continue;
 
       for (const outcome of market.outcomes || []) {
         const point = Number(outcome.point);
-
         if (Number.isFinite(point)) {
-          spreadPoints.push(Math.abs(point));
+          points.push(marketKey === "spreads" ? Math.abs(point) : point);
         }
       }
     }
   }
 
-  if (!spreadPoints.length) return null;
+  const median = medianNumeric(points);
+  return median === null ? null : Number(median.toFixed(1));
+}
 
-  spreadPoints.sort((a, b) => a - b);
-  const mid = Math.floor(spreadPoints.length / 2);
+export async function fetchConsensusGameSpread(eventId, league = "NBA") {
+  return fetchConsensusMarketPoints(eventId, league, "spreads");
+}
 
-  const median =
-    spreadPoints.length % 2 === 1
-      ? spreadPoints[mid]
-      : (spreadPoints[mid - 1] + spreadPoints[mid]) / 2;
-
-  return Number(median.toFixed(1));
+export async function fetchConsensusGameTotal(eventId, league = "NBA") {
+  return fetchConsensusMarketPoints(eventId, league, "totals");
 }
 
 export async function fetchPointsPropsForEvent(eventId, league = "NBA") {

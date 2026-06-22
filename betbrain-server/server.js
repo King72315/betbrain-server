@@ -72,6 +72,13 @@ import {
 import { buildVolumeProfile } from "./engines/volumeProfileEngine.js";
 import { evaluateVolumeDangerGates } from "./engines/volumeDangerGatesEngine.js";
 import {
+  applyWnbaOfficialV1Rules,
+  isCourteEdgeWnbaV1Enabled,
+} from "./engines/wnbaOfficialEngine.js";
+import { evaluateWnbaAvailability } from "./services/wnbaAvailabilityService.js";
+import { buildWnbaGameContext, enrichWnbaGameContextForTeam } from "./services/wnbaGameContextService.js";
+import { buildWnbaOpponentDefenseContext } from "./services/wnbaOpponentContextService.js";
+import {
   applyWnbaShadowRecalibration,
   buildWnbaDefenseShadowContext,
   isWnbaShadowRecalibrationEnabled,
@@ -144,7 +151,7 @@ import {
   restoreOfficialSlate,
 } from "./services/slateRestoreService.js";
 
-const SERVER_BUILD = "courteedge-liberty-sparks-grading-v1";
+const SERVER_BUILD = "courteedge-wnba-v1-engine-fix";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -153,6 +160,7 @@ const ENGINE_LOAD_FLAGS = {
   availabilityGateEngineLoaded: typeof evaluateAvailabilityGate === "function",
   defenseScoreEngineLoaded: typeof computeDefenseScore === "function",
   volumeDangerGatesEngineLoaded: typeof evaluateVolumeDangerGates === "function",
+  wnbaOfficialV1Loaded: typeof applyWnbaOfficialV1Rules === "function",
 };
 
 const app = express();
@@ -912,7 +920,18 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     const rawProps = await fetchPointsPropsForEvent(oddsEvent.id, league);
     const props = buildConsensusPointProps(rawProps);
     const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
-    const blowoutRisk = computeBlowoutRiskFromSpread(gameSpread);
+    const wnbaGameContext =
+      league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+        ? await buildWnbaGameContext({
+            oddsEventId: oddsEvent.id,
+            league,
+            homeTeam: game.homeTeam,
+            awayTeam: game.awayTeam,
+          })
+        : null;
+    const blowoutRisk =
+      wnbaGameContext?.blowoutRisk ??
+      computeBlowoutRiskFromSpread(gameSpread);
 
     sideAudit.rawOverLines += rawProps.filter((prop) => prop.side === "Over").length;
     sideAudit.rawUnderLines += rawProps.filter((prop) => prop.side === "Under").length;
@@ -1105,10 +1124,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         league,
       });
 
-      const availabilityGate = evaluateAvailabilityGate({
-        playerData,
-        league,
-      });
+      const availabilityGate =
+        league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+          ? await evaluateWnbaAvailability({
+              playerId: playerData.PlayerID || playerData.id || "",
+              playerName,
+              league,
+            })
+          : evaluateAvailabilityGate({
+              playerData,
+              league,
+            });
 
       if (availabilityGate.noPlay) {
         trackSideAuditRejection(sideAudit, null, availabilityGate.noPlayReasons);
@@ -1127,11 +1153,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         continue;
       }
 
-      const defenseResult = computeDefenseScore({
-        opponentTeam: opponent,
-        teamStatsMap,
-        league,
-      });
+      const defenseResult =
+        league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+          ? await buildWnbaOpponentDefenseContext({
+              opponentTeam: opponent,
+              league,
+            })
+          : computeDefenseScore({
+              opponentTeam: opponent,
+              teamStatsMap,
+              league,
+            });
 
       const marketSnapshot = appendMarketSnapshot({
         league,
@@ -1501,6 +1533,19 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
             lineMovementAgainstSide: bestPick.wnbaShadow.lineMovementAgainstSide,
           };
         }
+      }
+
+      if (league === "WNBA" && isCourteEdgeWnbaV1Enabled()) {
+        const pickGameContext = enrichWnbaGameContextForTeam(
+          wnbaGameContext,
+          safeTeam
+        );
+
+        bestPick = applyWnbaOfficialV1Rules(bestPick, {
+          availabilityGate,
+          defenseResult,
+          wnbaGameContext: pickGameContext,
+        });
       }
 
       if (fairLine.fairLineSide === "OVER") {

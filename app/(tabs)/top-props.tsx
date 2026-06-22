@@ -131,6 +131,19 @@ export default function TopPropsScreen() {
     (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
   ).length;
 
+  const wnbaOfficialCount = topWNBAProps.filter(
+    (pick) =>
+      String(pick.tier || "").toUpperCase() === "PREMIUM" &&
+      pick.officialEligible !== false
+  ).length;
+
+  const showNoOfficialWnba =
+    leagueFilter === "WNBA" &&
+    !loading &&
+    !loadError &&
+    wnbaOfficialCount === 0 &&
+    topWNBAProps.length > 0;
+
   const getReportText = () =>
     buildTopPropsReport({
       visibleProps,
@@ -235,6 +248,17 @@ export default function TopPropsScreen() {
             <Text style={styles.emptyTitle}>No top props available.</Text>
             <Text style={styles.emptyText}>
               Refresh picks or check backend/API connection.
+            </Text>
+          </View>
+        )}
+
+        {showNoOfficialWnba && (
+          <View style={styles.noOfficialCard}>
+            <Text style={styles.noOfficialTitle}>No Official Plays Found</Text>
+            <Text style={styles.noOfficialText}>
+              WNBA v1 gates blocked all PREMIUM official plays for Results.
+              Watchlist and LEAN picks below are learning-only — not auto-tracked
+              to Results.
             </Text>
           </View>
         )}
@@ -415,6 +439,29 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  noOfficialCard: {
+    backgroundColor: "#1a1424",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#7c3aed",
+  },
+
+  noOfficialTitle: {
+    color: "#c4b5fd",
+    fontSize: 17,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+
+  noOfficialText: {
+    color: "#a78bfa",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
   },
 
   sectionBlock: {
