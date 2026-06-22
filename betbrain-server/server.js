@@ -1,4 +1,4 @@
-import cors from "cors";
+﻿import cors from "cors";
 import express from "express";
 
 import { CONFIG, checkConfig } from "./config.js";
@@ -160,8 +160,9 @@ import {
   reslate0622V1,
   RESLATE_SLATE_DATE,
 } from "./services/reslate0622V1Service.js";
+import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
 
-const SERVER_BUILD = "courteedge-wnba-v1-engine-fix";
+const SERVER_BUILD = "courteedge-wnba-side-selection-test-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -171,6 +172,7 @@ const ENGINE_LOAD_FLAGS = {
   defenseScoreEngineLoaded: typeof computeDefenseScore === "function",
   volumeDangerGatesEngineLoaded: typeof evaluateVolumeDangerGates === "function",
   wnbaOfficialV1Loaded: typeof applyWnbaOfficialV1Rules === "function",
+  sideSelectionEngineLoaded: typeof evaluateSideSelection === "function",
 };
 
 const app = express();
@@ -196,7 +198,7 @@ function requireAdminSecret(req, res, next) {
   if (provided !== secret) {
     return res.status(401).json({
       ok: false,
-      message: "Unauthorized — provide x-admin-secret header",
+      message: "Unauthorized â€” provide x-admin-secret header",
     });
   }
 
@@ -297,7 +299,7 @@ function applyReliabilityAdjustedConfidence({
   ).toUpperCase();
 
   /*
-   * evidenceReliability blend — marketQuality is the single book/market composite
+   * evidenceReliability blend â€” marketQuality is the single book/market composite
    * (oddsService.buildMarketProfile already tiers on bookCount, consensusBookCount,
    * lineSpread, hasBothSides, over/under book counts). Do NOT add separate weights
    * for bookCount or consensusBookCount here; that double-counts the same axis.
@@ -542,30 +544,30 @@ function strengthFromConfidence(confidence) {
 /*
  * PREMIUM tier gate independence (8 checks, not 8 independent axes).
  *
- * Three underlying axes (user model — agree with nuance):
- *   1) Edge/signal — supportScore vs resistanceScore → netEdge; signalStrength
+ * Three underlying axes (user model â€” agree with nuance):
+ *   1) Edge/signal â€” supportScore vs resistanceScore â†’ netEdge; signalStrength
  *      is derived from netEdge + dataQuality + totalEvidence (riskComparisonEngine).
- *   2) Data/market trust — marketQuality (composite: bookCount, consensusBookCount,
+ *   2) Data/market trust â€” marketQuality (composite: bookCount, consensusBookCount,
  *      lineSpread, hasBothSides baked in via buildMarketProfile), dataCoverage,
- *      rawQuality, hasBothSides (5% emphasis) → evidenceReliability; same market
+ *      rawQuality, hasBothSides (5% emphasis) â†’ evidenceReliability; same market
  *      inputs also feed dangerPressure (market weakness) and the marketQuality gate.
- *   3) Risk/danger — chosenRisk → riskLabel and dangerPressure; resistance >
+ *   3) Risk/danger â€” chosenRisk â†’ riskLabel and dangerPressure; resistance >
  *      support, volatility, warnings, extraDangerPressure also feed dangerPressure.
  *
  * Independent gates (test a primary dimension, not a composite formula output):
- *   - signalAndEdge (STRONG + netEdge≥10; STRONG already implies netEdge≥12)
+ *   - signalAndEdge (STRONG + netEdgeâ‰¥10; STRONG already implies netEdgeâ‰¥12)
  *   - noPlay (playability veto from riskComparison noPlayReasons)
  *
  * Derivative gates (same underlying inputs, different math/threshold):
- *   - finalConfidence — raw × (0.55+0.45×evidenceReliability) − dangerPressure×24
- *   - evidenceReliability — marketQuality (45%, composite book/market signal),
+ *   - finalConfidence â€” raw Ã— (0.55+0.45Ã—evidenceReliability) âˆ’ dangerPressureÃ—24
+ *   - evidenceReliability â€” marketQuality (45%, composite book/market signal),
  *     dataCoverage (25%), rawQuality (15%), hasBothSides (5%); bookCount and
  *     consensusBookCount are NOT separate weights (embedded in marketQuality)
- *   - dangerPressure — chosenRisk, marketQuality weakness, resistance>support,
+ *   - dangerPressure â€” chosenRisk, marketQuality weakness, resistance>support,
  *     volatility, roleCertainty, market/risk warnings, extraDangerPressure
- *   - riskLabel — bucketed chosenRisk (shares chosenRisk with dangerPressure)
- *   - marketQuality≥55 — direct threshold on input also in evidenceReliability (30%)
- *   - noSevereWarnings — marketWarnings + bookCount (overlaps bookCount/hasBothSides
+ *   - riskLabel â€” bucketed chosenRisk (shares chosenRisk with dangerPressure)
+ *   - marketQualityâ‰¥55 â€” direct threshold on input also in evidenceReliability (30%)
+ *   - noSevereWarnings â€” marketWarnings + bookCount (overlaps bookCount/hasBothSides
  *     in evidenceReliability)
  *
  * Cross-cluster coupling: finalConfidence re-checks trust+danger axes already gated
@@ -1679,7 +1681,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       builtPicks.push({
         ...bestPick,
-        label: `${playerName} — ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
+        label: `${playerName} â€” ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
       });
 
       if (riskComparison.pickSide === "OVER") {
@@ -2584,6 +2586,60 @@ app.post("/admin/reslate-0622-v1", requireAdminSecret, async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "06/22 v1 reslate failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/reslate-0622-test", requireAdminSecret, async (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "TEST reslate requires confirm: true or dryRun: true",
+        slateDate: RESLATE_SLATE_DATE,
+      });
+    }
+
+    let boardPicks = Array.isArray(req.body?.boardPicks) ? req.body.boardPicks : null;
+    if (!boardPicks?.length) {
+      if (!cacheFresh()) {
+        await refreshAllPicks();
+      }
+      boardPicks = picksCache?.topWNBAProps || picksCache?.topProps || [];
+    }
+
+    const boardEval = classifyTestBoardProps(boardPicks);
+    const result = reslate0622Test({
+      dryRun,
+      boardPicks,
+      backupTag: req.body?.backupTag || "pre-0622-test-reslate-admin",
+    });
+
+    if (!result.ok) {
+      return res.status(result.blocked ? 409 : 400).json(result);
+    }
+
+    if (!dryRun) {
+      await refreshAllPicks();
+    }
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "06/22 TEST reslate dry-run complete"
+        : "06/22 TEST reslate applied",
+      boardEval,
+      result,
+    });
+  } catch (error) {
+    console.log("RESLATE 0622 TEST ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "06/22 TEST reslate failed",
       error: error.message,
     });
   }
