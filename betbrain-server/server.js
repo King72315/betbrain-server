@@ -139,7 +139,7 @@ import {
   restoreOfficialSlate,
 } from "./services/slateRestoreService.js";
 
-const SERVER_BUILD = "courteedge-active-locked-unresolved-v1";
+const SERVER_BUILD = "courteedge-liberty-sparks-grading-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
