@@ -1068,12 +1068,10 @@ export function buildDailySlateReportsFromTrackedProps(
     const existing = getDailySlateReport(slateDate);
     const locked = isSlateLocked(slateDate);
     const snapshot = locked ? getLockedSnapshot(slateDate) : null;
-    const liveSlateProps = getTrackedPropsForSlate(slateDate).length
-      ? getTrackedPropsForSlate(slateDate)
-      : trackedProps.filter(
-          (prop) =>
-            (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
-        );
+    const liveSlateProps = trackedProps.filter(
+      (prop) =>
+        (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
+    );
 
     let slateProps = liveSlateProps;
     if (locked && snapshot?.props?.length) {
