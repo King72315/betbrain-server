@@ -75,6 +75,7 @@ import {
   applyWnbaOfficialV1Rules,
   isCourteEdgeWnbaV1Enabled,
 } from "./engines/wnbaOfficialEngine.js";
+import { evaluateSideSelection, finalizeSideTrackingDecision } from "./engines/sideSelectionEngine.js";
 import { evaluateWnbaAvailability } from "./services/wnbaAvailabilityService.js";
 import { buildWnbaGameContext, enrichWnbaGameContextForTeam } from "./services/wnbaGameContextService.js";
 import { buildWnbaOpponentDefenseContext } from "./services/wnbaOpponentContextService.js";
@@ -1311,36 +1312,95 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         pickSide: riskComparison.pickSide,
       });
 
+      const preSideFairLine =
+        league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+          ? buildFairLine({
+              playerState,
+              roleChange,
+              prop,
+              auditOldSide: riskComparison.pickSide || "",
+            })
+          : null;
+
+      const sideSelection =
+        league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+          ? evaluateSideSelection({
+              league,
+              line: prop.line,
+              projection: adjustedSportsProjection || overPick.projection,
+              seasonAvg: seasonAverage,
+              last5Avg: overPick.last5Average,
+              minutesAvg: opportunity.recentMinutes,
+              fgaAvg: opportunity.recentFGA,
+              ftaAvg: opportunity.recentFTA,
+              roleCertainty: opportunity.roleCertainty || 50,
+              blowoutRisk,
+              dataQuality,
+              marketQuality: prop.marketQuality,
+              lineSpread: prop.lineSpread,
+              lineDelta: marketIntelligence.lineDelta,
+              bookCount: prop.bookCount,
+              playerState,
+              roleChange,
+              prop,
+              riskComparison,
+              fairLine: preSideFairLine,
+              availabilityGate,
+              volumeProfile,
+              volumeDangerGates,
+              marketIntelligence,
+              wnbaGameContext,
+            })
+          : null;
+
+      const resolvedPickSide = sideSelection?.finalSide || riskComparison.pickSide;
+
       let bestPick =
-        riskComparison.pickSide === "OVER"
+        resolvedPickSide === "OVER"
           ? overPick
-          : riskComparison.pickSide === "UNDER"
+          : resolvedPickSide === "UNDER"
             ? underPick
             : null;
 
-      if (!bestPick || !riskComparison.trustable) {
-        trackSideAuditRejection(
-          sideAudit,
-          riskComparison.pickSide,
-          riskComparison.noPlayReasons
-        );
+      const sideSelectionBlocks =
+        sideSelection?.finalDecision === "NO_BET" || sideSelection?.trackingType === "NO_BET";
+      const legacyBlocks = !bestPick || !riskComparison.trustable;
+      const shouldReject =
+        league === "WNBA" && isCourteEdgeWnbaV1Enabled()
+          ? sideSelectionBlocks || !bestPick
+          : legacyBlocks;
+
+      if (shouldReject) {
+        const rejectionReasons =
+          sideSelection?.noBetReasons?.length
+            ? sideSelection.noBetReasons
+            : riskComparison.noPlayReasons;
+        trackSideAuditRejection(sideAudit, resolvedPickSide, rejectionReasons);
         rejectedPicks.push({
           player: playerName,
           line: prop.line,
           reason: "no-play",
-          details: riskComparison.noPlayReasons,
+          details: rejectionReasons,
         });
         console.log("NO PLAY:", {
           league,
           playerName,
           line: prop.line,
-          pickSide: riskComparison.pickSide,
-          noPlayReasons: riskComparison.noPlayReasons,
+          pickSide: resolvedPickSide,
+          noPlayReasons: rejectionReasons,
+          sideSelection: sideSelection?.finalDecision,
           supportScore: riskComparison.supportScore,
           resistanceScore: riskComparison.resistanceScore,
           netEdge: riskComparison.netEdge,
         });
         continue;
+      }
+
+      if (sideSelection?.finalSide) {
+        riskComparison = {
+          ...riskComparison,
+          pickSide: sideSelection.finalSide,
+        };
       }
 
       const {
@@ -1497,17 +1557,41 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         lineDelta: marketIntelligence.lineDelta,
       };
 
-      const fairLine = buildFairLine({
-        playerState,
-        roleChange,
-        prop,
-        auditOldSide: bestPick.side || bestPick.pick,
-      });
+      const fairLine = preSideFairLine ||
+        buildFairLine({
+          playerState,
+          roleChange,
+          prop,
+          auditOldSide: bestPick.side || bestPick.pick,
+        });
 
       bestPick = {
         ...bestPick,
         ...fairLine,
       };
+
+      if (sideSelection && !(league === "WNBA" && isCourteEdgeWnbaV1Enabled())) {
+        bestPick = {
+          ...bestPick,
+          trackingType: sideSelection.trackingType,
+          recordType: sideSelection.recordType,
+          engineVersion: sideSelection.engineVersion,
+          generatedAfterV1: sideSelection.generatedAfterV1,
+          officialEligible: sideSelection.officialEligible,
+          excludedFromOfficialRecord: sideSelection.excludedFromOfficialRecord,
+          testReason: sideSelection.testReasons?.join("; ") || null,
+          testReasons: sideSelection.testReasons || [],
+          v1OfficialGatePassed: sideSelection.v1OfficialGatePassed,
+          sideSelectionDecision: sideSelection.sideSelectionDecision,
+          sideSelectionAudit: sideSelection.sideSelectionAudit,
+          contradictions: sideSelection.contradictions,
+          noBetReasons: sideSelection.noBetReasons,
+          sideTrustScore: sideSelection.sideTrustScore,
+          sideTrustable: sideSelection.sideTrustable,
+          trustable: sideSelection.trustable,
+          noPlay: sideSelection.noPlay,
+        };
+      }
 
       bestPick.scoreLedger = buildScoreLedger({
         side: bestPick.side || bestPick.pick,
@@ -1555,6 +1639,20 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           defenseResult,
           wnbaGameContext: pickGameContext,
         });
+
+        if (sideSelection) {
+          const finalized = finalizeSideTrackingDecision(bestPick, sideSelection);
+          bestPick = {
+            ...bestPick,
+            ...finalized,
+            sideSelectionAudit: sideSelection.sideSelectionAudit,
+            contradictions: sideSelection.contradictions,
+            sideTrustScore: sideSelection.sideTrustScore,
+            sideTrustable: sideSelection.sideTrustable,
+            engineVersion: sideSelection.engineVersion,
+            generatedAfterV1: sideSelection.generatedAfterV1,
+          };
+        }
       }
 
       if (fairLine.fairLineSide === "OVER") {

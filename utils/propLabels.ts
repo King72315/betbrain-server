@@ -32,6 +32,9 @@ export function getPropDisplayLabels(prop: any = {}): PropDisplayLabel {
 
   if (prop.noPlay) {
     badges.push("No Play");
+  } else if (String(prop.trackingType || prop.recordType || "").toUpperCase() === "TEST") {
+    badges.push("TEST");
+    badges.push("Learning");
   } else if (tier === "PREMIUM") {
     badges.push("Premium");
   } else if (isPlayableGeneratedProp(prop)) {

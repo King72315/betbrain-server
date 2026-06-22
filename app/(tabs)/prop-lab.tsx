@@ -27,6 +27,14 @@ import {
   filterValidDailyReports,
 } from "../../utils/slateRotation";
 import { formatPropLabelLine } from "../../utils/propLabels";
+import {
+  computeContradictionPerformance,
+  computeTrackingTypeRecord,
+  getTrackedPropStatus,
+  isOfficialTrackingProp,
+  isTestTrackingProp,
+  splitResultsPropsByTrackingType,
+} from "../../utils/resultsQueue";
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -596,10 +604,27 @@ export default function PropLab() {
   }, [trackedProps, currentLabSlateDate, archives]);
 
   const officialSlateProps = useMemo(() => {
-    return slateTrackedProps.filter(
-      (prop) => String(prop.tier || "").toUpperCase() === "PREMIUM"
-    );
+    return slateTrackedProps.filter(isOfficialTrackingProp);
   }, [slateTrackedProps]);
+
+  const testSlateProps = useMemo(() => {
+    return slateTrackedProps.filter(isTestTrackingProp);
+  }, [slateTrackedProps]);
+
+  const officialRecord = useMemo(
+    () => computeTrackingTypeRecord(officialSlateProps, getTrackedPropStatus),
+    [officialSlateProps]
+  );
+
+  const testRecord = useMemo(
+    () => computeTrackingTypeRecord(testSlateProps, getTrackedPropStatus),
+    [testSlateProps]
+  );
+
+  const contradictionPerf = useMemo(
+    () => computeContradictionPerformance(testSlateProps),
+    [testSlateProps]
+  );
 
   const allTimeRecord = useMemo(() => {
     if (!hasCompletedLabSlate) return null;
@@ -679,7 +704,7 @@ export default function PropLab() {
         ) : null}
 
         {sectionA ? (
-          <SectionCard title="Current Lab Slate — Status & Record">
+          <SectionCard title="Official Performance">
             <View style={styles.summaryHeader}>
               <Text style={styles.slateTitle}>{formatSlateLabel(sectionA.slateDate)}</Text>
               <StatusBadge status={sectionA.reportStatus || report?.status || ""} />
@@ -689,20 +714,21 @@ export default function PropLab() {
                 {sectionA.pending} prop(s) still pending — report updates when all grade.
               </Text>
             ) : null}
-            <MetricRow label="Tracked props" value={String(sectionA.totalOfficialProps || 0)} />
+            <MetricRow label="Official tracked" value={String(officialRecord.total)} />
             <MetricRow
-              label="Premium only"
-              value={String(officialSlateProps.length)}
-            />
-            <MetricRow
-              label="Record (pooled)"
+              label="Official record"
               value={formatRecord(
-                sectionA.wins,
-                sectionA.losses,
-                sectionA.pushes,
-                sectionA.overallWinRate
+                officialRecord.wins,
+                officialRecord.losses,
+                officialRecord.pushes,
+                officialRecord.winRate
               )}
             />
+            <MetricRow
+              label="Graded / Pending"
+              value={`${officialRecord.graded} / ${officialRecord.pending}`}
+            />
+            <MetricRow label="Leagues" value={(sectionA.leagues || []).join(", ") || "—"} />
             {leagueSplit?.byLeague?.NBA?.record ? (
               <MetricRow
                 label="NBA record"
@@ -725,33 +751,49 @@ export default function PropLab() {
                 )}
               />
             ) : null}
-            {leagueSplit?.byLeague?.NBA?.premium?.sample > 0 ? (
-              <MetricRow
-                label="NBA PREMIUM"
-                value={formatRecord(
-                  leagueSplit.byLeague.NBA.premium.wins,
-                  leagueSplit.byLeague.NBA.premium.losses,
-                  leagueSplit.byLeague.NBA.premium.pushes,
-                  leagueSplit.byLeague.NBA.premium.winRate
-                )}
-              />
-            ) : null}
-            {leagueSplit?.byLeague?.WNBA?.premium?.sample > 0 ? (
-              <MetricRow
-                label="WNBA PREMIUM"
-                value={formatRecord(
-                  leagueSplit.byLeague.WNBA.premium.wins,
-                  leagueSplit.byLeague.WNBA.premium.losses,
-                  leagueSplit.byLeague.WNBA.premium.pushes,
-                  leagueSplit.byLeague.WNBA.premium.winRate
-                )}
-              />
-            ) : null}
-            <MetricRow label="Graded / Pending" value={`${sectionA.graded} / ${sectionA.pending}`} />
+          </SectionCard>
+        ) : null}
+
+        {testRecord.total > 0 ? (
+          <SectionCard title="Test / Learning Performance">
+            <MetricRow label="Test tracked" value={String(testRecord.total)} />
             <MetricRow
-              label="Leagues"
-              value={(sectionA.leagues || []).join(", ") || "—"}
+              label="Test record"
+              value={formatRecord(
+                testRecord.wins,
+                testRecord.losses,
+                testRecord.pushes,
+                testRecord.winRate
+              )}
             />
+            <MetricRow
+              label="Graded / Pending"
+              value={`${testRecord.graded} / ${testRecord.pending}`}
+            />
+            {Object.keys(contradictionPerf).length > 0 ? (
+              <>
+                <Text style={styles.breakdownTitle}>Contradiction performance (test)</Text>
+                {Object.entries(contradictionPerf).map(([key, stats]) => (
+                  <Text key={key} style={styles.breakdownLine}>
+                    {key}: {formatRecord(stats.wins, stats.losses, stats.pushes)}
+                  </Text>
+                ))}
+              </>
+            ) : null}
+            {testSlateProps.slice(0, 6).map((prop, index) => (
+              <View key={prop.trackedKey || index} style={styles.rawPropRow}>
+                <Text style={styles.rawPropTitle}>
+                  {prop.player} — {prop.currentEngineSide} {prop.line}
+                </Text>
+                <Text style={styles.rawPropMeta}>
+                  Side audit: {prop.sideSelectionDecision || "—"} • trust{" "}
+                  {prop.sideTrustScore ?? "—"}
+                </Text>
+                {prop.testReason ? (
+                  <Text style={styles.rawPropMeta}>Test reason: {prop.testReason}</Text>
+                ) : null}
+              </View>
+            ))}
           </SectionCard>
         ) : null}
 

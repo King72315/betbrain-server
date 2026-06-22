@@ -327,9 +327,23 @@ export function getSlateDateCT(commenceTime) {
 
 function passesBaseTrackableGate(pick = {}) {
   if (!pick?.player) return false;
-  if (pick.noPlay) return false;
+  if (pick.trackingType === "NO_BET" || pick.finalDecision === "NO_BET") return false;
+  if (pick.noPlay && pick.trackingType !== "TEST") return false;
   if (pick.isStarted) return false;
-  if (pick.trustable === false) return false;
+  if (pick.trustable === false && pick.trackingType !== "TEST") return false;
+  return true;
+}
+
+export function isTestTrackingPick(pick = {}) {
+  return String(pick.trackingType || pick.recordType || "").toUpperCase() === "TEST";
+}
+
+export function isOfficialTrackingPick(pick = {}) {
+  const trackingType = String(pick.trackingType || pick.recordType || "").toUpperCase();
+  if (trackingType === "OFFICIAL") return true;
+  if (trackingType === "TEST" || trackingType === "NO_BET") return false;
+  if (pick.excludedFromOfficialRecord === true) return false;
+  if (isPreV1ShadowProp(pick)) return false;
   return true;
 }
 
@@ -357,6 +371,8 @@ export function labelPreV1ShadowProps(props = [], metadata = {}) {
 
 export function isOfficialResultsProp(pick = {}) {
   if (isPreV1ShadowProp(pick)) return false;
+  if (isTestTrackingPick(pick)) return false;
+  if (pick.excludedFromOfficialRecord === true) return false;
   return true;
 }
 
@@ -376,6 +392,10 @@ export function isOfficialTrackablePick(pick = {}) {
 export function isTrackablePick(pick = {}) {
   if (!passesBaseTrackableGate(pick)) return false;
 
+  if (isTestTrackingPick(pick)) {
+    return true;
+  }
+
   if (TRACKING_MODE === "OFFICIAL_ONLY") {
     return isOfficialTrackablePick(pick);
   }
@@ -384,6 +404,9 @@ export function isTrackablePick(pick = {}) {
     String(pick.league || "").toUpperCase() === "WNBA" &&
     isCourteEdgeWnbaV1Enabled()
   ) {
+    if (String(pick.trackingType || "").toUpperCase() === "OFFICIAL") {
+      return isOfficialTrackablePick(pick);
+    }
     return isOfficialTrackablePick(pick);
   }
 
@@ -955,6 +978,21 @@ function mapPickToTrackedFields(pick = {}) {
     currentLine: num(pick.currentLine) || null,
     lineDelta: num(pick.lineDelta ?? pick.marketIntelligence?.lineDelta) || null,
     consensusLine: num(pick.consensusLine ?? pick.marketIntelligence?.consensusLine) || null,
+    trackingType: pick.trackingType || pick.recordType || null,
+    recordType: pick.recordType || pick.trackingType || null,
+    engineVersion: pick.engineVersion || null,
+    generatedAfterV1: pick.generatedAfterV1 ?? null,
+    officialEligible: pick.officialEligible ?? null,
+    excludedFromOfficialRecord: pick.excludedFromOfficialRecord ?? null,
+    testReason: pick.testReason || null,
+    testReasons: pick.testReasons || [],
+    v1OfficialGatePassed: pick.v1OfficialGatePassed ?? null,
+    sideSelectionDecision: pick.sideSelectionDecision || null,
+    sideSelectionAudit: pick.sideSelectionAudit || null,
+    contradictions: pick.contradictions || [],
+    noBetReasons: pick.noBetReasons || [],
+    sideTrustScore: num(pick.sideTrustScore) || null,
+    sideTrustable: pick.sideTrustable ?? null,
   };
 
   return {

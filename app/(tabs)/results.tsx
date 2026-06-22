@@ -33,7 +33,10 @@ import {
   getTrackedPropStatus,
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
+  isOfficialTrackingProp,
+  isTestTrackingProp,
   pickResolveCheckMessage,
+  splitResultsPropsByTrackingType,
   isPriorSlateStillActive,
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
   summarizeActiveResultsSlate,
@@ -206,9 +209,19 @@ export default function ResultsScreen() {
   }, [visibleSlates, filter]);
 
   const accuracySummary = useMemo(
-    () => computeAccuracySummary(visibleSlates),
+    () => computeAccuracySummary(visibleSlates, { recordType: "official" }),
     [visibleSlates]
   );
+
+  const testAccuracySummary = useMemo(
+    () => computeAccuracySummary(visibleSlates, { recordType: "test" }),
+    [visibleSlates]
+  );
+
+  const trackingSplit = useMemo(() => {
+    const props = visibleSlates.flatMap((slate) => slate.props || []);
+    return splitResultsPropsByTrackingType(props);
+  }, [visibleSlates]);
 
   const pendingCheckSummary = useMemo(
     () => computePendingCheckSummary(lastResolveSummary, visibleSlates),
@@ -260,17 +273,20 @@ export default function ResultsScreen() {
         </View>
 
         <View style={styles.dashboardCard}>
-          <Text style={styles.dashboardTitle}>Accuracy Summary</Text>
+          <Text style={styles.dashboardTitle}>Official Accuracy</Text>
           <Text style={styles.currentSlateLabel}>
             {activeResultsSummary.activeSlateDate
-              ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${accuracySummary.total} tracked`
+              ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${accuracySummary.total} official`
               : `Today (${todayLocalDate}) — no active Results slate`}
           </Text>
+          {accuracySummary.total === 0 && testAccuracySummary.total > 0 ? (
+            <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
+          ) : null}
           {priorSlateStillActive ? (
             <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
           ) : null}
           <View style={styles.accuracyGrid}>
-            <SummaryBox label="Total Tracked" value={accuracySummary.total} color="#f8fafc" />
+            <SummaryBox label="Official Tracked" value={accuracySummary.total} color="#f8fafc" />
             <SummaryBox label="Graded" value={accuracySummary.graded} color="#22c55e" />
             <SummaryBox label="Pending" value={accuracySummary.pending} color="#93c5fd" />
             <SummaryBox
@@ -282,12 +298,34 @@ export default function ResultsScreen() {
             <SummaryBox label="Losses" value={accuracySummary.losses} color="#f87171" />
             <SummaryBox label="Pushes" value={accuracySummary.pushes} color="#fbbf24" />
             <SummaryBox
-              label="Win Rate"
+              label="Official Win Rate"
               value={accuracySummary.winRateLabel}
               color="#e2e8f0"
             />
           </View>
         </View>
+
+        {testAccuracySummary.total > 0 ? (
+          <View style={styles.dashboardCard}>
+            <Text style={styles.dashboardTitle}>Test / Learning Tracking</Text>
+            <Text style={styles.currentSlateLabel}>
+              {testAccuracySummary.total} test props — excluded from official record
+            </Text>
+            <View style={styles.accuracyGrid}>
+              <SummaryBox label="Test Tracked" value={testAccuracySummary.total} color="#c4b5fd" />
+              <SummaryBox label="Graded" value={testAccuracySummary.graded} color="#22c55e" />
+              <SummaryBox label="Pending" value={testAccuracySummary.pending} color="#93c5fd" />
+              <SummaryBox label="Wins" value={testAccuracySummary.wins} color="#4ade80" />
+              <SummaryBox label="Losses" value={testAccuracySummary.losses} color="#f87171" />
+              <SummaryBox label="Pushes" value={testAccuracySummary.pushes} color="#fbbf24" />
+              <SummaryBox
+                label="Test Win Rate"
+                value={testAccuracySummary.winRateLabel}
+                color="#e2e8f0"
+              />
+            </View>
+          </View>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.actionBtn, (refreshing || resolving) && styles.actionBtnDisabled]}
@@ -374,8 +412,11 @@ export default function ResultsScreen() {
           const slateFiltered =
             filteredSlates.find((item) => item.slateDate === slate.slateDate)?.props ||
             [];
+          const { official: officialProps, test: testProps } =
+            splitResultsPropsByTrackingType(slateFiltered);
           const locked = isSlateLocked(slate.slateDate);
-          const gameStateGroups = groupResultsPropsByGameState(slateFiltered);
+          const officialGameStateGroups = groupResultsPropsByGameState(officialProps);
+          const testGameStateGroups = groupResultsPropsByGameState(testProps);
 
           const renderPropCard = (prop: any, index: number) => {
             const status = getTrackedPropStatus(prop);
@@ -481,18 +522,36 @@ export default function ResultsScreen() {
               </Text>
 
               {renderGameStateSection(
-                "Graded",
-                gameStateGroups.graded
+                "Official — Graded",
+                officialGameStateGroups.graded
               )}
               {renderGameStateSection(
-                "Final — Awaiting Stats",
-                gameStateGroups.awaitingStats,
+                "Official — Final — Awaiting Stats",
+                officialGameStateGroups.awaitingStats,
                 AWAITING_STATS_LABEL
               )}
               {renderGameStateSection(
-                "Game Not Final — Live / Upcoming",
-                gameStateGroups.livePending
+                "Official — Live / Upcoming",
+                officialGameStateGroups.livePending
               )}
+              {officialProps.length === 0 && testProps.length > 0 ? (
+                <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
+              ) : null}
+              {testProps.length > 0 ? (
+                <>
+                  <Text style={styles.testSectionTitle}>Test / Learning Tracking</Text>
+                  {renderGameStateSection("Test — Graded", testGameStateGroups.graded)}
+                  {renderGameStateSection(
+                    "Test — Final — Awaiting Stats",
+                    testGameStateGroups.awaitingStats,
+                    AWAITING_STATS_LABEL
+                  )}
+                  {renderGameStateSection(
+                    "Test — Live / Upcoming",
+                    testGameStateGroups.livePending
+                  )}
+                </>
+              ) : null}
             </View>
           );
         })}
@@ -591,6 +650,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 10,
     lineHeight: 18,
+  },
+  noOfficialNote: {
+    color: "#fbbf24",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  testSectionTitle: {
+    color: "#c4b5fd",
+    fontSize: 15,
+    fontWeight: "900",
+    marginTop: 12,
+    marginBottom: 8,
   },
   accuracyGrid: {
     flexDirection: "row",

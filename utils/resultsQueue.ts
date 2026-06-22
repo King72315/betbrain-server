@@ -230,11 +230,118 @@ export type AccuracySummary = {
   winRateLabel: string;
 };
 
+export function isTestTrackingProp(prop: any = {}): boolean {
+  const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
+  return trackingType === "TEST";
+}
+
+export function isOfficialTrackingProp(prop: any = {}): boolean {
+  const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
+  if (trackingType === "TEST" || trackingType === "NO_BET") return false;
+  if (trackingType === "OFFICIAL") return true;
+  if (prop.excludedFromOfficialRecord === true) return false;
+  if (prop.preV1Shadow === true || prop.excludedFromV1OfficialRecord === true) return false;
+  return true;
+}
+
+export function splitResultsPropsByTrackingType(props: any[] = []) {
+  const official: any[] = [];
+  const test: any[] = [];
+
+  for (const prop of props) {
+    if (isTestTrackingProp(prop)) {
+      test.push(prop);
+    } else if (isOfficialTrackingProp(prop)) {
+      official.push(prop);
+    }
+  }
+
+  return { official, test };
+}
+
+export function computeTrackingTypeRecord(
+  props: any[] = [],
+  getStatus: (prop: any) => TrackedPropStatus = getTrackedPropStatus
+) {
+  const wins = props.filter((prop) => getStatus(prop) === "Win").length;
+  const losses = props.filter((prop) => getStatus(prop) === "Loss").length;
+  const pushes = props.filter((prop) => getStatus(prop) === "Push").length;
+  const pending = props.filter((prop) => getStatus(prop) === "Pending").length;
+  const awaitingStats = props.filter((prop) => getStatus(prop) === "Awaiting stats").length;
+  const decided = wins + losses;
+  const winRate = decided > 0 ? Math.round((wins / decided) * 100) : null;
+
+  return {
+    total: props.length,
+    wins,
+    losses,
+    pushes,
+    pending,
+    awaitingStats,
+    graded: wins + losses + pushes,
+    winRate,
+  };
+}
+
+export function computeContradictionPerformance(props: any[] = []) {
+  const buckets = new Map<string, { wins: number; losses: number; pushes: number; total: number }>();
+
+  for (const prop of props) {
+    if (!isTestTrackingProp(prop)) continue;
+    const contradictions = Array.isArray(prop.contradictions) ? prop.contradictions : [];
+    const status = getTrackedPropStatus(prop);
+    if (!["Win", "Loss", "Push"].includes(status)) continue;
+
+    for (const item of contradictions) {
+      const key = item.type || item.message || "unknown";
+      if (!buckets.has(key)) {
+        buckets.set(key, { wins: 0, losses: 0, pushes: 0, total: 0 });
+      }
+      const bucket = buckets.get(key)!;
+      bucket.total += 1;
+      if (status === "Win") bucket.wins += 1;
+      else if (status === "Loss") bucket.losses += 1;
+      else bucket.pushes += 1;
+    }
+  }
+
+  return Object.fromEntries(buckets.entries());
+}
+
+function buildSlateSummaryForProps(props: any[]) {
+  const wins = props.filter((prop) => getTrackedPropStatus(prop) === "Win").length;
+  const losses = props.filter((prop) => getTrackedPropStatus(prop) === "Loss").length;
+  const pushes = props.filter((prop) => getTrackedPropStatus(prop) === "Push").length;
+  const pending = props.filter((prop) => getTrackedPropStatus(prop) === "Pending").length;
+  const failed = props.filter((prop) => getTrackedPropStatus(prop) === "Awaiting stats").length;
+  const graded = wins + losses + pushes;
+
+  return {
+    total: props.length,
+    graded,
+    pending,
+    failed,
+    wins,
+    losses,
+    pushes,
+  };
+}
+
 /** Aggregate accuracy stats from visible Results queue slates. */
 export function computeAccuracySummary(
-  visibleSlates: ActiveResultsSlate[] = []
+  visibleSlates: ActiveResultsSlate[] = [],
+  options?: { recordType?: "official" | "test" | "all" }
 ): AccuracySummary {
-  const agg = computeAggregateResultsSummary(visibleSlates);
+  const recordType = options?.recordType || "all";
+  const allProps = visibleSlates.flatMap((slate) => slate.props || []);
+  const props =
+    recordType === "official"
+      ? allProps.filter(isOfficialTrackingProp)
+      : recordType === "test"
+        ? allProps.filter(isTestTrackingProp)
+        : allProps;
+
+  const agg = buildSlateSummaryForProps(props);
   const decided = agg.wins + agg.losses;
   const winRate =
     decided > 0 ? Math.round((agg.wins / decided) * 100) : null;
