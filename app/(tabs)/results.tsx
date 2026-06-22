@@ -33,8 +33,6 @@ import {
   getTrackedPropStatus,
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
-  isOfficialTrackingProp,
-  isTestTrackingProp,
   pickResolveCheckMessage,
   splitResultsPropsByTrackingType,
   isPriorSlateStillActive,
@@ -217,11 +215,6 @@ export default function ResultsScreen() {
     () => computeAccuracySummary(visibleSlates, { recordType: "test" }),
     [visibleSlates]
   );
-
-  const trackingSplit = useMemo(() => {
-    const props = visibleSlates.flatMap((slate) => slate.props || []);
-    return splitResultsPropsByTrackingType(props);
-  }, [visibleSlates]);
 
   const pendingCheckSummary = useMemo(
     () => computePendingCheckSummary(lastResolveSummary, visibleSlates),

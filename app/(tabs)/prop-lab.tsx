@@ -33,7 +33,6 @@ import {
   getTrackedPropStatus,
   isOfficialTrackingProp,
   isTestTrackingProp,
-  splitResultsPropsByTrackingType,
 } from "../../utils/resultsQueue";
 
 function formatPct(value: number | null | undefined) {
