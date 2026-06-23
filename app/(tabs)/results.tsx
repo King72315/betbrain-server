@@ -265,7 +265,26 @@ export default function ResultsScreen() {
           </Text>
         </View>
 
-        <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
+        <View style={styles.actionRow}>
+          <CopyReportButton
+            getReportText={getReportText}
+            label="Copy Results Report"
+            style={styles.actionRowItem}
+          />
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              styles.actionRowItem,
+              (refreshing || resolving) && styles.actionBtnDisabled,
+            ]}
+            onPress={handleResolveAll}
+            disabled={loading || refreshing || resolving}
+          >
+            <Text style={styles.actionBtnText}>
+              {resolving ? "Checking..." : "Check / Refresh Grading"}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.dashboardCard}>
           <Text style={styles.dashboardTitle}>Official Accuracy</Text>
@@ -321,16 +340,6 @@ export default function ResultsScreen() {
             </View>
           </View>
         ) : null}
-
-        <TouchableOpacity
-          style={[styles.actionBtn, (refreshing || resolving) && styles.actionBtnDisabled]}
-          onPress={handleResolveAll}
-          disabled={loading || refreshing || resolving}
-        >
-          <Text style={styles.actionBtnText}>
-            {resolving ? "Checking..." : "Check / Refresh Grading"}
-          </Text>
-        </TouchableOpacity>
 
         {resolveCheckMessage ? (
           <Text style={styles.resolveMeta}>{resolveCheckMessage}</Text>
@@ -748,11 +757,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+  },
+  actionRowItem: {
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
+  },
   actionBtn: {
     backgroundColor: "#2563eb",
-    paddingVertical: 16,
-    borderRadius: 16,
-    marginBottom: 10,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: "center",
   },
   actionBtnDisabled: {
     opacity: 0.6,
