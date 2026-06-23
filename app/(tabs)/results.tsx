@@ -265,6 +265,8 @@ export default function ResultsScreen() {
           </Text>
         </View>
 
+        <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
+
         <View style={styles.dashboardCard}>
           <Text style={styles.dashboardTitle}>Official Accuracy</Text>
           <Text style={styles.currentSlateLabel}>
@@ -364,8 +366,6 @@ export default function ResultsScreen() {
             ))}
           </View>
         ) : null}
-
-        <CopyReportButton getReportText={getReportText} label="Copy Results Report" />
 
         <ScrollView
           horizontal
