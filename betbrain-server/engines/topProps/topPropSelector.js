@@ -1,5 +1,5 @@
 /**
- * Global Top Props selector — full candidate pool, score, then diversity caps.
+ * Per-league Top Props selector — score, team diversity, no forced weak #2.
  */
 import { CONFIG } from "../../config.js";
 import { scoreNbaTopProp } from "./nbaTopPropScore.js";
@@ -18,6 +18,20 @@ function clean(value = "") {
   return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
+}
+
+export function normalizeTeamKey(team = "") {
+  return clean(team);
+}
+
+export function getPickTeamKey(pick = {}) {
+  if (pick.teamKey) return normalizeTeamKey(pick.teamKey);
+  return normalizeTeamKey(pick.team || pick.teamName || "");
+}
+
+export function buildTopPickLabel(league = "", rank = 1) {
+  const code = String(league || "").toUpperCase();
+  return `Top ${code} #${rank}`;
 }
 
 function normalizeSide(side = "") {
@@ -147,77 +161,129 @@ function filterInvalidCandidates(candidates = [], audit = {}) {
   return valid;
 }
 
-function applyDiversityCaps(sorted = [], options = {}, audit = {}) {
-  const limit = Number(options.limit ?? CONFIG.TOP_PROP_LIMIT ?? 2);
-  const maxPerGame = options.maxPerGame ?? options.maxPerGameCap ?? null;
+function hasPlayerConflict(pick = {}, playersSeen = new Set(), playerLineBest = new Map(), audit = {}) {
+  const pKey = playerKey(pick);
+  if (playersSeen.has(pKey)) {
+    audit.hiddenDuplicatePlayer += 1;
+    audit.hidden.push({
+      reason: "duplicate_player",
+      pick: summarizePickForAudit(pick),
+    });
+    return true;
+  }
+
+  const plKey = playerLineKey(pick);
+  const prior = playerLineBest.get(plKey);
+  if (prior) {
+    const priorSide = normalizeSide(prior.side || prior.pick);
+    const nextSide = normalizeSide(pick.side || pick.pick);
+    if (priorSide && nextSide && priorSide !== nextSide) {
+      audit.hiddenOppositeSide += 1;
+      audit.hidden.push({
+        reason: "opposite_side",
+        pick: summarizePickForAudit(pick),
+        kept: summarizePickForAudit(prior),
+      });
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function selectByTeamDiversity(sorted = [], options = {}, audit = {}) {
+  const limit = Number(
+    options.limit ??
+      (String(options.league || "").toUpperCase() === "WNBA"
+        ? CONFIG.WNBA_TOP_PROP_LIMIT
+        : String(options.league || "").toUpperCase() === "NBA"
+          ? CONFIG.NBA_TOP_PROP_LIMIT
+          : CONFIG.TOP_PROP_LIMIT) ??
+      2
+  );
+  const league = String(options.league || sorted[0]?.league || "").toUpperCase();
   const selected = [];
   const playersSeen = new Set();
   const playerLineBest = new Map();
-  const gameCounts = new Map();
+  const selectedTeamKeys = new Set();
+
+  audit.selectedTeamsByLeague = audit.selectedTeamsByLeague || {};
+  audit.hiddenDueToNoDifferentTeamByLeague =
+    audit.hiddenDueToNoDifferentTeamByLeague || {};
+  audit.candidateCountByLeague = audit.candidateCountByLeague || {};
+  audit.scoredCountByLeague = audit.scoredCountByLeague || {};
+
+  if (league) {
+    audit.scoredCountByLeague[league] = sorted.length;
+  }
 
   for (const pick of sorted) {
-    const pKey = playerKey(pick);
-    if (playersSeen.has(pKey)) {
-      audit.hiddenDuplicatePlayer += 1;
+    if (selected.length >= limit) {
+      audit.hiddenDueToLeagueLimit += 1;
       audit.hidden.push({
-        reason: "duplicate_player",
+        reason: "hidden_due_to_league_limit",
+        limit,
+        league,
         pick: summarizePickForAudit(pick),
       });
       continue;
     }
 
-    const plKey = playerLineKey(pick);
-    const prior = playerLineBest.get(plKey);
-    if (prior) {
-      const priorSide = normalizeSide(prior.side || prior.pick);
-      const nextSide = normalizeSide(pick.side || pick.pick);
-      if (priorSide && nextSide && priorSide !== nextSide) {
-        audit.hiddenOppositeSide += 1;
-        audit.hidden.push({
-          reason: "opposite_side",
-          pick: summarizePickForAudit(pick),
-          kept: summarizePickForAudit(prior),
-        });
-        continue;
-      }
+    if (hasPlayerConflict(pick, playersSeen, playerLineBest, audit)) {
+      continue;
     }
 
-    if (maxPerGame != null && Number.isFinite(Number(maxPerGame))) {
-      const gameKey = clean(pick.gameId || pick.game || "");
-      const count = gameCounts.get(gameKey) || 0;
-      if (count >= Number(maxPerGame)) {
-        audit.hiddenDueToCap += 1;
-        audit.hidden.push({
-          reason: "hidden_due_to_cap",
-          cap: "per_game",
-          maxPerGame: Number(maxPerGame),
-          pick: summarizePickForAudit(pick),
-        });
-        continue;
-      }
-    }
-
-    if (selected.length >= limit) {
-      audit.hiddenDueToLimit += 1;
+    const teamKey = getPickTeamKey(pick);
+    if (selectedTeamKeys.has(teamKey)) {
+      audit.hiddenDueToSameTeam += 1;
       audit.hidden.push({
-        reason: "hidden_due_to_limit",
-        limit,
+        reason: "hidden_due_to_same_team",
+        teamKey,
         pick: summarizePickForAudit(pick),
       });
       continue;
     }
 
     selected.push(pick);
-    playersSeen.add(pKey);
-    playerLineBest.set(plKey, pick);
+    playersSeen.add(playerKey(pick));
+    playerLineBest.set(playerLineKey(pick), pick);
+    selectedTeamKeys.add(teamKey);
+  }
 
-    if (maxPerGame != null && Number.isFinite(Number(maxPerGame))) {
-      const gameKey = clean(pick.gameId || pick.game || "");
-      gameCounts.set(gameKey, (gameCounts.get(gameKey) || 0) + 1);
+  if (league) {
+    audit.selectedTeamsByLeague[league] = [...selectedTeamKeys];
+  }
+
+  if (limit >= 2 && selected.length === 1 && sorted.length > 1) {
+    const firstTeam = getPickTeamKey(selected[0]);
+    const hasDifferentTeam = sorted.some(
+      (pick) => getPickTeamKey(pick) !== firstTeam
+    );
+    if (!hasDifferentTeam) {
+      audit.noDifferentTeamCandidate = true;
+      if (league) {
+        audit.hiddenDueToNoDifferentTeamByLeague[league] = 1;
+      }
     }
   }
 
   return selected;
+}
+
+function rankSelectedPicks(selected = [], league = "") {
+  const leagueCode = String(league || selected[0]?.league || "").toUpperCase();
+
+  return selected.map((pick, index) => {
+    const rank = index + 1;
+    return {
+      ...pick,
+      rank,
+      topPropRank: rank,
+      leagueRank: rank,
+      topPickLabel: buildTopPickLabel(leagueCode, rank),
+      selectedTeamKey: getPickTeamKey(pick),
+    };
+  });
 }
 
 export function selectTopProps(gameCards = [], options = {}) {
@@ -233,6 +299,8 @@ export function selectTopProps(gameCards = [], options = {}) {
     candidates = candidates.filter(
       (p) => String(p.league || "").toUpperCase() === leagueFilter
     );
+    audit.candidateCountByLeague = audit.candidateCountByLeague || {};
+    audit.candidateCountByLeague[leagueFilter] = candidates.length;
   }
 
   const valid = filterInvalidCandidates(candidates, audit);
@@ -244,12 +312,12 @@ export function selectTopProps(gameCards = [], options = {}) {
       Number(b.netEdge || 0) - Number(a.netEdge || 0)
   );
 
-  const selected = applyDiversityCaps(scored, options, audit);
-  const ranked = selected.map((pick, index) => ({
-    ...pick,
-    rank: index + 1,
-    topPropRank: index + 1,
-  }));
+  const selected = selectByTeamDiversity(
+    scored,
+    { ...options, league: leagueFilter },
+    audit
+  );
+  const ranked = rankSelectedPicks(selected, leagueFilter);
 
   finalizeTopPropSelectionAudit(audit, ranked, scored);
 
@@ -267,6 +335,101 @@ export function selectTopProps(gameCards = [], options = {}) {
     testCount: audit.testCount,
     noBetCount: audit.noBetCount,
     selectorVersion: TOP_PROP_SELECTOR_VERSION,
+  };
+}
+
+export function selectCombinedTopProps(gameCards = [], options = {}) {
+  const nba = selectTopProps(gameCards, {
+    ...options,
+    league: "NBA",
+    limit: options.nbaLimit ?? CONFIG.NBA_TOP_PROP_LIMIT,
+  });
+  const wnba = selectTopProps(gameCards, {
+    ...options,
+    league: "WNBA",
+    limit: options.wnbaLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
+  });
+
+  const combinedLimit =
+    Number(options.combinedLimit ?? CONFIG.TOP_PROP_COMBINED_LIMIT) ||
+    Number(CONFIG.NBA_TOP_PROP_LIMIT || 2) + Number(CONFIG.WNBA_TOP_PROP_LIMIT || 2);
+
+  const topProps = [...nba.topProps, ...wnba.topProps].slice(0, combinedLimit);
+  const topOfficialProps = topProps.filter(isOfficialPick);
+  const topTestProps = topProps.filter(isTestPick);
+
+  const audit = {
+    ...nba.topSelectionAudit,
+    version: TOP_PROP_SELECTOR_VERSION,
+    candidateCount:
+      Number(nba.topSelectionAudit?.candidateCount || 0) +
+      Number(wnba.topSelectionAudit?.candidateCount || 0),
+    selectedCount: topProps.length,
+    officialCount: topOfficialProps.length,
+    testCount: topTestProps.length,
+    noBetCount:
+      Number(nba.topSelectionAudit?.noBetCount || 0) +
+      Number(wnba.topSelectionAudit?.noBetCount || 0),
+    nba: nba.topSelectionAudit,
+    wnba: wnba.topSelectionAudit,
+    selectedTeamsByLeague: {
+      ...(nba.topSelectionAudit?.selectedTeamsByLeague || {}),
+      ...(wnba.topSelectionAudit?.selectedTeamsByLeague || {}),
+    },
+    candidateCountByLeague: {
+      ...(nba.topSelectionAudit?.candidateCountByLeague || {}),
+      ...(wnba.topSelectionAudit?.candidateCountByLeague || {}),
+    },
+    scoredCountByLeague: {
+      ...(nba.topSelectionAudit?.scoredCountByLeague || {}),
+      ...(wnba.topSelectionAudit?.scoredCountByLeague || {}),
+    },
+    hiddenDueToNoDifferentTeamByLeague: {
+      ...(nba.topSelectionAudit?.hiddenDueToNoDifferentTeamByLeague || {}),
+      ...(wnba.topSelectionAudit?.hiddenDueToNoDifferentTeamByLeague || {}),
+    },
+    hiddenDueToSameTeam:
+      Number(nba.topSelectionAudit?.hiddenDueToSameTeam || 0) +
+      Number(wnba.topSelectionAudit?.hiddenDueToSameTeam || 0),
+    hiddenDueToLeagueLimit:
+      Number(nba.topSelectionAudit?.hiddenDueToLeagueLimit || 0) +
+      Number(wnba.topSelectionAudit?.hiddenDueToLeagueLimit || 0),
+    noDifferentTeamCandidate:
+      Boolean(nba.topSelectionAudit?.noDifferentTeamCandidate) ||
+      Boolean(wnba.topSelectionAudit?.noDifferentTeamCandidate),
+    engineHandled: {
+      ...(nba.topSelectionAudit?.engineHandled || {}),
+      ...(wnba.topSelectionAudit?.engineHandled || {}),
+    },
+    hidden: [
+      ...(nba.topSelectionAudit?.hidden || []),
+      ...(wnba.topSelectionAudit?.hidden || []),
+    ].slice(0, 100),
+    rejected: [
+      ...(nba.topSelectionAudit?.rejected || []),
+      ...(wnba.topSelectionAudit?.rejected || []),
+    ].slice(0, 100),
+  };
+
+  return {
+    topProps,
+    topOfficialProps,
+    topTestProps,
+    topNBAProps: nba.topProps,
+    topWNBAProps: wnba.topProps,
+    topNBAOfficialProps: nba.topOfficialProps,
+    topNBATestProps: nba.topTestProps,
+    topWNBAOfficialProps: wnba.topOfficialProps,
+    topWNBATestProps: wnba.topTestProps,
+    topSelectionAudit: audit,
+    candidateCount: audit.candidateCount,
+    selectedCount: topProps.length,
+    officialCount: topOfficialProps.length,
+    testCount: topTestProps.length,
+    noBetCount: audit.noBetCount,
+    selectorVersion: TOP_PROP_SELECTOR_VERSION,
+    selectedNBA: nba.topProps.length,
+    selectedWNBA: wnba.topProps.length,
   };
 }
 

@@ -755,51 +755,90 @@ export default function PropLab() {
         ) : null}
 
         {sectionM ? (
-          <SectionCard title="Top Picks Record">
-            <Text style={styles.muted}>
-              Reference-only best-2 snapshot — subset analysis, not double-counted in slate record.
-            </Text>
-            <MetricRow
-              label="Top picks record"
-              value={formatRecord(
-                sectionM.record?.wins ?? 0,
-                sectionM.record?.losses ?? 0,
-                sectionM.record?.pushes ?? 0,
-                sectionM.record?.winRate
-              )}
-            />
-            <MetricRow
-              label="Rest of slate"
-              value={formatRecord(
-                sectionM.vsRestOfSlate?.restRecord?.wins ?? 0,
-                sectionM.vsRestOfSlate?.restRecord?.losses ?? 0,
-                sectionM.vsRestOfSlate?.restRecord?.pushes ?? 0,
-                sectionM.vsRestOfSlate?.restRecord?.winRate
-              )}
-            />
-            {sectionM.pickOne ? (
-              <Text style={styles.breakdownLine}>
-                #1 {sectionM.pickOne.player} — score {formatNum(sectionM.pickOne.bestPropScore)} —{" "}
-                {String(sectionM.pickOne.status || "pending").toUpperCase()}
+          <>
+            <SectionCard title="NBA Top Picks Record">
+              <Text style={styles.muted}>
+                Reference-only best-2 NBA snapshot — subset analysis, not double-counted in slate record.
               </Text>
-            ) : null}
-            {sectionM.pickTwo ? (
-              <Text style={styles.breakdownLine}>
-                #2 {sectionM.pickTwo.player} — score {formatNum(sectionM.pickTwo.bestPropScore)} —{" "}
-                {String(sectionM.pickTwo.status || "pending").toUpperCase()}
+              <MetricRow
+                label="NBA top picks record"
+                value={formatRecord(
+                  sectionM.nbaTopPicksReview?.record?.wins ?? 0,
+                  sectionM.nbaTopPicksReview?.record?.losses ?? 0,
+                  sectionM.nbaTopPicksReview?.record?.pushes ?? 0,
+                  sectionM.nbaTopPicksReview?.record?.winRate
+                )}
+              />
+              {sectionM.nbaTopPicksReview?.pickOne ? (
+                <Text style={styles.breakdownLine}>
+                  {sectionM.nbaTopPicksReview.pickOne.topPickLabel || "Top NBA #1"}{" "}
+                  {sectionM.nbaTopPicksReview.pickOne.player} — score{" "}
+                  {formatNum(sectionM.nbaTopPicksReview.pickOne.bestPropScore)} —{" "}
+                  {String(sectionM.nbaTopPicksReview.pickOne.status || "pending").toUpperCase()}
+                </Text>
+              ) : null}
+              {sectionM.nbaTopPicksReview?.pickTwo ? (
+                <Text style={styles.breakdownLine}>
+                  {sectionM.nbaTopPicksReview.pickTwo.topPickLabel || "Top NBA #2"}{" "}
+                  {sectionM.nbaTopPicksReview.pickTwo.player} — score{" "}
+                  {formatNum(sectionM.nbaTopPicksReview.pickTwo.bestPropScore)} —{" "}
+                  {String(sectionM.nbaTopPicksReview.pickTwo.status || "pending").toUpperCase()}
+                </Text>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="WNBA Top Picks Record">
+              <Text style={styles.muted}>
+                Reference-only best-2 WNBA snapshot — subset analysis, not double-counted in slate record.
               </Text>
-            ) : null}
-            {sectionM.hiddenCandidateAudit?.length ? (
-              <>
-                <Text style={styles.breakdownTitle}>Hidden candidates (audit)</Text>
-                {sectionM.hiddenCandidateAudit.slice(0, 5).map((entry: any, index: number) => (
-                  <Text key={`hidden-${index}`} style={styles.breakdownLine}>
-                    {entry.reason}: {entry.pick?.player || "—"} ({entry.pick?.bestPropScore ?? "—"})
-                  </Text>
-                ))}
-              </>
-            ) : null}
-          </SectionCard>
+              <MetricRow
+                label="WNBA top picks record"
+                value={formatRecord(
+                  sectionM.wnbaTopPicksReview?.record?.wins ?? 0,
+                  sectionM.wnbaTopPicksReview?.record?.losses ?? 0,
+                  sectionM.wnbaTopPicksReview?.record?.pushes ?? 0,
+                  sectionM.wnbaTopPicksReview?.record?.winRate
+                )}
+              />
+              {sectionM.wnbaTopPicksReview?.pickOne ? (
+                <Text style={styles.breakdownLine}>
+                  {sectionM.wnbaTopPicksReview.pickOne.topPickLabel || "Top WNBA #1"}{" "}
+                  {sectionM.wnbaTopPicksReview.pickOne.player} — score{" "}
+                  {formatNum(sectionM.wnbaTopPicksReview.pickOne.bestPropScore)} —{" "}
+                  {String(sectionM.wnbaTopPicksReview.pickOne.status || "pending").toUpperCase()}
+                </Text>
+              ) : null}
+              {sectionM.wnbaTopPicksReview?.pickTwo ? (
+                <Text style={styles.breakdownLine}>
+                  {sectionM.wnbaTopPicksReview.pickTwo.topPickLabel || "Top WNBA #2"}{" "}
+                  {sectionM.wnbaTopPicksReview.pickTwo.player} — score{" "}
+                  {formatNum(sectionM.wnbaTopPicksReview.pickTwo.bestPropScore)} —{" "}
+                  {String(sectionM.wnbaTopPicksReview.pickTwo.status || "pending").toUpperCase()}
+                </Text>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Top Picks vs Rest of Slate">
+              <MetricRow
+                label="All top picks record"
+                value={formatRecord(
+                  sectionM.record?.wins ?? 0,
+                  sectionM.record?.losses ?? 0,
+                  sectionM.record?.pushes ?? 0,
+                  sectionM.record?.winRate
+                )}
+              />
+              <MetricRow
+                label="Rest of slate"
+                value={formatRecord(
+                  sectionM.vsRestOfSlate?.restRecord?.wins ?? 0,
+                  sectionM.vsRestOfSlate?.restRecord?.losses ?? 0,
+                  sectionM.vsRestOfSlate?.restRecord?.pushes ?? 0,
+                  sectionM.vsRestOfSlate?.restRecord?.winRate
+                )}
+              />
+            </SectionCard>
+          </>
         ) : null}
 
         {testRecord.total > 0 ? (

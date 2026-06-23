@@ -117,7 +117,9 @@ export default function PropCard({
       >
         <View style={styles.pickTopRow}>
           <View style={styles.badgeRow}>
-            {pick.topPickRank ? (
+            {pick.topPickLabel ? (
+              <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
+            ) : pick.topPickRank ? (
               <Text style={styles.topPickBadge}>Top #{pick.topPickRank}</Text>
             ) : (
               <Text style={styles.rankBadge}>#{pick.rank || index + 1}</Text>
@@ -224,7 +226,9 @@ export default function PropCard({
           {wnbaV2 ? (
             <Text style={styles.engineBadge}>WNBA v2</Text>
           ) : null}
-          {pick.topPickRank ? (
+          {pick.topPickLabel ? (
+            <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
+          ) : pick.topPickRank ? (
             <Text style={styles.topPickBadge}>Top #{pick.topPickRank}</Text>
           ) : null}
           {wnbaShadowEnabled && wnbaShadow && shadowTier ? (

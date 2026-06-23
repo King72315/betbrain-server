@@ -1,4 +1,4 @@
-export const TOP_PROP_SELECTOR_VERSION = "top-prop-selector-v2-best2";
+export const TOP_PROP_SELECTOR_VERSION = "top-prop-selector-v3-league-split";
 
 export function createTopPropSelectionAudit() {
   return {
@@ -16,6 +16,14 @@ export function createTopPropSelectionAudit() {
     avgWnbaScore: null,
     hiddenDueToCap: 0,
     hiddenDueToLimit: 0,
+    hiddenDueToSameTeam: 0,
+    hiddenDueToLeagueLimit: 0,
+    noDifferentTeamCandidate: false,
+    selectedTeamsByLeague: {},
+    candidateCountByLeague: {},
+    scoredCountByLeague: {},
+    hiddenDueToNoDifferentTeamByLeague: {},
+    topPropTeamDiversityRequired: true,
     hiddenDuplicatePlayer: 0,
     hiddenOppositeSide: 0,
     hiddenStarted: 0,

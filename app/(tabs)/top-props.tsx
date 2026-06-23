@@ -20,17 +20,30 @@ import {
 import { formatApiLoadError } from "../../utils/apiLoadError";
 import { buildTopPropsReport } from "../../utils/reportBuilders";
 
-const TOP_PROP_LIMIT = 2;
-
 type DisplayCard = {
   pick: any;
   playType: "Official" | "Test";
 };
 
+function resolvePlayType(pick: any): "Official" | "Test" {
+  if (pick.officialEligible === false) return "Test";
+  return "Official";
+}
+
+function enrichPickForDisplay(pick: any, index: number, league: "NBA" | "WNBA") {
+  const rank = pick.leagueRank || pick.topPropRank || index + 1;
+  return {
+    ...pick,
+    league,
+    topPropRank: rank,
+    topPickRank: rank,
+    topPickLabel: pick.topPickLabel || `Top ${league} #${rank}`,
+  };
+}
+
 export default function TopPropsScreen() {
-  const [topProps, setTopProps] = useState<any[]>([]);
-  const [topOfficialProps, setTopOfficialProps] = useState<any[]>([]);
-  const [topTestProps, setTopTestProps] = useState<any[]>([]);
+  const [topNBAProps, setTopNBAProps] = useState<any[]>([]);
+  const [topWNBAProps, setTopWNBAProps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -40,31 +53,19 @@ export default function TopPropsScreen() {
     loadTopProps();
   }, []);
 
-  const visibleOfficialProps = useMemo(() => {
-    const props = topOfficialProps.length
-      ? topOfficialProps
-      : topProps.filter((pick) => pick.officialEligible !== false);
-    return props.slice(0, TOP_PROP_LIMIT);
-  }, [topOfficialProps, topProps]);
-
-  const visibleTestProps = useMemo(() => {
-    const remaining = Math.max(0, TOP_PROP_LIMIT - visibleOfficialProps.length);
-    const props = topTestProps.length
-      ? topTestProps
-      : topProps.filter((pick) => pick.officialEligible === false);
-    return props.slice(0, remaining);
-  }, [topTestProps, topProps, visibleOfficialProps.length]);
-
-  const displayCards = useMemo<DisplayCard[]>(() => {
-    const cards: DisplayCard[] = visibleOfficialProps.map((pick) => ({
-      pick,
-      playType: "Official" as const,
+  const nbaCards = useMemo<DisplayCard[]>(() => {
+    return topNBAProps.map((pick, index) => ({
+      pick: enrichPickForDisplay(pick, index, "NBA"),
+      playType: resolvePlayType(pick),
     }));
-    for (const pick of visibleTestProps) {
-      cards.push({ pick, playType: "Test" });
-    }
-    return cards.slice(0, TOP_PROP_LIMIT);
-  }, [visibleOfficialProps, visibleTestProps]);
+  }, [topNBAProps]);
+
+  const wnbaCards = useMemo<DisplayCard[]>(() => {
+    return topWNBAProps.map((pick, index) => ({
+      pick: enrichPickForDisplay(pick, index, "WNBA"),
+      playType: resolvePlayType(pick),
+    }));
+  }, [topWNBAProps]);
 
   const loadTopProps = async () => {
     try {
@@ -72,16 +73,14 @@ export default function TopPropsScreen() {
 
       const data = await fetchTopProps();
 
-      setTopProps(data.topProps || []);
-      setTopOfficialProps(data.topOfficialProps || []);
-      setTopTestProps(data.topTestProps || []);
+      setTopNBAProps(data.topNBAProps || []);
+      setTopWNBAProps(data.topWNBAProps || []);
       setLastUpdated(data.lastUpdated || null);
       setLoadError(formatApiLoadError(data));
     } catch (err) {
       console.log("LOAD TOP PROPS ERROR:", err);
-      setTopProps([]);
-      setTopOfficialProps([]);
-      setTopTestProps([]);
+      setTopNBAProps([]);
+      setTopWNBAProps([]);
       setLoadError(String(err));
     } finally {
       setLoading(false);
@@ -120,9 +119,36 @@ export default function TopPropsScreen() {
 
   const getReportText = () =>
     buildTopPropsReport({
-      cards: displayCards,
+      nbaCards,
+      wnbaCards,
       lastUpdated,
     });
+
+  const renderSection = (
+    title: string,
+    cards: DisplayCard[],
+    emptyMessage: string,
+    sectionKey: string
+  ) => (
+    <View style={styles.sectionCard} key={sectionKey}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {!loading && !loadError && cards.length === 0 ? (
+        <Text style={styles.emptyText}>{emptyMessage}</Text>
+      ) : null}
+      {!loading &&
+        cards.map(({ pick, playType }, index) => (
+          <PropCard
+            key={`${sectionKey}-${playType}-${pick.player}-${pick.team}-${pick.line}-${index}`}
+            pick={pick}
+            index={index}
+            playType={playType}
+            compact
+            onSave={() => handleSavePick(pick)}
+            showSaveHint
+          />
+        ))}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -134,7 +160,7 @@ export default function TopPropsScreen() {
         }
       >
         <View style={styles.headerCard}>
-          <Text style={styles.title}>Best 2 Props</Text>
+          <Text style={styles.title}>Top Props</Text>
           <CopyReportButton
             getReportText={getReportText}
             label="Copy Top Props"
@@ -147,22 +173,22 @@ export default function TopPropsScreen() {
 
         <LoadErrorBanner message={loadError} />
 
-        {!loading && !loadError && displayCards.length === 0 && (
-          <Text style={styles.emptyText}>No top props available.</Text>
-        )}
-
-        {!loading &&
-          displayCards.map(({ pick, playType }, index) => (
-            <PropCard
-              key={`${playType}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
-              pick={pick}
-              index={index}
-              playType={playType}
-              compact
-              onSave={() => handleSavePick(pick)}
-              showSaveHint
-            />
-          ))}
+        {!loading && !loadError ? (
+          <>
+            {renderSection(
+              "Best 2 NBA Props",
+              nbaCards,
+              "No NBA props available.",
+              "nba"
+            )}
+            {renderSection(
+              "Best 2 WNBA Props",
+              wnbaCards,
+              "No WNBA props available.",
+              "wnba"
+            )}
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -199,6 +225,17 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
+  sectionCard: {
+    marginBottom: 20,
+  },
+
+  sectionTitle: {
+    color: "#e2e8f0",
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+
   loadingText: {
     color: "white",
     fontSize: 16,
@@ -210,5 +247,6 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 15,
     fontWeight: "700",
+    marginBottom: 8,
   },
 });

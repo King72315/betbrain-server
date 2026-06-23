@@ -163,7 +163,8 @@ function formatTopPropSnapshotLine(
   const league = pick.league || "—";
   const team = pick.team || "—";
   const opponent = pick.opponent || "—";
-  const rank = pick.topPickRank || pick.rank || index + 1;
+  const rank = pick.topPickRank || pick.leagueRank || pick.rank || index + 1;
+  const rankLabel = pick.topPickLabel || `Top ${league} #${rank}`;
   const confidence = pick.confidence ?? pick.winProbability ?? "—";
   const bestPropScore = pick.bestPropScore ?? pick.finalBestPropScore;
   const whySide = pick.whySide || pick.wnbaReader?.supports || pick.support || [];
@@ -178,7 +179,7 @@ function formatTopPropSnapshotLine(
       .map((f: any) => f.note || f.key);
 
   return joinLines([
-    `[Top #${rank}] ${pick.player || "Unknown"} (${league}) — ${playType}`,
+    `[${rankLabel}] ${pick.player || "Unknown"} (${league}) — ${playType}`,
     `  ${team} vs ${opponent}`,
     `  Prop: ${side} ${safeDisplay(line)} ${stat}`,
     `  Confidence: ${safeDisplay(confidence)}% | Best Prop Score: ${safeDisplay(bestPropScore)}`,
@@ -193,22 +194,30 @@ function formatTopPropSnapshotLine(
 }
 
 export function buildTopPropsReport(input: {
-  cards: { pick: any; playType: "Official" | "Test" }[];
+  nbaCards: { pick: any; playType: "Official" | "Test" }[];
+  wnbaCards: { pick: any; playType: "Official" | "Test" }[];
   lastUpdated: string | null;
 }) {
   const generatedAt = input.lastUpdated
     ? formatTime(input.lastUpdated)
     : formatTime(new Date().toISOString());
 
-  const propLines = input.cards.map((card, index) =>
+  const nbaLines = input.nbaCards.map((card, index) =>
+    formatTopPropSnapshotLine(card.pick, card.playType, index)
+  );
+  const wnbaLines = input.wnbaCards.map((card, index) =>
     formatTopPropSnapshotLine(card.pick, card.playType, index)
   );
 
   return joinLines([
-    "Best 2 Props — CourtEdge",
+    "Top Props — CourtEdge",
     `Generated: ${generatedAt || "—"}`,
     "",
-    propLines.length ? propLines.join("\n\n") : "No top props available.",
+    "--- Best 2 NBA Props ---",
+    nbaLines.length ? nbaLines.join("\n\n") : "No NBA props available.",
+    "",
+    "--- Best 2 WNBA Props ---",
+    wnbaLines.length ? wnbaLines.join("\n\n") : "No WNBA props available.",
   ]);
 }
 

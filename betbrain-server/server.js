@@ -52,6 +52,7 @@ import { buildPlayerState } from "./engines/playerStateBuilder.js";
 import { buildTopPicksForGame } from "./engines/pickRanker.js";
 import {
   selectTopProps,
+  selectCombinedTopProps,
   TOP_PROP_SELECTOR_VERSION,
 } from "./engines/topProps/topPropSelector.js";
 import { buildPlayoffContext } from "./engines/playoffEngine.js";
@@ -175,11 +176,11 @@ import {
 } from "./engines/topProps/topPropSelectionAudit.js";
 import {
   getActiveTopPicksSnapshot,
-  getTopPickRankMap,
+  getTopPickMetaMap,
   saveTopPicksSnapshot,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-top-prop-best2-v1";
+const SERVER_BUILD = "courteedge-top-prop-league-split-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -250,9 +251,11 @@ function cacheFresh() {
   return ageMinutes < CONFIG.CACHE_MINUTES;
 }
 
-function clampTopPropsSelection(selection = {}) {
-  const limit = Number(CONFIG.TOP_PROP_LIMIT ?? 2);
-  const topProps = (selection.topProps || []).slice(0, limit);
+function clampTopPropsSelection(selection = {}, limit = null) {
+  const resolvedLimit = Number(
+    limit ?? selection.topProps?.length ?? CONFIG.TOP_PROP_LIMIT ?? 2
+  );
+  const topProps = (selection.topProps || []).slice(0, resolvedLimit);
   const topOfficialProps = topProps.filter(isOfficialPick);
   const topTestProps = topProps.filter(isTestPick);
   const audit = selection.topSelectionAudit
@@ -836,7 +839,10 @@ function getCombinedDataQuality({ opportunity = {}, prop = {}, last5 = [], match
 }
 
 function buildTopPropsFromSelector(gameCards = [], options = {}) {
-  return selectTopProps(gameCards, options);
+  if (options.league) {
+    return selectTopProps(gameCards, options);
+  }
+  return selectCombinedTopProps(gameCards, options);
 }
 
 function formatStartTimeDisplay(commenceTime) {
@@ -1910,28 +1916,38 @@ async function refreshAllPicks() {
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
-  const allTopSelection = clampTopPropsSelection(buildTopPropsFromSelector(games));
+  const combinedTopSelection = buildTopPropsFromSelector(games);
   const nbaTopSelection = clampTopPropsSelection(
-    buildTopPropsFromSelector(games, { league: "NBA" })
+    buildTopPropsFromSelector(games, {
+      league: "NBA",
+      limit: CONFIG.NBA_TOP_PROP_LIMIT,
+    }),
+    CONFIG.NBA_TOP_PROP_LIMIT
   );
   const wnbaTopSelection = clampTopPropsSelection(
-    buildTopPropsFromSelector(games, { league: "WNBA" })
+    buildTopPropsFromSelector(games, {
+      league: "WNBA",
+      limit: CONFIG.WNBA_TOP_PROP_LIMIT,
+    }),
+    CONFIG.WNBA_TOP_PROP_LIMIT
   );
 
-  const topProps = allTopSelection.topProps;
+  const topProps = combinedTopSelection.topProps;
   const topNBAProps = nbaTopSelection.topProps;
   const topWNBAProps = wnbaTopSelection.topProps;
-  const topOfficialProps = allTopSelection.topOfficialProps;
-  const topTestProps = allTopSelection.topTestProps;
+  const topOfficialProps = combinedTopSelection.topOfficialProps;
+  const topTestProps = combinedTopSelection.topTestProps;
+  const topNBAOfficialProps = nbaTopSelection.topOfficialProps;
+  const topNBATestProps = nbaTopSelection.topTestProps;
   const topWNBAOfficialProps = wnbaTopSelection.topOfficialProps;
   const topWNBATestProps = wnbaTopSelection.topTestProps;
-  const topSelectionAudit = allTopSelection.topSelectionAudit;
+  const topSelectionAudit = combinedTopSelection.topSelectionAudit;
 
   saveTopPicksSnapshot(topProps, {
     slateDate: getTodayLocalDate(),
     selectorVersion: TOP_PROP_SELECTOR_VERSION,
     topSelectionAudit,
-    limit: CONFIG.TOP_PROP_LIMIT,
+    limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
   const generatedProps = collectAllGeneratedProps(games);
@@ -1971,16 +1987,30 @@ async function refreshAllPicks() {
     topTestProps,
     topNBAProps,
     topWNBAProps,
+    topNBAOfficialProps,
+    topNBATestProps,
     topWNBAOfficialProps,
     topWNBATestProps,
     topSelectionAudit,
     candidateCount: topSelectionAudit?.candidateCount ?? null,
     selectedCount: topSelectionAudit?.selectedCount ?? topProps.length,
+    selectedNBA: combinedTopSelection.selectedNBA ?? topNBAProps.length,
+    selectedWNBA: combinedTopSelection.selectedWNBA ?? topWNBAProps.length,
+    nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
+    wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
+    topPropTeamDiversityRequired: true,
+    selectedTeamsByLeague: topSelectionAudit?.selectedTeamsByLeague ?? {},
+    hiddenDueToSameTeam: topSelectionAudit?.hiddenDueToSameTeam ?? null,
+    hiddenDueToLeagueLimit: topSelectionAudit?.hiddenDueToLeagueLimit ?? null,
+    hiddenDueToNoDifferentTeamByLeague:
+      topSelectionAudit?.hiddenDueToNoDifferentTeamByLeague ?? {},
+    candidateCountByLeague: topSelectionAudit?.candidateCountByLeague ?? {},
+    scoredCountByLeague: topSelectionAudit?.scoredCountByLeague ?? {},
     officialCount: topSelectionAudit?.officialCount ?? null,
     testCount: topSelectionAudit?.testCount ?? null,
     noBetCount: topSelectionAudit?.noBetCount ?? null,
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
-    topPropLimit: CONFIG.TOP_PROP_LIMIT,
+    topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     generatedProps,
     trackingMode: TRACKING_MODE,
     generatedPropCount: generatedProps.length,
@@ -2062,34 +2092,57 @@ app.get("/top-props", async (req, res) => {
     res.json({
       ok: true,
       lastUpdated: picksCache.lastUpdated,
-      topProps: (picksCache.topProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topProps: (picksCache.topProps || []).slice(0, CONFIG.TOP_PROP_COMBINED_LIMIT),
       topOfficialProps: (picksCache.topOfficialProps || []).slice(
         0,
-        CONFIG.TOP_PROP_LIMIT
+        CONFIG.TOP_PROP_COMBINED_LIMIT
       ),
-      topTestProps: (picksCache.topTestProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
-      topNBAProps: (picksCache.topNBAProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
-      topWNBAProps: (picksCache.topWNBAProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topTestProps: (picksCache.topTestProps || []).slice(
+        0,
+        CONFIG.TOP_PROP_COMBINED_LIMIT
+      ),
+      topNBAProps: (picksCache.topNBAProps || []).slice(0, CONFIG.NBA_TOP_PROP_LIMIT),
+      topWNBAProps: (picksCache.topWNBAProps || []).slice(0, CONFIG.WNBA_TOP_PROP_LIMIT),
+      topNBAOfficialProps: (picksCache.topNBAOfficialProps || []).slice(
+        0,
+        CONFIG.NBA_TOP_PROP_LIMIT
+      ),
+      topNBATestProps: (picksCache.topNBATestProps || []).slice(
+        0,
+        CONFIG.NBA_TOP_PROP_LIMIT
+      ),
       topWNBAOfficialProps: (picksCache.topWNBAOfficialProps || []).slice(
         0,
-        CONFIG.TOP_PROP_LIMIT
+        CONFIG.WNBA_TOP_PROP_LIMIT
       ),
       topWNBATestProps: (picksCache.topWNBATestProps || []).slice(
         0,
-        CONFIG.TOP_PROP_LIMIT
+        CONFIG.WNBA_TOP_PROP_LIMIT
       ),
       topSelectionAudit: picksCache.topSelectionAudit || null,
       candidateCount: picksCache.candidateCount ?? null,
       selectedCount: Math.min(
         picksCache.selectedCount ?? picksCache.topProps?.length ?? 0,
-        CONFIG.TOP_PROP_LIMIT
+        CONFIG.TOP_PROP_COMBINED_LIMIT
       ),
+      selectedNBA: picksCache.selectedNBA ?? picksCache.topNBAProps?.length ?? 0,
+      selectedWNBA: picksCache.selectedWNBA ?? picksCache.topWNBAProps?.length ?? 0,
       officialCount: picksCache.officialCount ?? null,
       testCount: picksCache.testCount ?? null,
       noBetCount: picksCache.noBetCount ?? null,
       topPropSelectorVersion:
         picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
-      topPropLimit: CONFIG.TOP_PROP_LIMIT,
+      topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
+      nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
+      wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
+      topPropTeamDiversityRequired: true,
+      selectedTeamsByLeague: picksCache.selectedTeamsByLeague ?? {},
+      hiddenDueToSameTeam: picksCache.hiddenDueToSameTeam ?? null,
+      hiddenDueToLeagueLimit: picksCache.hiddenDueToLeagueLimit ?? null,
+      hiddenDueToNoDifferentTeamByLeague:
+        picksCache.hiddenDueToNoDifferentTeamByLeague ?? {},
+      candidateCountByLeague: picksCache.candidateCountByLeague ?? {},
+      scoredCountByLeague: picksCache.scoredCountByLeague ?? {},
       hiddenDueToLimit: picksCache.topSelectionAudit?.hiddenDueToLimit ?? null,
       engineHandled: picksCache.topSelectionAudit?.engineHandled ?? {},
       filterAudit: picksCache.filterAudit || null,
@@ -2266,11 +2319,18 @@ app.delete("/saved-picks/:id", (req, res) => {
 });
 
 app.get("/tracked-props", (req, res) => {
-  const rankMap = getTopPickRankMap();
+  const metaMap = getTopPickMetaMap();
   const props = getTrackedProps().map((prop) => {
     const key = prop.trackedKey || prop.trackedId;
-    const topPickRank = key ? rankMap.get(key) : undefined;
-    return topPickRank ? { ...prop, topPickRank } : prop;
+    const meta = key ? metaMap.get(key) : undefined;
+    return meta
+      ? {
+          ...prop,
+          topPickRank: meta.topPickRank,
+          topPickLabel: meta.topPickLabel,
+          topPickLeague: meta.league,
+        }
+      : prop;
   });
 
   res.json({
@@ -2540,7 +2600,19 @@ app.get("/diagnostics", (req, res) => {
     lastBackup: getLastBackup(),
     lastBlockedWrite: getLastBlockedWrite(),
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
-    topPropLimit: CONFIG.TOP_PROP_LIMIT,
+    topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
+    nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
+    wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
+    topPropTeamDiversityRequired: true,
+    selectedTeamsByLeague: picksCache?.selectedTeamsByLeague ?? {},
+    hiddenDueToSameTeam: picksCache?.hiddenDueToSameTeam ?? null,
+    hiddenDueToLeagueLimit: picksCache?.hiddenDueToLeagueLimit ?? null,
+    hiddenDueToNoDifferentTeamByLeague:
+      picksCache?.hiddenDueToNoDifferentTeamByLeague ?? {},
+    candidateCountByLeague: picksCache?.candidateCountByLeague ?? {},
+    scoredCountByLeague: picksCache?.scoredCountByLeague ?? {},
+    selectedNBA: picksCache?.selectedNBA ?? null,
+    selectedWNBA: picksCache?.selectedWNBA ?? null,
     wnbaV2TopPropSelectorLoaded: ENGINE_LOAD_FLAGS.wnbaV2TopPropSelectorLoaded,
     topPropSelection: picksCache?.topSelectionAudit || null,
     topPicksSnapshot: getActiveTopPicksSnapshot(),

@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { CONFIG } from "../config.js";
+import { buildTopPickLabel } from "../engines/topProps/topPropSelector.js";
 import { TOP_PROP_SELECTOR_VERSION } from "../engines/topProps/topPropSelectionAudit.js";
 import { getStableTrackedPropKey } from "./trackedPropService.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
@@ -72,6 +73,7 @@ function buildRecord(props = []) {
 
 function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
   const trackedKey = getStableTrackedPropKey(pick);
+  const league = String(pick.league || options.league || "").toUpperCase();
   const stablePropKey = [
     pick.player,
     pick.team,
@@ -84,10 +86,13 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
 
   return {
     slateDate: pick.slateDate || options.slateDate || "",
+    league,
     topPickRank: rank,
+    topPickLabel: pick.topPickLabel || buildTopPickLabel(league, rank),
     trackedId: trackedKey,
     trackedKey,
     stablePropKey,
+    selectedTeamKey: pick.selectedTeamKey || pick.teamKey || pick.team || "",
     selectedAt: options.selectedAt || new Date().toISOString(),
     selectorVersion: options.selectorVersion || TOP_PROP_SELECTOR_VERSION,
     bestPropScore: pick.bestPropScore ?? pick.pickScore ?? null,
@@ -103,17 +108,19 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
     opponent: pick.opponent,
     line: pick.line,
     side: pick.side || pick.pick,
-    league: pick.league,
     tier: pick.tier,
     officialEligible: pick.officialEligible,
     readerDecision: pick.readerDecision || pick.wnbaReader?.decision,
     engineHandled: pick.engineHandled,
     isTopPickReference: true,
+    referenceOnly: true,
   };
 }
 
 export function saveTopPicksSnapshot(topProps = [], options = {}) {
-  const limit = Number(options.limit ?? CONFIG.TOP_PROP_LIMIT ?? 2);
+  const limit = Number(
+    options.limit ?? CONFIG.TOP_PROP_COMBINED_LIMIT ?? CONFIG.TOP_PROP_LIMIT ?? 4
+  );
   const ranked = (Array.isArray(topProps) ? topProps : []).slice(0, limit);
   const slateDate =
     options.slateDate ||
@@ -126,8 +133,8 @@ export function saveTopPicksSnapshot(topProps = [], options = {}) {
   const picks = ranked.map((pick, index) =>
     buildSnapshotEntry(
       { ...pick, slateDate: pick.slateDate || slateDate },
-      index + 1,
-      { selectedAt, selectorVersion, slateDate }
+      pick.leagueRank || pick.topPropRank || index + 1,
+      { selectedAt, selectorVersion, slateDate, league: pick.league }
     )
   );
 
@@ -139,7 +146,9 @@ export function saveTopPicksSnapshot(topProps = [], options = {}) {
     pickCount: picks.length,
     picks,
     candidateCount: audit?.candidateCount ?? null,
-    hiddenDueToLimit: audit?.hiddenDueToLimit ?? null,
+    hiddenDueToLimit: audit?.hiddenDueToLeagueLimit ?? audit?.hiddenDueToLimit ?? null,
+    hiddenDueToSameTeam: audit?.hiddenDueToSameTeam ?? null,
+    selectedTeamsByLeague: audit?.selectedTeamsByLeague || {},
     engineHandled: audit?.engineHandled || {},
     hiddenCandidateAudit: (audit?.hidden || []).slice(0, 50),
     referenceOnly: true,
@@ -172,13 +181,27 @@ export function getActiveTopPicksSnapshot() {
 }
 
 export function getTopPickRankMap(slateDate = null) {
+  const meta = getTopPickMetaMap(slateDate);
+  const map = new Map();
+  for (const [key, value] of meta.entries()) {
+    map.set(key, value.topPickRank);
+  }
+  return map;
+}
+
+export function getTopPickMetaMap(slateDate = null) {
   const snapshot = slateDate
     ? getTopPicksSnapshot(slateDate)
     : getActiveTopPicksSnapshot();
   const map = new Map();
   for (const pick of snapshot?.picks || []) {
     if (pick.trackedKey) {
-      map.set(pick.trackedKey, pick.topPickRank);
+      map.set(pick.trackedKey, {
+        topPickRank: pick.topPickRank,
+        topPickLabel: pick.topPickLabel,
+        league: pick.league,
+        selectedTeamKey: pick.selectedTeamKey,
+      });
     }
   }
   return map;
@@ -232,6 +255,27 @@ export function attachGradedResultsToSnapshot(slateDate, trackedProps = []) {
   return { ok: true, snapshot: gradedSnapshot };
 }
 
+function buildLeagueTopPicksReview(enrichedPicks = [], league = "") {
+  const leagueCode = String(league || "").toUpperCase();
+  const picks = enrichedPicks.filter(
+    (pick) => String(pick.league || "").toUpperCase() === leagueCode
+  );
+  const record = buildRecord(picks);
+  const pickOne = picks.find((p) => p.topPickRank === 1) || null;
+  const pickTwo = picks.find((p) => p.topPickRank === 2) || null;
+
+  return {
+    league: leagueCode,
+    title: `${leagueCode} Top Picks Record`,
+    record,
+    pickOne,
+    pickTwo,
+    picks,
+    referenceOnly: true,
+    subsetAnalysisOnly: true,
+  };
+}
+
 export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) {
   const date = String(slateDate || "");
   const snapshot =
@@ -258,7 +302,15 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
 
   const enrichedPicks = snapshot.picks.map((entry) => {
     const tracked = byKey.get(entry.trackedKey);
-    return tracked ? { ...entry, ...tracked, topPickRank: entry.topPickRank } : entry;
+    return tracked
+      ? {
+          ...entry,
+          ...tracked,
+          topPickRank: entry.topPickRank,
+          topPickLabel: entry.topPickLabel,
+          league: entry.league,
+        }
+      : entry;
   });
 
   const topPickRecord = buildRecord(enrichedPicks);
@@ -268,19 +320,21 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
   });
   const restRecord = buildRecord(restOfSlate);
 
-  const pickOne = enrichedPicks.find((p) => p.topPickRank === 1) || null;
-  const pickTwo = enrichedPicks.find((p) => p.topPickRank === 2) || null;
+  const nbaReview = buildLeagueTopPicksReview(enrichedPicks, "NBA");
+  const wnbaReview = buildLeagueTopPicksReview(enrichedPicks, "WNBA");
 
   return {
     title: "Top Picks Selection Review",
     slateDate: date,
     selectorVersion: snapshot.selectorVersion,
-    topPropLimit: snapshot.topPropLimit ?? CONFIG.TOP_PROP_LIMIT,
+    topPropLimit: snapshot.topPropLimit ?? CONFIG.TOP_PROP_COMBINED_LIMIT,
     referenceOnly: true,
     subsetAnalysisOnly: true,
     record: topPickRecord,
-    pickOne,
-    pickTwo,
+    nbaTopPicksReview: nbaReview,
+    wnbaTopPicksReview: wnbaReview,
+    pickOne: enrichedPicks.find((p) => p.topPickRank === 1) || null,
+    pickTwo: enrichedPicks.find((p) => p.topPickRank === 2) || null,
     picks: enrichedPicks,
     vsRestOfSlate: {
       restPropCount: restOfSlate.length,

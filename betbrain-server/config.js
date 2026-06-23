@@ -17,6 +17,12 @@ export const CONFIG = {
   CACHE_MINUTES: num(process.env.CACHE_MINUTES, 30),
 
   TOP_PROP_LIMIT: num(process.env.TOP_PROP_LIMIT, 2),
+  NBA_TOP_PROP_LIMIT: num(process.env.NBA_TOP_PROP_LIMIT, 2),
+  WNBA_TOP_PROP_LIMIT: num(process.env.WNBA_TOP_PROP_LIMIT, 2),
+  TOP_PROP_COMBINED_LIMIT: num(
+    process.env.TOP_PROP_COMBINED_LIMIT,
+    num(process.env.NBA_TOP_PROP_LIMIT, 2) + num(process.env.WNBA_TOP_PROP_LIMIT, 2)
+  ),
 
   TIMEZONE: process.env.TIMEZONE || "America/Chicago",
 
@@ -54,6 +60,9 @@ export function checkConfig() {
 
     cacheMinutes: CONFIG.CACHE_MINUTES,
     topPropLimit: CONFIG.TOP_PROP_LIMIT,
+    nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
+    wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
+    topPropCombinedLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     timezone: CONFIG.TIMEZONE,
 
     premiumConfidenceMin: CONFIG.PREMIUM_CONFIDENCE_MIN,

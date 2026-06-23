@@ -30,6 +30,12 @@ export function getPropDisplayLabels(prop: any = {}): PropDisplayLabel {
   const tier = String(prop.tier || "").toUpperCase();
   const badges: string[] = [];
 
+  if (prop.topPickLabel) {
+    badges.unshift(prop.topPickLabel);
+  } else if (prop.topPickRank) {
+    badges.unshift(`Top #${prop.topPickRank}`);
+  }
+
   if (prop.noPlay) {
     badges.push("No Play");
   } else if (String(prop.trackingType || prop.recordType || "").toUpperCase() === "TEST") {
