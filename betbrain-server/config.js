@@ -16,7 +16,7 @@ export const CONFIG = {
 
   CACHE_MINUTES: num(process.env.CACHE_MINUTES, 30),
 
-  TOP_PROP_LIMIT: num(process.env.TOP_PROP_LIMIT, 8),
+  TOP_PROP_LIMIT: num(process.env.TOP_PROP_LIMIT, 2),
 
   TIMEZONE: process.env.TIMEZONE || "America/Chicago",
 

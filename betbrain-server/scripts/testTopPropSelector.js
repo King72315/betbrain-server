@@ -137,6 +137,171 @@ function testFifthPropFromGameNotLostBeforeGlobalRank() {
   );
 }
 
+function testReturnsOnlyTwoMax() {
+  const picks = [
+    makeWnbaPick({ player: "A", overScore: 50, line: 10.5 }),
+    makeWnbaPick({ player: "B", overScore: 45, line: 11.5 }),
+    makeWnbaPick({ player: "C", overScore: 40, line: 12.5 }),
+    makeWnbaPick({ player: "D", overScore: 35, line: 13.5 }),
+    makeWnbaPick({ player: "E", overScore: 30, line: 14.5 }),
+  ];
+  const game = makeGame(picks, picks);
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 2);
+  assert.strictEqual(result.selectedCount, 2);
+  assert.ok(result.topSelectionAudit.hiddenDueToLimit >= 3);
+}
+
+function testHighestScoresSelected() {
+  const low = makeWnbaPick({ player: "Low", overScore: 20, line: 10.5 });
+  const mid = makeWnbaPick({ player: "Mid", overScore: 40, line: 11.5 });
+  const high = makeWnbaPick({ player: "High", overScore: 60, line: 12.5 });
+  const top = makeWnbaPick({ player: "Top", overScore: 80, line: 13.5 });
+
+  const game = makeGame([low, mid, high, top], [low, mid, high, top]);
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 2);
+  assert.strictEqual(result.topProps[0].player, "Top");
+  assert.strictEqual(result.topProps[1].player, "High");
+}
+
+function testNoBalanceForcing() {
+  const officialHigh = makeWnbaPick({
+    player: "Official High",
+    officialEligible: true,
+    readerDecision: "OFFICIAL",
+    finalDecision: "OFFICIAL",
+    trackingType: "OFFICIAL",
+    overScore: 70,
+    line: 10.5,
+  });
+  const officialHigher = makeWnbaPick({
+    player: "Official Higher",
+    officialEligible: true,
+    readerDecision: "OFFICIAL",
+    finalDecision: "OFFICIAL",
+    trackingType: "OFFICIAL",
+    overScore: 90,
+    line: 11.5,
+  });
+  const testHigher = makeWnbaPick({
+    player: "Test Higher",
+    officialEligible: false,
+    readerDecision: "TEST",
+    finalDecision: "TEST",
+    trackingType: "TEST",
+    overScore: 50,
+    line: 12.5,
+  });
+
+  const game = makeGame(
+    [officialHigh, officialHigher, testHigher],
+    [officialHigh, officialHigher, testHigher]
+  );
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 2);
+  assert.strictEqual(result.topOfficialProps.length, 2);
+  assert.strictEqual(result.topTestProps.length, 0);
+  assert.strictEqual(result.topProps[0].player, "Official Higher");
+  assert.strictEqual(result.topProps[1].player, "Official High");
+}
+
+function testBothTestWhenNoOfficial() {
+  const testA = makeWnbaPick({
+    player: "Test A",
+    officialEligible: false,
+    readerDecision: "TEST",
+    finalDecision: "TEST",
+    trackingType: "TEST",
+    overScore: 55,
+    line: 10.5,
+  });
+  const testB = makeWnbaPick({
+    player: "Test B",
+    officialEligible: false,
+    readerDecision: "TEST",
+    finalDecision: "TEST",
+    trackingType: "TEST",
+    overScore: 50,
+    line: 11.5,
+  });
+  const testC = makeWnbaPick({
+    player: "Test C",
+    officialEligible: false,
+    readerDecision: "TEST",
+    finalDecision: "TEST",
+    trackingType: "TEST",
+    overScore: 30,
+    line: 12.5,
+  });
+
+  const game = makeGame([testA, testB, testC], [testA, testB, testC]);
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 2);
+  assert.strictEqual(result.topOfficialProps.length, 0);
+  assert.strictEqual(result.topTestProps.length, 2);
+  assert.strictEqual(result.topTestProps[0].player, "Test A");
+  assert.strictEqual(result.topTestProps[1].player, "Test B");
+}
+
+function testBothOfficialWhenHighest() {
+  const officialA = makeWnbaPick({
+    player: "Official A",
+    officialEligible: true,
+    readerDecision: "OFFICIAL",
+    finalDecision: "OFFICIAL",
+    trackingType: "OFFICIAL",
+    overScore: 65,
+    line: 10.5,
+  });
+  const officialB = makeWnbaPick({
+    player: "Official B",
+    officialEligible: true,
+    readerDecision: "OFFICIAL",
+    finalDecision: "OFFICIAL",
+    trackingType: "OFFICIAL",
+    overScore: 60,
+    line: 11.5,
+  });
+  const testPick = makeWnbaPick({
+    player: "Test Low",
+    officialEligible: false,
+    readerDecision: "TEST",
+    finalDecision: "TEST",
+    trackingType: "TEST",
+    overScore: 20,
+    line: 12.5,
+  });
+
+  const game = makeGame([officialA, officialB, testPick], [officialA, officialB, testPick]);
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 2);
+  assert.strictEqual(result.topOfficialProps.length, 2);
+  assert.strictEqual(result.topTestProps.length, 0);
+}
+
+function testWnbaMetadataPreserved() {
+  const pick = makeWnbaPick({
+    player: "Meta Player",
+    officialEligible: true,
+    overScore: 55,
+    wnbaDataCard: { bookLine: 15.5, dataConfidenceScore: 88 },
+  });
+  const game = makeGame([pick], [pick]);
+  const result = selectTopProps([game], { league: "WNBA" });
+
+  assert.strictEqual(result.topProps.length, 1);
+  assert.ok(result.topProps[0].wnbaReader);
+  assert.ok(result.topProps[0].wnbaDataCard);
+  assert.strictEqual(result.topProps[0].engineHandled, "WNBA_V2");
+  assert.ok(Number.isFinite(result.topProps[0].bestPropScore));
+}
+
 function testTestInTestListNotOfficial() {
   const official = makeWnbaPick({
     player: "Official One",
@@ -146,6 +311,7 @@ function testTestInTestListNotOfficial() {
     trackingType: "OFFICIAL",
     tier: "PREMIUM",
     overScore: 50,
+    line: 10.5,
   });
   const testPick = makeWnbaPick({
     player: "Test One",
@@ -155,11 +321,13 @@ function testTestInTestListNotOfficial() {
     trackingType: "TEST",
     tier: "WATCHLIST",
     overScore: 45,
+    line: 11.5,
   });
 
   const game = makeGame([official, testPick], [official, testPick]);
-  const result = selectTopProps([game], { league: "WNBA", limit: 8 });
+  const result = selectTopProps([game], { league: "WNBA" });
 
+  assert.strictEqual(result.topProps.length, 2);
   assert.strictEqual(result.topOfficialProps.length, 1);
   assert.strictEqual(result.topTestProps.length, 1);
   assert.strictEqual(result.topOfficialProps[0].player, "Official One");
@@ -180,7 +348,7 @@ function testNoBetExcluded() {
   });
 
   const game = makeGame([playable], [playable, noBet]);
-  const result = selectTopProps([game], { league: "WNBA", limit: 8 });
+  const result = selectTopProps([game], { league: "WNBA" });
 
   assert.strictEqual(result.noBetCount, 1);
   assert.ok(!result.topProps.some((p) => p.player === "No Bet"));
@@ -211,7 +379,7 @@ function testNbaUnchanged() {
   assert.strictEqual(viaAdapter, viaRanker);
 
   const game = makeGame([nbaPick], [nbaPick], { league: "NBA" });
-  const result = selectTopProps([game], { league: "NBA", limit: 8 });
+  const result = selectTopProps([game], { league: "NBA" });
   assert.strictEqual(result.topProps.length, 1);
   assert.strictEqual(result.topProps[0].player, "NBA Star");
 }
@@ -231,6 +399,12 @@ function run() {
   const tests = [
     ["WNBA uses reader score not tier only", testWnbaUsesReaderScoreNotTierOnly],
     ["5th prop from game not lost before global rank", testFifthPropFromGameNotLostBeforeGlobalRank],
+    ["returns only 2 max", testReturnsOnlyTwoMax],
+    ["highest scores selected", testHighestScoresSelected],
+    ["no balance forcing", testNoBalanceForcing],
+    ["both TEST when no official", testBothTestWhenNoOfficial],
+    ["both Official when highest", testBothOfficialWhenHighest],
+    ["WNBA metadata preserved", testWnbaMetadataPreserved],
     ["TEST in test list not official", testTestInTestListNotOfficial],
     ["NO_BET excluded", testNoBetExcluded],
     ["NBA unchanged", testNbaUnchanged],

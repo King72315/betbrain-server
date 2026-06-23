@@ -15,6 +15,7 @@ export function createTopPropSelectionAudit() {
     avgNbaScore: null,
     avgWnbaScore: null,
     hiddenDueToCap: 0,
+    hiddenDueToLimit: 0,
     hiddenDuplicatePlayer: 0,
     hiddenOppositeSide: 0,
     hiddenStarted: 0,
@@ -49,6 +50,7 @@ export function finalizeTopPropSelectionAudit(audit = {}, selected = [], scored 
   );
 
   audit.hiddenDueToCap = audit.hidden.filter((h) => h.reason === "hidden_due_to_cap").length;
+  audit.hiddenDueToLimit = audit.hidden.filter((h) => h.reason === "hidden_due_to_limit").length;
   audit.hiddenDuplicatePlayer = audit.hidden.filter((h) => h.reason === "duplicate_player").length;
   audit.hiddenOppositeSide = audit.hidden.filter((h) => h.reason === "opposite_side").length;
 

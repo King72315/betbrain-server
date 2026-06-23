@@ -222,10 +222,10 @@ export default function TopPropsScreen() {
         }
       >
         <View style={styles.headerCard}>
-          <Text style={styles.title}>🔥 Top Props</Text>
+          <Text style={styles.title}>Best 2 Props</Text>
           <Text style={styles.subtitle}>CourtEdge — Powered by BetBrain</Text>
           <Text style={styles.motto}>
-            Official props auto-track to Results. Save is optional shadow mode.
+            Top 2 by Best Prop Score — official auto-tracks to Results; test plays are learning-only.
           </Text>
           {WNBA_SHADOW_UI ? (
             <Text style={styles.shadowNote}>

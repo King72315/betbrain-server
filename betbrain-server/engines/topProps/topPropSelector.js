@@ -148,7 +148,7 @@ function filterInvalidCandidates(candidates = [], audit = {}) {
 }
 
 function applyDiversityCaps(sorted = [], options = {}, audit = {}) {
-  const limit = Number(options.limit ?? CONFIG.TOP_PROP_LIMIT ?? 8);
+  const limit = Number(options.limit ?? CONFIG.TOP_PROP_LIMIT ?? 2);
   const maxPerGame = options.maxPerGame ?? options.maxPerGameCap ?? null;
   const selected = [];
   const playersSeen = new Set();
@@ -197,7 +197,15 @@ function applyDiversityCaps(sorted = [], options = {}, audit = {}) {
       }
     }
 
-    if (selected.length >= limit) break;
+    if (selected.length >= limit) {
+      audit.hiddenDueToLimit += 1;
+      audit.hidden.push({
+        reason: "hidden_due_to_limit",
+        limit,
+        pick: summarizePickForAudit(pick),
+      });
+      continue;
+    }
 
     selected.push(pick);
     playersSeen.add(pKey);
