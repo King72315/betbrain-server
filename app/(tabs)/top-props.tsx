@@ -32,8 +32,12 @@ type LeagueFilter = (typeof FILTERS)[number];
 
 export default function TopPropsScreen() {
   const [topProps, setTopProps] = useState<any[]>([]);
+  const [topOfficialProps, setTopOfficialProps] = useState<any[]>([]);
+  const [topTestProps, setTopTestProps] = useState<any[]>([]);
   const [topNBAProps, setTopNBAProps] = useState<any[]>([]);
   const [topWNBAProps, setTopWNBAProps] = useState<any[]>([]);
+  const [topWNBAOfficialProps, setTopWNBAOfficialProps] = useState<any[]>([]);
+  const [topWNBATestProps, setTopWNBATestProps] = useState<any[]>([]);
   const [leagueFilter, setLeagueFilter] = useState<LeagueFilter>("ALL");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,9 +55,56 @@ export default function TopPropsScreen() {
     return topProps;
   }, [leagueFilter, topProps, topNBAProps, topWNBAProps]);
 
-  const groupedProps = useMemo(
-    () => groupByDayBucket(visibleProps),
-    [visibleProps]
+  const visibleOfficialProps = useMemo(() => {
+    if (leagueFilter === "NBA") {
+      return topNBAProps.filter((pick) => pick.officialEligible !== false);
+    }
+    if (leagueFilter === "WNBA") {
+      return topWNBAOfficialProps.length
+        ? topWNBAOfficialProps
+        : topWNBAProps.filter((pick) => pick.officialEligible !== false);
+    }
+    return topOfficialProps.length
+      ? topOfficialProps
+      : topProps.filter((pick) => pick.officialEligible !== false);
+  }, [
+    leagueFilter,
+    topOfficialProps,
+    topWNBAOfficialProps,
+    topNBAProps,
+    topWNBAProps,
+    topProps,
+  ]);
+
+  const visibleTestProps = useMemo(() => {
+    if (leagueFilter === "NBA") {
+      return topNBAProps.filter((pick) => pick.officialEligible === false);
+    }
+    if (leagueFilter === "WNBA") {
+      return topWNBATestProps.length
+        ? topWNBATestProps
+        : topWNBAProps.filter((pick) => pick.officialEligible === false);
+    }
+    return topTestProps.length
+      ? topTestProps
+      : topProps.filter((pick) => pick.officialEligible === false);
+  }, [
+    leagueFilter,
+    topTestProps,
+    topWNBATestProps,
+    topNBAProps,
+    topWNBAProps,
+    topProps,
+  ]);
+
+  const groupedOfficialProps = useMemo(
+    () => groupByDayBucket(visibleOfficialProps),
+    [visibleOfficialProps]
+  );
+
+  const groupedTestProps = useMemo(
+    () => groupByDayBucket(visibleTestProps),
+    [visibleTestProps]
   );
 
   const loadTopProps = async () => {
@@ -63,16 +114,24 @@ export default function TopPropsScreen() {
       const data = await fetchTopProps();
 
       setTopProps(data.topProps || []);
+      setTopOfficialProps(data.topOfficialProps || []);
+      setTopTestProps(data.topTestProps || []);
       setTopNBAProps(data.topNBAProps || []);
       setTopWNBAProps(data.topWNBAProps || []);
+      setTopWNBAOfficialProps(data.topWNBAOfficialProps || []);
+      setTopWNBATestProps(data.topWNBATestProps || []);
       setLastUpdated(data.lastUpdated || null);
       setFilterAudit(data.filterAudit || null);
       setLoadError(formatApiLoadError(data));
     } catch (err) {
       console.log("LOAD TOP PROPS ERROR:", err);
       setTopProps([]);
+      setTopOfficialProps([]);
+      setTopTestProps([]);
       setTopNBAProps([]);
       setTopWNBAProps([]);
+      setTopWNBAOfficialProps([]);
+      setTopWNBATestProps([]);
       setLoadError(String(err));
     } finally {
       setLoading(false);
@@ -131,18 +190,14 @@ export default function TopPropsScreen() {
     (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
   ).length;
 
-  const wnbaOfficialCount = topWNBAProps.filter(
-    (pick) =>
-      String(pick.tier || "").toUpperCase() === "PREMIUM" &&
-      pick.officialEligible !== false
-  ).length;
+  const wnbaOfficialCount = visibleOfficialProps.length;
 
   const showNoOfficialWnba =
     leagueFilter === "WNBA" &&
     !loading &&
     !loadError &&
     wnbaOfficialCount === 0 &&
-    topWNBAProps.length > 0;
+    visibleTestProps.length > 0;
 
   const getReportText = () =>
     buildTopPropsReport({
@@ -256,20 +311,53 @@ export default function TopPropsScreen() {
           <View style={styles.noOfficialCard}>
             <Text style={styles.noOfficialTitle}>No Official Plays Found</Text>
             <Text style={styles.noOfficialText}>
-              WNBA v1 gates blocked all PREMIUM official plays for Results.
-              Watchlist and LEAN picks below are learning-only — not auto-tracked
-              to Results.
+              WNBA v2 reader found test/learning plays only — none passed official
+              gates for Results auto-tracking. Plays below are learning-only.
+            </Text>
+          </View>
+        )}
+
+        {!loading && visibleOfficialProps.length > 0 && (
+          <View style={styles.sectionHeaderBlock}>
+            <Text style={styles.sectionHeaderTitle}>Official Plays</Text>
+            <Text style={styles.sectionHeaderSub}>
+              Auto-tracked to Results when eligible
             </Text>
           </View>
         )}
 
         {!loading &&
-          groupedProps.map((section) => (
-            <View key={section.bucket} style={styles.sectionBlock}>
+          groupedOfficialProps.map((section) => (
+            <View key={`official-${section.bucket}`} style={styles.sectionBlock}>
               <Text style={styles.sectionTitle}>{section.label}</Text>
               {section.items.map((pick, index) => (
                 <PropCard
-                  key={`${section.bucket}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
+                  key={`official-${section.bucket}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
+                  pick={pick}
+                  index={index}
+                  onSave={() => handleSavePick(pick)}
+                  showSaveHint
+                />
+              ))}
+            </View>
+          ))}
+
+        {!loading && visibleTestProps.length > 0 && (
+          <View style={styles.sectionHeaderBlock}>
+            <Text style={styles.sectionHeaderTitle}>Test / Learning</Text>
+            <Text style={styles.sectionHeaderSub}>
+              Shadow mode — save optional, not official Results
+            </Text>
+          </View>
+        )}
+
+        {!loading &&
+          groupedTestProps.map((section) => (
+            <View key={`test-${section.bucket}`} style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>{section.label}</Text>
+              {section.items.map((pick, index) => (
+                <PropCard
+                  key={`test-${section.bucket}-${pick.player}-${pick.team}-${pick.line}-${pick.pick}-${index}`}
                   pick={pick}
                   index={index}
                   onSave={() => handleSavePick(pick)}
@@ -462,6 +550,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
+  },
+
+  sectionHeaderBlock: {
+    marginTop: 4,
+    marginBottom: 10,
+  },
+
+  sectionHeaderTitle: {
+    color: "#f8fafc",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+
+  sectionHeaderSub: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
   },
 
   sectionBlock: {

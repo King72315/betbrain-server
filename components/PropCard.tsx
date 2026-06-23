@@ -37,6 +37,19 @@ export default function PropCard({
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
+  const wnbaV2 = String(pick.engineHandled || "") === "WNBA_V2";
+  const readerDecision = pick.readerDecision || pick.wnbaReader?.decision;
+  const readerConfidence =
+    pick.readerConfidence ?? pick.wnbaReader?.readerConfidence;
+  const dataConfidence =
+    pick.dataConfidence ?? pick.wnbaDataCard?.dataConfidenceScore ?? pick.dataQuality;
+  const bestPropScore = pick.bestPropScore ?? pick.finalBestPropScore;
+  const whySide = pick.whySide || pick.wnbaReader?.supports || pick.support || [];
+  const missingWarnings =
+    pick.missingDataWarnings ||
+    (pick.wnbaDataCard?.dataMissingFlags || [])
+      .filter((f: any) => f.missing)
+      .map((f: any) => f.note || f.key);
   const wnbaShadowEnabled =
     process.env.EXPO_PUBLIC_WNBA_SHADOW_RECALIBRATION === "true";
   const wnbaShadow = pick.wnbaShadow || null;
@@ -106,6 +119,9 @@ export default function PropCard({
           {dataMode ? (
             <Text style={styles.dataModeBadge}>{formatDataMode(dataMode)}</Text>
           ) : null}
+          {wnbaV2 ? (
+            <Text style={styles.engineBadge}>WNBA v2</Text>
+          ) : null}
           {wnbaShadowEnabled && wnbaShadow && shadowTier ? (
             <Text style={styles.shadowTierBadge}>Shadow {shadowTier}</Text>
           ) : null}
@@ -131,6 +147,24 @@ export default function PropCard({
         <Text style={styles.pickSide}>
           {side} {safeDisplay(line)} {stat}
         </Text>
+        {wnbaV2 ? (
+          <View style={styles.wnbaV2Compact}>
+            <Text style={styles.wnbaV2Line}>
+              Score {safeDisplay(bestPropScore)} • {readerDecision || "—"} • Reader{" "}
+              {safeDisplay(readerConfidence)}% • Data {safeDisplay(dataConfidence)}%
+            </Text>
+            {whySide?.length ? (
+              <Text style={styles.wnbaV2Why} numberOfLines={2}>
+                Why {side}: {whySide.slice(0, 2).join(" • ")}
+              </Text>
+            ) : null}
+            {missingWarnings?.length ? (
+              <Text style={styles.wnbaV2Warn} numberOfLines={2}>
+                Missing: {missingWarnings.slice(0, 3).join(", ")}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         <Text style={styles.projectionText}>
           Projection {safeDisplay(pick.projection)} • Edge {safeDisplay(pick.edge)}
         </Text>
@@ -766,6 +800,35 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     fontSize: 11,
     fontWeight: "900",
+  },
+  engineBadge: {
+    color: "#c4b5fd",
+    backgroundColor: "#4c1d95",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  wnbaV2Compact: {
+    marginTop: 8,
+    gap: 4,
+  },
+  wnbaV2Line: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  wnbaV2Why: {
+    color: "#86efac",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  wnbaV2Warn: {
+    color: "#fca5a5",
+    fontSize: 11,
+    fontWeight: "600",
   },
   dataModeBadge: {
     color: "#e9d5ff",

@@ -50,6 +50,10 @@ import {
 import { buildOpportunityScore } from "./engines/opportunityEngine.js";
 import { buildPlayerState } from "./engines/playerStateBuilder.js";
 import { buildTopPicksForGame } from "./engines/pickRanker.js";
+import {
+  selectTopProps,
+  TOP_PROP_SELECTOR_VERSION,
+} from "./engines/topProps/topPropSelector.js";
 import { buildPlayoffContext } from "./engines/playoffEngine.js";
 import { buildFairLine } from "./engines/fairLineEngine.js";
 import { buildRoleChange } from "./engines/roleChangeEngine.js";
@@ -166,7 +170,7 @@ import {
 } from "./services/reslate0622V1Service.js";
 import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
 
-const SERVER_BUILD = "courteedge-wnba-side-selection-test-v1";
+const SERVER_BUILD = "courteedge-top-prop-selector-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -177,6 +181,9 @@ const ENGINE_LOAD_FLAGS = {
   volumeDangerGatesEngineLoaded: typeof evaluateVolumeDangerGates === "function",
   wnbaOfficialV1Loaded: typeof applyWnbaOfficialV1Rules === "function",
   sideSelectionEngineLoaded: typeof evaluateSideSelection === "function",
+  topPropSelectorLoaded: typeof selectTopProps === "function",
+  topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+  wnbaV2TopPropSelectorLoaded: true,
 };
 
 const app = express();
@@ -781,53 +788,8 @@ function getCombinedDataQuality({ opportunity = {}, prop = {}, last5 = [], match
   return Math.round(average(values));
 }
 
-function buildTopProps(gameCards = [], options = {}) {
-  const limit = Number(options.limit || CONFIG.TOP_PROP_LIMIT || 8);
-  const league = options.league || null;
-
-  const picks = [];
-
-  for (const game of gameCards) {
-    if (league && game.league !== league) continue;
-
-    for (const pick of game.picks || []) {
-      picks.push({
-        ...pick,
-        gameId: game.gameId || game.id,
-        game: game.game,
-        date: game.date,
-        dateLabel: game.dateLabel,
-        dayBucket: game.dayBucket || pick.dayBucket || "",
-        time: game.time,
-        commenceTime: game.commenceTime,
-        minutesUntilStart: game.minutesUntilStart,
-        isStarted: game.isStarted,
-        league: game.league || pick.league,
-      });
-    }
-  }
-
-  return picks
-    .filter((pick) => !pick.noPlay)
-    .filter((pick) => !pick.isStarted)
-    .sort((a, b) => {
-      const aTier = a.tier === "PREMIUM" ? 2 : a.tier === "WATCHLIST" ? 1 : 0;
-      const bTier = b.tier === "PREMIUM" ? 2 : b.tier === "WATCHLIST" ? 1 : 0;
-
-      return (
-        bTier - aTier ||
-        Number(b.confidence || 0) - Number(a.confidence || 0) ||
-        Number(b.netEdge || 0) - Number(a.netEdge || 0) ||
-        Number(a.chosenRisk || 99) - Number(b.chosenRisk || 99) ||
-        Number(b.marketQuality || 0) - Number(a.marketQuality || 0) ||
-        Number(b.bookCount || 0) - Number(a.bookCount || 0)
-      );
-    })
-    .slice(0, limit)
-    .map((pick, index) => ({
-      ...pick,
-      rank: index + 1,
-    }));
+function buildTopPropsFromSelector(gameCards = [], options = {}) {
+  return selectTopProps(gameCards, options);
 }
 
 function formatStartTimeDisplay(commenceTime) {
@@ -1767,6 +1729,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
     gameCards.push({
       ...rankedGame,
+      allGeneratedCandidates: builtPicks.map((pick) => ({ ...pick })),
       rawPropCount: rawProps.length,
       consensusPropCount: props.length,
       rejectedPickCount: rejectedPicks.length,
@@ -1900,9 +1863,18 @@ async function refreshAllPicks() {
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
-  const topProps = buildTopProps(games);
-  const topNBAProps = buildTopProps(games, { league: "NBA" });
-  const topWNBAProps = buildTopProps(games, { league: "WNBA" });
+  const allTopSelection = buildTopPropsFromSelector(games);
+  const nbaTopSelection = buildTopPropsFromSelector(games, { league: "NBA" });
+  const wnbaTopSelection = buildTopPropsFromSelector(games, { league: "WNBA" });
+
+  const topProps = allTopSelection.topProps;
+  const topNBAProps = nbaTopSelection.topProps;
+  const topWNBAProps = wnbaTopSelection.topProps;
+  const topOfficialProps = allTopSelection.topOfficialProps;
+  const topTestProps = allTopSelection.topTestProps;
+  const topWNBAOfficialProps = wnbaTopSelection.topOfficialProps;
+  const topWNBATestProps = wnbaTopSelection.topTestProps;
+  const topSelectionAudit = allTopSelection.topSelectionAudit;
 
   const generatedProps = collectAllGeneratedProps(games);
   addTrackedProps(generatedProps);
@@ -1937,8 +1909,19 @@ async function refreshAllPicks() {
     },
 
     topProps,
+    topOfficialProps,
+    topTestProps,
     topNBAProps,
     topWNBAProps,
+    topWNBAOfficialProps,
+    topWNBATestProps,
+    topSelectionAudit,
+    candidateCount: topSelectionAudit?.candidateCount ?? null,
+    selectedCount: topSelectionAudit?.selectedCount ?? topProps.length,
+    officialCount: topSelectionAudit?.officialCount ?? null,
+    testCount: topSelectionAudit?.testCount ?? null,
+    noBetCount: topSelectionAudit?.noBetCount ?? null,
+    topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
     generatedProps,
     trackingMode: TRACKING_MODE,
     generatedPropCount: generatedProps.length,
@@ -2020,8 +2003,19 @@ app.get("/top-props", async (req, res) => {
       ok: true,
       lastUpdated: picksCache.lastUpdated,
       topProps: picksCache.topProps || [],
+      topOfficialProps: picksCache.topOfficialProps || [],
+      topTestProps: picksCache.topTestProps || [],
       topNBAProps: picksCache.topNBAProps || [],
       topWNBAProps: picksCache.topWNBAProps || [],
+      topWNBAOfficialProps: picksCache.topWNBAOfficialProps || [],
+      topWNBATestProps: picksCache.topWNBATestProps || [],
+      topSelectionAudit: picksCache.topSelectionAudit || null,
+      candidateCount: picksCache.candidateCount ?? null,
+      selectedCount: picksCache.selectedCount ?? picksCache.topProps?.length ?? null,
+      officialCount: picksCache.officialCount ?? null,
+      testCount: picksCache.testCount ?? null,
+      noBetCount: picksCache.noBetCount ?? null,
+      topPropSelectorVersion: picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
       filterAudit: picksCache.filterAudit || null,
       trackingMode: TRACKING_MODE,
       generatedPropCount: picksCache.generatedPropCount ?? null,
@@ -2462,6 +2456,9 @@ app.get("/diagnostics", (req, res) => {
     },
     lastBackup: getLastBackup(),
     lastBlockedWrite: getLastBlockedWrite(),
+    topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+    wnbaV2TopPropSelectorLoaded: ENGINE_LOAD_FLAGS.wnbaV2TopPropSelectorLoaded,
+    topPropSelection: picksCache?.topSelectionAudit || null,
     cache: {
       fresh: cacheFresh(),
       lastRefreshTime: lastRefreshTime
@@ -2470,6 +2467,11 @@ app.get("/diagnostics", (req, res) => {
       refreshesTodayCount,
       generatedPropCount: picksCache?.generatedPropCount ?? null,
       topPropsCount: picksCache?.topProps?.length ?? null,
+      candidateCount: picksCache?.candidateCount ?? null,
+      selectedCount: picksCache?.selectedCount ?? null,
+      officialCount: picksCache?.officialCount ?? null,
+      testCount: picksCache?.testCount ?? null,
+      hiddenDueToCap: picksCache?.topSelectionAudit?.hiddenDueToCap ?? null,
     },
     time: new Date().toISOString(),
   });
