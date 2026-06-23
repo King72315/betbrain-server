@@ -84,6 +84,10 @@ import {
   buildWnbaDefenseShadowContext,
   isWnbaShadowRecalibrationEnabled,
 } from "./engines/wnbaShadowEngine.js";
+import {
+  evaluateWnbaPropDecision,
+  isCourteEdgeWnbaV2Enabled,
+} from "./engines/wnba/wnbaDecisionEngine.js";
 
 import {
   appendMarketSnapshot,
@@ -1227,6 +1231,59 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         marketQuality: prop.marketQuality,
         bookCount: prop.bookCount,
       });
+
+      if (league === "WNBA" && isCourteEdgeWnbaV2Enabled()) {
+        const v2Result = await evaluateWnbaPropDecision({
+          playerName,
+          team: safeTeam,
+          opponent,
+          game,
+          prop,
+          last5,
+          bdlSeasonGames,
+          seasonAverage,
+          matchupGames,
+          opponentMatchup,
+          blowoutRisk,
+          wnbaGameContext,
+          availabilityGate,
+          defenseResult,
+          marketSnapshot,
+          playoff,
+        });
+
+        if (!v2Result.accepted) {
+          trackSideAuditRejection(
+            sideAudit,
+            null,
+            v2Result.rejection?.details || ["WNBA v2 no-play"]
+          );
+          rejectedPicks.push(v2Result.rejection);
+          console.log("NO PLAY - WNBA V2:", {
+            league,
+            playerName,
+            line: prop.line,
+            reader: v2Result.reader?.decision,
+            reasonCodes: v2Result.reader?.reasonCodes,
+          });
+          continue;
+        }
+
+        const v2Pick = v2Result.pick;
+        if (v2Result.pickSide === "OVER") {
+          sideAudit.chosenOver += 1;
+          sideAudit.currentSideOver += 1;
+        } else if (v2Result.pickSide === "UNDER") {
+          sideAudit.chosenUnder += 1;
+          sideAudit.currentSideUnder += 1;
+        }
+
+        builtPicks.push({
+          ...v2Pick,
+          label: `${playerName} — ${safeTeam} ${v2Pick.pick} ${prop.line} Points`,
+        });
+        continue;
+      }
 
       const overPick = buildWinProbability({
         player: playerName,
