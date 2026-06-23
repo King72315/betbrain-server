@@ -169,8 +169,17 @@ import {
   RESLATE_SLATE_DATE,
 } from "./services/reslate0622V1Service.js";
 import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
+import {
+  isOfficialPick,
+  isTestPick,
+} from "./engines/topProps/topPropSelectionAudit.js";
+import {
+  getActiveTopPicksSnapshot,
+  getTopPickRankMap,
+  saveTopPicksSnapshot,
+} from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-top-prop-selector-v1";
+const SERVER_BUILD = "courteedge-top-prop-best2-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -218,15 +227,53 @@ function requireAdminSecret(req, res, next) {
 
 let picksCache = null;
 let lastRefreshTime = 0;
+let cachedSelectorVersion = null;
 let refreshesTodayCount = 0;
 let refreshesTodayDate = "";
 
 function cacheFresh() {
   if (!picksCache) return false;
 
+  if (
+    picksCache.topPropSelectorVersion &&
+    picksCache.topPropSelectorVersion !== TOP_PROP_SELECTOR_VERSION
+  ) {
+    return false;
+  }
+
+  if (cachedSelectorVersion && cachedSelectorVersion !== TOP_PROP_SELECTOR_VERSION) {
+    return false;
+  }
+
   const ageMinutes = (Date.now() - lastRefreshTime) / 1000 / 60;
 
   return ageMinutes < CONFIG.CACHE_MINUTES;
+}
+
+function clampTopPropsSelection(selection = {}) {
+  const limit = Number(CONFIG.TOP_PROP_LIMIT ?? 2);
+  const topProps = (selection.topProps || []).slice(0, limit);
+  const topOfficialProps = topProps.filter(isOfficialPick);
+  const topTestProps = topProps.filter(isTestPick);
+  const audit = selection.topSelectionAudit
+    ? {
+        ...selection.topSelectionAudit,
+        selectedCount: topProps.length,
+        officialCount: topOfficialProps.length,
+        testCount: topTestProps.length,
+      }
+    : null;
+
+  return {
+    ...selection,
+    topProps,
+    topOfficialProps,
+    topTestProps,
+    topSelectionAudit: audit,
+    selectedCount: topProps.length,
+    officialCount: topOfficialProps.length,
+    testCount: topTestProps.length,
+  };
 }
 
 /** Keep tracked-props.json aligned when serving cached board data (cache hits skip refresh). */
@@ -235,7 +282,7 @@ function syncTrackedFromCache() {
 
   const generatedProps = collectAllGeneratedProps(picksCache.games);
   if (generatedProps.length) {
-    addTrackedProps(generatedProps);
+    addTrackedProps(generatedProps, { skipTopPickReferences: true });
   }
 }
 
@@ -1863,9 +1910,13 @@ async function refreshAllPicks() {
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
-  const allTopSelection = buildTopPropsFromSelector(games);
-  const nbaTopSelection = buildTopPropsFromSelector(games, { league: "NBA" });
-  const wnbaTopSelection = buildTopPropsFromSelector(games, { league: "WNBA" });
+  const allTopSelection = clampTopPropsSelection(buildTopPropsFromSelector(games));
+  const nbaTopSelection = clampTopPropsSelection(
+    buildTopPropsFromSelector(games, { league: "NBA" })
+  );
+  const wnbaTopSelection = clampTopPropsSelection(
+    buildTopPropsFromSelector(games, { league: "WNBA" })
+  );
 
   const topProps = allTopSelection.topProps;
   const topNBAProps = nbaTopSelection.topProps;
@@ -1876,8 +1927,15 @@ async function refreshAllPicks() {
   const topWNBATestProps = wnbaTopSelection.topTestProps;
   const topSelectionAudit = allTopSelection.topSelectionAudit;
 
+  saveTopPicksSnapshot(topProps, {
+    slateDate: getTodayLocalDate(),
+    selectorVersion: TOP_PROP_SELECTOR_VERSION,
+    topSelectionAudit,
+    limit: CONFIG.TOP_PROP_LIMIT,
+  });
+
   const generatedProps = collectAllGeneratedProps(games);
-  addTrackedProps(generatedProps);
+  addTrackedProps(generatedProps, { skipTopPickReferences: true });
 
   const filterAudit = buildFilterAudit(games, sideAudit, {
     generatedProps,
@@ -1922,6 +1980,7 @@ async function refreshAllPicks() {
     testCount: topSelectionAudit?.testCount ?? null,
     noBetCount: topSelectionAudit?.noBetCount ?? null,
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+    topPropLimit: CONFIG.TOP_PROP_LIMIT,
     generatedProps,
     trackingMode: TRACKING_MODE,
     generatedPropCount: generatedProps.length,
@@ -1933,6 +1992,7 @@ async function refreshAllPicks() {
 
   picksCache = result;
   lastRefreshTime = Date.now();
+  cachedSelectorVersion = TOP_PROP_SELECTOR_VERSION;
   const refreshDay = getTodayLocalDate();
   if (refreshesTodayDate !== refreshDay) {
     refreshesTodayDate = refreshDay;
@@ -2002,23 +2062,40 @@ app.get("/top-props", async (req, res) => {
     res.json({
       ok: true,
       lastUpdated: picksCache.lastUpdated,
-      topProps: picksCache.topProps || [],
-      topOfficialProps: picksCache.topOfficialProps || [],
-      topTestProps: picksCache.topTestProps || [],
-      topNBAProps: picksCache.topNBAProps || [],
-      topWNBAProps: picksCache.topWNBAProps || [],
-      topWNBAOfficialProps: picksCache.topWNBAOfficialProps || [],
-      topWNBATestProps: picksCache.topWNBATestProps || [],
+      topProps: (picksCache.topProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topOfficialProps: (picksCache.topOfficialProps || []).slice(
+        0,
+        CONFIG.TOP_PROP_LIMIT
+      ),
+      topTestProps: (picksCache.topTestProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topNBAProps: (picksCache.topNBAProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topWNBAProps: (picksCache.topWNBAProps || []).slice(0, CONFIG.TOP_PROP_LIMIT),
+      topWNBAOfficialProps: (picksCache.topWNBAOfficialProps || []).slice(
+        0,
+        CONFIG.TOP_PROP_LIMIT
+      ),
+      topWNBATestProps: (picksCache.topWNBATestProps || []).slice(
+        0,
+        CONFIG.TOP_PROP_LIMIT
+      ),
       topSelectionAudit: picksCache.topSelectionAudit || null,
       candidateCount: picksCache.candidateCount ?? null,
-      selectedCount: picksCache.selectedCount ?? picksCache.topProps?.length ?? null,
+      selectedCount: Math.min(
+        picksCache.selectedCount ?? picksCache.topProps?.length ?? 0,
+        CONFIG.TOP_PROP_LIMIT
+      ),
       officialCount: picksCache.officialCount ?? null,
       testCount: picksCache.testCount ?? null,
       noBetCount: picksCache.noBetCount ?? null,
-      topPropSelectorVersion: picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
+      topPropSelectorVersion:
+        picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
+      topPropLimit: CONFIG.TOP_PROP_LIMIT,
+      hiddenDueToLimit: picksCache.topSelectionAudit?.hiddenDueToLimit ?? null,
+      engineHandled: picksCache.topSelectionAudit?.engineHandled ?? {},
       filterAudit: picksCache.filterAudit || null,
       trackingMode: TRACKING_MODE,
       generatedPropCount: picksCache.generatedPropCount ?? null,
+      topPicksSnapshot: getActiveTopPicksSnapshot(),
     });
   } catch (error) {
     console.log("GET TOP PROPS ERROR:", error.message);
@@ -2189,12 +2266,18 @@ app.delete("/saved-picks/:id", (req, res) => {
 });
 
 app.get("/tracked-props", (req, res) => {
-  const props = getTrackedProps();
+  const rankMap = getTopPickRankMap();
+  const props = getTrackedProps().map((prop) => {
+    const key = prop.trackedKey || prop.trackedId;
+    const topPickRank = key ? rankMap.get(key) : undefined;
+    return topPickRank ? { ...prop, topPickRank } : prop;
+  });
 
   res.json({
     ok: true,
     props,
     count: props.length,
+    topPicksSnapshot: getActiveTopPicksSnapshot(),
   });
 });
 
@@ -2457,10 +2540,13 @@ app.get("/diagnostics", (req, res) => {
     lastBackup: getLastBackup(),
     lastBlockedWrite: getLastBlockedWrite(),
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+    topPropLimit: CONFIG.TOP_PROP_LIMIT,
     wnbaV2TopPropSelectorLoaded: ENGINE_LOAD_FLAGS.wnbaV2TopPropSelectorLoaded,
     topPropSelection: picksCache?.topSelectionAudit || null,
+    topPicksSnapshot: getActiveTopPicksSnapshot(),
     cache: {
       fresh: cacheFresh(),
+      cachedSelectorVersion,
       lastRefreshTime: lastRefreshTime
         ? new Date(lastRefreshTime).toISOString()
         : null,
@@ -2471,7 +2557,8 @@ app.get("/diagnostics", (req, res) => {
       selectedCount: picksCache?.selectedCount ?? null,
       officialCount: picksCache?.officialCount ?? null,
       testCount: picksCache?.testCount ?? null,
-      hiddenDueToCap: picksCache?.topSelectionAudit?.hiddenDueToCap ?? null,
+      hiddenDueToLimit: picksCache?.topSelectionAudit?.hiddenDueToLimit ?? null,
+      engineHandled: picksCache?.topSelectionAudit?.engineHandled ?? {},
     },
     time: new Date().toISOString(),
   });

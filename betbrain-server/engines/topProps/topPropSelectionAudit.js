@@ -1,4 +1,4 @@
-export const TOP_PROP_SELECTOR_VERSION = "top-prop-selector-v1";
+export const TOP_PROP_SELECTOR_VERSION = "top-prop-selector-v2-best2";
 
 export function createTopPropSelectionAudit() {
   return {

@@ -587,6 +587,7 @@ export default function PropLab() {
   const sectionD = report?.sections?.D;
   const sectionE = report?.sections?.E;
   const sectionF = report?.sections?.F;
+  const sectionM = report?.sections?.M || report?.topPicksReview;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
@@ -749,6 +750,54 @@ export default function PropLab() {
                   leagueSplit.byLeague.WNBA.record.winRate
                 )}
               />
+            ) : null}
+          </SectionCard>
+        ) : null}
+
+        {sectionM ? (
+          <SectionCard title="Top Picks Record">
+            <Text style={styles.muted}>
+              Reference-only best-2 snapshot — subset analysis, not double-counted in slate record.
+            </Text>
+            <MetricRow
+              label="Top picks record"
+              value={formatRecord(
+                sectionM.record?.wins ?? 0,
+                sectionM.record?.losses ?? 0,
+                sectionM.record?.pushes ?? 0,
+                sectionM.record?.winRate
+              )}
+            />
+            <MetricRow
+              label="Rest of slate"
+              value={formatRecord(
+                sectionM.vsRestOfSlate?.restRecord?.wins ?? 0,
+                sectionM.vsRestOfSlate?.restRecord?.losses ?? 0,
+                sectionM.vsRestOfSlate?.restRecord?.pushes ?? 0,
+                sectionM.vsRestOfSlate?.restRecord?.winRate
+              )}
+            />
+            {sectionM.pickOne ? (
+              <Text style={styles.breakdownLine}>
+                #1 {sectionM.pickOne.player} — score {formatNum(sectionM.pickOne.bestPropScore)} —{" "}
+                {String(sectionM.pickOne.status || "pending").toUpperCase()}
+              </Text>
+            ) : null}
+            {sectionM.pickTwo ? (
+              <Text style={styles.breakdownLine}>
+                #2 {sectionM.pickTwo.player} — score {formatNum(sectionM.pickTwo.bestPropScore)} —{" "}
+                {String(sectionM.pickTwo.status || "pending").toUpperCase()}
+              </Text>
+            ) : null}
+            {sectionM.hiddenCandidateAudit?.length ? (
+              <>
+                <Text style={styles.breakdownTitle}>Hidden candidates (audit)</Text>
+                {sectionM.hiddenCandidateAudit.slice(0, 5).map((entry: any, index: number) => (
+                  <Text key={`hidden-${index}`} style={styles.breakdownLine}>
+                    {entry.reason}: {entry.pick?.player || "—"} ({entry.pick?.bestPropScore ?? "—"})
+                  </Text>
+                ))}
+              </>
             ) : null}
           </SectionCard>
         ) : null}

@@ -122,6 +122,9 @@ export default function PropCard({
           {wnbaV2 ? (
             <Text style={styles.engineBadge}>WNBA v2</Text>
           ) : null}
+          {pick.topPickRank ? (
+            <Text style={styles.topPickBadge}>Top #{pick.topPickRank}</Text>
+          ) : null}
           {wnbaShadowEnabled && wnbaShadow && shadowTier ? (
             <Text style={styles.shadowTierBadge}>Shadow {shadowTier}</Text>
           ) : null}
@@ -804,6 +807,16 @@ const styles = StyleSheet.create({
   engineBadge: {
     color: "#c4b5fd",
     backgroundColor: "#4c1d95",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  topPickBadge: {
+    color: "#fef9c3",
+    backgroundColor: "#854d0e",
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -15,6 +15,12 @@ import {
   writeSlateHistoryArchive,
 } from "./slateLockService.js";
 import {
+  attachGradedResultsToSnapshot,
+  buildTopPicksReview,
+  clearActiveTopPicksSnapshot,
+  archiveTopPicksSnapshotToReportMetadata,
+} from "./topPicksSnapshotService.js";
+import {
   filterReportsOnOrAfterCutoff,
   filterValidDailyReports,
   getTodayLocalDate,
@@ -887,6 +893,7 @@ function rotateOlderLabArchives(reports = []) {
     if (!existing?.props?.length) continue;
     if (existing.phase === "ARCHIVED") continue;
     archiveSlate(older.slateDate, { report: older });
+    clearActiveTopPicksSnapshot(older.slateDate);
   }
 }
 
@@ -986,6 +993,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
 
   const tierLabBuckets = buildTierLabBuckets(slateProps);
   const leagueSplit = buildLeagueSplitCalibration(slateProps);
+  const topPicksReview =
+    options.topPicksReview ||
+    buildTopPicksReview(slateDate, slateProps) ||
+    null;
 
   const sectionL = {
     title: "League-Split Calibration",
@@ -1007,6 +1018,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     wnbaStructuralGaps: reportCard.wnbaStructuralGaps,
     tierLabBuckets,
     leagueSplit,
+    topPicksReview,
     sections: {
       A: {
         ...sectionA,
@@ -1027,6 +1039,12 @@ function buildSlateReport(slateDate, props = [], options = {}) {
         buckets: tierLabBuckets,
       },
       L: sectionL,
+      M: topPicksReview
+        ? {
+            title: "Top Picks Selection Review",
+            ...topPicksReview,
+          }
+        : null,
     },
   };
 }
@@ -1182,11 +1200,13 @@ export function buildDailySlateReportsFromTrackedProps(
     const report = buildSlateReport(slateDate, slateProps, {
       locked,
       frozen: locked && isFinal,
+      topPicksReview: buildTopPicksReview(slateDate, trackedProps),
     });
 
     const upsert = upsertDailySlateReport({
       ...report,
       frozen: locked && isFinal,
+      topPicksSnapshot: archiveTopPicksSnapshotToReportMetadata(slateDate),
     });
     built.push(report);
     results.push({
@@ -1210,7 +1230,9 @@ export function buildDailySlateReportsFromTrackedProps(
           props: slateProps,
           report,
         });
+        attachGradedResultsToSnapshot(slateDate, trackedProps);
         promoteSlateToLab(slateDate, { report, props: slateProps });
+        clearActiveTopPicksSnapshot(slateDate);
       }
     }
   }

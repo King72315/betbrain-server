@@ -25,6 +25,7 @@ import { groupByDayBucket } from "../../utils/groupByDayBucket";
 import { buildTopPropsReport } from "../../utils/reportBuilders";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
+const TOP_PROP_LIMIT = 2;
 const WNBA_SHADOW_UI =
   process.env.EXPO_PUBLIC_WNBA_SHADOW_RECALIBRATION === "true";
 
@@ -50,23 +51,27 @@ export default function TopPropsScreen() {
   }, []);
 
   const visibleProps = useMemo(() => {
-    if (leagueFilter === "NBA") return topNBAProps;
-    if (leagueFilter === "WNBA") return topWNBAProps;
-    return topProps;
+    let props: any[] = [];
+    if (leagueFilter === "NBA") props = topNBAProps;
+    else if (leagueFilter === "WNBA") props = topWNBAProps;
+    else props = topProps;
+    return props.slice(0, TOP_PROP_LIMIT);
   }, [leagueFilter, topProps, topNBAProps, topWNBAProps]);
 
   const visibleOfficialProps = useMemo(() => {
+    let props: any[] = [];
     if (leagueFilter === "NBA") {
-      return topNBAProps.filter((pick) => pick.officialEligible !== false);
-    }
-    if (leagueFilter === "WNBA") {
-      return topWNBAOfficialProps.length
+      props = topNBAProps.filter((pick) => pick.officialEligible !== false);
+    } else if (leagueFilter === "WNBA") {
+      props = topWNBAOfficialProps.length
         ? topWNBAOfficialProps
         : topWNBAProps.filter((pick) => pick.officialEligible !== false);
+    } else {
+      props = topOfficialProps.length
+        ? topOfficialProps
+        : topProps.filter((pick) => pick.officialEligible !== false);
     }
-    return topOfficialProps.length
-      ? topOfficialProps
-      : topProps.filter((pick) => pick.officialEligible !== false);
+    return props.slice(0, TOP_PROP_LIMIT);
   }, [
     leagueFilter,
     topOfficialProps,
@@ -77,21 +82,26 @@ export default function TopPropsScreen() {
   ]);
 
   const visibleTestProps = useMemo(() => {
+    const officialCount = visibleOfficialProps.length;
+    const remaining = Math.max(0, TOP_PROP_LIMIT - officialCount);
+    let props: any[] = [];
     if (leagueFilter === "NBA") {
-      return topNBAProps.filter((pick) => pick.officialEligible === false);
-    }
-    if (leagueFilter === "WNBA") {
-      return topWNBATestProps.length
+      props = topNBAProps.filter((pick) => pick.officialEligible === false);
+    } else if (leagueFilter === "WNBA") {
+      props = topWNBATestProps.length
         ? topWNBATestProps
         : topWNBAProps.filter((pick) => pick.officialEligible === false);
+    } else {
+      props = topTestProps.length
+        ? topTestProps
+        : topProps.filter((pick) => pick.officialEligible === false);
     }
-    return topTestProps.length
-      ? topTestProps
-      : topProps.filter((pick) => pick.officialEligible === false);
+    return props.slice(0, remaining);
   }, [
     leagueFilter,
     topTestProps,
     topWNBATestProps,
+    visibleOfficialProps.length,
     topNBAProps,
     topWNBAProps,
     topProps,
@@ -186,6 +196,11 @@ export default function TopPropsScreen() {
     );
   };
 
+  const displayCount = Math.min(
+    TOP_PROP_LIMIT,
+    visibleOfficialProps.length + visibleTestProps.length
+  );
+
   const premiumCount = visibleProps.filter(
     (pick) => String(pick.tier || "").toUpperCase() === "PREMIUM"
   ).length;
@@ -278,7 +293,7 @@ export default function TopPropsScreen() {
         <View style={styles.summaryRow}>
           <View style={styles.summaryBox}>
             <Text style={styles.summaryLabel}>Props</Text>
-            <Text style={styles.summaryValue}>{visibleProps.length}</Text>
+            <Text style={styles.summaryValue}>{displayCount}</Text>
           </View>
 
           <View style={styles.summaryBox}>

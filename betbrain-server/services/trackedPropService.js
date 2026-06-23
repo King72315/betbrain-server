@@ -1329,10 +1329,13 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
 }
 
 
-export function addTrackedProps(picks = []) {
-  const incoming = (Array.isArray(picks) ? picks : [picks]).filter(
-    isTrackablePick
-  );
+export function addTrackedProps(picks = [], options = {}) {
+  const skipTopPickReferences = Boolean(options.skipTopPickReferences);
+  const incoming = (Array.isArray(picks) ? picks : [picks]).filter((pick) => {
+    if (!isTrackablePick(pick)) return false;
+    if (skipTopPickReferences && pick.isTopPickReference) return false;
+    return true;
+  });
   const tracked = readJSON(TRACKED_FILE, []);
   const indexByStable = buildTrackedIndex(tracked);
   const blockedSlates = new Set();

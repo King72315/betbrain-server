@@ -398,8 +398,8 @@ function testCollectsFromAllGeneratedCandidates() {
 function run() {
   const tests = [
     ["WNBA uses reader score not tier only", testWnbaUsesReaderScoreNotTierOnly],
-    ["5th prop from game not lost before global rank", testFifthPropFromGameNotLostBeforeGlobalRank],
-    ["returns only 2 max", testReturnsOnlyTwoMax],
+    ["returns only 2 max (default limit)", testReturnsOnlyTwoMax],
+    ["explicit limit 8 still works for ranking audit", testFifthPropFromGameNotLostBeforeGlobalRank],
     ["highest scores selected", testHighestScoresSelected],
     ["no balance forcing", testNoBalanceForcing],
     ["both TEST when no official", testBothTestWhenNoOfficial],
