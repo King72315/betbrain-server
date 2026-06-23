@@ -35,6 +35,7 @@ import {
   groupResultsPropsByGameState,
   pickResolveCheckMessage,
   splitResultsPropsByTrackingType,
+  summarizeTrackingTypeCounts,
   isPriorSlateStillActive,
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
   summarizeActiveResultsSlate,
@@ -216,6 +217,11 @@ export default function ResultsScreen() {
     [visibleSlates]
   );
 
+  const trackedSummary = useMemo(
+    () => computeAccuracySummary(visibleSlates, { recordType: "all" }),
+    [visibleSlates]
+  );
+
   const pendingCheckSummary = useMemo(
     () => computePendingCheckSummary(lastResolveSummary, visibleSlates),
     [lastResolveSummary, visibleSlates]
@@ -259,9 +265,9 @@ export default function ResultsScreen() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>📋 Results</Text>
-          <Text style={styles.subtitle}>Official Grading Queue</Text>
+          <Text style={styles.subtitle}>Active Slate Grading Queue</Text>
           <Text style={styles.motto}>
-            Active locked grading slate. New props stay on Home until this slate moves to Lab.
+            Tracks the full eligible slate cohort. Top Props badges are spotlight references only.
           </Text>
         </View>
 
@@ -287,11 +293,18 @@ export default function ResultsScreen() {
         </View>
 
         <View style={styles.dashboardCard}>
-          <Text style={styles.dashboardTitle}>Official Accuracy</Text>
+          <Text style={styles.dashboardTitle}>Tracked Slate Summary</Text>
           <Text style={styles.currentSlateLabel}>
             {activeResultsSummary.activeSlateDate
-              ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${accuracySummary.total} official`
+              ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${trackedSummary.total} tracked`
               : `Today (${todayLocalDate}) — no active Results slate`}
+          </Text>
+          <Text style={styles.trackingBreakdown}>
+            Total Tracked Props: {trackedSummary.total}
+            {" • "}
+            Official Props: {accuracySummary.total}
+            {" • "}
+            Test / Learning Props: {testAccuracySummary.total}
           </Text>
           {accuracySummary.total === 0 && testAccuracySummary.total > 0 ? (
             <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
@@ -300,12 +313,14 @@ export default function ResultsScreen() {
             <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
           ) : null}
           <View style={styles.accuracyGrid}>
-            <SummaryBox label="Official Tracked" value={accuracySummary.total} color="#f8fafc" />
-            <SummaryBox label="Graded" value={accuracySummary.graded} color="#22c55e" />
-            <SummaryBox label="Pending" value={accuracySummary.pending} color="#93c5fd" />
+            <SummaryBox label="Total Tracked" value={trackedSummary.total} color="#e2e8f0" />
+            <SummaryBox label="Official Props" value={accuracySummary.total} color="#f8fafc" />
+            <SummaryBox label="Test / Learning" value={testAccuracySummary.total} color="#c4b5fd" />
+            <SummaryBox label="Graded" value={trackedSummary.graded} color="#22c55e" />
+            <SummaryBox label="Pending" value={trackedSummary.pending} color="#93c5fd" />
             <SummaryBox
               label="Awaiting Stats"
-              value={accuracySummary.awaitingStats}
+              value={trackedSummary.awaitingStats}
               color="#f97316"
             />
             <SummaryBox label="Wins" value={accuracySummary.wins} color="#4ade80" />
@@ -321,7 +336,7 @@ export default function ResultsScreen() {
 
         {testAccuracySummary.total > 0 ? (
           <View style={styles.dashboardCard}>
-            <Text style={styles.dashboardTitle}>Test / Learning Tracking</Text>
+            <Text style={styles.dashboardTitle}>Test / Learning Detail</Text>
             <Text style={styles.currentSlateLabel}>
               {testAccuracySummary.total} test props — excluded from official record
             </Text>
@@ -520,6 +535,10 @@ export default function ResultsScreen() {
               <Text style={styles.summaryTitle}>Slate — {formatResultsSlateLabel(slate.slateDate)}</Text>
               <Text style={styles.slateMeta}>
                 {(slate.leagues || []).join(" • ") || "—"} • {slateSummary?.total ?? 0} tracked
+                {" • "}
+                Official: {summarizeTrackingTypeCounts(slateFiltered).official}
+                {" • "}
+                Test: {summarizeTrackingTypeCounts(slateFiltered).test}
                 {locked ? " • 🔒 LOCKED" : ""}
               </Text>
 
@@ -645,6 +664,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
     marginBottom: 10,
+  },
+  trackingBreakdown: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 10,
+    lineHeight: 18,
   },
   priorSlateNote: {
     color: "#fdba74",

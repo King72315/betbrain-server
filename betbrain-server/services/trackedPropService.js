@@ -426,7 +426,7 @@ function enrichPickFromGameCard(pick = {}, game = {}) {
     time: game.time,
     commenceTime,
     minutesUntilStart: game.minutesUntilStart,
-    isStarted: game.isStarted,
+    isStarted: Boolean(game.isStarted || pick.isStarted),
     league: game.league || pick.league,
     slateDate: pick.slateDate || getSlateDateCT(commenceTime),
     trackingMode: TRACKING_MODE,
@@ -459,6 +459,281 @@ export function collectAllGeneratedProps(gameCards = []) {
   }
 
   return Array.from(seen.values());
+}
+
+export const TRACKING_COHORT_VERSION = "results-tracking-cohort-v1";
+
+function normalizeTrackingSide(side = "") {
+  const raw = String(side || "").toUpperCase();
+  if (raw === "OVER" || raw === "O" || raw.startsWith("OVER")) return "OVER";
+  if (raw === "UNDER" || raw === "U" || raw.startsWith("UNDER")) return "UNDER";
+  return raw;
+}
+
+function getPickDecision(pick = {}) {
+  return String(
+    pick.trackingType || pick.recordType || pick.finalDecision || ""
+  ).toUpperCase();
+}
+
+function hasRequiredTrackingFields(pick = {}) {
+  if (!pick?.player) return false;
+  if (!pick?.team) return false;
+  if (!pick?.opponent) return false;
+  const line = pick.line ?? pick.sportsbookLine ?? pick.currentLine;
+  if (line === undefined || line === null || line === "") return false;
+  return true;
+}
+
+function exactCandidateDupeKey(pick = {}) {
+  return [
+    clean(pick.player),
+    clean(pick.team),
+    String(pick.line),
+    normalizeTrackingSide(pick.side || pick.pick),
+    String(pick.league || "").toUpperCase(),
+    clean(pick.gameId || pick.game),
+  ].join("|");
+}
+
+function playerLineConflictKey(pick = {}) {
+  return clean(`${pick.player}-${pick.line}-${pick.stat || "points"}`);
+}
+
+export function collectAllGeneratedCandidatesFromGames(gameCards = []) {
+  const candidates = [];
+
+  for (const game of gameCards) {
+    const pool = game.allGeneratedCandidates?.length
+      ? game.allGeneratedCandidates
+      : game.picks || [];
+
+    for (const pick of pool) {
+      candidates.push(enrichPickFromGameCard(pick, game));
+    }
+  }
+
+  return candidates;
+}
+
+function getResultsCohortExclusionReason(pick = {}) {
+  if (isPreV1ShadowProp(pick)) return "pre_v1_shadow";
+  if (pick.isStarted) return "started";
+  if (!hasRequiredTrackingFields(pick)) return "missing_data";
+
+  const decision = getPickDecision(pick);
+  if (decision === "NO_BET") return "no_bet";
+  if (pick.noPlay && decision !== "TEST") return "no_play";
+  if (decision !== "OFFICIAL" && decision !== "TEST") return "invalid_decision";
+  if (pick.trustable === false && decision !== "TEST") return "not_trustable";
+
+  return null;
+}
+
+export function buildResultsTrackingCohort(candidates = [], options = {}) {
+  const exactSeen = new Map();
+  const playerLineBest = new Map();
+  const stableSeen = new Map();
+  const cohort = [];
+  const trackingAudit = [];
+
+  const audit = {
+    trackingCohortVersion: TRACKING_COHORT_VERSION,
+    inputCount: candidates.length,
+    eligibleCount: 0,
+    officialCount: 0,
+    testCount: 0,
+    noBetCount: 0,
+    startedExcludedCount: 0,
+    duplicateExcludedCount: 0,
+    oppositeSideExcludedCount: 0,
+    missingDataExcludedCount: 0,
+    invalidDecisionExcludedCount: 0,
+    noPlayExcludedCount: 0,
+    preV1ShadowExcludedCount: 0,
+    notTrustableExcludedCount: 0,
+    generatedCandidatesBySlate: {},
+    eligibleTrackingCandidatesBySlate: {},
+    notTrackedReasonsBySlate: {},
+  };
+
+  const bumpSlateCount = (map, slateDate, amount = 1) => {
+    const key = String(slateDate || "unknown");
+    map[key] = Number(map[key] || 0) + amount;
+  };
+
+  const bumpReason = (slateDate, reason) => {
+    const slate = String(slateDate || "unknown");
+    if (!audit.notTrackedReasonsBySlate[slate]) {
+      audit.notTrackedReasonsBySlate[slate] = {};
+    }
+    audit.notTrackedReasonsBySlate[slate][reason] =
+      Number(audit.notTrackedReasonsBySlate[slate][reason] || 0) + 1;
+  };
+
+  for (const rawPick of candidates) {
+    const pick = enrichPickFromGameCard(rawPick, rawPick);
+    const slateDate = pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time);
+    pick.slateDate = slateDate;
+    bumpSlateCount(audit.generatedCandidatesBySlate, slateDate);
+
+    const decision = getPickDecision(pick);
+    const auditEntry = {
+      slateDate,
+      player: pick.player || "",
+      team: pick.team || "",
+      opponent: pick.opponent || "",
+      line: pick.line,
+      side: normalizeTrackingSide(pick.side || pick.pick),
+      decision: decision || "UNKNOWN",
+      eligibleForResultsTracking: false,
+      tracked: false,
+      reasonIfNotTracked: null,
+    };
+
+    const exclusionReason = getResultsCohortExclusionReason(pick);
+    if (exclusionReason) {
+      auditEntry.reasonIfNotTracked = exclusionReason;
+      if (exclusionReason === "started") audit.startedExcludedCount += 1;
+      else if (exclusionReason === "no_bet") audit.noBetCount += 1;
+      else if (exclusionReason === "no_play") audit.noPlayExcludedCount += 1;
+      else if (exclusionReason === "missing_data") audit.missingDataExcludedCount += 1;
+      else if (exclusionReason === "invalid_decision") audit.invalidDecisionExcludedCount += 1;
+      else if (exclusionReason === "not_trustable") audit.notTrustableExcludedCount += 1;
+      else if (exclusionReason === "pre_v1_shadow") audit.preV1ShadowExcludedCount += 1;
+      bumpReason(slateDate, exclusionReason);
+      trackingAudit.push(auditEntry);
+      continue;
+    }
+
+    const dupeKey = exactCandidateDupeKey(pick);
+    if (exactSeen.has(dupeKey)) {
+      audit.duplicateExcludedCount += 1;
+      auditEntry.reasonIfNotTracked = "duplicate";
+      bumpReason(slateDate, "duplicate");
+      trackingAudit.push(auditEntry);
+      continue;
+    }
+
+    const plKey = playerLineConflictKey(pick);
+    const prior = playerLineBest.get(plKey);
+    if (prior) {
+      const priorSide = normalizeTrackingSide(prior.side || prior.pick);
+      const nextSide = normalizeTrackingSide(pick.side || pick.pick);
+      if (priorSide && nextSide && priorSide !== nextSide) {
+        audit.oppositeSideExcludedCount += 1;
+        auditEntry.reasonIfNotTracked = "opposite_side";
+        bumpReason(slateDate, "opposite_side");
+        trackingAudit.push(auditEntry);
+        continue;
+      }
+    }
+
+    const stableKey = getStableTrackedPropKey(pick);
+    const existingStable = stableSeen.get(stableKey);
+    const nextScore = num(pick.pickScore ?? pick.confidence);
+    if (existingStable) {
+      const existingScore = num(existingStable.pickScore ?? existingStable.confidence);
+      if (nextScore <= existingScore) {
+        audit.duplicateExcludedCount += 1;
+        auditEntry.reasonIfNotTracked = "duplicate_stable_key";
+        bumpReason(slateDate, "duplicate_stable_key");
+        trackingAudit.push(auditEntry);
+        continue;
+      }
+      const removeIndex = cohort.findIndex(
+        (item) => getStableTrackedPropKey(item) === stableKey
+      );
+      if (removeIndex >= 0) cohort.splice(removeIndex, 1);
+    }
+
+    exactSeen.set(dupeKey, pick);
+    playerLineBest.set(plKey, pick);
+
+    const normalizedPick = {
+      ...pick,
+      trackingType: decision,
+      recordType: decision,
+    };
+    if (decision === "TEST") {
+      normalizedPick.excludedFromOfficialRecord = true;
+    }
+
+    stableSeen.set(stableKey, normalizedPick);
+    cohort.push(normalizedPick);
+    audit.eligibleCount += 1;
+    bumpSlateCount(audit.eligibleTrackingCandidatesBySlate, slateDate);
+    if (decision === "TEST") audit.testCount += 1;
+    else audit.officialCount += 1;
+
+    auditEntry.eligibleForResultsTracking = true;
+    trackingAudit.push(auditEntry);
+  }
+
+  audit.trackingAudit = trackingAudit;
+  return { cohort, audit };
+}
+
+export function buildTrackingCohortDiagnostics(
+  gameCards = [],
+  tracked = [],
+  topProps = [],
+  options = {}
+) {
+  const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
+  const candidates = collectAllGeneratedCandidatesFromGames(gameCards);
+  const { cohort, audit } = buildResultsTrackingCohort(candidates, options);
+  const trackedKeys = new Set(
+    tracked.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
+  );
+
+  for (const entry of audit.trackingAudit) {
+    if (!entry.eligibleForResultsTracking) continue;
+    const match = cohort.find(
+      (pick) =>
+        pick.player === entry.player &&
+        String(pick.line) === String(entry.line) &&
+        normalizeTrackingSide(pick.side || pick.pick) === entry.side
+    );
+    if (match) {
+      entry.tracked = trackedKeys.has(getStableTrackedPropKey(match));
+      if (!entry.tracked) {
+        entry.reasonIfNotTracked = "not_yet_persisted";
+      }
+    }
+  }
+
+  const trackedPropsBySlate = {};
+  for (const prop of tracked) {
+    const slate = String(prop.slateDate || "unknown");
+    trackedPropsBySlate[slate] = Number(trackedPropsBySlate[slate] || 0) + 1;
+  }
+
+  const topPropsBySlate = {};
+  for (const pick of topProps) {
+    const slate =
+      pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time) || "unknown";
+    topPropsBySlate[slate] = Number(topPropsBySlate[slate] || 0) + 1;
+  }
+
+  const officialTrackedCount = tracked.filter(isOfficialResultsProp).length;
+  const testTrackedCount = tracked.filter(isTestTrackingPick).length;
+
+  return {
+    ...audit,
+    todayLocalDate,
+    activeResultsSlateDate: options.activeResultsSlateDate || todayLocalDate,
+    trackedPropsBySlate,
+    topPropsSelectedBySlate: topPropsBySlate,
+    topPropsAreReferenceOnly: true,
+    topPropsDidNotAffectTracking: true,
+    trackingMode: TRACKING_MODE,
+    officialTrackedCount,
+    testTrackedCount,
+    boardCappedPropCount: collectAllGeneratedProps(gameCards).length,
+    fullCandidateCount: candidates.length,
+    cohortEligibleCount: cohort.length,
+  };
 }
 
 export function buildFlowValidationDiagnostics(
@@ -1331,8 +1606,13 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
 
 export function addTrackedProps(picks = [], options = {}) {
   const skipTopPickReferences = Boolean(options.skipTopPickReferences);
+  const preFilteredCohort = Boolean(options.preFilteredCohort);
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter((pick) => {
-    if (!isTrackablePick(pick)) return false;
+    if (preFilteredCohort) {
+      if (!pick?.player) return false;
+    } else if (!isTrackablePick(pick)) {
+      return false;
+    }
     if (skipTopPickReferences && pick.isTopPickReference) return false;
     return true;
   });

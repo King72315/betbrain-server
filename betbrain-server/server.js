@@ -113,8 +113,11 @@ import {
   addTrackedProps,
   applySlateLockFreeze,
   buildFlowValidationDiagnostics,
+  buildResultsTrackingCohort,
   buildTrackedPropAnalytics,
+  buildTrackingCohortDiagnostics,
   clearTrackedProps,
+  collectAllGeneratedCandidatesFromGames,
   collectAllGeneratedProps,
   backfillOfficialLines,
   deleteTrackedProp,
@@ -180,7 +183,7 @@ import {
   saveTopPicksSnapshot,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-top-prop-league-split-v1";
+const SERVER_BUILD = "courteedge-results-tracking-cohort-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -1950,8 +1953,18 @@ async function refreshAllPicks() {
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
-  const generatedProps = collectAllGeneratedProps(games);
-  addTrackedProps(generatedProps, { skipTopPickReferences: true });
+  const allGeneratedCandidates = collectAllGeneratedCandidatesFromGames(games);
+  const { cohort: trackingCohort, audit: trackingCohortAudit } =
+    buildResultsTrackingCohort(allGeneratedCandidates, {
+      todayLocalDate: getTodayLocalDate(),
+    });
+  addTrackedProps(trackingCohort, {
+    skipTopPickReferences: true,
+    preFilteredCohort: true,
+  });
+
+  const generatedProps = trackingCohort;
+  const boardCappedProps = collectAllGeneratedProps(games);
 
   const filterAudit = buildFilterAudit(games, sideAudit, {
     generatedProps,
@@ -2012,8 +2025,12 @@ async function refreshAllPicks() {
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     generatedProps,
+    boardCappedProps,
+    trackingCohortAudit,
+    trackingCohortVersion: trackingCohortAudit.trackingCohortVersion,
     trackingMode: TRACKING_MODE,
     generatedPropCount: generatedProps.length,
+    boardCappedPropCount: boardCappedProps.length,
 
     games,
     nbaGames,
@@ -2560,6 +2577,16 @@ app.get("/diagnostics", (req, res) => {
     labReport,
   });
 
+  const trackingCohortDiagnostics = buildTrackingCohortDiagnostics(
+    picksCache?.games || [],
+    tracked,
+    picksCache?.topProps || [],
+    {
+      todayLocalDate: getTodayLocalDate(),
+      activeResultsSlateDate: flowValidation.slateDate || getTodayLocalDate(),
+    }
+  );
+
   const archives = getAllHistoryArchives();
   const courtEdgeFlow = buildCourtEdgeFlowDiagnostics(
     tracked,
@@ -2592,6 +2619,22 @@ app.get("/diagnostics", (req, res) => {
     },
     courtEdgeFlow,
     flowValidation,
+    trackingCohort: trackingCohortDiagnostics,
+    trackingAudit: trackingCohortDiagnostics.trackingAudit || [],
+    generatedCandidatesBySlate:
+      trackingCohortDiagnostics.generatedCandidatesBySlate || {},
+    eligibleTrackingCandidatesBySlate:
+      trackingCohortDiagnostics.eligibleTrackingCandidatesBySlate || {},
+    trackedPropsBySlate: trackingCohortDiagnostics.trackedPropsBySlate || {},
+    notTrackedReasonsBySlate:
+      trackingCohortDiagnostics.notTrackedReasonsBySlate || {},
+    topPropsAreReferenceOnly: true,
+    topPropsDidNotAffectTracking: true,
+    trackingCohortVersion: trackingCohortDiagnostics.trackingCohortVersion,
+    officialTrackedCount: trackingCohortDiagnostics.officialTrackedCount,
+    testTrackedCount: trackingCohortDiagnostics.testTrackedCount,
+    todayLocalDate: trackingCohortDiagnostics.todayLocalDate,
+    activeResultsSlateDate: trackingCohortDiagnostics.activeResultsSlateDate,
     reports: {
       total: reports.length,
       final: reports.filter((r) => r.reportStatus === "final").length,

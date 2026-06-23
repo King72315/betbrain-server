@@ -259,6 +259,15 @@ export function splitResultsPropsByTrackingType(props: any[] = []) {
   return { official, test };
 }
 
+export function summarizeTrackingTypeCounts(props: any[] = []) {
+  const { official, test } = splitResultsPropsByTrackingType(props);
+  return {
+    total: props.length,
+    official: official.length,
+    test: test.length,
+  };
+}
+
 export function computeTrackingTypeRecord(
   props: any[] = [],
   getStatus: (prop: any) => TrackedPropStatus = getTrackedPropStatus
@@ -611,10 +620,13 @@ export function summarizeActiveResultsSlate(
   const lockEntry = lockedSlates.find(
     (entry) => String(entry.slateDate) === activeSlateDate
   );
+  const trackingCounts = summarizeTrackingTypeCounts(props);
 
   return {
     activeSlateDate,
     propCount: props.length,
+    officialCount: trackingCounts.official,
+    testCount: trackingCounts.test,
     pending,
     awaitingStats,
     graded,

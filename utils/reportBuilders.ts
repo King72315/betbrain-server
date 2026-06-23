@@ -528,8 +528,11 @@ export function buildResultsReport(input: {
   resolveCheckMessage?: string | null;
   error?: string | null;
 }) {
-  const propLabel = "Official Props";
-  const accuracy = computeAccuracySummary(input.visibleSlates);
+  const accuracy = computeAccuracySummary(input.visibleSlates, { recordType: "all" });
+  const officialAccuracy = computeAccuracySummary(input.visibleSlates, {
+    recordType: "official",
+  });
+  const testAccuracy = computeAccuracySummary(input.visibleSlates, { recordType: "test" });
   const pendingCheck = computePendingCheckSummary(
     input.lastResolveSummary,
     input.visibleSlates
@@ -578,7 +581,8 @@ export function buildResultsReport(input: {
     return joinLines([
       `--- Active Slate: ${slate.slateDate} ---`,
       `Current Results Slate: ${activeSlateDate}`,
-      `${propLabel} in queue: ${slate.summary?.total ?? slateProps.length}`,
+      `Total Tracked Props: ${slate.summary?.total ?? slateProps.length}`,
+      `Official Props: ${officialAccuracy.total} | Test / Learning Props: ${testAccuracy.total}`,
       `Graded: ${slate.summary?.graded ?? 0} | Pending: ${slate.summary?.pending ?? 0} | Awaiting Stats: ${slate.summary?.failed ?? 0}`,
       slate.summary?.graded
         ? `Record: ${slate.summary.wins}-${slate.summary.losses}-${slate.summary.pushes}`
@@ -590,7 +594,7 @@ export function buildResultsReport(input: {
         AWAITING_STATS_LABEL
       ),
       formatGameStateBlock("Game Not Final — Live / Upcoming", gameState.livePending),
-      !slateProps.length ? `No ${propLabel.toLowerCase()} in this view.` : null,
+      !slateProps.length ? "No tracked props in this view." : null,
     ]);
   });
 
@@ -599,6 +603,8 @@ export function buildResultsReport(input: {
     `Today (CT): ${todayLocalDate}`,
     `Results rule: today's tracked props only`,
     `Total Tracked: ${accuracy.total}`,
+    `Official Props: ${officialAccuracy.total}`,
+    `Test / Learning Props: ${testAccuracy.total}`,
     `Graded: ${accuracy.graded}`,
     `Pending: ${accuracy.pending}`,
     `Awaiting Stats: ${accuracy.awaitingStats}`,
@@ -635,7 +641,9 @@ export function buildResultsReport(input: {
     dataSource: "GET /tracked-props + POST /resolve-tracked-props",
     extraContext: {
       "Active Slates": input.visibleSlates.length,
-      [`Total ${propLabel} in Queue`]: accuracy.total,
+      "Total Tracked Props": accuracy.total,
+      "Official Props": officialAccuracy.total,
+      "Test / Learning Props": testAccuracy.total,
       Pending: accuracy.pending,
       "Awaiting Stats": accuracy.awaitingStats,
       Graded: accuracy.graded,
@@ -649,7 +657,7 @@ export function buildResultsReport(input: {
         ? `Today's queue: ${accuracy.total} props`
         : "No tracked props for today yet.",
       accuracy.total
-        ? `Total ${propLabel}: ${accuracy.total} | Graded: ${accuracy.graded} | Pending: ${accuracy.pending} | Awaiting Stats: ${accuracy.awaitingStats}`
+        ? `Total Tracked: ${accuracy.total} | Official: ${officialAccuracy.total} | Test: ${testAccuracy.total} | Graded: ${accuracy.graded} | Pending: ${accuracy.pending} | Awaiting Stats: ${accuracy.awaitingStats}`
         : null,
       accuracy.graded
         ? `Record: ${accuracy.wins}-${accuracy.losses}-${accuracy.pushes} | Win Rate: ${accuracy.winRateLabel}`
@@ -668,7 +676,7 @@ export function buildResultsReport(input: {
         : "--- No tracked props for today ---",
       slateSections.length
         ? slateSections.join("\n\n")
-        : `No ${propLabel.toLowerCase()} for today.`,
+        : "No tracked props for today yet.",
     ]),
     warnings: joinLines([
       !input.loading && input.visibleSlates.length === 0
