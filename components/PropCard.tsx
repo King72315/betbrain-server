@@ -19,6 +19,8 @@ type PropCardProps = {
   onDelete?: () => void;
   showSaveHint?: boolean;
   showDelete?: boolean;
+  compact?: boolean;
+  playType?: "Official" | "Test";
 };
 
 export default function PropCard({
@@ -29,6 +31,8 @@ export default function PropCard({
   onDelete,
   showSaveHint = false,
   showDelete = false,
+  compact = false,
+  playType,
 }: PropCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -94,6 +98,104 @@ export default function PropCard({
     pick.game ||
     game.game ||
     `${formatTeam(team)} vs ${formatTeam(opponent)}`;
+  const resolvedPlayType =
+    playType ||
+    (pick.officialEligible === false ? "Test" : "Official");
+
+  if (compact) {
+    const topReasons = [
+      ...whySide.slice(0, 2),
+      ...(pick.reasons || []).slice(0, 2),
+    ].filter(Boolean);
+
+    return (
+      <TouchableOpacity
+        activeOpacity={onSave ? 0.86 : 1}
+        onPress={onSave}
+        disabled={!onSave}
+        style={[styles.pickCard, tier === "PREMIUM" && styles.premiumPickCard]}
+      >
+        <View style={styles.pickTopRow}>
+          <View style={styles.badgeRow}>
+            {pick.topPickRank ? (
+              <Text style={styles.topPickBadge}>Top #{pick.topPickRank}</Text>
+            ) : (
+              <Text style={styles.rankBadge}>#{pick.rank || index + 1}</Text>
+            )}
+            <Text style={styles.leagueBadge}>{league}</Text>
+            <Text
+              style={[
+                styles.playTypeBadge,
+                resolvedPlayType === "Official"
+                  ? styles.officialPlayTypeBadge
+                  : styles.testPlayTypeBadge,
+              ]}
+            >
+              {resolvedPlayType}
+            </Text>
+            {wnbaV2 ? <Text style={styles.engineBadge}>WNBA v2</Text> : null}
+          </View>
+          <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
+        </View>
+
+        <Text style={styles.playerName}>{pick.player}</Text>
+        <Text style={styles.teamText}>
+          {formatTeam(team)} vs {formatTeam(opponent)}
+        </Text>
+        {startTimeDisplay ? (
+          <Text style={styles.metaText}>{startTimeDisplay}</Text>
+        ) : null}
+
+        <View style={styles.pickLineBox}>
+          <Text style={styles.pickSide}>
+            {side} {safeDisplay(line)} {stat}
+          </Text>
+          {wnbaV2 ? (
+            <View style={styles.wnbaV2Compact}>
+              <Text style={styles.wnbaV2Line}>
+                Score {safeDisplay(bestPropScore)} • {readerDecision || "—"} • Reader{" "}
+                {safeDisplay(readerConfidence)}% • Data {safeDisplay(dataConfidence)}%
+              </Text>
+              {whySide?.length ? (
+                <Text style={styles.wnbaV2Why} numberOfLines={2}>
+                  Why {side}: {whySide.slice(0, 2).join(" • ")}
+                </Text>
+              ) : null}
+              {missingWarnings?.length ? (
+                <Text style={styles.wnbaV2Warn} numberOfLines={2}>
+                  Missing: {missingWarnings.slice(0, 3).join(", ")}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          <Text style={styles.projectionText}>
+            Projection {safeDisplay(pick.projection)} • Fair Line{" "}
+            {safeDisplay(pick.fairLine)}
+          </Text>
+        </View>
+
+        {topReasons.length > 0 ? (
+          <View style={styles.compactReasonBox}>
+            {topReasons.slice(0, 3).map((reason: string, i: number) => (
+              <Text key={`compact-reason-${i}`} style={styles.previewReason}>
+                • {reason}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {!wnbaV2 && missingWarnings?.length ? (
+          <Text style={styles.wnbaV2Warn}>
+            Missing: {missingWarnings.slice(0, 3).join(", ")}
+          </Text>
+        ) : null}
+
+        {showSaveHint && onSave ? (
+          <Text style={styles.saveHint}>Tap card to save pick</Text>
+        ) : null}
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <TouchableOpacity
@@ -823,6 +925,25 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     fontSize: 11,
     fontWeight: "900",
+  },
+  playTypeBadge: {
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  officialPlayTypeBadge: {
+    color: "#bbf7d0",
+    backgroundColor: "#14532d",
+  },
+  testPlayTypeBadge: {
+    color: "#fde68a",
+    backgroundColor: "#78350f",
+  },
+  compactReasonBox: {
+    marginTop: 4,
   },
   wnbaV2Compact: {
     marginTop: 8,

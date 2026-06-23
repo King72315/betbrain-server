@@ -3,10 +3,6 @@ import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
 import { formatPointStrengthLedgerBlock } from "./pointStrengthLedger";
 import {
-  type FilterAudit,
-  formatFilterAuditSummary,
-} from "./filterAudit";
-import {
   formatRecordLine,
   formatSlateDateLabel,
   getPickStatus,
@@ -156,52 +152,64 @@ export function buildHomeReport() {
   });
 }
 
+function formatTopPropSnapshotLine(
+  pick: any,
+  playType: "Official" | "Test",
+  index: number
+) {
+  const side = pick.side || pick.pick || "—";
+  const line = pick.line ?? pick.sportsbookLine;
+  const stat = pick.stat || "Points";
+  const league = pick.league || "—";
+  const team = pick.team || "—";
+  const opponent = pick.opponent || "—";
+  const rank = pick.topPickRank || pick.rank || index + 1;
+  const confidence = pick.confidence ?? pick.winProbability ?? "—";
+  const bestPropScore = pick.bestPropScore ?? pick.finalBestPropScore;
+  const whySide = pick.whySide || pick.wnbaReader?.supports || pick.support || [];
+  const topReasons = [
+    ...whySide.slice(0, 3),
+    ...(pick.reasons || pick.boosts || []).slice(0, 3),
+  ].filter(Boolean);
+  const missingWarnings =
+    pick.missingDataWarnings ||
+    (pick.wnbaDataCard?.dataMissingFlags || [])
+      .filter((f: any) => f.missing)
+      .map((f: any) => f.note || f.key);
+
+  return joinLines([
+    `[Top #${rank}] ${pick.player || "Unknown"} (${league}) — ${playType}`,
+    `  ${team} vs ${opponent}`,
+    `  Prop: ${side} ${safeDisplay(line)} ${stat}`,
+    `  Confidence: ${safeDisplay(confidence)}% | Best Prop Score: ${safeDisplay(bestPropScore)}`,
+    `  Projection: ${safeDisplay(pick.projection)} | Fair Line: ${safeDisplay(pick.fairLine)}`,
+    topReasons.length
+      ? `  Top Reasons: ${topReasons.slice(0, 3).join(" | ")}`
+      : null,
+    missingWarnings?.length
+      ? `  Missing Data: ${missingWarnings.join(", ")}`
+      : null,
+  ]);
+}
+
 export function buildTopPropsReport(input: {
-  visibleProps: any[];
-  leagueFilter: string;
+  cards: { pick: any; playType: "Official" | "Test" }[];
   lastUpdated: string | null;
-  loading: boolean;
-  premiumCount: number;
-  topPropsCount: number;
-  topNBACount: number;
-  topWNBACount: number;
-  filterAudit?: FilterAudit | null;
-  error?: string | null;
 }) {
-  const propLines = input.visibleProps.map((pick, index) =>
-    formatPropReportLine(pick, index)
+  const generatedAt = input.lastUpdated
+    ? formatTime(input.lastUpdated)
+    : formatTime(new Date().toISOString());
+
+  const propLines = input.cards.map((card, index) =>
+    formatTopPropSnapshotLine(card.pick, card.playType, index)
   );
 
-  return buildPageReport({
-    page: "Top Props / Picks",
-    leagueFilter: input.leagueFilter,
-    lastUpdated: input.lastUpdated,
-    dataSource: "GET /top-props",
-    extraContext: {
-      "Total Props (visible)": input.visibleProps.length,
-      "Total ALL/NBA/WNBA": `${input.topPropsCount}/${input.topNBACount}/${input.topWNBACount}`,
-      Premium: input.premiumCount,
-      Loading: input.loading,
-    },
-    visibleSummary: joinLines([
-      `Filter: ${input.leagueFilter}`,
-      `Props visible: ${input.visibleProps.length}`,
-      `Premium visible: ${input.premiumCount}`,
-      input.lastUpdated ? `Last updated: ${formatTime(input.lastUpdated)}` : "Last updated: —",
-    ]),
-    mainData: joinLines([
-      "--- Filter Audit ---",
-      formatFilterAuditSummary(input.filterAudit),
-      "",
-      propLines.length ? propLines.join("\n\n") : "No props currently visible.",
-    ]),
-    warnings:
-      !input.loading && input.visibleProps.length === 0
-        ? "No top props available. Refresh picks or check backend/API connection."
-        : undefined,
-    errors: input.error || undefined,
-    debugNotes: "Each prop includes confidence, risk, tier, projection/fair line/edge, support/danger, books/market quality, top reasons, and Point Strength Ledger (volume, line movement, defense, availability, danger gates, score ledger).",
-  });
+  return joinLines([
+    "Best 2 Props — CourtEdge",
+    `Generated: ${generatedAt || "—"}`,
+    "",
+    propLines.length ? propLines.join("\n\n") : "No top props available.",
+  ]);
 }
 
 export function buildLeagueBoardReport(input: {
