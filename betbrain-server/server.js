@@ -51,6 +51,10 @@ import { buildOpportunityScore } from "./engines/opportunityEngine.js";
 import { buildPlayerState } from "./engines/playerStateBuilder.js";
 import { buildTopPicksForGame } from "./engines/pickRanker.js";
 import {
+  selectControlledBestSixCombined,
+  CONTROLLED_BEST_SIX_VERSION,
+} from "./engines/topProps/controlledBestSixSelector.js";
+import {
   selectTopProps,
   selectCombinedTopProps,
   TOP_PROP_SELECTOR_VERSION,
@@ -179,11 +183,14 @@ import {
 } from "./engines/topProps/topPropSelectionAudit.js";
 import {
   getActiveTopPicksSnapshot,
+  getActiveBestSixSnapshot,
   getTopPickMetaMap,
   saveTopPicksSnapshot,
+  saveBestSixSnapshot,
+  TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-results-quality-gate-v1";
+const SERVER_BUILD = "courteedge-controlled-best-six-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -196,6 +203,8 @@ const ENGINE_LOAD_FLAGS = {
   sideSelectionEngineLoaded: typeof evaluateSideSelection === "function",
   topPropSelectorLoaded: typeof selectTopProps === "function",
   topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+  controlledBestSixLoaded: typeof selectControlledBestSixCombined === "function",
+  controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
   wnbaV2TopPropSelectorLoaded: true,
 };
 
@@ -239,13 +248,24 @@ function cacheFresh() {
   if (!picksCache) return false;
 
   if (
-    picksCache.topPropSelectorVersion &&
-    picksCache.topPropSelectorVersion !== TOP_PROP_SELECTOR_VERSION
+    picksCache.controlledBestSixVersion &&
+    picksCache.controlledBestSixVersion !== CONTROLLED_BEST_SIX_VERSION
   ) {
     return false;
   }
 
-  if (cachedSelectorVersion && cachedSelectorVersion !== TOP_PROP_SELECTOR_VERSION) {
+  if (
+    picksCache.topPropSelectorVersion &&
+    picksCache.topPropSelectorVersion !== TOP_PROP_SELECTOR_VERSION &&
+    !picksCache.controlledBestSixVersion
+  ) {
+    return false;
+  }
+
+  if (
+    cachedSelectorVersion &&
+    cachedSelectorVersion !== CONTROLLED_BEST_SIX_VERSION
+  ) {
     return false;
   }
 
@@ -842,10 +862,7 @@ function getCombinedDataQuality({ opportunity = {}, prop = {}, last5 = [], match
 }
 
 function buildTopPropsFromSelector(gameCards = [], options = {}) {
-  if (options.league) {
-    return selectTopProps(gameCards, options);
-  }
-  return selectCombinedTopProps(gameCards, options);
+  return selectControlledBestSixCombined(gameCards, options);
 }
 
 function formatStartTimeDisplay(commenceTime) {
@@ -1919,44 +1936,40 @@ async function refreshAllPicks() {
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
-  const combinedTopSelection = buildTopPropsFromSelector(games);
-  const nbaTopSelection = clampTopPropsSelection(
-    buildTopPropsFromSelector(games, {
-      league: "NBA",
-      limit: CONFIG.NBA_TOP_PROP_LIMIT,
-    }),
-    CONFIG.NBA_TOP_PROP_LIMIT
-  );
-  const wnbaTopSelection = clampTopPropsSelection(
-    buildTopPropsFromSelector(games, {
-      league: "WNBA",
-      limit: CONFIG.WNBA_TOP_PROP_LIMIT,
-    }),
-    CONFIG.WNBA_TOP_PROP_LIMIT
-  );
-
-  const topProps = combinedTopSelection.topProps;
-  const topNBAProps = nbaTopSelection.topProps;
-  const topWNBAProps = wnbaTopSelection.topProps;
-  const topOfficialProps = combinedTopSelection.topOfficialProps;
-  const topTestProps = combinedTopSelection.topTestProps;
-  const topNBAOfficialProps = nbaTopSelection.topOfficialProps;
-  const topNBATestProps = nbaTopSelection.topTestProps;
-  const topWNBAOfficialProps = wnbaTopSelection.topOfficialProps;
-  const topWNBATestProps = wnbaTopSelection.topTestProps;
-  const topSelectionAudit = combinedTopSelection.topSelectionAudit;
+  const controlledSelection = buildTopPropsFromSelector(games);
+  const bestSixWNBA = controlledSelection.bestSixWNBA;
+  const bestSixNBA = controlledSelection.bestSixNBA;
+  const topProps = controlledSelection.topProps;
+  const topNBAProps = controlledSelection.topNBAProps;
+  const topWNBAProps = controlledSelection.topWNBAProps;
+  const topOfficialProps = controlledSelection.topOfficialProps;
+  const topTestProps = controlledSelection.topTestProps;
+  const topNBAOfficialProps = controlledSelection.topNBAOfficialProps;
+  const topNBATestProps = controlledSelection.topNBATestProps;
+  const topWNBAOfficialProps = controlledSelection.topWNBAOfficialProps;
+  const topWNBATestProps = controlledSelection.topWNBATestProps;
+  const topSelectionAudit = controlledSelection.controlledBestSixAudit;
 
   saveTopPicksSnapshot(topProps, {
     slateDate: getTodayLocalDate(),
-    selectorVersion: TOP_PROP_SELECTOR_VERSION,
+    selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     topSelectionAudit,
+    sourcePool: TOP_PICKS_SOURCE_POOL,
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
+  saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
+    slateDate: getTodayLocalDate(),
+    selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+    controlledBestSixAudit: topSelectionAudit,
+  });
+
   const allGeneratedCandidates = collectAllGeneratedCandidatesFromGames(games);
+  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
-    buildResultsTrackingCohort(allGeneratedCandidates, {
+    buildResultsTrackingCohort(bestSixCohort, {
       todayLocalDate: getTodayLocalDate(),
+      sourcePool: TOP_PICKS_SOURCE_POOL,
     });
   addTrackedProps(trackingCohort, {
     skipTopPickReferences: true,
@@ -2004,11 +2017,25 @@ async function refreshAllPicks() {
     topNBATestProps,
     topWNBAOfficialProps,
     topWNBATestProps,
+    bestSixWNBA,
+    bestSixNBA,
+    topPropsSource: TOP_PICKS_SOURCE_POOL,
+    topWNBAPropsSelectedFromBestSix: true,
+    topNBAPropsSelectedFromBestSix: true,
+    bestSixCountByLeague: topSelectionAudit?.bestSixCountByLeague ?? {},
+    qualityPassedCountByLeague: topSelectionAudit?.qualityPassedCountByLeague ?? {},
+    selectedBestSixTeamsByLeague: topSelectionAudit?.selectedBestSixTeamsByLeague ?? {},
+    selectedTopTeamsByLeague: topSelectionAudit?.selectedTopTeamsByLeague ?? {},
+    hiddenDueToBestSixCap: topSelectionAudit?.hiddenDueToBestSixCap ?? null,
+    hiddenDueToTeamCap: topSelectionAudit?.hiddenDueToTeamCap ?? null,
+    hiddenDueToGameCap: topSelectionAudit?.hiddenDueToGameCap ?? null,
+    hiddenDueToQualityGate: topSelectionAudit?.hiddenDueToQualityGate ?? null,
+    controlledBestSixAudit: topSelectionAudit,
     topSelectionAudit,
     candidateCount: topSelectionAudit?.candidateCount ?? null,
     selectedCount: topSelectionAudit?.selectedCount ?? topProps.length,
-    selectedNBA: combinedTopSelection.selectedNBA ?? topNBAProps.length,
-    selectedWNBA: combinedTopSelection.selectedWNBA ?? topWNBAProps.length,
+    selectedNBA: controlledSelection.selectedNBA ?? topNBAProps.length,
+    selectedWNBA: controlledSelection.selectedWNBA ?? topWNBAProps.length,
     nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
     wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
     topPropTeamDiversityRequired: true,
@@ -2023,7 +2050,9 @@ async function refreshAllPicks() {
     testCount: topSelectionAudit?.testCount ?? null,
     noBetCount: topSelectionAudit?.noBetCount ?? null,
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+    controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
+    bestSixLimit: 6,
     generatedProps,
     boardCappedProps,
     trackingCohortAudit,
@@ -2039,7 +2068,7 @@ async function refreshAllPicks() {
 
   picksCache = result;
   lastRefreshTime = Date.now();
-  cachedSelectorVersion = TOP_PROP_SELECTOR_VERSION;
+  cachedSelectorVersion = CONTROLLED_BEST_SIX_VERSION;
   const refreshDay = getTodayLocalDate();
   if (refreshesTodayDate !== refreshDay) {
     refreshesTodayDate = refreshDay;
@@ -2136,6 +2165,20 @@ app.get("/top-props", async (req, res) => {
         0,
         CONFIG.WNBA_TOP_PROP_LIMIT
       ),
+      bestSixWNBA: picksCache.bestSixWNBA || [],
+      bestSixNBA: picksCache.bestSixNBA || [],
+      topPropsSource: picksCache.topPropsSource || TOP_PICKS_SOURCE_POOL,
+      topWNBAPropsSelectedFromBestSix: true,
+      topNBAPropsSelectedFromBestSix: true,
+      bestSixCountByLeague: picksCache.bestSixCountByLeague ?? {},
+      qualityPassedCountByLeague: picksCache.qualityPassedCountByLeague ?? {},
+      selectedBestSixTeamsByLeague: picksCache.selectedBestSixTeamsByLeague ?? {},
+      selectedTopTeamsByLeague: picksCache.selectedTopTeamsByLeague ?? {},
+      hiddenDueToBestSixCap: picksCache.hiddenDueToBestSixCap ?? null,
+      hiddenDueToTeamCap: picksCache.hiddenDueToTeamCap ?? null,
+      hiddenDueToGameCap: picksCache.hiddenDueToGameCap ?? null,
+      hiddenDueToQualityGate: picksCache.hiddenDueToQualityGate ?? null,
+      controlledBestSixAudit: picksCache.controlledBestSixAudit || null,
       topSelectionAudit: picksCache.topSelectionAudit || null,
       candidateCount: picksCache.candidateCount ?? null,
       selectedCount: Math.min(
@@ -2149,7 +2192,10 @@ app.get("/top-props", async (req, res) => {
       noBetCount: picksCache.noBetCount ?? null,
       topPropSelectorVersion:
         picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
+      controlledBestSixVersion:
+        picksCache.controlledBestSixVersion || CONTROLLED_BEST_SIX_VERSION,
       topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
+      bestSixLimit: 6,
       nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
       wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
       topPropTeamDiversityRequired: true,
@@ -2166,6 +2212,7 @@ app.get("/top-props", async (req, res) => {
       trackingMode: TRACKING_MODE,
       generatedPropCount: picksCache.generatedPropCount ?? null,
       topPicksSnapshot: getActiveTopPicksSnapshot(),
+      bestSixSnapshot: getActiveBestSixSnapshot(),
     });
   } catch (error) {
     console.log("GET TOP PROPS ERROR:", error.message);
@@ -2630,7 +2677,13 @@ app.get("/diagnostics", (req, res) => {
       trackingCohortDiagnostics.notTrackedReasonsBySlate || {},
     topPropsAreReferenceOnly: true,
     topPropsDidNotAffectTracking: true,
-    topPropsDidNotControlTracking: true,
+    topPropsDidNotControlTracking: false,
+    trackingControlledByBestSix: true,
+    controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+    controlledBestSixAudit: trackingCohortDiagnostics.controlledBestSixAudit || null,
+    bestSixCountByLeague: trackingCohortDiagnostics.bestSixCountByLeague || {},
+    nbaTrackedCount: trackingCohortDiagnostics.nbaTrackedCount ?? null,
+    wnbaTrackedCount: trackingCohortDiagnostics.wnbaTrackedCount ?? null,
     trackingCohortVersion: trackingCohortDiagnostics.trackingCohortVersion,
     qualityGateVersion: trackingCohortDiagnostics.qualityGateVersion,
     qualityGateBlockedCount: trackingCohortDiagnostics.qualityGateBlockedCount,
@@ -2653,7 +2706,9 @@ app.get("/diagnostics", (req, res) => {
     lastBackup: getLastBackup(),
     lastBlockedWrite: getLastBlockedWrite(),
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
+    controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
+    bestSixLimit: 6,
     nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
     wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
     topPropTeamDiversityRequired: true,

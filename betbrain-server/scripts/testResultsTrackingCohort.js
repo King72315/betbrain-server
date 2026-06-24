@@ -13,7 +13,10 @@ import {
   isTestTrackingPick,
   TRACKING_COHORT_VERSION,
 } from "../services/trackedPropService.js";
-import { selectCombinedTopProps } from "../engines/topProps/topPropSelector.js";
+import {
+  selectControlledBestSixCombined,
+  BEST_SIX_LIMIT,
+} from "../engines/topProps/controlledBestSixSelector.js";
 
 function makeGame(picks, allGeneratedCandidates, overrides = {}) {
   return {
@@ -68,13 +71,19 @@ function testTopPropsLimitDoesNotReduceCohort() {
     makePick({ player: "D", team: "T4", pickScore: 75, trackingType: "TEST" }),
     makePick({ player: "E", team: "T5", pickScore: 70, trackingType: "TEST" }),
     makePick({ player: "F", team: "T6", pickScore: 65, trackingType: "TEST" }),
+    makePick({ player: "G", team: "T7", pickScore: 60, trackingType: "TEST" }),
+    makePick({ player: "H", team: "T8", pickScore: 55, trackingType: "TEST" }),
   ];
   const game = makeGame(candidates.slice(0, 3), candidates);
-  const top = selectCombinedTopProps([game]);
-  const { cohort } = buildResultsTrackingCohort(collectAllGeneratedCandidatesFromGames([game]));
+  const selection = selectControlledBestSixCombined([game]);
+  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
 
-  assert.ok(top.topProps.length <= 4, "top props capped");
-  assert.strictEqual(cohort.length, 6, "cohort uses full candidate pool");
+  assert.ok(selection.topProps.length <= 4, "top props capped");
+  assert.ok(cohort.length <= BEST_SIX_LIMIT, "cohort uses controlled Best 6 cap");
+  assert.ok(cohort.length < candidates.length, "cohort smaller than full pool");
 }
 
 function testTopPickReferencesDoNotIncreaseCount() {
@@ -156,16 +165,19 @@ function testDiagnosticsExplainExclusions() {
   ]);
   const diag = buildTrackingCohortDiagnostics([game], [], []);
   assert.strictEqual(diag.trackingCohortVersion, TRACKING_COHORT_VERSION);
+  assert.ok(diag.controlledBestSixVersion);
   const slateKeys = Object.keys(diag.generatedCandidatesBySlate || {});
   assert.ok(slateKeys.length >= 1);
   assert.ok(diag.generatedCandidatesBySlate[slateKeys[0]] >= 3);
-  const reasonSlates = Object.values(diag.notTrackedReasonsBySlate || {});
-  const totalReasons = reasonSlates.reduce(
-    (sum, slate) => sum + Object.keys(slate).length,
-    0
-  );
-  assert.ok(totalReasons >= 2);
+  assert.ok(diag.fullCandidateCount >= 3);
   assert.ok(Array.isArray(diag.trackingAudit));
+  const wnbaAudit = diag.controlledBestSixAudit?.wnba || {};
+  assert.ok(
+    Number(wnbaAudit.hiddenNoBet || 0) +
+      Number(wnbaAudit.hiddenStarted || 0) +
+      Number(wnbaAudit.rejected?.length || 0) >=
+      2
+  );
 }
 
 function testNbaPathProtected() {
@@ -211,9 +223,14 @@ function testBoardCapSmallerThanCohort() {
   );
   const game = makeGame(candidates.slice(0, 4), candidates);
   const boardProps = collectAllGeneratedProps([game]);
-  const { cohort } = buildResultsTrackingCohort(collectAllGeneratedCandidatesFromGames([game]));
+  const selection = selectControlledBestSixCombined([game]);
+  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
   assert.ok(boardProps.length <= 4);
-  assert.strictEqual(cohort.length, 8);
+  assert.ok(cohort.length <= BEST_SIX_LIMIT);
+  assert.ok(cohort.length <= candidates.length);
 }
 
 function testOppositeSideConflictExcluded() {
@@ -234,7 +251,7 @@ function testStableKeyExistsForCohort() {
 }
 
 const tests = [
-  ["1 top props limit does not reduce cohort", testTopPropsLimitDoesNotReduceCohort],
+  ["1 controlled Best 6 cap limits cohort", testTopPropsLimitDoesNotReduceCohort],
   ["2 top pick references do not inflate cohort logic", testTopPickReferencesDoNotIncreaseCount],
   ["3 tracks eligible OFFICIAL and TEST", testTracksEligibleOfficialAndTest],
   ["4 excludes NO_BET", testNoBetExcluded],
@@ -244,7 +261,7 @@ const tests = [
   ["8 diagnostics explain exclusions", testDiagnosticsExplainExclusions],
   ["9 NBA path protected", testNbaPathProtected],
   ["10 WNBA v2 metadata persists", testWnbaV2MetadataPersists],
-  ["11 board cap smaller than cohort", testBoardCapSmallerThanCohort],
+  ["11 board cap smaller than controlled cohort", testBoardCapSmallerThanCohort],
   ["12 opposite-side conflict excluded", testOppositeSideConflictExcluded],
   ["stable key exists", testStableKeyExistsForCohort],
 ];

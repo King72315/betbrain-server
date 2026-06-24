@@ -32,6 +32,10 @@ import {
   QUALITY_GATE_VERSION,
 } from "../engines/wnba/wnbaResultsQualityGate.js";
 import {
+  selectControlledBestSixCombined,
+  CONTROLLED_BEST_SIX_VERSION,
+} from "../engines/topProps/controlledBestSixSelector.js";
+import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
   getTodayLocalDate,
@@ -468,7 +472,8 @@ export function collectAllGeneratedProps(gameCards = []) {
   return Array.from(seen.values());
 }
 
-export const TRACKING_COHORT_VERSION = "results-tracking-cohort-v2-quality-gate";
+export const TRACKING_COHORT_VERSION =
+  "results-tracking-cohort-v2-controlled-best-six";
 export { QUALITY_GATE_VERSION };
 
 function normalizeTrackingSide(side = "") {
@@ -547,6 +552,7 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
 
   const audit = {
     trackingCohortVersion: TRACKING_COHORT_VERSION,
+    sourcePool: options.sourcePool || "CONTROLLED_BEST_SIX",
     inputCount: candidates.length,
     eligibleCount: 0,
     officialCount: 0,
@@ -728,8 +734,16 @@ export function buildTrackingCohortDiagnostics(
   options = {}
 ) {
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
-  const candidates = collectAllGeneratedCandidatesFromGames(gameCards);
-  const { cohort, audit } = buildResultsTrackingCohort(candidates, options);
+  const allCandidates = collectAllGeneratedCandidatesFromGames(gameCards);
+  const controlledSelection = selectControlledBestSixCombined(gameCards);
+  const bestSixCohort = [
+    ...controlledSelection.bestSixWNBA,
+    ...controlledSelection.bestSixNBA,
+  ];
+  const { cohort, audit } = buildResultsTrackingCohort(bestSixCohort, {
+    ...options,
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
   const trackedKeys = new Set(
     tracked.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
   );
@@ -773,7 +787,15 @@ export function buildTrackingCohortDiagnostics(
       isTestTrackingPick(p) && p.readerOfficialDemoted !== true
   ).length;
 
-  const trackingQualityAudit = buildTrackingQualityAudit(candidates, cohort, {
+  const generatedCandidatesBySlate = {};
+  for (const rawPick of allCandidates) {
+    const slateDate =
+      rawPick.slateDate || getSlateDateCT(rawPick.commenceTime || rawPick.time);
+    const key = String(slateDate || "unknown");
+    generatedCandidatesBySlate[key] = Number(generatedCandidatesBySlate[key] || 0) + 1;
+  }
+
+  const trackingQualityAudit = buildTrackingQualityAudit(allCandidates, cohort, {
     tracked,
     getSlateDate: (item) =>
       item.slateDate || getSlateDateCT(item.commenceTime || item.time),
@@ -786,9 +808,14 @@ export function buildTrackingCohortDiagnostics(
     activeResultsSlateDate: options.activeResultsSlateDate || todayLocalDate,
     trackedPropsBySlate,
     topPropsSelectedBySlate: topPropsBySlate,
+    generatedCandidatesBySlate,
     topPropsAreReferenceOnly: true,
     topPropsDidNotAffectTracking: true,
-    topPropsDidNotControlTracking: true,
+    topPropsDidNotControlTracking: false,
+    trackingControlledByBestSix: true,
+    controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+    bestSixCountByLeague: controlledSelection.controlledBestSixAudit?.bestSixCountByLeague || {},
+    controlledBestSixAudit: controlledSelection.controlledBestSixAudit || null,
     trackingMode: TRACKING_MODE,
     officialTrackedCount,
     testTrackedCount,
@@ -799,8 +826,14 @@ export function buildTrackingCohortDiagnostics(
     boardOnlyCount: audit.boardOnlyCount,
     shadowOnlyCount: audit.shadowOnlyCount,
     boardCappedPropCount: collectAllGeneratedProps(gameCards).length,
-    fullCandidateCount: candidates.length,
+    fullCandidateCount: allCandidates.length,
     cohortEligibleCount: cohort.length,
+    nbaTrackedCount: tracked.filter(
+      (p) => String(p.league || "").toUpperCase() === "NBA"
+    ).length,
+    wnbaTrackedCount: tracked.filter(
+      (p) => String(p.league || "").toUpperCase() === "WNBA"
+    ).length,
   };
 }
 

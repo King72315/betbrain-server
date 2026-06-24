@@ -16,6 +16,7 @@ import {
 } from "./slateLockService.js";
 import {
   attachGradedResultsToSnapshot,
+  buildBestSixReview,
   buildTopPicksReview,
   clearActiveTopPicksSnapshot,
   archiveTopPicksSnapshotToReportMetadata,
@@ -1048,6 +1049,16 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       message: "No Top Picks snapshot found for this slate.",
       referenceOnly: true,
     };
+  const bestSixReview =
+    options.bestSixReview ||
+    buildBestSixReview(slateDate, slateProps) ||
+    {
+      title: "Controlled Best 6 Performance",
+      slateDate,
+      snapshotMissing: true,
+      message: "No Best 6 snapshot found for this slate.",
+      referenceOnly: true,
+    };
 
   const sectionL = {
     title: "League-Split Calibration",
@@ -1070,6 +1081,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     tierLabBuckets,
     leagueSplit,
     topPicksReview,
+    bestSixReview,
     sections: {
       A: {
         ...sectionA,
@@ -1093,6 +1105,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       M: {
         title: "Top Picks Selection Review",
         ...topPicksReview,
+      },
+      O: {
+        title: "Controlled Best 6 Performance",
+        ...bestSixReview,
       },
       N: {
         title: "WNBA Results Quality Gate Performance",

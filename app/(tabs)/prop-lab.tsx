@@ -590,6 +590,7 @@ export default function PropLab() {
   const sectionE = report?.sections?.E;
   const sectionF = report?.sections?.F;
   const sectionM = report?.sections?.M || report?.topPicksReview;
+  const sectionO = report?.sections?.O || report?.bestSixReview;
   const sectionN = report?.sections?.N || report?.qualityGatePerformance;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
@@ -790,6 +791,49 @@ export default function PropLab() {
                 )}
               />
             ) : null}
+          </SectionCard>
+        ) : null}
+
+        {sectionO && !sectionO.snapshotMissing ? (
+          <SectionCard title="Controlled Best 6 Performance">
+            <Text style={styles.muted}>
+              Original tracked Best 6 props — not double-counted with Top Picks references.
+            </Text>
+            <MetricRow
+              label="Overall Best 6 record"
+              value={formatRecord(
+                sectionO.record?.wins ?? 0,
+                sectionO.record?.losses ?? 0,
+                sectionO.record?.pushes ?? 0,
+                sectionO.record?.winRate
+              )}
+            />
+            {sectionO.nbaBestSixReview?.record ? (
+              <MetricRow
+                label="NBA Best 6 record"
+                value={formatRecord(
+                  sectionO.nbaBestSixReview.record.wins,
+                  sectionO.nbaBestSixReview.record.losses,
+                  sectionO.nbaBestSixReview.record.pushes,
+                  sectionO.nbaBestSixReview.record.winRate
+                )}
+              />
+            ) : null}
+            {sectionO.wnbaBestSixReview?.record ? (
+              <MetricRow
+                label="WNBA Best 6 record"
+                value={formatRecord(
+                  sectionO.wnbaBestSixReview.record.wins,
+                  sectionO.wnbaBestSixReview.record.losses,
+                  sectionO.wnbaBestSixReview.record.pushes,
+                  sectionO.wnbaBestSixReview.record.winRate
+                )}
+              />
+            ) : null}
+            <MetricRow
+              label="Official vs TEST"
+              value={`${sectionO.officialVsTest?.officialRecord?.total ?? 0} official / ${sectionO.officialVsTest?.testRecord?.total ?? 0} test`}
+            />
           </SectionCard>
         ) : null}
 

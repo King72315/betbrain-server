@@ -44,6 +44,7 @@ function enrichPickForDisplay(pick: any, index: number, league: "NBA" | "WNBA") 
 export default function TopPropsScreen() {
   const [topNBAProps, setTopNBAProps] = useState<any[]>([]);
   const [topWNBAProps, setTopWNBAProps] = useState<any[]>([]);
+  const [topPropsSource, setTopPropsSource] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export default function TopPropsScreen() {
 
       setTopNBAProps(data.topNBAProps || []);
       setTopWNBAProps(data.topWNBAProps || []);
+      setTopPropsSource(data.topPropsSource || null);
       setLastUpdated(data.lastUpdated || null);
       setLoadError(formatApiLoadError(data));
     } catch (err) {
@@ -161,6 +163,9 @@ export default function TopPropsScreen() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>Top Props</Text>
+          {topPropsSource === "CONTROLLED_BEST_SIX" ? (
+            <Text style={styles.subtitle}>Selected from controlled Best 6</Text>
+          ) : null}
           <CopyReportButton
             getReportText={getReportText}
             label="Copy Top Props"
@@ -223,6 +228,14 @@ const styles = StyleSheet.create({
     color: "#facc15",
     fontSize: 36,
     fontWeight: "900",
+  },
+
+  subtitle: {
+    color: "#94a3b8",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 6,
+    marginBottom: 4,
   },
 
   sectionCard: {

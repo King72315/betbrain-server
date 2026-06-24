@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { CONFIG } from "../config.js";
 import { buildTopPickLabel } from "../engines/topProps/topPropSelector.js";
 import { TOP_PROP_SELECTOR_VERSION } from "../engines/topProps/topPropSelectionAudit.js";
+import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
 import { getStableTrackedPropKey } from "./trackedPropService.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
 
@@ -12,6 +13,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SNAPSHOT_FILE = path.join(__dirname, "..", "top-picks-snapshots.json");
+const BEST_SIX_SNAPSHOT_FILE = path.join(__dirname, "..", "best-six-snapshots.json");
+export const TOP_PICKS_SOURCE_POOL = "CONTROLLED_BEST_SIX";
 
 function readJSON(file, fallback = {}) {
   try {
@@ -87,6 +90,7 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
   return {
     slateDate: pick.slateDate || options.slateDate || "",
     league,
+    sourcePool: options.sourcePool || TOP_PICKS_SOURCE_POOL,
     topPickRank: rank,
     topPickLabel: pick.topPickLabel || buildTopPickLabel(league, rank),
     trackedId: trackedKey,
@@ -94,7 +98,8 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
     stablePropKey,
     selectedTeamKey: pick.selectedTeamKey || pick.teamKey || pick.team || "",
     selectedAt: options.selectedAt || new Date().toISOString(),
-    selectorVersion: options.selectorVersion || TOP_PROP_SELECTOR_VERSION,
+    selectorVersion:
+      options.selectorVersion || CONTROLLED_BEST_SIX_VERSION || TOP_PROP_SELECTOR_VERSION,
     bestPropScore: pick.bestPropScore ?? pick.pickScore ?? null,
     reasonCodes: pick.reasonCodes || pick.wnbaReader?.supports || [],
     scoreBreakdown: pick.scoreBreakdown || {
@@ -117,6 +122,110 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
   };
 }
 
+function ensureBestSixStore() {
+  if (!fs.existsSync(BEST_SIX_SNAPSHOT_FILE)) {
+    writeJSON(BEST_SIX_SNAPSHOT_FILE, { active: null, bySlate: {} });
+  }
+}
+
+function readBestSixStore() {
+  ensureBestSixStore();
+  return readJSON(BEST_SIX_SNAPSHOT_FILE, { active: null, bySlate: {} });
+}
+
+function writeBestSixStore(store) {
+  writeJSON(BEST_SIX_SNAPSHOT_FILE, store);
+}
+
+function buildBestSixSnapshotEntry(pick = {}, rank = 1, options = {}) {
+  const trackedKey = getStableTrackedPropKey(pick);
+  const league = String(pick.league || options.league || "").toUpperCase();
+  const stablePropKey = [
+    pick.player,
+    pick.team,
+    pick.line,
+    pick.side || pick.pick,
+    pick.league,
+  ]
+    .filter(Boolean)
+    .join("|");
+
+  return {
+    slateDate: pick.slateDate || options.slateDate || "",
+    league,
+    sourcePool: TOP_PICKS_SOURCE_POOL,
+    bestSixRank: pick.bestSixRank || rank,
+    bestSixLabel: pick.bestSixLabel || `Best ${league} #${rank}`,
+    trackedId: trackedKey,
+    trackedKey,
+    stablePropKey,
+    selectedTeamKey: pick.selectedTeamKey || pick.teamKey || pick.team || "",
+    selectedAt: options.selectedAt || new Date().toISOString(),
+    selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
+    bestPropScore: pick.bestPropScore ?? pick.pickScore ?? null,
+    qualityGateScore: pick.qualityGateScore ?? null,
+    referenceOnly: true,
+    isTopPickReference: false,
+  };
+}
+
+export function saveBestSixSnapshot(bestSix = [], options = {}) {
+  const ranked = Array.isArray(bestSix) ? bestSix : [];
+  const slateDate =
+    options.slateDate || ranked[0]?.slateDate || getTodayLocalDate();
+  const selectedAt = options.selectedAt || new Date().toISOString();
+  const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
+  const audit = options.controlledBestSixAudit || null;
+
+  const picks = ranked.map((pick, index) =>
+    buildBestSixSnapshotEntry(
+      { ...pick, slateDate: pick.slateDate || slateDate },
+      pick.bestSixRank || index + 1,
+      { selectedAt, selectorVersion, slateDate, league: pick.league }
+    )
+  );
+
+  const snapshot = {
+    slateDate,
+    selectedAt,
+    selectorVersion,
+    sourcePool: TOP_PICKS_SOURCE_POOL,
+    pickCount: picks.length,
+    picks,
+    bestSixCountByLeague: audit?.bestSixCountByLeague || {},
+    hiddenDueToBestSixCap: audit?.hiddenDueToBestSixCap ?? null,
+    hiddenDueToTeamCap: audit?.hiddenDueToTeamCap ?? null,
+    hiddenDueToGameCap: audit?.hiddenDueToGameCap ?? null,
+    hiddenDueToQualityGate: audit?.hiddenDueToQualityGate ?? null,
+    referenceOnly: true,
+  };
+
+  const store = readBestSixStore();
+  store.active = snapshot;
+  store.bySlate = store.bySlate || {};
+  store.bySlate[slateDate] = snapshot;
+  writeBestSixStore(store);
+
+  return { ok: true, snapshot };
+}
+
+export function getBestSixSnapshot(slateDate) {
+  const store = readBestSixStore();
+  const date = String(slateDate || "");
+  if (date && store.bySlate?.[date]) {
+    return store.bySlate[date];
+  }
+  if (!date && store.active) {
+    return store.active;
+  }
+  return null;
+}
+
+export function getActiveBestSixSnapshot() {
+  const store = readBestSixStore();
+  return store.active || null;
+}
+
 export function saveTopPicksSnapshot(topProps = [], options = {}) {
   const limit = Number(
     options.limit ?? CONFIG.TOP_PROP_COMBINED_LIMIT ?? CONFIG.TOP_PROP_LIMIT ?? 4
@@ -127,14 +236,16 @@ export function saveTopPicksSnapshot(topProps = [], options = {}) {
     ranked[0]?.slateDate ||
     getTodayLocalDate();
   const selectedAt = options.selectedAt || new Date().toISOString();
-  const selectorVersion = options.selectorVersion || TOP_PROP_SELECTOR_VERSION;
+  const selectorVersion =
+    options.selectorVersion || CONTROLLED_BEST_SIX_VERSION || TOP_PROP_SELECTOR_VERSION;
+  const sourcePool = options.sourcePool || TOP_PICKS_SOURCE_POOL;
   const audit = options.topSelectionAudit || null;
 
   const picks = ranked.map((pick, index) =>
     buildSnapshotEntry(
       { ...pick, slateDate: pick.slateDate || slateDate },
       pick.leagueRank || pick.topPropRank || index + 1,
-      { selectedAt, selectorVersion, slateDate, league: pick.league }
+      { selectedAt, selectorVersion, slateDate, league: pick.league, sourcePool }
     )
   );
 
@@ -142,6 +253,7 @@ export function saveTopPicksSnapshot(topProps = [], options = {}) {
     slateDate,
     selectedAt,
     selectorVersion,
+    sourcePool,
     topPropLimit: limit,
     pickCount: picks.length,
     picks,
@@ -276,6 +388,110 @@ function buildLeagueTopPicksReview(enrichedPicks = [], league = "") {
   };
 }
 
+function buildLeagueBestSixReview(enrichedPicks = [], league = "") {
+  const leagueCode = String(league || "").toUpperCase();
+  const picks = enrichedPicks.filter(
+    (pick) => String(pick.league || "").toUpperCase() === leagueCode
+  );
+  const record = buildRecord(picks);
+  const official = picks.filter((p) => p.officialEligible === true || p.trackingType === "OFFICIAL");
+  const test = picks.filter((p) => p.trackingType === "TEST" || p.excludedFromOfficialRecord);
+  const readerOfficialDemoted = picks.filter(
+    (p) => p.readerOfficialDemoted === true
+  );
+  const readerUncertainTest = picks.filter(
+    (p) =>
+      (p.trackingType === "TEST" || p.excludedFromOfficialRecord) &&
+      p.readerOfficialDemoted !== true
+  );
+
+  return {
+    league: leagueCode,
+    title: `${leagueCode} Best 6 Record`,
+    record,
+    officialRecord: buildRecord(official),
+    testRecord: buildRecord(test),
+    readerOfficialDemotedRecord: buildRecord(readerOfficialDemoted),
+    readerUncertainTestRecord: buildRecord(readerUncertainTest),
+    picks,
+    referenceOnly: false,
+    subsetAnalysisOnly: false,
+  };
+}
+
+export function buildBestSixReview(slateDate, trackedProps = [], options = {}) {
+  const date = String(slateDate || "");
+  const snapshot =
+    getBestSixSnapshot(date) || (options.snapshot ? options.snapshot : null);
+
+  if (!snapshot?.picks?.length) {
+    return {
+      title: "Controlled Best 6 Performance",
+      slateDate: date,
+      snapshotMissing: true,
+      message: "No Best 6 snapshot found for this slate.",
+      referenceOnly: true,
+    };
+  }
+
+  const bestSixKeys = new Set(
+    snapshot.picks.map((pick) => pick.trackedKey).filter(Boolean)
+  );
+
+  const slateProps = trackedProps.filter(
+    (prop) => String(prop.slateDate || "") === date
+  );
+
+  const byKey = new Map();
+  for (const prop of slateProps) {
+    const key = prop.trackedKey || prop.trackedId;
+    if (key) byKey.set(key, prop);
+  }
+
+  const enrichedPicks = snapshot.picks.map((entry) => {
+    const tracked = byKey.get(entry.trackedKey);
+    return tracked
+      ? {
+          ...entry,
+          ...tracked,
+          bestSixRank: entry.bestSixRank,
+          bestSixLabel: entry.bestSixLabel,
+          league: entry.league,
+        }
+      : entry;
+  });
+
+  const bestSixRecord = buildRecord(enrichedPicks);
+  const nbaReview = buildLeagueBestSixReview(enrichedPicks, "NBA");
+  const wnbaReview = buildLeagueBestSixReview(enrichedPicks, "WNBA");
+  const official = enrichedPicks.filter(
+    (p) => p.officialEligible === true || p.trackingType === "OFFICIAL"
+  );
+  const test = enrichedPicks.filter(
+    (p) => p.trackingType === "TEST" || p.excludedFromOfficialRecord
+  );
+
+  return {
+    title: "Controlled Best 6 Performance",
+    slateDate: date,
+    selectorVersion: snapshot.selectorVersion,
+    sourcePool: snapshot.sourcePool || TOP_PICKS_SOURCE_POOL,
+    referenceOnly: false,
+    subsetAnalysisOnly: false,
+    record: bestSixRecord,
+    nbaBestSixReview: nbaReview,
+    wnbaBestSixReview: wnbaReview,
+    officialVsTest: {
+      officialRecord: buildRecord(official),
+      testRecord: buildRecord(test),
+    },
+    picks: enrichedPicks,
+    bestSixKeys: [...bestSixKeys],
+    pickCount: enrichedPicks.length,
+    selectedAt: snapshot.selectedAt,
+  };
+}
+
 export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) {
   const date = String(slateDate || "");
   const snapshot =
@@ -288,6 +504,10 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
 
   const topPickKeys = new Set(
     snapshot.picks.map((pick) => pick.trackedKey).filter(Boolean)
+  );
+  const bestSixSnapshot = getBestSixSnapshot(date);
+  const bestSixKeys = new Set(
+    bestSixSnapshot?.picks?.map((pick) => pick.trackedKey).filter(Boolean) || []
   );
 
   const slateProps = trackedProps.filter(
@@ -314,6 +534,16 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
   });
 
   const topPickRecord = buildRecord(enrichedPicks);
+  const bestSixProps = slateProps.filter((prop) => {
+    const key = prop.trackedKey || prop.trackedId;
+    return key && bestSixKeys.has(key);
+  });
+  const bestSixRecord = buildRecord(bestSixProps);
+  const nonTopBestSix = bestSixProps.filter((prop) => {
+    const key = prop.trackedKey || prop.trackedId;
+    return key && !topPickKeys.has(key);
+  });
+  const nonTopBestSixRecord = buildRecord(nonTopBestSix);
   const restOfSlate = slateProps.filter((prop) => {
     const key = prop.trackedKey || prop.trackedId;
     return key && !topPickKeys.has(key);
@@ -327,6 +557,7 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
     title: "Top Picks Selection Review",
     slateDate: date,
     selectorVersion: snapshot.selectorVersion,
+    sourcePool: snapshot.sourcePool || TOP_PICKS_SOURCE_POOL,
     topPropLimit: snapshot.topPropLimit ?? CONFIG.TOP_PROP_COMBINED_LIMIT,
     referenceOnly: true,
     subsetAnalysisOnly: true,
@@ -336,6 +567,26 @@ export function buildTopPicksReview(slateDate, trackedProps = [], options = {}) 
     pickOne: enrichedPicks.find((p) => p.topPickRank === 1) || null,
     pickTwo: enrichedPicks.find((p) => p.topPickRank === 2) || null,
     picks: enrichedPicks,
+    vsBestSix: {
+      bestSixPropCount: bestSixProps.length,
+      bestSixRecord,
+      topPickWinRate: topPickRecord.winRate,
+      bestSixWinRate: bestSixRecord.winRate,
+      winRateDelta:
+        topPickRecord.winRate !== null && bestSixRecord.winRate !== null
+          ? Number((topPickRecord.winRate - bestSixRecord.winRate).toFixed(1))
+          : null,
+    },
+    vsNonTopBestSix: {
+      nonTopBestSixPropCount: nonTopBestSix.length,
+      nonTopBestSixRecord,
+      topPickWinRate: topPickRecord.winRate,
+      nonTopBestSixWinRate: nonTopBestSixRecord.winRate,
+      winRateDelta:
+        topPickRecord.winRate !== null && nonTopBestSixRecord.winRate !== null
+          ? Number((topPickRecord.winRate - nonTopBestSixRecord.winRate).toFixed(1))
+          : null,
+    },
     vsRestOfSlate: {
       restPropCount: restOfSlate.length,
       restRecord,

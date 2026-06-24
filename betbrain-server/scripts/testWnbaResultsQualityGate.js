@@ -15,7 +15,8 @@ import {
   buildResultsTrackingCohort,
   collectAllGeneratedCandidatesFromGames,
 } from "../services/trackedPropService.js";
-import { selectCombinedTopProps } from "../engines/topProps/topPropSelector.js";
+import { selectControlledBestSixCombined } from "../engines/topProps/controlledBestSixSelector.js";
+import { BEST_SIX_LIMIT } from "../engines/topProps/controlledBestSixSelector.js";
 import { readWnbaProp, mapReaderToTracking } from "../engines/wnba/wnbaReaderEngine.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -288,9 +289,13 @@ function test11TopPropsDoesNotAffectCohort() {
     picks: candidates.slice(0, 3),
     allGeneratedCandidates: candidates,
   };
-  const top = selectCombinedTopProps([game]);
-  const { cohort } = buildResultsTrackingCohort(collectAllGeneratedCandidatesFromGames([game]));
-  assert.ok(top.topProps.length <= 4);
+  const selection = selectControlledBestSixCombined([game]);
+  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
+  assert.ok(selection.topProps.length <= 4);
+  assert.ok(cohort.length <= BEST_SIX_LIMIT);
   assert.ok(cohort.length <= candidates.length);
 }
 

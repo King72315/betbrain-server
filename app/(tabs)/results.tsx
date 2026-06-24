@@ -249,6 +249,14 @@ export default function ResultsScreen() {
     [visibleSlates]
   );
 
+  const leagueTrackedCounts = useMemo(() => {
+    const props = visibleSlates.flatMap((s) => s.props);
+    return {
+      nba: props.filter((p) => String(p.league || "").toUpperCase() === "NBA").length,
+      wnba: props.filter((p) => String(p.league || "").toUpperCase() === "WNBA").length,
+    };
+  }, [visibleSlates]);
+
   const pendingCheckSummary = useMemo(
     () => computePendingCheckSummary(lastResolveSummary, visibleSlates),
     [lastResolveSummary, visibleSlates]
@@ -329,11 +337,18 @@ export default function ResultsScreen() {
           <Text style={styles.trackingBreakdown}>
             Total Tracked Props: {trackedSummary.total}
             {" • "}
+            NBA Tracked: {leagueTrackedCounts.nba}
+            {" • "}
+            WNBA Tracked: {leagueTrackedCounts.wnba}
+            {" • "}
             Official Props: {trackingTypeCounts.official}
             {" • "}
             Reader Official Demoted TEST: {trackingTypeCounts.readerOfficialDemoted}
             {" • "}
             Reader Uncertain TEST: {trackingTypeCounts.readerUncertainTest}
+          </Text>
+          <Text style={styles.cohortNote}>
+            Controlled Best 6 cohort — up to 6 NBA + 6 WNBA tracked per active slate.
           </Text>
           {accuracySummary.total === 0 && testAccuracySummary.total > 0 ? (
             <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
@@ -760,6 +775,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 10,
     lineHeight: 18,
+  },
+  cohortNote: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 10,
+    lineHeight: 16,
   },
   priorSlateNote: {
     color: "#fdba74",
