@@ -36,6 +36,8 @@ import {
   pickResolveCheckMessage,
   splitResultsPropsByTrackingType,
   summarizeTrackingTypeCounts,
+  isReaderOfficialDemotedProp,
+  isReaderUncertainTestProp,
   isPriorSlateStillActive,
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
   summarizeActiveResultsSlate,
@@ -207,6 +209,31 @@ export default function ResultsScreen() {
     }));
   }, [visibleSlates, filter]);
 
+  const trackingTypeCounts = useMemo(
+    () => summarizeTrackingTypeCounts(visibleSlates.flatMap((s) => s.props)),
+    [visibleSlates]
+  );
+
+  const readerDemotedAccuracy = useMemo(() => {
+    const demoted = visibleSlates.flatMap((s) =>
+      s.props.filter(isReaderOfficialDemotedProp)
+    );
+    return computeAccuracySummary(
+      [{ slateDate: "all", props: demoted, summary: {}, leagues: [], rotation: {} as any, isComplete: false }],
+      { recordType: "all" }
+    );
+  }, [visibleSlates]);
+
+  const readerUncertainAccuracy = useMemo(() => {
+    const uncertain = visibleSlates.flatMap((s) =>
+      s.props.filter(isReaderUncertainTestProp)
+    );
+    return computeAccuracySummary(
+      [{ slateDate: "all", props: uncertain, summary: {}, leagues: [], rotation: {} as any, isComplete: false }],
+      { recordType: "all" }
+    );
+  }, [visibleSlates]);
+
   const accuracySummary = useMemo(
     () => computeAccuracySummary(visibleSlates, { recordType: "official" }),
     [visibleSlates]
@@ -302,9 +329,11 @@ export default function ResultsScreen() {
           <Text style={styles.trackingBreakdown}>
             Total Tracked Props: {trackedSummary.total}
             {" • "}
-            Official Props: {accuracySummary.total}
+            Official Props: {trackingTypeCounts.official}
             {" • "}
-            Test / Learning Props: {testAccuracySummary.total}
+            Reader Official Demoted TEST: {trackingTypeCounts.readerOfficialDemoted}
+            {" • "}
+            Reader Uncertain TEST: {trackingTypeCounts.readerUncertainTest}
           </Text>
           {accuracySummary.total === 0 && testAccuracySummary.total > 0 ? (
             <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
@@ -314,8 +343,17 @@ export default function ResultsScreen() {
           ) : null}
           <View style={styles.accuracyGrid}>
             <SummaryBox label="Total Tracked" value={trackedSummary.total} color="#e2e8f0" />
-            <SummaryBox label="Official Props" value={accuracySummary.total} color="#f8fafc" />
-            <SummaryBox label="Test / Learning" value={testAccuracySummary.total} color="#c4b5fd" />
+            <SummaryBox label="Official Props" value={trackingTypeCounts.official} color="#f8fafc" />
+            <SummaryBox
+              label="Demoted TEST"
+              value={trackingTypeCounts.readerOfficialDemoted}
+              color="#a78bfa"
+            />
+            <SummaryBox
+              label="Uncertain TEST"
+              value={trackingTypeCounts.readerUncertainTest}
+              color="#c4b5fd"
+            />
             <SummaryBox label="Graded" value={trackedSummary.graded} color="#22c55e" />
             <SummaryBox label="Pending" value={trackedSummary.pending} color="#93c5fd" />
             <SummaryBox
@@ -334,23 +372,40 @@ export default function ResultsScreen() {
           </View>
         </View>
 
-        {testAccuracySummary.total > 0 ? (
+        {(trackingTypeCounts.readerOfficialDemoted > 0 ||
+          trackingTypeCounts.readerUncertainTest > 0) ? (
           <View style={styles.dashboardCard}>
             <Text style={styles.dashboardTitle}>Test / Learning Detail</Text>
-            <Text style={styles.currentSlateLabel}>
-              {testAccuracySummary.total} test props — excluded from official record
-            </Text>
+            {trackingTypeCounts.readerOfficialDemoted > 0 ? (
+              <Text style={styles.currentSlateLabel}>
+                {trackingTypeCounts.readerOfficialDemoted} reader-official-demoted TEST props
+              </Text>
+            ) : null}
+            {trackingTypeCounts.readerUncertainTest > 0 ? (
+              <Text style={styles.currentSlateLabel}>
+                {trackingTypeCounts.readerUncertainTest} reader-uncertain TEST props — stricter quality gate
+              </Text>
+            ) : null}
             <View style={styles.accuracyGrid}>
-              <SummaryBox label="Test Tracked" value={testAccuracySummary.total} color="#c4b5fd" />
-              <SummaryBox label="Graded" value={testAccuracySummary.graded} color="#22c55e" />
-              <SummaryBox label="Pending" value={testAccuracySummary.pending} color="#93c5fd" />
-              <SummaryBox label="Wins" value={testAccuracySummary.wins} color="#4ade80" />
-              <SummaryBox label="Losses" value={testAccuracySummary.losses} color="#f87171" />
-              <SummaryBox label="Pushes" value={testAccuracySummary.pushes} color="#fbbf24" />
               <SummaryBox
-                label="Test Win Rate"
-                value={testAccuracySummary.winRateLabel}
-                color="#e2e8f0"
+                label="Demoted TEST"
+                value={trackingTypeCounts.readerOfficialDemoted}
+                color="#a78bfa"
+              />
+              <SummaryBox
+                label="Demoted Graded"
+                value={readerDemotedAccuracy.graded}
+                color="#22c55e"
+              />
+              <SummaryBox
+                label="Uncertain TEST"
+                value={trackingTypeCounts.readerUncertainTest}
+                color="#c4b5fd"
+              />
+              <SummaryBox
+                label="Uncertain Graded"
+                value={readerUncertainAccuracy.graded}
+                color="#22c55e"
               />
             </View>
           </View>
@@ -429,11 +484,14 @@ export default function ResultsScreen() {
           const slateFiltered =
             filteredSlates.find((item) => item.slateDate === slate.slateDate)?.props ||
             [];
-          const { official: officialProps, test: testProps } =
-            splitResultsPropsByTrackingType(slateFiltered);
+          const {
+            official: officialProps,
+            readerOfficialDemoted: demotedTestProps,
+            readerUncertainTest: uncertainTestProps,
+            test: testProps,
+          } = splitResultsPropsByTrackingType(slateFiltered);
           const locked = isSlateLocked(slate.slateDate);
           const officialGameStateGroups = groupResultsPropsByGameState(officialProps);
-          const testGameStateGroups = groupResultsPropsByGameState(testProps);
 
           const renderPropCard = (prop: any, index: number) => {
             const status = getTrackedPropStatus(prop);
@@ -538,7 +596,9 @@ export default function ResultsScreen() {
                 {" • "}
                 Official: {summarizeTrackingTypeCounts(slateFiltered).official}
                 {" • "}
-                Test: {summarizeTrackingTypeCounts(slateFiltered).test}
+                Demoted TEST: {summarizeTrackingTypeCounts(slateFiltered).readerOfficialDemoted}
+                {" • "}
+                Uncertain TEST: {summarizeTrackingTypeCounts(slateFiltered).readerUncertainTest}
                 {locked ? " • 🔒 LOCKED" : ""}
               </Text>
 
@@ -560,17 +620,46 @@ export default function ResultsScreen() {
               ) : null}
               {testProps.length > 0 ? (
                 <>
-                  <Text style={styles.testSectionTitle}>Test / Learning Tracking</Text>
-                  {renderGameStateSection("Test — Graded", testGameStateGroups.graded)}
-                  {renderGameStateSection(
-                    "Test — Final — Awaiting Stats",
-                    testGameStateGroups.awaitingStats,
-                    AWAITING_STATS_LABEL
-                  )}
-                  {renderGameStateSection(
-                    "Test — Live / Upcoming",
-                    testGameStateGroups.livePending
-                  )}
+                  {demotedTestProps.length > 0 ? (
+                    <>
+                      <Text style={styles.testSectionTitle}>
+                        Reader Official Demoted — TEST
+                      </Text>
+                      {renderGameStateSection(
+                        "Demoted TEST — Graded",
+                        groupResultsPropsByGameState(demotedTestProps).graded
+                      )}
+                      {renderGameStateSection(
+                        "Demoted TEST — Awaiting Stats",
+                        groupResultsPropsByGameState(demotedTestProps).awaitingStats,
+                        AWAITING_STATS_LABEL
+                      )}
+                      {renderGameStateSection(
+                        "Demoted TEST — Live / Upcoming",
+                        groupResultsPropsByGameState(demotedTestProps).livePending
+                      )}
+                    </>
+                  ) : null}
+                  {uncertainTestProps.length > 0 ? (
+                    <>
+                      <Text style={styles.testSectionTitle}>
+                        Reader Uncertain — TEST
+                      </Text>
+                      {renderGameStateSection(
+                        "Uncertain TEST — Graded",
+                        groupResultsPropsByGameState(uncertainTestProps).graded
+                      )}
+                      {renderGameStateSection(
+                        "Uncertain TEST — Awaiting Stats",
+                        groupResultsPropsByGameState(uncertainTestProps).awaitingStats,
+                        AWAITING_STATS_LABEL
+                      )}
+                      {renderGameStateSection(
+                        "Uncertain TEST — Live / Upcoming",
+                        groupResultsPropsByGameState(uncertainTestProps).livePending
+                      )}
+                    </>
+                  ) : null}
                 </>
               ) : null}
             </View>

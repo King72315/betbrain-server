@@ -183,7 +183,7 @@ import {
   saveTopPicksSnapshot,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-reader-calibration-v1";
+const SERVER_BUILD = "courteedge-wnba-results-quality-gate-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2630,7 +2630,17 @@ app.get("/diagnostics", (req, res) => {
       trackingCohortDiagnostics.notTrackedReasonsBySlate || {},
     topPropsAreReferenceOnly: true,
     topPropsDidNotAffectTracking: true,
+    topPropsDidNotControlTracking: true,
     trackingCohortVersion: trackingCohortDiagnostics.trackingCohortVersion,
+    qualityGateVersion: trackingCohortDiagnostics.qualityGateVersion,
+    qualityGateBlockedCount: trackingCohortDiagnostics.qualityGateBlockedCount,
+    boardOnlyCount: trackingCohortDiagnostics.boardOnlyCount,
+    shadowOnlyCount: trackingCohortDiagnostics.shadowOnlyCount,
+    trackingQualityAudit: trackingCohortDiagnostics.trackingQualityAudit,
+    readerOfficialDemotedTrackedCount:
+      trackingCohortDiagnostics.readerOfficialDemotedTrackedCount,
+    readerUncertainTestTrackedCount:
+      trackingCohortDiagnostics.readerUncertainTestTrackedCount,
     officialTrackedCount: trackingCohortDiagnostics.officialTrackedCount,
     testTrackedCount: trackingCohortDiagnostics.testTrackedCount,
     todayLocalDate: trackingCohortDiagnostics.todayLocalDate,

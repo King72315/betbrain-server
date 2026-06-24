@@ -25,6 +25,13 @@ import {
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
+  applyQualityGateToPick,
+  buildTrackingQualityAudit,
+  evaluateWnbaTrackingEligibility,
+  isWnbaQualityGatePick,
+  QUALITY_GATE_VERSION,
+} from "../engines/wnba/wnbaResultsQualityGate.js";
+import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
   getTodayLocalDate,
@@ -461,7 +468,8 @@ export function collectAllGeneratedProps(gameCards = []) {
   return Array.from(seen.values());
 }
 
-export const TRACKING_COHORT_VERSION = "results-tracking-cohort-v1";
+export const TRACKING_COHORT_VERSION = "results-tracking-cohort-v2-quality-gate";
+export { QUALITY_GATE_VERSION };
 
 function normalizeTrackingSide(side = "") {
   const raw = String(side || "").toUpperCase();
@@ -552,6 +560,10 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     noPlayExcludedCount: 0,
     preV1ShadowExcludedCount: 0,
     notTrustableExcludedCount: 0,
+    qualityGateBlockedCount: 0,
+    boardOnlyCount: 0,
+    shadowOnlyCount: 0,
+    qualityGateVersion: QUALITY_GATE_VERSION,
     generatedCandidatesBySlate: {},
     eligibleTrackingCandidatesBySlate: {},
     notTrackedReasonsBySlate: {},
@@ -591,7 +603,21 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       reasonIfNotTracked: null,
     };
 
-    const exclusionReason = getResultsCohortExclusionReason(pick);
+    let gatedPick = pick;
+    if (isWnbaQualityGatePick(pick)) {
+      const gate = evaluateWnbaTrackingEligibility(pick, pick.wnbaDataCard, pick.wnbaReader);
+      gatedPick = applyQualityGateToPick(pick, gate);
+      auditEntry.trackingEligibility = gate.trackingEligibility;
+      auditEntry.qualityGateScore = gate.qualityGateScore;
+      auditEntry.qualityGateVersion = gate.qualityGateVersion;
+      auditEntry.blockReasons = gate.trackingBlockReasons;
+      auditEntry.warnings = gate.trackingWarnings;
+      auditEntry.keyMetrics = gate.keyMetrics;
+      auditEntry.readerDecision =
+        pick.readerDecision || pick.wnbaReader?.decision || decision;
+    }
+
+    const exclusionReason = getResultsCohortExclusionReason(gatedPick);
     if (exclusionReason) {
       auditEntry.reasonIfNotTracked = exclusionReason;
       if (exclusionReason === "started") audit.startedExcludedCount += 1;
@@ -606,7 +632,23 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       continue;
     }
 
-    const dupeKey = exactCandidateDupeKey(pick);
+    if (
+      isWnbaQualityGatePick(gatedPick) &&
+      gatedPick.trackingEligibility &&
+      gatedPick.trackingEligibility !== "TRACK"
+    ) {
+      const eligibility = gatedPick.trackingEligibility;
+      auditEntry.reasonIfNotTracked =
+        gatedPick.trackingBlockReasons?.[0] || eligibility.toLowerCase();
+      if (eligibility === "NO_BET") audit.qualityGateBlockedCount += 1;
+      else if (eligibility === "BOARD_ONLY") audit.boardOnlyCount += 1;
+      else if (eligibility === "SHADOW_ONLY") audit.shadowOnlyCount += 1;
+      bumpReason(slateDate, auditEntry.reasonIfNotTracked);
+      trackingAudit.push(auditEntry);
+      continue;
+    }
+
+    const dupeKey = exactCandidateDupeKey(gatedPick);
     if (exactSeen.has(dupeKey)) {
       audit.duplicateExcludedCount += 1;
       auditEntry.reasonIfNotTracked = "duplicate";
@@ -615,11 +657,11 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       continue;
     }
 
-    const plKey = playerLineConflictKey(pick);
+    const plKey = playerLineConflictKey(gatedPick);
     const prior = playerLineBest.get(plKey);
     if (prior) {
       const priorSide = normalizeTrackingSide(prior.side || prior.pick);
-      const nextSide = normalizeTrackingSide(pick.side || pick.pick);
+      const nextSide = normalizeTrackingSide(gatedPick.side || gatedPick.pick);
       if (priorSide && nextSide && priorSide !== nextSide) {
         audit.oppositeSideExcludedCount += 1;
         auditEntry.reasonIfNotTracked = "opposite_side";
@@ -629,9 +671,9 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       }
     }
 
-    const stableKey = getStableTrackedPropKey(pick);
+    const stableKey = getStableTrackedPropKey(gatedPick);
     const existingStable = stableSeen.get(stableKey);
-    const nextScore = num(pick.pickScore ?? pick.confidence);
+    const nextScore = num(gatedPick.pickScore ?? gatedPick.confidence);
     if (existingStable) {
       const existingScore = num(existingStable.pickScore ?? existingStable.confidence);
       if (nextScore <= existingScore) {
@@ -647,11 +689,11 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       if (removeIndex >= 0) cohort.splice(removeIndex, 1);
     }
 
-    exactSeen.set(dupeKey, pick);
-    playerLineBest.set(plKey, pick);
+    exactSeen.set(dupeKey, gatedPick);
+    playerLineBest.set(plKey, gatedPick);
 
     const normalizedPick = {
-      ...pick,
+      ...gatedPick,
       trackingType: decision,
       recordType: decision,
     };
@@ -671,6 +713,11 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
   }
 
   audit.trackingAudit = trackingAudit;
+  audit.trackingQualityAudit = buildTrackingQualityAudit(candidates, cohort, {
+    tracked: options.tracked || [],
+    getSlateDate: (item) =>
+      item.slateDate || getSlateDateCT(item.commenceTime || item.time),
+  });
   return { cohort, audit };
 }
 
@@ -718,18 +765,39 @@ export function buildTrackingCohortDiagnostics(
 
   const officialTrackedCount = tracked.filter(isOfficialResultsProp).length;
   const testTrackedCount = tracked.filter(isTestTrackingPick).length;
+  const readerOfficialDemotedTrackedCount = tracked.filter(
+    (p) => p.readerOfficialDemoted === true
+  ).length;
+  const readerUncertainTestTrackedCount = tracked.filter(
+    (p) =>
+      isTestTrackingPick(p) && p.readerOfficialDemoted !== true
+  ).length;
+
+  const trackingQualityAudit = buildTrackingQualityAudit(candidates, cohort, {
+    tracked,
+    getSlateDate: (item) =>
+      item.slateDate || getSlateDateCT(item.commenceTime || item.time),
+  });
 
   return {
     ...audit,
+    trackingQualityAudit,
     todayLocalDate,
     activeResultsSlateDate: options.activeResultsSlateDate || todayLocalDate,
     trackedPropsBySlate,
     topPropsSelectedBySlate: topPropsBySlate,
     topPropsAreReferenceOnly: true,
     topPropsDidNotAffectTracking: true,
+    topPropsDidNotControlTracking: true,
     trackingMode: TRACKING_MODE,
     officialTrackedCount,
     testTrackedCount,
+    readerOfficialDemotedTrackedCount,
+    readerUncertainTestTrackedCount,
+    qualityGateVersion: QUALITY_GATE_VERSION,
+    qualityGateBlockedCount: audit.qualityGateBlockedCount,
+    boardOnlyCount: audit.boardOnlyCount,
+    shadowOnlyCount: audit.shadowOnlyCount,
     boardCappedPropCount: collectAllGeneratedProps(gameCards).length,
     fullCandidateCount: candidates.length,
     cohortEligibleCount: cohort.length,

@@ -590,6 +590,7 @@ export default function PropLab() {
   const sectionE = report?.sections?.E;
   const sectionF = report?.sections?.F;
   const sectionM = report?.sections?.M || report?.topPicksReview;
+  const sectionN = report?.sections?.N || report?.qualityGatePerformance;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
@@ -893,6 +894,55 @@ export default function PropLab() {
           </SectionCard>
         )}
 
+        {sectionN ? (
+          <SectionCard title="WNBA Results Quality Gate">
+            <Text style={styles.muted}>
+              Tracks how many WNBA candidates passed the Results quality gate vs board-only / blocked.
+            </Text>
+            <MetricRow
+              label="Gate version"
+              value={String(sectionN.qualityGateVersion || "—")}
+            />
+            <MetricRow
+              label="WNBA tracked (passed gate)"
+              value={String(sectionN.wnbaTrackedCount ?? 0)}
+            />
+            <MetricRow
+              label="Board-only"
+              value={String(sectionN.boardOnlyCount ?? 0)}
+            />
+            <MetricRow
+              label="Shadow-only"
+              value={String(sectionN.shadowOnlyCount ?? 0)}
+            />
+            <MetricRow
+              label="Blocked (NO_BET)"
+              value={String(sectionN.blockedCount ?? 0)}
+            />
+            <MetricRow
+              label="Avg gate score (tracked)"
+              value={
+                sectionN.avgQualityGateScore != null
+                  ? String(sectionN.avgQualityGateScore)
+                  : "—"
+              }
+            />
+            {sectionN.blockReasons && Object.keys(sectionN.blockReasons).length > 0 ? (
+              <>
+                <Text style={styles.breakdownTitle}>Top block reasons</Text>
+                {Object.entries(sectionN.blockReasons)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 5)
+                  .map(([reason, count]) => (
+                    <Text key={reason} style={styles.breakdownLine}>
+                      {reason}: {count}
+                    </Text>
+                  ))}
+              </>
+            ) : null}
+          </SectionCard>
+        ) : null}
+
         {readerOfficialDemotedRecord.total > 0 ? (
           <SectionCard title="Reader Official Demoted (TEST)">
             <Text style={styles.muted}>
@@ -933,6 +983,61 @@ export default function PropLab() {
                 readerUncertainTestRecord.winRate
               )}
             />
+          </SectionCard>
+        ) : null}
+
+        {report?.sections?.N ? (
+          <SectionCard title="WNBA Results Quality Gate">
+            <Text style={styles.muted}>
+              Tracks only props that passed the WNBA quality gate. Board-only and shadow candidates stay off Results.
+            </Text>
+            <MetricRow
+              label="Gate version"
+              value={String(report.sections.N.qualityGateVersion || "—")}
+            />
+            <MetricRow
+              label="WNBA tracked (passed gate)"
+              value={String(report.sections.N.wnbaTrackedCount ?? 0)}
+            />
+            <MetricRow
+              label="Board-only excluded"
+              value={String(report.sections.N.boardOnlyCount ?? 0)}
+            />
+            <MetricRow
+              label="Shadow-only excluded"
+              value={String(report.sections.N.shadowOnlyCount ?? 0)}
+            />
+            <MetricRow
+              label="Blocked (NO_BET)"
+              value={String(report.sections.N.blockedCount ?? 0)}
+            />
+            {report.sections.N.avgQualityGateScore != null ? (
+              <MetricRow
+                label="Avg gate score (tracked)"
+                value={String(report.sections.N.avgQualityGateScore)}
+              />
+            ) : null}
+            {report.sections.N.trackedRecord ? (
+              <MetricRow
+                label="Gated WNBA record"
+                value={formatRecord(
+                  report.sections.N.trackedRecord.wins,
+                  report.sections.N.trackedRecord.losses,
+                  report.sections.N.trackedRecord.pushes,
+                  report.sections.N.trackedRecord.winRate
+                )}
+              />
+            ) : null}
+            {Object.keys(report.sections.N.blockReasons || {}).length > 0 ? (
+              <>
+                <Text style={styles.breakdownTitle}>Block reasons (on tracked slate)</Text>
+                {Object.entries(report.sections.N.blockReasons).map(([reason, count]) => (
+                  <Text key={reason} style={styles.breakdownLine}>
+                    {reason}: {count}
+                  </Text>
+                ))}
+              </>
+            ) : null}
           </SectionCard>
         ) : null}
 

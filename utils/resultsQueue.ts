@@ -254,25 +254,36 @@ export function isOfficialTrackingProp(prop: any = {}): boolean {
 
 export function splitResultsPropsByTrackingType(props: any[] = []) {
   const official: any[] = [];
-  const test: any[] = [];
+  const readerOfficialDemoted: any[] = [];
+  const readerUncertainTest: any[] = [];
 
   for (const prop of props) {
-    if (isTestTrackingProp(prop)) {
-      test.push(prop);
-    } else if (isOfficialTrackingProp(prop)) {
+    if (isOfficialTrackingProp(prop)) {
       official.push(prop);
+    } else if (isReaderOfficialDemotedProp(prop)) {
+      readerOfficialDemoted.push(prop);
+    } else if (isTestTrackingProp(prop)) {
+      readerUncertainTest.push(prop);
     }
   }
 
-  return { official, test };
+  return {
+    official,
+    test: [...readerOfficialDemoted, ...readerUncertainTest],
+    readerOfficialDemoted,
+    readerUncertainTest,
+  };
 }
 
 export function summarizeTrackingTypeCounts(props: any[] = []) {
-  const { official, test } = splitResultsPropsByTrackingType(props);
+  const { official, readerOfficialDemoted, readerUncertainTest, test } =
+    splitResultsPropsByTrackingType(props);
   return {
     total: props.length,
     official: official.length,
     test: test.length,
+    readerOfficialDemoted: readerOfficialDemoted.length,
+    readerUncertainTest: readerUncertainTest.length,
   };
 }
 
@@ -635,6 +646,8 @@ export function summarizeActiveResultsSlate(
     propCount: props.length,
     officialCount: trackingCounts.official,
     testCount: trackingCounts.test,
+    readerOfficialDemotedCount: trackingCounts.readerOfficialDemoted,
+    readerUncertainTestCount: trackingCounts.readerUncertainTest,
     pending,
     awaitingStats,
     graded,

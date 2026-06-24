@@ -14,6 +14,7 @@ import { compareOverUnderRisk } from "../riskComparisonEngine.js";
 import { mergeIntelligenceIntoRiskComparison } from "../scoreLedgerEngine.js";
 import { buildScoreLedger } from "../scoreLedgerEngine.js";
 import { applyWnbaOfficialV1Rules } from "../wnbaOfficialEngine.js";
+import { applyQualityGateToPick, evaluateWnbaTrackingEligibility } from "./wnbaResultsQualityGate.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
@@ -446,6 +447,9 @@ export async function evaluateWnbaPropDecision(context = {}) {
   });
 
   pick = finalizeWnbaPickTracking(pick, reader);
+
+  const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
+  pick = applyQualityGateToPick(pick, qualityGate);
 
   if (typeof applyPickFinishers === "function") {
     pick = applyPickFinishers(pick) || pick;

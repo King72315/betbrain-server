@@ -28,6 +28,7 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
 } from "./slateScopeService.js";
+import { buildQualityGatePerformanceFromProps } from "../engines/wnba/wnbaResultsQualityGate.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -944,6 +945,14 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   const reportStatus = allGraded ? "final" : "in-progress";
 
   const trackingCalibration = buildTrackingCalibrationSplit(slateProps);
+  const qualityGatePerformance = buildQualityGatePerformanceFromProps(slateProps);
+  qualityGatePerformance.trackedRecord = buildRecord(
+    slateProps.filter(
+      (p) =>
+        String(p.league).toUpperCase() === "WNBA" &&
+        (p.trackingEligibility === "TRACK" || !p.trackingEligibility)
+    )
+  );
 
   const sectionA = {
     title: "Slate Summary",
@@ -956,6 +965,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     readerOfficialDemotedCount: trackingCalibration.readerOfficialDemotedCount,
     readerUncertainTestCount: trackingCalibration.readerUncertainTestCount,
     trackingCalibration,
+    qualityGatePerformance,
     graded: record.graded,
     pending: record.pending,
     wins: record.wins,
@@ -1083,6 +1093,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       M: {
         title: "Top Picks Selection Review",
         ...topPicksReview,
+      },
+      N: {
+        title: "WNBA Results Quality Gate Performance",
+        ...qualityGatePerformance,
       },
     },
   };
