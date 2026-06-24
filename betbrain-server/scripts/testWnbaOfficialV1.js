@@ -51,7 +51,8 @@ function testGapFloors() {
 function testAvailabilityMapping() {
   assert.strictEqual(classifyWnbaInjuryStatus("Out").level, "OUT");
   assert.strictEqual(classifyWnbaInjuryStatus("Inactive").level, "OUT");
-  assert.strictEqual(classifyWnbaInjuryStatus("Doubtful").level, "OUT");
+  assert.strictEqual(classifyWnbaInjuryStatus("Doubtful").level, "LIMITED");
+  assert.strictEqual(classifyWnbaInjuryStatus("Limited").level, "LIMITED");
   assert.strictEqual(classifyWnbaInjuryStatus("Questionable").level, "QUESTIONABLE");
   assert.strictEqual(classifyWnbaInjuryStatus("Active").level, "ACTIVE");
 }

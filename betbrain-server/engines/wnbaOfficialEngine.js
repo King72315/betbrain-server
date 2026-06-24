@@ -145,10 +145,14 @@ export function evaluateWnbaOfficialEligibility(pick = {}) {
     );
   } else if (
     availability.applicable &&
-    availability.statusLevel === "OUT"
+    (availability.statusLevel === "OUT" || availability.statusLevel === "LIMITED")
   ) {
     eligible = false;
-    reasons.push("Player OUT — official blocked");
+    reasons.push(
+      availability.statusLevel === "OUT"
+        ? "Player OUT — official blocked"
+        : "Player limited/doubtful — official blocked"
+    );
   }
 
   if (lowRiskGates.blocksOfficial) {
@@ -222,9 +226,8 @@ export function applyWnbaOfficialV1Rules(pick = {}, context = {}) {
     ...pick,
     tier,
     tierReasons,
-    confidence,
+    confidence: confidence,
     finalConfidence: confidence,
-    winProbability: confidence,
     wnbaOfficialEligibility: eligibility,
     fairLineSideEffective: fairLineDemotion.fairLineSideEffective ?? pick.fairLineSide,
     fairLineBoostSuppressed: fairLineDemotion.fairLineBoostSuppressed,

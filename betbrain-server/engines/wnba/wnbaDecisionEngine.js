@@ -19,6 +19,45 @@ import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
+const CONFIDENCE_BLEND_VERSION = "v1-70-30";
+const CONFIDENCE_BLEND_FORMULA = "0.7*readerConfidence + 0.3*winProbability";
+
+function finalizeWnbaPickTracking(pick = {}, reader = {}) {
+  const readerWantsOfficial = reader.decision === "OFFICIAL";
+  const v1BlocksOfficial = pick.officialEligible === false;
+  const readerOfficialDemoted =
+    readerWantsOfficial &&
+    (pick.trackingType === "TEST" || v1BlocksOfficial || !pick.v1OfficialGatePassed);
+
+  if (!readerOfficialDemoted) {
+    return pick;
+  }
+
+  const demotionReason =
+    pick.officialDemotionReason ||
+    pick.wnbaOfficialEligibility?.reasons?.join("; ") ||
+    pick.trackingReason ||
+    "WNBA v1 official gate failed";
+
+  return {
+    ...pick,
+    trackingType: "TEST",
+    recordType: "TEST",
+    finalDecision: "TEST",
+    sideSelectionDecision: "TEST",
+    officialEligible: false,
+    excludedFromOfficialRecord: true,
+    readerOfficialDemoted: true,
+    officialDemotionReason: demotionReason,
+    officialEligibilityFailReason: demotionReason,
+    readerOutcome: reader.decision,
+    readerDecision: reader.decision,
+    trackingReason: demotionReason,
+    testReasons: pick.wnbaOfficialEligibility?.reasons || pick.testReasons || [],
+    testReason: demotionReason,
+    v1OfficialGatePassed: false,
+  };
+}
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -250,12 +289,15 @@ export async function evaluateWnbaPropDecision(context = {}) {
     : num(riskComparison.underRisk, 55);
   const riskLabel = getRiskLabel(chosenRisk);
 
-  const rawConfidence = clamp(
-    Math.round(reader.readerConfidence * 0.7 + num(bestPick.rawWinProbability) * 0.3),
+  const readerConfidence = reader.readerConfidence;
+  const winProbability = num(
+    bestPick.rawWinProbability ?? bestPick.winProbability
+  );
+  const finalConfidence = clamp(
+    Math.round(readerConfidence * 0.7 + winProbability * 0.3),
     30,
     92
   );
-  const finalConfidence = rawConfidence;
 
   let tier = "LEAN";
   if (finalConfidence >= 75 && reader.decision === "OFFICIAL") tier = "PREMIUM";
@@ -296,12 +338,15 @@ export async function evaluateWnbaPropDecision(context = {}) {
     ftaAverage: opportunity.recentFTA,
     opportunityScore: opportunity.opportunityScore,
     dataCoverage: opportunity.dataCoverage,
-    rawConfidenceBeforeReliability: rawConfidence,
+    rawConfidenceBeforeReliability: finalConfidence,
     evidenceReliability: num(dataCard.dataConfidenceScore) / 100,
     dangerPressure: reader.disagrees.length * 0.05,
+    readerConfidence,
+    winProbability,
     finalConfidence,
+    confidenceBlendVersion: CONFIDENCE_BLEND_VERSION,
+    confidenceBlendFormula: CONFIDENCE_BLEND_FORMULA,
     confidence: finalConfidence,
-    winProbability: finalConfidence,
     strength: finalConfidence >= 75 ? "Strong" : finalConfidence >= 60 ? "Moderate" : "Lean",
     tier,
     tierReasons: [`WNBA v2 reader decision: ${reader.decision}`],
@@ -355,6 +400,14 @@ export async function evaluateWnbaPropDecision(context = {}) {
     ...fairLine,
     wnbaDataCard: dataCard,
     wnbaReader: reader,
+    underGap: reader.underGap,
+    underGapFloorUsed: reader.underGapFloorUsed,
+    underGapFloorPassed: reader.underGapFloorPassed,
+    limitedDataUnderPenaltyApplied: reader.limitedDataUnderPenaltyApplied,
+    lineToRecentAvgRatio: dataCard.lineToRecentAvgRatio,
+    lineToSeasonAvgRatio: dataCard.lineToSeasonAvgRatio,
+    absoluteLineBucket: dataCard.absoluteLineBucket,
+    playerContextLineBucket: dataCard.playerContextLineBucket,
     reasons: reader.supports.slice(0, 6),
     risks: reader.disagrees.slice(0, 5),
     ...tracking,
@@ -391,6 +444,8 @@ export async function evaluateWnbaPropDecision(context = {}) {
     defenseResult,
     wnbaGameContext: pickGameContext,
   });
+
+  pick = finalizeWnbaPickTracking(pick, reader);
 
   if (typeof applyPickFinishers === "function") {
     pick = applyPickFinishers(pick) || pick;

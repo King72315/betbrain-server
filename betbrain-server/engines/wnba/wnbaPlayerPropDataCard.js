@@ -48,7 +48,7 @@ function computeDataConfidence(flags = []) {
     last5: 20,
     minutes: 10,
     fga: 10,
-    injury: 10,
+    availabilityFeed: 5,
     defense: 10,
     matchup: 5,
     market: 10,
@@ -164,9 +164,9 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   flag("minutes", recentMinutes <= 0 && seasonMinutes <= 0, "No minutes data");
   flag("fga", recentFGA <= 0 && seasonFGA <= 0, "No FGA data");
   flag(
-    "injury",
-    !availabilityGate.status && !availabilityGate.statusLevel,
-    "Injury/availability unknown"
+    "availabilityFeed",
+    Boolean(availabilityGate.availabilityDataMissing),
+    "WNBA availability feed missing"
   );
   flag(
     "defense",
@@ -191,9 +191,40 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   );
 
   const dataConfidenceScore = computeDataConfidence(dataMissingFlags);
+  const lineToRecentAvgRatio =
+    line > 0 && recentPoints > 0
+      ? Number((line / recentPoints).toFixed(2))
+      : null;
+  const lineToSeasonAvgRatio =
+    line > 0 && seasonPoints > 0
+      ? Number((line / seasonPoints).toFixed(2))
+      : null;
+  const absoluteLineBucket =
+    line <= 8.5 ? "low" : line <= 15.5 ? "mid" : "high";
+  const playerContextLineBucket =
+    lineToRecentAvgRatio !== null
+      ? lineToRecentAvgRatio >= 1.15
+        ? "above_recent"
+        : lineToRecentAvgRatio <= 0.85
+          ? "below_recent"
+          : "near_recent"
+      : "unknown";
+
+  const availabilityDataMissing = Boolean(availabilityGate.availabilityDataMissing);
+  const dataMissingWithAvailability = availabilityDataMissing
+    ? [
+        ...dataMissingFlags,
+        {
+          key: "WNBA_AVAILABILITY_FEED_MISSING",
+          missing: true,
+          note: "WNBA availability feed missing — not treated as risk",
+        },
+      ]
+    : dataMissingFlags;
 
   return {
     version: "wnba-data-card-v2",
+    dataMode: playerState.dataMode || "",
     playerId,
     player: playerName,
     team,
@@ -236,6 +267,9 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     injuryAvailability: {
       status: availabilityGate.status || availabilityGate.statusLevel || "unknown",
       level: availabilityGate.statusLevel || "UNKNOWN",
+      availabilityStatus: availabilityGate.availabilityStatus || availabilityGate.statusLevel || "UNKNOWN",
+      availabilityDataMissing,
+      availabilityRisk: Boolean(availabilityGate.availabilityRisk),
       blocksPlay: Boolean(availabilityGate.noPlay),
       reasons: availabilityGate.noPlayReasons || availabilityGate.dangerReasons || [],
     },
@@ -255,8 +289,12 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     },
     projection: projectionResult,
     fairLine,
-    dataMissingFlags,
+    dataMissingFlags: dataMissingWithAvailability,
     dataConfidenceScore,
+    lineToRecentAvgRatio,
+    lineToSeasonAvgRatio,
+    absoluteLineBucket,
+    playerContextLineBucket,
     builtAt: new Date().toISOString(),
   };
 }

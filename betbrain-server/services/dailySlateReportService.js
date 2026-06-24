@@ -904,6 +904,33 @@ function getLedgerForLearning(prop = {}) {
   return prop.scoreLedger || [];
 }
 
+function buildTrackingCalibrationSplit(slateProps = []) {
+  const officialProps = slateProps.filter(
+    (prop) => String(prop.trackingType || prop.recordType || "").toUpperCase() === "OFFICIAL"
+  );
+  const testProps = slateProps.filter(
+    (prop) => String(prop.trackingType || prop.recordType || "").toUpperCase() === "TEST"
+  );
+  const readerOfficialDemotedProps = testProps.filter(
+    (prop) => prop.readerOfficialDemoted === true
+  );
+  const readerUncertainTestProps = testProps.filter(
+    (prop) => prop.readerOfficialDemoted !== true
+  );
+
+  return {
+    totalTracked: slateProps.length,
+    officialCount: officialProps.length,
+    testCount: testProps.length,
+    readerOfficialDemotedCount: readerOfficialDemotedProps.length,
+    readerUncertainTestCount: readerUncertainTestProps.length,
+    officialRecord: buildRecord(officialProps),
+    testRecord: buildRecord(testProps),
+    readerOfficialDemotedRecord: buildRecord(readerOfficialDemotedProps),
+    readerUncertainTestRecord: buildRecord(readerUncertainTestProps),
+  };
+}
+
 function buildSlateReport(slateDate, props = [], options = {}) {
   const slateProps = props.filter(
     (prop) => (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
@@ -916,11 +943,19 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   const now = new Date().toISOString();
   const reportStatus = allGraded ? "final" : "in-progress";
 
+  const trackingCalibration = buildTrackingCalibrationSplit(slateProps);
+
   const sectionA = {
     title: "Slate Summary",
     slateDate,
     reportStatus,
     totalOfficialProps: slateProps.length,
+    totalTrackedProps: slateProps.length,
+    officialPropsCount: trackingCalibration.officialCount,
+    testPropsCount: trackingCalibration.testCount,
+    readerOfficialDemotedCount: trackingCalibration.readerOfficialDemotedCount,
+    readerUncertainTestCount: trackingCalibration.readerUncertainTestCount,
+    trackingCalibration,
     graded: record.graded,
     pending: record.pending,
     wins: record.wins,
@@ -996,7 +1031,13 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   const topPicksReview =
     options.topPicksReview ||
     buildTopPicksReview(slateDate, slateProps) ||
-    null;
+    {
+      title: "Top Picks Selection Review",
+      slateDate,
+      snapshotMissing: true,
+      message: "No Top Picks snapshot found for this slate.",
+      referenceOnly: true,
+    };
 
   const sectionL = {
     title: "League-Split Calibration",
@@ -1039,12 +1080,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
         buckets: tierLabBuckets,
       },
       L: sectionL,
-      M: topPicksReview
-        ? {
-            title: "Top Picks Selection Review",
-            ...topPicksReview,
-          }
-        : null,
+      M: {
+        title: "Top Picks Selection Review",
+        ...topPicksReview,
+      },
     },
   };
 }

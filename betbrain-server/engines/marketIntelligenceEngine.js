@@ -27,6 +27,69 @@ export function computeLineMovementAgainstSide(pickSide = "", lineDelta = 0) {
   return false;
 }
 
+/**
+ * Side-aware line movement: separates market direction from line-value improvement.
+ * Over: rise = support, drop = against (but cheaper line).
+ * Under: drop = support, rise = against (but higher line).
+ */
+export function interpretLineMovement(pickSide = "", lineDelta = 0) {
+  const side = normalizeSide(pickSide);
+  const delta = num(lineDelta);
+
+  let lineMovementDirection = "flat";
+  if (delta <= -0.5) lineMovementDirection = "down";
+  else if (delta >= 0.5) lineMovementDirection = "up";
+
+  const base = {
+    lineMovementDirection,
+    lineMovedForPickSide: false,
+    lineMovedAgainstPickSide: false,
+    currentLineValueImproved: false,
+    marketDirectionAgainstPick: false,
+    lineMovementInterpretation: "No meaningful line movement",
+  };
+
+  if (!side || lineMovementDirection === "flat") {
+    return base;
+  }
+
+  if (side === "OVER") {
+    if (lineMovementDirection === "up") {
+      return {
+        ...base,
+        lineMovedForPickSide: true,
+        lineMovementInterpretation:
+          "Line rose from open — market support for Over",
+      };
+    }
+    return {
+      ...base,
+      lineMovedAgainstPickSide: true,
+      marketDirectionAgainstPick: true,
+      currentLineValueImproved: true,
+      lineMovementInterpretation:
+        "Line dropped from open — cheaper Over line but market moved against Over",
+    };
+  }
+
+  if (lineMovementDirection === "down") {
+    return {
+      ...base,
+      lineMovedForPickSide: true,
+      lineMovementInterpretation:
+        "Line dropped from open — market support for Under",
+    };
+  }
+  return {
+    ...base,
+    lineMovedAgainstPickSide: true,
+    marketDirectionAgainstPick: true,
+    currentLineValueImproved: true,
+    lineMovementInterpretation:
+      "Line rose from open — higher Under line but market moved against Under",
+  };
+}
+
 export function buildMarketIntelligence({
   prop = {},
   marketSnapshot = {},
@@ -151,6 +214,8 @@ export function buildMarketIntelligence({
     resistanceScore += 3;
   }
 
+  const lineMovement = interpretLineMovement(pickSide, lineDelta);
+
   return {
     openingLine,
     currentLine,
@@ -169,5 +234,6 @@ export function buildMarketIntelligence({
     resistanceScore,
     lineMovementAgainstSide: computeLineMovementAgainstSide(pickSide, lineDelta),
     lineMovedAgainstSide: computeLineMovementAgainstSide(pickSide, lineDelta),
+    ...lineMovement,
   };
 }

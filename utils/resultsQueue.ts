@@ -235,6 +235,14 @@ export function isTestTrackingProp(prop: any = {}): boolean {
   return trackingType === "TEST";
 }
 
+export function isReaderOfficialDemotedProp(prop: any = {}): boolean {
+  return prop.readerOfficialDemoted === true;
+}
+
+export function isReaderUncertainTestProp(prop: any = {}): boolean {
+  return isTestTrackingProp(prop) && !isReaderOfficialDemotedProp(prop);
+}
+
 export function isOfficialTrackingProp(prop: any = {}): boolean {
   const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
   if (trackingType === "TEST" || trackingType === "NO_BET") return false;

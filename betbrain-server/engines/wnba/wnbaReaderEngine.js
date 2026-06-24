@@ -1,4 +1,7 @@
-import { computeLineMovementAgainstSide } from "../marketIntelligenceEngine.js";
+import {
+  computeLineMovementAgainstSide,
+  interpretLineMovement,
+} from "../marketIntelligenceEngine.js";
 import { evaluateWnbaOfficialEligibility } from "../wnbaOfficialEngine.js";
 
 function num(value, fallback = 0) {
@@ -25,6 +28,8 @@ function isLowLineContext(line = 0) {
   return num(line) <= 8.5;
 }
 
+const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.0;
+
 function scoreVolumePath(side, card = {}) {
   const line = num(card.bookLine);
   const proj = num(card.projection?.projection);
@@ -32,11 +37,16 @@ function scoreVolumePath(side, card = {}) {
   const fga = num(card.last5?.fga);
   const fta = num(card.last5?.fta);
   const lowLine = isLowLineContext(line);
+  const dataMode = String(card.dataMode || "").toUpperCase();
   let score = 0;
   const supports = [];
   const disagrees = [];
 
   const edge = side === "OVER" ? proj - line : line - proj;
+  let underGap = null;
+  let underGapFloorUsed = null;
+  let underGapFloorPassed = null;
+  let limitedDataUnderPenaltyApplied = false;
 
   if (edge >= 4) {
     score += 12;
@@ -78,6 +88,18 @@ function scoreVolumePath(side, card = {}) {
   }
 
   if (side === "UNDER") {
+    underGap = edge;
+    if (dataMode === "WNBA_LIMITED_DATA") {
+      underGapFloorUsed = WNBA_LIMITED_UNDER_GAP_FLOOR;
+      underGapFloorPassed = underGap >= underGapFloorUsed;
+      if (!underGapFloorPassed) {
+        limitedDataUnderPenaltyApplied = true;
+        score -= 14;
+        disagrees.push(
+          `WNBA limited-data Under gap ${underGap.toFixed(1)} below floor ${underGapFloorUsed}`
+        );
+      }
+    }
     if (minutes > 0 && minutes < 22) {
       score += 5;
       supports.push("Limited minutes support under");
@@ -88,7 +110,16 @@ function scoreVolumePath(side, card = {}) {
     }
   }
 
-  return { score, supports, disagrees, edge };
+  return {
+    score,
+    supports,
+    disagrees,
+    edge,
+    underGap,
+    underGapFloorUsed,
+    underGapFloorPassed,
+    limitedDataUnderPenaltyApplied,
+  };
 }
 
 function scoreRecentScoring(side, card = {}) {
@@ -176,13 +207,17 @@ function scoreMarket(side, card = {}) {
   const supports = [];
   const disagrees = [];
   const movement = num(card.lineMovement);
+  const lineMovement = interpretLineMovement(side, movement);
 
-  if (computeLineMovementAgainstSide(side, movement)) {
+  if (lineMovement.marketDirectionAgainstPick) {
     score -= 10;
-    disagrees.push("Line movement against side");
+    disagrees.push(lineMovement.lineMovementInterpretation);
+  } else if (movement !== 0 && lineMovement.lineMovedForPickSide) {
+    score += 5;
+    supports.push(lineMovement.lineMovementInterpretation);
   } else if (movement !== 0) {
-    score += 3;
-    supports.push("Line movement not against side");
+    score += 1;
+    supports.push("Line movement neutral for side");
   }
 
   if (num(card.bookCount) >= 4) {
@@ -198,7 +233,7 @@ function scoreMarket(side, card = {}) {
     disagrees.push("Wide line spread across books");
   }
 
-  return { score, supports, disagrees };
+  return { score, supports, disagrees, lineMovement };
 }
 
 function scoreEnvironment(side, card = {}) {
@@ -262,6 +297,10 @@ function scoreRoleAndUsage(side, card = {}) {
       blocked: true,
     };
   }
+  if (avail.level === "LIMITED") {
+    score -= 12;
+    disagrees.push("Limited/doubtful availability");
+  }
   if (avail.level === "QUESTIONABLE") {
     score -= 4;
     disagrees.push("Questionable availability");
@@ -308,6 +347,11 @@ function buildSideCase(side, card = {}) {
     ],
     fairLineRole: fair.role,
     blocked: Boolean(role.blocked),
+    underGap: volume.underGap,
+    underGapFloorUsed: volume.underGapFloorUsed,
+    underGapFloorPassed: volume.underGapFloorPassed,
+    limitedDataUnderPenaltyApplied: volume.limitedDataUnderPenaltyApplied,
+    lineMovement: market.lineMovement,
   };
 }
 
@@ -420,6 +464,19 @@ export function readWnbaProp(dataCard = {}) {
     if (decision === "OFFICIAL") decision = "TEST";
   }
 
+  if (
+    finalSide === "UNDER" &&
+    chosen.limitedDataUnderPenaltyApplied &&
+    String(dataCard.dataMode || "").toUpperCase() === "WNBA_LIMITED_DATA"
+  ) {
+    reasonCodes.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+    if (decision === "OFFICIAL") decision = "TEST";
+    if (chosen.score < 6) {
+      decision = "NO_BET";
+      reasonCodes.push("INSUFFICIENT_EDGE");
+    }
+  }
+
   return {
     finalSide,
     whyOver,
@@ -433,7 +490,12 @@ export function readWnbaProp(dataCard = {}) {
     overCase,
     underCase,
     margin,
-    readerVersion: "wnba-reader-v2",
+    underGap: chosen.underGap,
+    underGapFloorUsed: chosen.underGapFloorUsed,
+    underGapFloorPassed: chosen.underGapFloorPassed,
+    limitedDataUnderPenaltyApplied: chosen.limitedDataUnderPenaltyApplied,
+    lineMovement: chosen.lineMovement,
+    readerVersion: "wnba-reader-v2-calibration",
   };
 }
 
@@ -447,6 +509,10 @@ export function mapReaderToTracking(reader = {}, pick = {}) {
       excludedFromOfficialRecord: true,
       trustable: false,
       noPlay: true,
+      readerOutcome: "NO_BET",
+      readerDecision: "NO_BET",
+      trackingReason: null,
+      readerOfficialDemoted: false,
     };
   }
 
@@ -461,8 +527,32 @@ export function mapReaderToTracking(reader = {}, pick = {}) {
         })
       : { eligible: false, reasons: [] };
 
-  const official =
-    reader.decision === "OFFICIAL" && eligibility.eligible;
+  const readerWantsOfficial = reader.decision === "OFFICIAL";
+  const official = readerWantsOfficial && eligibility.eligible;
+  const readerOfficialDemoted = readerWantsOfficial && !official;
+
+  const failureReasonCodes = (reader.reasonCodes || []).filter(
+    (code) => !["STRONG_READER_CASE", "READER_TEST_PLAY"].includes(code)
+  );
+
+  let officialDemotionReason = null;
+  let trackingReason = null;
+
+  if (readerOfficialDemoted) {
+    officialDemotionReason =
+      (eligibility.reasons || []).join("; ") ||
+      "WNBA v1 official gate failed";
+    trackingReason = officialDemotionReason;
+  } else if (!official) {
+    trackingReason =
+      failureReasonCodes.join("; ") || "Reader uncertain — TEST path";
+  }
+
+  const testReasons = official
+    ? []
+    : readerOfficialDemoted
+      ? [...(eligibility.reasons || [])]
+      : failureReasonCodes;
 
   return {
     trackingType: official ? "OFFICIAL" : "TEST",
@@ -472,8 +562,17 @@ export function mapReaderToTracking(reader = {}, pick = {}) {
     excludedFromOfficialRecord: !official,
     trustable: true,
     noPlay: false,
-    testReasons: official ? [] : reader.reasonCodes,
-    testReason: official ? null : reader.reasonCodes.join("; "),
+    readerOfficialDemoted,
+    officialDemotionReason,
+    officialEligibilityFailReason: readerOfficialDemoted
+      ? officialDemotionReason
+      : null,
+    readerOutcome: reader.decision,
+    readerDecision: reader.decision,
+    readerConfidence: reader.readerConfidence,
+    trackingReason,
+    testReasons,
+    testReason: official ? null : trackingReason || testReasons.join("; ") || null,
     v1OfficialGatePassed: official,
   };
 }

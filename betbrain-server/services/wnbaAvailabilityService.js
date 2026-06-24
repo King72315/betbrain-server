@@ -24,10 +24,13 @@ export function classifyWnbaInjuryStatus(raw = "") {
     status.includes("out") ||
     status.includes("inactive") ||
     status.includes("suspended") ||
-    status.includes("doubtful") ||
     status.includes("injured reserve")
   ) {
     return { level: "OUT", label: raw };
+  }
+
+  if (status.includes("doubtful") || status.includes("limited")) {
+    return { level: "LIMITED", label: raw };
   }
 
   if (
@@ -118,21 +121,49 @@ export async function evaluateWnbaAvailability({
   let noPlay = false;
   let blocksOfficial = false;
   let officialCapTier = null;
+  let availabilityDataMissing = false;
+  let availabilityRisk = false;
 
-  if (level === "OUT") {
-    dangerReasons.push(`WNBA injury: ${label || "out/inactive/doubtful"}`);
-    dangerPressure = 0.55;
-    noPlay = true;
+  if (!injury && !rawStatus) {
+    return {
+      applicable: true,
+      status: "unknown",
+      statusLevel: "UNKNOWN",
+      statusLabel: "Unknown",
+      availabilityStatus: "UNKNOWN",
+      availabilityDataMissing: true,
+      availabilityRisk: false,
+      dangerPressure: 0,
+      dangerReasons: [],
+      noPlay: false,
+      noPlayReasons: [],
+      blocksOfficial: false,
+      officialCapTier: null,
+      injuryRow: null,
+      source: "wnba-availability-v1",
+    };
+  }
+
+  if (level === "OUT" || level === "LIMITED") {
+    availabilityRisk = true;
+    dangerReasons.push(`WNBA injury: ${label || "out/inactive/limited/doubtful"}`);
+    dangerPressure = level === "OUT" ? 0.55 : 0.35;
+    noPlay = level === "OUT";
     blocksOfficial = true;
-    noPlayReasons.push("Player unavailable (BDL injury OUT/INACTIVE/DOUBTFUL)");
+    if (noPlay) {
+      noPlayReasons.push("Player unavailable (BDL injury OUT/INACTIVE)");
+    } else {
+      noPlayReasons.push("Player limited/doubtful — official blocked");
+    }
   } else if (level === "QUESTIONABLE") {
+    availabilityRisk = true;
     dangerReasons.push(`WNBA questionable: ${label}`);
     dangerPressure = 0.2;
     officialCapTier = "WATCHLIST";
     blocksOfficial = true;
-  } else if (level === "UNKNOWN" && rawStatus) {
-    dangerReasons.push(`WNBA unclear availability: ${label}`);
-    dangerPressure = 0.08;
+  } else if (level === "UNKNOWN") {
+    availabilityDataMissing = true;
+    availabilityRisk = false;
   }
 
   return {
@@ -140,6 +171,9 @@ export async function evaluateWnbaAvailability({
     status: rawStatus || "unknown",
     statusLevel: level,
     statusLabel: label,
+    availabilityStatus: level,
+    availabilityDataMissing,
+    availabilityRisk,
     dangerPressure,
     dangerReasons,
     noPlay,

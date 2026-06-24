@@ -32,6 +32,8 @@ import {
   computeTrackingTypeRecord,
   getTrackedPropStatus,
   isOfficialTrackingProp,
+  isReaderOfficialDemotedProp,
+  isReaderUncertainTestProp,
   isTestTrackingProp,
 } from "../../utils/resultsQueue";
 
@@ -621,6 +623,26 @@ export default function PropLab() {
     [testSlateProps]
   );
 
+  const readerOfficialDemotedProps = useMemo(
+    () => testSlateProps.filter(isReaderOfficialDemotedProp),
+    [testSlateProps]
+  );
+
+  const readerUncertainTestProps = useMemo(
+    () => testSlateProps.filter(isReaderUncertainTestProp),
+    [testSlateProps]
+  );
+
+  const readerOfficialDemotedRecord = useMemo(
+    () => computeTrackingTypeRecord(readerOfficialDemotedProps, getTrackedPropStatus),
+    [readerOfficialDemotedProps]
+  );
+
+  const readerUncertainTestRecord = useMemo(
+    () => computeTrackingTypeRecord(readerUncertainTestProps, getTrackedPropStatus),
+    [readerUncertainTestProps]
+  );
+
   const contradictionPerf = useMemo(
     () => computeContradictionPerformance(testSlateProps),
     [testSlateProps]
@@ -704,6 +726,22 @@ export default function PropLab() {
         ) : null}
 
         {sectionA ? (
+          <SectionCard title="Tracked Slate Summary">
+            <MetricRow label="Total tracked" value={String(slateTrackedProps.length)} />
+            <MetricRow label="Official props" value={String(officialRecord.total)} />
+            <MetricRow label="Test / learning" value={String(testRecord.total)} />
+            <MetricRow
+              label="Reader official demoted"
+              value={String(readerOfficialDemotedRecord.total)}
+            />
+            <MetricRow
+              label="Reader uncertain TEST"
+              value={String(readerUncertainTestRecord.total)}
+            />
+          </SectionCard>
+        ) : null}
+
+        {sectionA ? (
           <SectionCard title="Official Performance">
             <View style={styles.summaryHeader}>
               <Text style={styles.slateTitle}>{formatSlateLabel(sectionA.slateDate)}</Text>
@@ -756,6 +794,14 @@ export default function PropLab() {
 
         {sectionM ? (
           <>
+            {sectionM.snapshotMissing ? (
+              <SectionCard title="Top Picks Selection Review">
+                <Text style={styles.muted}>
+                  {sectionM.message || "No Top Picks snapshot found for this slate."}
+                </Text>
+              </SectionCard>
+            ) : (
+              <>
             <SectionCard title="NBA Top Picks Record">
               <Text style={styles.muted}>
                 Reference-only best-2 NBA snapshot — subset analysis, not double-counted in slate record.
@@ -838,7 +884,56 @@ export default function PropLab() {
                 )}
               />
             </SectionCard>
+              </>
+            )}
           </>
+        ) : (
+          <SectionCard title="Top Picks Selection Review">
+            <Text style={styles.muted}>No Top Picks snapshot found for this slate.</Text>
+          </SectionCard>
+        )}
+
+        {readerOfficialDemotedRecord.total > 0 ? (
+          <SectionCard title="Reader Official Demoted (TEST)">
+            <Text style={styles.muted}>
+              Reader called OFFICIAL but v1/tier gates demoted to TEST — separate calibration bucket.
+            </Text>
+            <MetricRow label="Demoted tracked" value={String(readerOfficialDemotedRecord.total)} />
+            <MetricRow
+              label="Demoted record"
+              value={formatRecord(
+                readerOfficialDemotedRecord.wins,
+                readerOfficialDemotedRecord.losses,
+                readerOfficialDemotedRecord.pushes,
+                readerOfficialDemotedRecord.winRate
+              )}
+            />
+            {readerOfficialDemotedProps.slice(0, 4).map((prop, index) => (
+              <View key={prop.trackedKey || `demoted-${index}`} style={styles.rawPropRow}>
+                <Text style={styles.rawPropTitle}>
+                  {prop.player} — {prop.currentEngineSide} {prop.line}
+                </Text>
+                <Text style={styles.rawPropMeta}>
+                  {prop.officialDemotionReason || prop.trackingReason || "Official gate demotion"}
+                </Text>
+              </View>
+            ))}
+          </SectionCard>
+        ) : null}
+
+        {readerUncertainTestRecord.total > 0 ? (
+          <SectionCard title="Reader Uncertain TEST">
+            <MetricRow label="Uncertain TEST tracked" value={String(readerUncertainTestRecord.total)} />
+            <MetricRow
+              label="Uncertain TEST record"
+              value={formatRecord(
+                readerUncertainTestRecord.wins,
+                readerUncertainTestRecord.losses,
+                readerUncertainTestRecord.pushes,
+                readerUncertainTestRecord.winRate
+              )}
+            />
+          </SectionCard>
         ) : null}
 
         {testRecord.total > 0 ? (
@@ -876,8 +971,10 @@ export default function PropLab() {
                   Side audit: {prop.sideSelectionDecision || "—"} • trust{" "}
                   {prop.sideTrustScore ?? "—"}
                 </Text>
-                {prop.testReason ? (
-                  <Text style={styles.rawPropMeta}>Test reason: {prop.testReason}</Text>
+                {prop.trackingReason || prop.testReason ? (
+                  <Text style={styles.rawPropMeta}>
+                    Tracking reason: {prop.trackingReason || prop.testReason}
+                  </Text>
                 ) : null}
               </View>
             ))}

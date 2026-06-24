@@ -183,7 +183,7 @@ import {
   saveTopPicksSnapshot,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-results-tracking-cohort-v1";
+const SERVER_BUILD = "courteedge-wnba-reader-calibration-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2647,6 +2647,18 @@ app.get("/diagnostics", (req, res) => {
     nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
     wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
     topPropTeamDiversityRequired: true,
+    wnbaReaderCalibration: {
+      version: "wnba-reader-v2-calibration",
+      underGapFloorWnbaLimitedData: 3.0,
+      confidenceBlendVersion: "v1-70-30",
+      readerOfficialDemotedCount: tracked.filter((p) => p.readerOfficialDemoted === true)
+        .length,
+      readerUncertainTestCount: tracked.filter(
+        (p) =>
+          String(p.trackingType || p.recordType || "").toUpperCase() === "TEST" &&
+          p.readerOfficialDemoted !== true
+      ).length,
+    },
     selectedTeamsByLeague: picksCache?.selectedTeamsByLeague ?? {},
     hiddenDueToSameTeam: picksCache?.hiddenDueToSameTeam ?? null,
     hiddenDueToLeagueLimit: picksCache?.hiddenDueToLeagueLimit ?? null,
