@@ -788,8 +788,10 @@ export default function ResultsScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No active Results slate</Text>
             <Text style={styles.emptyText}>
-              Legacy tracked props are stored on the server but hidden from Results.
-              Refresh the board when today's slate is ready to track.
+              {activeResultsSummary.activeSlateDate
+                ? `Active slate ${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} has no tracked props yet.`
+                : `Today's slate (${formatResultsSlateLabel(todayLocalDate)}) is not admitted yet. Refresh the board when Best 6 picks are ready.`}
+              {" "}Legacy tracked props remain stored on the server but hidden from Results.
             </Text>
           </View>
         ) : null}

@@ -69,7 +69,12 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
     };
   }
 
-  const rotation = computeSlateRotation(reports);
+  const rotation = computeSlateRotation(reports, {
+    archives: context.archives || [],
+    lockedSlates: context.lockedSlates || [],
+    trackedProps: context.trackedProps || [],
+    today: context.today || getTodayLocalDate(),
+  });
   if (rotation.currentLabSlateDate === date) {
     return {
       state: SLATE_LIFECYCLE_STATES.LAB_CURRENT,
@@ -178,7 +183,12 @@ function collectStaleUnresolvedSlateDates(
   options = {}
 ) {
   const { activeResultsSlateDate = null, lockedSlates = [] } = options;
-  const rotation = computeSlateRotation(reports);
+  const rotation = computeSlateRotation(reports, {
+    archives: context.archives || [],
+    lockedSlates: context.lockedSlates || [],
+    trackedProps: context.trackedProps || [],
+    today: context.today || getTodayLocalDate(),
+  });
   const historyDates = new Set(
     rotation.historySlates.map((report) => String(report.slateDate || ""))
   );
@@ -226,7 +236,12 @@ function collectStaleUnresolvedSlateDates(
 
 function slateHasLabOrHistoryCoverage(slateDate, context = {}) {
   const { reports = [], archives = [] } = context;
-  const rotation = computeSlateRotation(reports);
+  const rotation = computeSlateRotation(reports, {
+    archives: context.archives || [],
+    lockedSlates: context.lockedSlates || [],
+    trackedProps: context.trackedProps || [],
+    today: context.today || getTodayLocalDate(),
+  });
   const hasArchive =
     (archives || []).some(
       (entry) => String(entry.slateDate || "") === slateDate && entry.props?.length
@@ -342,7 +357,12 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     today = getTodayLocalDate(),
   } = context;
 
-  const rotation = computeSlateRotation(reports);
+  const rotation = computeSlateRotation(reports, {
+    archives: context.archives || [],
+    lockedSlates: context.lockedSlates || [],
+    trackedProps: context.trackedProps || [],
+    today: context.today || getTodayLocalDate(),
+  });
   const slateLifecycleMap = buildSlateLifecycleMap({
     trackedProps,
     reports,

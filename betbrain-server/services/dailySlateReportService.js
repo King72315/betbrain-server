@@ -960,7 +960,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     title: "Slate Summary",
     slateDate,
     reportStatus,
-    totalOfficialProps: trackingCalibration.officialCount,
+    totalOfficialProps: trackingCalibration.officialCount || slateProps.length,
     totalTrackedProps: slateProps.length,
     officialPropsCount: trackingCalibration.officialCount,
     testPropsCount: trackingCalibration.testCount,

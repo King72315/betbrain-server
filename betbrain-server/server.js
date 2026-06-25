@@ -159,6 +159,7 @@ import {
 
 import {
   buildCourtEdgeFlowDiagnostics,
+  buildSlateRotationMetadata,
   getTodayLocalDate,
 } from "./services/slateScopeService.js";
 
@@ -197,7 +198,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-active-results-filter-v1";
+const SERVER_BUILD = "courteedge-slate-rotation-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2568,18 +2569,43 @@ app.post("/clear-tracked-props", (req, res) => {
 });
 
 app.get("/daily-slate-reports", (req, res) => {
+  const rawReports = getRawDailySlateReports();
   const reports = getDailySlateReports();
+  const trackedProps = getTrackedProps();
+  const archives = getAllHistoryArchives();
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const today = getTodayLocalDate();
+  const viewedSlateDate = req.query?.viewedSlateDate
+    ? String(req.query.viewedSlateDate)
+    : null;
+
+  const rotation = buildSlateRotationMetadata(
+    rawReports,
+    { trackedProps, archives, lockedSlates, today },
+    viewedSlateDate
+  );
 
   res.json({
     ok: true,
     reports,
     count: reports.length,
+    serverBuild: SERVER_BUILD,
+    currentLabSlateDate: rotation.currentLabSlateDate,
+    activeResultsSlateDate: rotation.activeResultsSlateDate,
+    viewedSlateDate: rotation.viewedSlateDate,
+    viewingHistorical: rotation.viewingHistorical,
+    historySlateDates: rotation.historySlateDates,
+    activeInProgressSlateDates: rotation.activeInProgressSlateDates,
+    quarantinedLegacySlateDates: rotation.quarantinedLegacySlateDates,
+    staleUnresolvedSlateDates: rotation.staleUnresolvedSlateDates,
+    lifecycleByDate: rotation.lifecycleByDate,
+    rotationDecisionDebug: rotation.rotationDecisionDebug,
     slateLifecycle: buildSlateLifecycleMap({
-      trackedProps: getTrackedProps(),
-      reports,
-      archives: getAllHistoryArchives(),
-      lockedSlates: getLockedSlatesRegistry().slates || [],
-      today: getTodayLocalDate(),
+      trackedProps,
+      reports: rawReports,
+      archives,
+      lockedSlates,
+      today,
     }),
   });
 });

@@ -269,7 +269,10 @@ export default function History() {
   );
 
   const rotation = useMemo(
-    () => computeSlateRotation(reports, archives),
+    () =>
+      computeSlateRotation(reports, {
+        archives,
+      }),
     [reports, archives]
   );
 

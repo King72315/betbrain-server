@@ -1,7 +1,6 @@
 import { CONFIG } from "../config.js";
 import { getSlateLockEntry, isSlateLocked } from "./slateLockService.js";
 import { isOfficialResultsProp } from "./trackedPropService.js";
-
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
@@ -55,7 +54,13 @@ export function getReportGraded(report) {
 
 export function getReportTotalOfficial(report) {
   const sectionA = getReportSectionA(report);
-  return Number(sectionA?.totalOfficialProps ?? report?.totalOfficialProps ?? 0);
+  const official = Number(
+    sectionA?.totalOfficialProps ?? report?.totalOfficialProps ?? 0
+  );
+  const tracked = Number(
+    sectionA?.totalTrackedProps ?? report?.totalTrackedProps ?? 0
+  );
+  return official > 0 ? official : tracked;
 }
 
 export function getReportAwaitingStats(report) {
@@ -251,27 +256,429 @@ export function countStagedHomeProps(trackedProps = [], today = getTodayLocalDat
   return { slateDate: latest, count };
 }
 
-export function computeSlateRotation(reports = []) {
-  const allReports = sortReportsByDateDesc(filterValidDailyReports(reports));
-  const completed = allReports.filter(isCompletedSlate);
-  const currentLabSlate = completed[0] || null;
+function normalizeRotationOptions(optionsOrLockedSlates = {}) {
+  if (Array.isArray(optionsOrLockedSlates)) {
+    return { lockedSlates: optionsOrLockedSlates };
+  }
+  return optionsOrLockedSlates || {};
+}
+
+function getArchivedHistoryDates(archives = []) {
+  return new Set(
+    (archives || [])
+      .filter(
+        (entry) =>
+          String(entry.phase || "").toUpperCase() === "ARCHIVED" &&
+          entry.slateDate &&
+          (entry.props?.length || entry.report)
+      )
+      .map((entry) => String(entry.slateDate))
+  );
+}
+
+function getQuarantinedLegacySlateDates(reports = [], trackedProps = []) {
+  const dates = new Set();
+  for (const report of reports || []) {
+    const slateDate = String(report?.slateDate || "");
+    if (slateDate && !isOnOrAfterCleanDataCutoff(slateDate)) {
+      dates.add(slateDate);
+    }
+  }
+  for (const prop of trackedProps || []) {
+    const slateDate = String(prop?.slateDate || "");
+    if (slateDate && !isOnOrAfterCleanDataCutoff(slateDate)) {
+      dates.add(slateDate);
+    }
+  }
+  return [...dates].sort();
+}
+
+function isPropBlockingLabInference(prop = {}) {
+  const status = String(prop.status || "").toLowerCase();
+  if (isResolvedPropStatus(status)) return false;
+
+  const pendingReason = String(prop.pendingReason || "").toLowerCase();
+  const resolveDebug = prop.resolveDebug || {};
+
+  if (
+    pendingReason.includes("awaiting official player stat") ||
+    pendingReason.includes("awaiting official player stats")
+  ) {
+    return false;
+  }
+
+  if (resolveDebug.gameFinal === true) {
+    return false;
+  }
+
+  return true;
+}
+
+function inferCompletedReportsFromTrackedProps(
+  trackedProps = [],
+  reports = [],
+  today = getTodayLocalDate()
+) {
+  const propsBySlate = {};
+
+  for (const prop of trackedProps || []) {
+    const slateDate = String(prop.slateDate || "");
+    if (!slateDate) continue;
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isFutureSlateDate(slateDate, today)) continue;
+    if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
+    propsBySlate[slateDate].push(prop);
+  }
+
+  const inferred = [];
+
+  for (const slateDate of Object.keys(propsBySlate).sort()) {
+    const existing = (reports || []).find(
+      (item) => String(item.slateDate || "") === slateDate
+    );
+    if (isCompletedSlate(existing)) continue;
+
+    const slateProps = propsBySlate[slateDate] || [];
+    if (!slateProps.length) continue;
+
+    const blockingProps = slateProps.filter(isPropBlockingLabInference);
+    if (blockingProps.length > 0) continue;
+
+    const graded = slateProps.filter((prop) =>
+      isResolvedPropStatus(String(prop.status || ""))
+    );
+    if (!graded.length) continue;
+
+    inferred.push({
+      slateDate,
+      status: "final",
+      reportStatus: "final",
+      frozen: true,
+      inferredFromTrackedProps: true,
+      sections: {
+        A: {
+          slateDate,
+          reportStatus: "final",
+          pending: 0,
+          awaitingStats: 0,
+          graded: graded.length,
+          totalOfficialProps: slateProps.length,
+          wins: graded.filter((p) => String(p.status).toLowerCase() === "win")
+            .length,
+          losses: graded.filter((p) => String(p.status).toLowerCase() === "loss")
+            .length,
+          pushes: graded.filter((p) => String(p.status).toLowerCase() === "push")
+            .length,
+        },
+      },
+    });
+  }
+
+  return inferred;
+}
+
+function mergeCompletedReports(reports = [], inferredReports = []) {
+  const byDate = new Map();
+
+  for (const report of reports || []) {
+    if (!isCompletedSlate(report)) continue;
+    byDate.set(String(report.slateDate || ""), report);
+  }
+
+  for (const report of inferredReports || []) {
+    const slateDate = String(report.slateDate || "");
+    if (!slateDate || byDate.has(slateDate)) continue;
+    byDate.set(slateDate, report);
+  }
+
+  return sortReportsByDateDesc([...byDate.values()]);
+}
+
+export function computeSlateRotation(reports = [], optionsOrLockedSlates = {}) {
+  const options = normalizeRotationOptions(optionsOrLockedSlates);
+  const {
+    lockedSlates = [],
+    archives = [],
+    trackedProps = [],
+    today = getTodayLocalDate(),
+    viewedSlateDate = null,
+  } = options;
+
+  const archivedHistoryDates = getArchivedHistoryDates(archives);
+  const activeResultsSlateDate = pickActiveResultsSlateDate(
+    trackedProps,
+    reports,
+    today,
+    lockedSlates
+  );
+
+  const validReports = sortReportsByDateDesc(filterValidDailyReports(reports, today));
+  const inferredCompleted = inferCompletedReportsFromTrackedProps(
+    trackedProps,
+    reports,
+    today
+  );
+  const completed = mergeCompletedReports(validReports, inferredCompleted);
+
+  const labCandidates = completed.filter((report) => {
+    const slateDate = String(report.slateDate || "");
+    if (!slateDate) return false;
+    if (archivedHistoryDates.has(slateDate)) return false;
+    if (activeResultsSlateDate && slateDate === activeResultsSlateDate) return false;
+    return true;
+  });
+
+  const currentLabSlate = labCandidates[0] || null;
   const currentLabSlateDate = currentLabSlate?.slateDate
     ? String(currentLabSlate.slateDate)
     : null;
 
-  const historySlates = completed.filter(
+  const historyFromCompleted = labCandidates.filter(
     (report) => String(report.slateDate) !== currentLabSlateDate
   );
+  const historyFromArchives = (archives || [])
+    .filter(
+      (entry) =>
+        archivedHistoryDates.has(String(entry.slateDate || "")) &&
+        String(entry.slateDate || "") !== currentLabSlateDate
+    )
+    .map((entry) => {
+      const report = entry.report || {};
+      return {
+        ...report,
+        slateDate: String(entry.slateDate || report.slateDate || ""),
+        archivedPhase: "ARCHIVED",
+      };
+    });
 
-  const activeResults = allReports.filter((report) => !isCompletedSlate(report));
+  const historyByDate = new Map();
+  for (const report of [...historyFromCompleted, ...historyFromArchives]) {
+    const slateDate = String(report.slateDate || "");
+    if (!slateDate || slateDate === currentLabSlateDate) continue;
+    if (!historyByDate.has(slateDate)) {
+      historyByDate.set(slateDate, report);
+    }
+  }
+  const historySlates = sortReportsByDateDesc([...historyByDate.values()]);
+
+  const activeResults = validReports.filter((report) => {
+    const slateDate = String(report.slateDate || "");
+    if (activeResultsSlateDate && slateDate === activeResultsSlateDate) {
+      return true;
+    }
+    return !isCompletedSlate(report);
+  });
+
+  const activeInProgressSlateDates = [
+    ...new Set(
+      activeResults
+        .map((report) => String(report.slateDate || ""))
+        .filter(Boolean)
+    ),
+  ];
+  if (
+    activeResultsSlateDate &&
+    !activeInProgressSlateDates.includes(activeResultsSlateDate)
+  ) {
+    activeInProgressSlateDates.push(activeResultsSlateDate);
+  }
+  activeInProgressSlateDates.sort();
+
+  const historySlateDates = [
+    ...new Set([
+      ...archivedHistoryDates,
+      ...historySlates.map((report) => String(report.slateDate || "")),
+    ]),
+  ]
+    .filter((slateDate) => slateDate && slateDate !== currentLabSlateDate)
+    .sort()
+    .reverse();
+
+  const viewed = viewedSlateDate ? String(viewedSlateDate) : currentLabSlateDate;
 
   return {
     currentLabSlate,
     currentLabSlateDate,
     historySlates,
+    historySlateDates,
     activeResults,
-    allReports,
+    activeResultsSlateDate,
+    activeInProgressSlateDates,
+    allReports: validReports,
+    lockedSlates: lockedSlates || [],
+    viewedSlateDate: viewed,
+    viewingHistorical: Boolean(
+      viewed && currentLabSlateDate && viewed !== currentLabSlateDate
+    ),
+    quarantinedLegacySlateDates: getQuarantinedLegacySlateDates(
+      reports,
+      trackedProps
+    ),
+    inferredCompletedSlateDates: inferredCompleted.map((report) =>
+      String(report.slateDate || "")
+    ),
   };
+}
+
+export function buildSlateRotationMetadata(
+  reports = [],
+  context = {},
+  viewedSlateDate = null
+) {
+  const {
+    trackedProps = [],
+    archives = [],
+    lockedSlates = [],
+    today = getTodayLocalDate(),
+  } = context;
+
+  const rotation = computeSlateRotation(reports, {
+    lockedSlates,
+    archives,
+    trackedProps,
+    today,
+    viewedSlateDate,
+  });
+
+  const staleUnresolvedSlateDates = collectStaleUnresolvedForRotation(
+    trackedProps,
+    reports,
+    rotation,
+    today,
+    lockedSlates
+  );
+
+  const lifecycleByDate = {};
+  const slateDates = new Set([
+    ...reports.map((report) => String(report.slateDate || "")),
+    ...trackedProps.map((prop) => String(prop.slateDate || "")),
+    ...archives.map((entry) => String(entry.slateDate || "")),
+  ]);
+
+  for (const slateDate of [...slateDates].filter(Boolean).sort()) {
+    lifecycleByDate[slateDate] = classifySlateRotationBucket(
+      slateDate,
+      rotation,
+      archives,
+      today
+    );
+  }
+
+  const rotationDecisionDebug = {
+    today,
+    validReportDates: rotation.allReports.map((report) => report.slateDate),
+    completedReportDates: mergeCompletedReports(
+      rotation.allReports,
+      rotation.inferredCompletedSlateDates.map((slateDate) => ({
+        slateDate,
+        inferredFromTrackedProps: true,
+      }))
+    ).map((report) => report.slateDate),
+    archivedHistoryDates: [...rotation.historySlateDates],
+    labCandidateDates: mergeCompletedReports(
+      rotation.allReports,
+      []
+    )
+      .filter((report) => {
+        const slateDate = String(report.slateDate || "");
+        return (
+          slateDate &&
+          !rotation.historySlateDates.includes(slateDate) &&
+          slateDate !== rotation.activeResultsSlateDate
+        );
+      })
+      .map((report) => report.slateDate),
+    inferredCompletedSlateDates: rotation.inferredCompletedSlateDates,
+    activeResultsSlateDate: rotation.activeResultsSlateDate,
+    currentLabSlateDate: rotation.currentLabSlateDate,
+    viewedSlateDate: rotation.viewedSlateDate,
+    viewingHistorical: rotation.viewingHistorical,
+  };
+
+  return {
+    ...rotation,
+    staleUnresolvedSlateDates,
+    lifecycleByDate,
+    rotationDecisionDebug,
+  };
+}
+
+function collectStaleUnresolvedForRotation(
+  trackedProps = [],
+  reports = [],
+  rotation = {},
+  today = getTodayLocalDate(),
+  lockedSlates = []
+) {
+  const historyDates = new Set(rotation.historySlateDates || []);
+  const labDate = rotation.currentLabSlateDate;
+  const activeResultsSlateDate = rotation.activeResultsSlateDate;
+  const staleDates = new Set();
+
+  const propsBySlate = {};
+  for (const prop of trackedProps) {
+    const slateDate = String(prop.slateDate || "");
+    if (!slateDate) continue;
+    if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
+    propsBySlate[slateDate].push(prop);
+  }
+
+  for (const slateDate of Object.keys(propsBySlate)) {
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (!isPastSlateDate(slateDate, today)) continue;
+    if (activeResultsSlateDate && slateDate === activeResultsSlateDate) continue;
+    if (labDate && slateDate === labDate) continue;
+    if (historyDates.has(slateDate)) continue;
+
+    const report =
+      reports.find((item) => String(item.slateDate) === slateDate) || null;
+    if (isCompletedSlate(report)) continue;
+
+    const slateProps = propsBySlate[slateDate] || [];
+    const allGraded =
+      slateProps.length > 0 &&
+      slateProps.every((prop) => isResolvedPropStatus(String(prop.status || "")));
+    if (allGraded && !hasUnresolvedGradingProps(slateProps)) continue;
+
+    const lockedActive = (lockedSlates || []).some(
+      (entry) =>
+        String(entry.slateDate || "") === slateDate &&
+        String(entry.phase || "ACTIVE").toUpperCase() === "ACTIVE"
+    );
+    if (!lockedActive && slateProps.length === 0) continue;
+
+    staleDates.add(slateDate);
+  }
+
+  return [...staleDates].sort();
+}
+
+function classifySlateRotationBucket(slateDate, rotation, archives = [], today) {
+  if (!isOnOrAfterCleanDataCutoff(slateDate)) {
+    return "QUARANTINED_LEGACY";
+  }
+  if (rotation.currentLabSlateDate === slateDate) {
+    return "LAB_CURRENT";
+  }
+  if ((rotation.historySlateDates || []).includes(slateDate)) {
+    return "ARCHIVED_HISTORY";
+  }
+  if (rotation.activeResultsSlateDate === slateDate) {
+    return "ACTIVE_RESULTS";
+  }
+  if (isFutureSlateDate(slateDate, today)) {
+    return "FUTURE";
+  }
+  if ((rotation.staleUnresolvedSlateDates || []).includes(slateDate)) {
+    return "STALE_UNRESOLVED";
+  }
+  const archive = (archives || []).find(
+    (entry) => String(entry.slateDate || "") === slateDate
+  );
+  if (archive?.props?.length && String(archive.phase || "").toUpperCase() === "LAB") {
+    return "LEGACY_LAB_ARCHIVE";
+  }
+  return "IN_PROGRESS_OR_UNASSIGNED";
 }
 
 /** Active Results slate: locked ACTIVE unresolved first, then today when unblocked. */
@@ -349,7 +756,12 @@ export function buildCourtEdgeFlowDiagnostics(
   const ignoredPreCutoffReportCount = countIgnoredPreCutoffReports(rawReports);
   const validCleanReports = filterValidDailyReports(rawReports, today);
   const completedCleanReports = filterCompletedDailyReports(rawReports, today);
-  const rotation = computeSlateRotation(rawReports);
+  const rotation = computeSlateRotation(rawReports, {
+    lockedSlates,
+    archives,
+    trackedProps,
+    today,
+  });
   const activeResultsSlateDate = pickActiveResultsSlateDate(
     trackedProps,
     rawReports,

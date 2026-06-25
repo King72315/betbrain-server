@@ -207,7 +207,11 @@ function buildArchiveBackedEntries(
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (!slateDate || slateDate === currentLabSlateDate) continue;
     if (coveredDates.has(slateDate)) continue;
-    if (archive.phase !== "ARCHIVED") continue;
+
+    const phase = String(archive.phase || "").toUpperCase();
+    const isArchived = phase === "ARCHIVED";
+    const isSupersededLab = phase === "LAB" && slateDate !== currentLabSlateDate;
+    if (!isArchived && !isSupersededLab) continue;
 
     const entry = buildEntryFromArchive(archive);
     if (entry) entries.push(entry);
@@ -280,7 +284,9 @@ export function buildHistoryEntries(
   trackedProps: any[],
   archives: any[] = []
 ) {
-  const { historySlates, currentLabSlateDate } = computeSlateRotation(reports);
+  const { historySlates, currentLabSlateDate } = computeSlateRotation(reports, {
+    archives,
+  });
 
   const officialEntries = buildOfficialSlateEntries(
     historySlates,

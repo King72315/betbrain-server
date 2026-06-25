@@ -547,6 +547,25 @@ export const fetchDailySlateReports = async () => {
       ok: res.ok && (data.ok ?? false),
       reports: Array.isArray(data.reports) ? data.reports : [],
       count: data.count || 0,
+      currentLabSlateDate: data.currentLabSlateDate || null,
+      activeResultsSlateDate: data.activeResultsSlateDate || null,
+      viewedSlateDate: data.viewedSlateDate || null,
+      viewingHistorical: Boolean(data.viewingHistorical),
+      historySlateDates: Array.isArray(data.historySlateDates)
+        ? data.historySlateDates
+        : [],
+      activeInProgressSlateDates: Array.isArray(data.activeInProgressSlateDates)
+        ? data.activeInProgressSlateDates
+        : [],
+      quarantinedLegacySlateDates: Array.isArray(data.quarantinedLegacySlateDates)
+        ? data.quarantinedLegacySlateDates
+        : [],
+      staleUnresolvedSlateDates: Array.isArray(data.staleUnresolvedSlateDates)
+        ? data.staleUnresolvedSlateDates
+        : [],
+      lifecycleByDate: data.lifecycleByDate || {},
+      rotationDecisionDebug: data.rotationDecisionDebug || null,
+      serverBuild: data.serverBuild || null,
     };
   } catch (err) {
     console.log("FETCH DAILY SLATE REPORTS FAILED:", err);
@@ -555,6 +574,17 @@ export const fetchDailySlateReports = async () => {
       ok: false,
       reports: [],
       count: 0,
+      currentLabSlateDate: null,
+      activeResultsSlateDate: null,
+      viewedSlateDate: null,
+      viewingHistorical: false,
+      historySlateDates: [],
+      activeInProgressSlateDates: [],
+      quarantinedLegacySlateDates: [],
+      staleUnresolvedSlateDates: [],
+      lifecycleByDate: {},
+      rotationDecisionDebug: null,
+      serverBuild: null,
     };
   }
 };

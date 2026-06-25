@@ -507,18 +507,34 @@ export default function PropLab() {
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
   const [selectedSlateDate, setSelectedSlateDate] = useState<string | null>(null);
+  const [rotationMeta, setRotationMeta] = useState<{
+    currentLabSlateDate: string | null;
+    viewingHistorical: boolean;
+    historySlateDates: string[];
+  }>({
+    currentLabSlateDate: null,
+    viewingHistorical: false,
+    historySlateDates: [],
+  });
 
-  const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
-  const currentLabSlateDate = rotation.currentLabSlateDate;
+  const clientRotation = useMemo(
+    () => computeSlateRotation(reports, { archives }),
+    [reports, archives]
+  );
+  const currentLabSlateDate =
+    rotationMeta.currentLabSlateDate ?? clientRotation.currentLabSlateDate;
   const viewedSlateDate = selectedSlateDate || currentLabSlateDate;
   const isViewingHistoricalReport = Boolean(
-    viewedSlateDate && currentLabSlateDate && viewedSlateDate !== currentLabSlateDate
+    viewedSlateDate &&
+      currentLabSlateDate &&
+      viewedSlateDate !== currentLabSlateDate
   );
   const validCompletedReports = useMemo(
     () => filterCompletedDailyReports(reports),
     [reports]
   );
-  const historySlateCount = rotation.historySlates.length;
+  const historySlateCount =
+    rotationMeta.historySlateDates.length || clientRotation.historySlates.length;
   const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
 
   const loadReportForSlate = async (slateDate: string, validReports: any[]) => {
@@ -540,8 +556,13 @@ export default function PropLab() {
     const rawReports = list.reports || [];
     const validReports = filterValidDailyReports(rawReports);
     setReports(validReports);
+    setRotationMeta({
+      currentLabSlateDate: list.currentLabSlateDate || null,
+      viewingHistorical: Boolean(list.viewingHistorical),
+      historySlateDates: list.historySlateDates || [],
+    });
 
-    const { currentLabSlateDate: labDate } = computeSlateRotation(validReports);
+    const labDate = list.currentLabSlateDate || computeSlateRotation(validReports, { archives }).currentLabSlateDate;
     const slateToLoad = targetSlateDate || selectedSlateDate || labDate;
 
     if (slateToLoad) {

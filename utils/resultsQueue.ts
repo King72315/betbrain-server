@@ -560,7 +560,11 @@ export function computeVisibleResultsSlates(
   today: string = getTodayLocalDate(),
   lockedSlates: any[] = []
 ): ActiveResultsSlate[] {
-  const rotation = computeSlateRotation(reports, lockedSlates);
+  const rotation = computeSlateRotation(reports, {
+    lockedSlates,
+    trackedProps,
+    today,
+  });
   const activeSlateDate = pickActiveResultsSlateDate(
     trackedProps,
     reports,
