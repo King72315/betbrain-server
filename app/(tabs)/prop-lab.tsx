@@ -517,12 +517,18 @@ export default function PropLab() {
     historySlateDates: [],
   });
 
-  const clientRotation = useMemo(
-    () => computeSlateRotation(reports, { archives }),
-    [reports, archives]
-  );
+  const slateRotation = useMemo(() => {
+    const base = computeSlateRotation(reports, { archives });
+    return {
+      ...base,
+      currentLabSlateDate:
+        rotationMeta.currentLabSlateDate ?? base.currentLabSlateDate,
+      viewingHistorical:
+        rotationMeta.viewingHistorical ?? base.viewingHistorical,
+    };
+  }, [reports, archives, rotationMeta]);
   const currentLabSlateDate =
-    rotationMeta.currentLabSlateDate ?? clientRotation.currentLabSlateDate;
+    rotationMeta.currentLabSlateDate ?? slateRotation.currentLabSlateDate;
   const viewedSlateDate = selectedSlateDate || currentLabSlateDate;
   const isViewingHistoricalReport = Boolean(
     viewedSlateDate &&
@@ -534,7 +540,7 @@ export default function PropLab() {
     [reports]
   );
   const historySlateCount =
-    rotationMeta.historySlateDates.length || clientRotation.historySlates.length;
+    rotationMeta.historySlateDates.length || slateRotation.historySlates.length;
   const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
 
   const loadReportForSlate = async (slateDate: string, validReports: any[]) => {
@@ -733,7 +739,7 @@ export default function PropLab() {
   const getReportText = () =>
     buildPropLabReport({
       reports,
-      rotation,
+      rotation: slateRotation,
       report,
       analytics,
       loading,

@@ -752,9 +752,25 @@ function buildLeagueSplitReportLines(leagueSplit: any, leagueCalibration: any) {
   return lines;
 }
 
+const EMPTY_SLATE_ROTATION: SlateRotation = {
+  currentLabSlate: null,
+  currentLabSlateDate: null,
+  historySlates: [],
+  historySlateDates: [],
+  activeResults: [],
+  activeResultsSlateDate: null,
+  activeInProgressSlateDates: [],
+  allReports: [],
+  lockedSlates: [],
+  viewedSlateDate: null,
+  viewingHistorical: false,
+  quarantinedLegacySlateDates: [],
+  inferredCompletedSlateDates: [],
+};
+
 export function buildPropLabReport(input: {
   reports: any[];
-  rotation: SlateRotation;
+  rotation?: SlateRotation | null;
   report: any;
   analytics: any;
   loading: boolean;
@@ -765,6 +781,7 @@ export function buildPropLabReport(input: {
   isViewingHistoricalReport?: boolean;
   labTrackingSummary?: LabSlateTrackingSummary | null;
 }) {
+  const rotation = input.rotation ?? EMPTY_SLATE_ROTATION;
   const sectionA = input.report?.sections?.A;
   const sectionB = input.report?.sections?.B;
   const sectionC = input.report?.sections?.C;
@@ -777,7 +794,7 @@ export function buildPropLabReport(input: {
   const slateLesson = input.report?.slateLesson || input.report?.sections?.J;
   const leagueSplit = input.report?.leagueSplit || input.report?.sections?.L;
   const status = sectionA?.reportStatus || input.report?.status || "—";
-  const currentLabSlateDate = input.rotation.currentLabSlateDate;
+  const currentLabSlateDate = rotation.currentLabSlateDate;
   const viewedSlateDate = input.viewedSlateDate || currentLabSlateDate;
   const isViewingHistorical =
     input.isViewingHistoricalReport ??
@@ -878,8 +895,9 @@ export function buildPropLabReport(input: {
       "Viewed Slate": viewedSlateDate || "—",
       "Current Lab Slate": currentLabSlateDate || "—",
       "Viewing Historical": isViewingHistorical ? "yes" : "no",
-      "History Slates": input.rotation.historySlates.length,
-      "Active / In-Progress": input.rotation.activeResults.length,
+      "History Slates": rotation.historySlates.length,
+      "Active Results Slate": rotation.activeResultsSlateDate || "—",
+      "Active / In-Progress": rotation.activeResults.length,
       "Report Status": hasLabSlate ? status : "—",
       "Reports Available": reportsAvailable,
       "Backend URL": backendUrl,
@@ -915,8 +933,8 @@ export function buildPropLabReport(input: {
         ? `WNBA PREMIUM (slate): ${formatLeagueTierPerf(leagueSplit.byLeague.WNBA.premium)}`
         : null,
       slateLesson?.headline || null,
-      input.rotation.historySlates.length
-        ? `Archived in History: ${input.rotation.historySlates.length} older completed slate(s)`
+      rotation.historySlates.length
+        ? `Archived in History: ${rotation.historySlates.length} older completed slate(s)`
         : null,
       analyticsOverall?.currentEngine && hasLabSlate
         ? `All-time tracked engine: ${allTimeRecord}`
@@ -972,8 +990,8 @@ export function buildPropLabReport(input: {
       hasLabSlate
         ? `\nTracked Props Summary\nTotal tracked: ${trackedTotal} | Fair line shadow: ${fairLineShadowRecord}`
         : `\nTracked Props Summary\nTotal tracked: 0 | Fair line shadow: —`,
-      input.rotation.historySlates.length
-        ? `\nHistory Rotation\n${input.rotation.historySlates
+      rotation.historySlates.length
+        ? `\nHistory Rotation\n${rotation.historySlates
             .slice(0, 8)
             .map(
               (item) =>
@@ -992,7 +1010,7 @@ export function buildPropLabReport(input: {
           : undefined,
     errors: input.error || undefined,
     debugNotes: hasLabSlate
-      ? `Lab rotation: current=${currentLabSlateDate || "none"} | history=${input.rotation.historySlates.length} | active=${input.rotation.activeResults.length}. Backend: ${backendUrl} (${backendMode})`
+      ? `Lab rotation: current=${currentLabSlateDate || "none"} | history=${rotation.historySlates.length} | active=${rotation.activeResults.length}${rotation.activeResultsSlateDate ? ` (${rotation.activeResultsSlateDate})` : ""}. Backend: ${backendUrl} (${backendMode})`
       : `Lab rotation: no completed slate. Active slates remain in Results. Backend: ${backendUrl} (${backendMode})`,
   });
 }
