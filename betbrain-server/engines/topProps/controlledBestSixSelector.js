@@ -155,7 +155,16 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
       continue;
     }
 
-    if (isWnbaQualityGatePick(pick)) {
+  if (String(pick.league || "").toUpperCase() === "WNBA") {
+      if (!isWnbaQualityGatePick(pick)) {
+        audit.hiddenDueToQualityGate += 1;
+        audit.rejected.push({
+          reason: "missing_wnba_gate_inputs",
+          pick: summarizePickForAudit(pick),
+        });
+        continue;
+      }
+
       const gate = evaluateWnbaTrackingEligibility(
         pick,
         pick.wnbaDataCard,

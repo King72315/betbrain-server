@@ -29,7 +29,7 @@ import {
   shouldShowScoutMode,
 } from "../../utils/controlledBestSixDisplay";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
-import { buildLeagueBoardReport } from "../../utils/reportBuilders";
+import { buildWnbaControlledBestSixReport } from "../../utils/reportBuilders";
 import { getTodayLocalDate } from "../../utils/slateRotation";
 import { formatSlateMessageDate } from "../../utils/slateMessages";
 
@@ -175,16 +175,14 @@ export default function ExploreScreen() {
   };
 
   const getReportText = () =>
-    buildLeagueBoardReport({
-      page: "WNBA Props — Controlled Best 6",
-      league: "WNBA",
-      games: wnbaGames,
-      topProps: bestSixCards,
+    buildWnbaControlledBestSixReport({
+      bestSixCards,
+      summary,
       lastUpdated,
       loading,
-      premiumCount: 0,
-      playableCount: summary.boardCandidates,
-      dataSource: "GET /picks bestSixWNBA",
+      dateView,
+      includeFullBoard: scoutVisible,
+      games: wnbaGames,
     });
 
   return (
@@ -283,7 +281,7 @@ export default function ExploreScreen() {
           <View style={styles.bestSixSection}>
             <Text style={styles.sectionTitle}>Controlled Best 6</Text>
             <Text style={styles.sectionSubtext}>
-              Max {summary.bestSixLimit} TRACK props · Top WNBA badges inline
+              Max {summary.bestSixLimit} TRACK props · Top #1/#2 badges inline
             </Text>
             {bestSixCards.map((pick, index) => (
               <PropCard

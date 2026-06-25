@@ -1,85 +1,101 @@
 # CourtEdge WNBA Props Simplified — Build Report
 
 **Branch:** `betbrain-v2-rebuild`  
-**Build:** `courteedge-wnba-props-simplified-v1` (frontend-only; no server.js change required — `/picks` already exposes `bestSixWNBA`)  
+**Build:** `courteedge-wnba-props-simplified-v2`  
+**Base:** `92e364a`  
 **Date:** 2026-06-25
 
 ## Summary
 
-Simplified the WNBA Props screen (`explore.tsx`) to default to **Controlled Best 6** only (max 6 TRACK props per day). Full game board, all candidates, score ledgers, and mixed-day clutter are collapsed behind **Show Full Board** / **Full Board** scout mode.
+v2 fixes the remaining gaps in the WNBA Props simplified experience: default view/report now show **Controlled Best 6 only** (no game board dump, no score ledgers), summary labels match spec, and BOARD_ONLY props like Dearica Hamby are excluded at the selector source — not filtered in the UI.
 
-## Layout (Default — Today)
+## Root Cause
 
-```
-┌─────────────────────────────────────┐
-│ WNBA Props                          │
-│ Controlled Best 6                   │
-│ Date: <today local>                 │
-├─────────────────────────────────────┤
-│ [Today] [Tomorrow] [Full Board]     │
-├─────────────────────────────────────┤
-│ Summary                             │
-│ Controlled Best 6  X/6              │
-│ Top Picks  Y/2                      │
-│ Board Candidates  N                 │
-│ Board Only  A · No Bet  B           │
-├─────────────────────────────────────┤
-│ Best 6 cards (rank, player, game,   │
-│ prop, confidence, true risk,        │
-│ decision, why, risk debt/repair)    │
-│ Top WNBA #1/#2 badges inline        │
-├─────────────────────────────────────┤
-│ [Show Full Board]  ← collapsed      │
-└─────────────────────────────────────┘
-```
+| Issue | Root cause |
+|-------|------------|
+| Report still showed "Top WNBA Props" + Game Board | `explore.tsx` copy handler used `buildLeagueBoardReport`, which always emits `--- Top ${league} Props ---` and `--- Game Board ---` with ledger rows |
+| Summary showed "Top Props" / "Playable" | Same legacy report builder `extraContext` keys |
+| Full board visible in default copy | Report builder included all `games` regardless of scout mode |
+| Dearica in `bestSixWNBA` with DI `BOARD_ONLY` | **Stale `/picks` cache** could serve `bestSixWNBA` built before DI v1; cache only invalidated on `controlledBestSixVersion`, not `decisionIntelligenceVersion`. Secondary: WNBA picks missing `wnbaDataCard`/`wnbaReader` could bypass selector DI gate entirely |
+| Score ledger in default cards | `PropCard` `variant="bestSix"` still rendered expandable score ledger |
 
-**Scout mode** (Full Board tab or Show Full Board): WNBA game cards, all generated candidates, full PropCard with expandable score ledger.
-
-## Files Changed
+## Fixes
 
 | File | Change |
 |------|--------|
-| `app/(tabs)/explore.tsx` | Rewritten — WNBA Controlled Best 6 default UI |
-| `app/(tabs)/wnba.tsx` | Re-exports `explore` for Home → WNBA Props route |
-| `components/PropCard.tsx` | Added `variant="bestSix"` compact card + ledger expand |
-| `utils/controlledBestSixDisplay.js` | Shared display helpers (filter, summary, badges) |
-| `services/api.ts` | Extended `/picks` normalization with `bestSixWNBA`, `topWNBAProps` |
-| `betbrain-server/scripts/testControlledBestSixDisplay.js` | 15 helper tests |
+| `utils/controlledBestSixDisplay.js` | Added `buildWnbaControlledBestSixReportText`, `formatControlledBestSixPickLine` |
+| `utils/reportBuilders.ts` | Added `buildWnbaControlledBestSixReport` wrapper |
+| `app/(tabs)/explore.tsx` | Default copy uses controlled report; scout-only full board in UI unchanged |
+| `components/PropCard.tsx` | Removed score ledger from `bestSix` variant |
+| `betbrain-server/engines/topProps/controlledBestSixSelector.js` | All WNBA picks require gate inputs + DI TRACK/bestSixEligibility; reject missing inputs |
+| `betbrain-server/server.js` | `SERVER_BUILD` bump; cache bust on `decisionIntelligenceVersion`; store DI version on cache; stricter `ensureWnbaGateOnPick` skip guard |
+| `betbrain-server/scripts/testControlledBestSixDisplay.js` | Extended to 27 tests |
 
-## Data Source
+## Report Structure
 
-- `GET /picks` → `bestSixWNBA`, `topWNBAProps`, `wnbaGames`
-- `decisionIntelligence` fields: `trackEligibility`, `trueRisk`, `simpleExplanation`, `riskDebts`, `riskRepairs`
-- Top WNBA #1/#2 badges merged from `topWNBAProps` via `buildTopPickBadgeMap` (badges only — no top-props.tsx duplication)
+### Before (default copy)
 
-## Acceptance Criteria (15/15)
+```
+COURTEDGE PAGE REPORT
+...
+Visible Summary:
+Games shown: N
+Top props section: 5
+Premium top props: 0
+Total playable candidates: 17
+...
+Main Data:
+--- Top WNBA Props ---
+[1] Player ... Point Strength Ledger: ...
+--- Game Board ---
+Game 1: ... Playable: ...
+```
+
+### After (default copy)
+
+```
+WNBA Props — Controlled Best 6
+View: Today
+Last updated: ...
+
+--- Summary ---
+Controlled Best 6: X/6
+Top Picks: Y/2
+Board Candidates: N
+Board Only: A
+No Bet: B
+
+--- Controlled Best 6 ---
+[Best #1 · Top WNBA #1] Player ...
+  Game: ...
+  Prop: Over 25.5 Points
+  Confidence: 72% | True Risk: LOW | Decision: TRACK
+  Why: ...
+```
+
+Scout mode (Full Board tab or Show Full Board) still reveals game cards + full PropCard ledgers in the app. Copy only adds a short scout header when expanded — no game board dump.
+
+## Acceptance Criteria (12/12)
 
 | # | Criterion | Status |
 |---|-----------|--------|
-| 1 | Header reads **WNBA Props — Controlled Best 6** | ✅ |
-| 2 | Date defaults to **today** (local slate date) | ✅ |
-| 3 | Summary shows Controlled Best 6 X/max 6, Top Picks 2, **Board Candidates** (not Playable), Board Only, No Bet | ✅ |
-| 4 | Main list = Best 6 cards only in default view | ✅ |
-| 5 | Cards show Rank, Player, Team/game, Prop, Confidence, True Risk, Decision | ✅ |
-| 6 | Cards show Why, Risk Debt, Risk Repair from `decisionIntelligence` | ✅ |
-| 7 | Top WNBA #1/#2 badges inline on Best 6 cards (no separate Top Props section) | ✅ |
-| 8 | Score ledger hidden in default; expandable on Best 6 card | ✅ |
-| 9 | Full game board + all candidates hidden by default | ✅ |
-| 10 | Tomorrow not mixed into Today default view | ✅ |
-| 11 | **Show Full Board** / Scout Mode reveals full board | ✅ |
-| 12 | Date toggle: **Today \| Tomorrow \| Full Board** | ✅ |
-| 13 | Data from `bestSixWNBA` API field | ✅ |
-| 14 | `testControlledBestSixDisplay.js` — 15 tests | ✅ |
-| 15 | No engine/threshold/runtime JSON changes | ✅ |
+| 1 | Default list = Controlled Best 6 only | ✅ |
+| 2 | Top #1/#2 badges inline only (no separate Top Props section) | ✅ |
+| 3 | Summary: Controlled Best 6 X/6, Top Picks Y/2, Board Candidates, Board Only, No Bet | ✅ |
+| 4 | No "Playable" label in summary/report | ✅ |
+| 5 | Full Game Board hidden in default view | ✅ |
+| 6 | No score ledgers in default Best 6 cards | ✅ |
+| 7 | Full board only on Full Board tab or Show Full Board | ✅ |
+| 8 | Today-only default (no tomorrow mix) | ✅ |
+| 9 | Default copy: no `--- Game Board ---` | ✅ |
+| 10 | Dearica Hamby BOARD_ONLY excluded from `bestSixWNBA` at selector | ✅ |
+| 11 | Cache invalidates on DI version mismatch | ✅ |
+| 12 | `testControlledBestSixDisplay.js` — 27 tests | ✅ |
 
 ## Tests
 
 ```bash
 node betbrain-server/scripts/testControlledBestSixDisplay.js
+node betbrain-server/scripts/testControlledBestSix.js
+node betbrain-server/scripts/testPropDecisionIntelligenceV1.js
 ```
-
-## Out of Scope (confirmed)
-
-- No engine/threshold changes
-- No runtime JSON, secrets, or `/clear-tracked-props`
-- No duplication of `top-props.tsx` selection logic

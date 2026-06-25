@@ -23,6 +23,7 @@ import {
 } from "./resultsQueue";
 import { filterCompletedDailyReports, getTodayLocalDate, isOnOrAfterCleanDataCutoff } from "./slateRotation";
 import { formatSlateMessageDate } from "./slateMessages";
+import { buildWnbaControlledBestSixReportText } from "./controlledBestSixDisplay";
 import {
   type LabSlateTrackingSummary,
   computeLabSlateTrackingSummary,
@@ -225,6 +226,38 @@ export function buildTopPropsReport(input: {
     "--- Best 2 WNBA Props ---",
     wnbaLines.length ? wnbaLines.join("\n\n") : "No WNBA props available.",
   ]);
+}
+
+export function buildWnbaControlledBestSixReport(input: {
+  bestSixCards: any[];
+  summary: {
+    controlledBestSixTotal?: number;
+    bestSixLimit?: number;
+    topPicks?: number;
+    topPickLimit?: number;
+    boardCandidates?: number;
+    boardOnly?: number;
+    noBet?: number;
+  };
+  lastUpdated: string | null;
+  loading: boolean;
+  dateView?: "today" | "tomorrow" | "full_board";
+  includeFullBoard?: boolean;
+  games?: any[];
+}) {
+  const generatedAt = input.lastUpdated
+    ? formatTime(input.lastUpdated)
+    : formatTime(new Date().toISOString());
+
+  return buildWnbaControlledBestSixReportText({
+    bestSixCards: input.bestSixCards,
+    summary: input.summary,
+    lastUpdated: generatedAt,
+    loading: input.loading,
+    dateView: input.dateView || "today",
+    includeFullBoard: input.includeFullBoard ?? false,
+    games: input.games || [],
+  });
 }
 
 export function buildLeagueBoardReport(input: {

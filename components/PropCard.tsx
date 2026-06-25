@@ -180,7 +180,7 @@ export default function PropCard({
         {riskDebts.length > 0 ? (
           <View style={styles.bestSixDebtBox}>
             <Text style={styles.bestSixDebtTitle}>Risk Debt</Text>
-            {riskDebts.slice(0, ledgerExpanded ? 8 : 3).map((line, i) => (
+            {riskDebts.slice(0, 3).map((line, i) => (
               <Text key={`debt-${i}`} style={styles.bestSixDebtLine}>
                 • {line}
               </Text>
@@ -191,34 +191,9 @@ export default function PropCard({
         {riskRepairs.length > 0 ? (
           <View style={styles.bestSixRepairBox}>
             <Text style={styles.bestSixRepairTitle}>Risk Repair</Text>
-            {riskRepairs.slice(0, ledgerExpanded ? 8 : 3).map((line, i) => (
+            {riskRepairs.slice(0, 3).map((line, i) => (
               <Text key={`repair-${i}`} style={styles.bestSixRepairLine}>
                 • {line}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-
-        {scoreLedger.length > 0 ? (
-          <TouchableOpacity
-            onPress={() => setLedgerExpanded((value) => !value)}
-            style={styles.expandButton}
-          >
-            <Text style={styles.expandButtonText}>
-              {ledgerExpanded
-                ? "Hide Score Ledger"
-                : `Show Score Ledger (${Math.min(scoreLedger.length, 6)})`}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {ledgerExpanded && scoreLedger.length > 0 ? (
-          <View style={styles.previewBox}>
-            {scoreLedger.slice(0, 12).map((row: any, i: number) => (
-              <Text key={`ledger-${i}`} style={styles.previewReason}>
-                {row.side && row.side !== "NEUTRAL" ? `[${row.side}] ` : ""}
-                {row.label}
-                {row.explanation ? ` — ${row.explanation}` : ""}
               </Text>
             ))}
           </View>

@@ -78,14 +78,15 @@ function makePick(overrides = {}) {
     overrides.trackingType ||
     overrides.finalDecision ||
     (overrides.officialEligible ? "OFFICIAL" : "TEST");
-  return {
+  const league = overrides.league || "WNBA";
+  const base = {
     player: overrides.player || "Test Player",
     team: overrides.team || "TeamA",
     opponent: overrides.opponent || "TeamB",
     line: overrides.line ?? 14.5,
     pick: overrides.pick || "Over",
     side: overrides.side || "Over",
-    league: overrides.league || "WNBA",
+    league,
     tier: overrides.tier || "WATCHLIST",
     confidence: overrides.confidence ?? 65,
     pickScore: overrides.pickScore ?? 65,
@@ -95,6 +96,37 @@ function makePick(overrides = {}) {
     slateDate: overrides.slateDate || "2026-06-23",
     ...overrides,
   };
+
+  if (
+    String(league).toUpperCase() === "WNBA" &&
+    !base.wnbaDataCard &&
+    !base.wnbaReader
+  ) {
+    base.wnbaDataCard = {
+      bookLine: base.line,
+      dataConfidenceScore: 72,
+      bookCount: 5,
+      marketQuality: 70,
+      dataMode: "WNBA_FULL",
+      minutesVolatility: "stable",
+      projection: { projection: Number(base.line) + 4, expectedMinutes: 28, expectedFGA: 11 },
+      last5: { points: 17, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 4, fairLineQuality: 65 },
+      dataMissingFlags: [],
+      injuryAvailability: { level: "ACTIVE", blocksPlay: false },
+    };
+    base.wnbaReader = {
+      finalSide: "OVER",
+      decision: trackingType,
+      readerConfidence: 68,
+      margin: 8,
+      overCase: { score: 55 },
+      underCase: { score: 20 },
+    };
+    base.netEdge = 8;
+  }
+
+  return base;
 }
 
 function buildManyWnbaCandidates(count = 8) {

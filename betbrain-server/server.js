@@ -208,7 +208,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-lab-history-message-cleanup-v1";
+const SERVER_BUILD = "courteedge-wnba-props-simplified-v2";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -268,6 +268,13 @@ function cacheFresh() {
   if (
     picksCache.controlledBestSixVersion &&
     picksCache.controlledBestSixVersion !== CONTROLLED_BEST_SIX_VERSION
+  ) {
+    return false;
+  }
+
+  if (
+    picksCache.decisionIntelligenceVersion &&
+    picksCache.decisionIntelligenceVersion !== DECISION_INTELLIGENCE_VERSION
   ) {
     return false;
   }
@@ -1879,6 +1886,7 @@ function ensureWnbaGateOnPick(pick = {}) {
   if (!pick.wnbaDataCard && !pick.wnbaReader) return pick;
   if (
     pick.decisionIntelligence?.version === DECISION_INTELLIGENCE_VERSION &&
+    pick.decisionIntelligence?.trackEligibility &&
     pick.wnbaTrackingDecision &&
     pick.riskAfterCeiling
   ) {
@@ -2136,6 +2144,7 @@ async function refreshAllPicks() {
     noBetCount: topSelectionAudit?.noBetCount ?? null,
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+    decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     bestSixLimit: 6,
     generatedProps,

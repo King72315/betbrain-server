@@ -179,3 +179,89 @@ export function formatDateViewLabel(dateView = "today") {
   if (dateView === "full_board") return "Full Board";
   return "Today";
 }
+
+function formatReportValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
+
+export function formatControlledBestSixPickLine(pick = {}, index = 0) {
+  const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
+  const side = pick.side || pick.pick || "—";
+  const line = pick.line ?? pick.sportsbookLine;
+  const stat = pick.stat || "Points";
+  const team = pick.team || "—";
+  const opponent = pick.opponent || "—";
+  const game = pick.game || `${team} vs ${opponent}`;
+  const trackDecision = resolveTrackEligibility(pick);
+  const trueRisk = resolveTrueRisk(pick);
+  const why =
+    pick.displayWhy ||
+    pick.decisionIntelligence?.simpleExplanation ||
+    pick.wnbaTrackingReason ||
+    "";
+  const topBadge = pick.topPickLabel ? ` · ${pick.topPickLabel}` : "";
+
+  return [
+    `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (WNBA)`,
+    `  Game: ${game}`,
+    `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
+    `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
+    why ? `  Why: ${why}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildWnbaControlledBestSixReportText({
+  bestSixCards = [],
+  summary = {},
+  lastUpdated = null,
+  loading = false,
+  dateView = "today",
+  includeFullBoard = false,
+  games = [],
+} = {}) {
+  const viewLabel = formatDateViewLabel(dateView);
+  const bestSixLimit = summary.bestSixLimit ?? BEST_SIX_LIMIT;
+  const topPickLimit = summary.topPickLimit ?? WNBA_TOP_PICK_LIMIT;
+  const controlledTotal = summary.controlledBestSixTotal ?? bestSixCards.length;
+  const topPicks = summary.topPicks ?? 0;
+  const boardCandidates = summary.boardCandidates ?? 0;
+  const boardOnly = summary.boardOnly ?? 0;
+  const noBet = summary.noBet ?? 0;
+
+  const lines = [
+    "WNBA Props — Controlled Best 6",
+    `View: ${viewLabel}`,
+    lastUpdated ? `Last updated: ${lastUpdated}` : null,
+    "",
+    "--- Summary ---",
+    `Controlled Best 6: ${controlledTotal}/${bestSixLimit}`,
+    `Top Picks: ${topPicks}/${topPickLimit}`,
+    `Board Candidates: ${boardCandidates}`,
+    `Board Only: ${boardOnly}`,
+    `No Bet: ${noBet}`,
+    "",
+    "--- Controlled Best 6 ---",
+    bestSixCards.length
+      ? bestSixCards
+          .map((pick, index) => formatControlledBestSixPickLine(pick, index))
+          .join("\n\n")
+      : `No Controlled Best 6 props for ${viewLabel}.`,
+  ];
+
+  if (includeFullBoard && games.length) {
+    lines.push(
+      "",
+      "--- Scout Mode — Full Board ---",
+      `Games: ${games.length} (expanded board available in app only)`
+    );
+  }
+
+  if (loading) {
+    lines.push("", "Status: Loading Controlled Best 6...");
+  }
+
+  return lines.filter((line) => line !== null).join("\n");
+}
