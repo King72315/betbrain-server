@@ -17,7 +17,6 @@ import {
   fetchDailySlateReports,
   fetchHistoryArchives,
   fetchPickHistory,
-  fetchTrackedProps,
 } from "../../services/api";
 import {
   HISTORY_FILTERS,
@@ -209,7 +208,6 @@ function HistoryEntryCard({
 export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
-  const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
   const [filter, setFilter] = useState<HistoryFilter>("All");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
@@ -229,13 +227,11 @@ export default function History() {
       const [pickData, reportData, trackedData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
-        fetchTrackedProps(),
         fetchHistoryArchives(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
-      setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
       setLoadError(null);
     } catch (err) {
@@ -252,13 +248,11 @@ export default function History() {
       const [pickData, reportData, trackedData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
-        fetchTrackedProps(),
         fetchHistoryArchives(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
-      setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
@@ -280,8 +274,8 @@ export default function History() {
   );
 
   const entries = useMemo(
-    () => buildHistoryEntries(picks, reports, trackedProps, archives),
-    [picks, reports, trackedProps, archives]
+    () => buildHistoryEntries(picks, reports, [], archives),
+    [picks, reports, archives]
   );
 
   const retainedEntries = useMemo(

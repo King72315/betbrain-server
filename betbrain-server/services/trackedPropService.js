@@ -910,10 +910,13 @@ export function buildTrackingCohortDiagnostics(
   const nbaTrackedCount = tracked.filter(
     (p) => String(p.league || "").toUpperCase() === "NBA"
   ).length;
-  const activeSlateDate = options.activeResultsSlateDate || todayLocalDate;
-  const activeSlateTracked = tracked.filter(
-    (p) => String(p.slateDate || "") === String(activeSlateDate)
-  );
+  const activeSlateDate =
+    options.activeResultsSlateDate ||
+    options.todayLocalDate ||
+    todayLocalDate;
+  const activeSlateTracked = Array.isArray(options.activeResultsProps)
+    ? options.activeResultsProps
+    : tracked.filter((p) => String(p.slateDate || "") === String(activeSlateDate));
   const activeWnbaTracked = activeSlateTracked.filter(
     (p) => String(p.league || "").toUpperCase() === "WNBA"
   ).length;

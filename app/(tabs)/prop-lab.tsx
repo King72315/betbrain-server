@@ -16,7 +16,6 @@ import {
   fetchDailySlateReports,
   fetchHistoryArchives,
   fetchTrackedAnalytics,
-  fetchTrackedProps,
   resolveTrackedProps,
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
@@ -503,7 +502,6 @@ export default function PropLab() {
   const [reports, setReports] = useState<any[]>([]);
   const [report, setReport] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
-  const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -562,13 +560,11 @@ export default function PropLab() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [analyticsData, trackedData, archiveData] = await Promise.all([
+      const [analyticsData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
-        fetchTrackedProps(),
         fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
-      setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
       await loadReports();
     } catch (err) {
@@ -583,13 +579,11 @@ export default function PropLab() {
       setRefreshing(true);
       await resolveTrackedProps({ requireLikelyFinished: true });
       await buildDailySlateReports();
-      const [analyticsData, trackedData, archiveData] = await Promise.all([
+      const [analyticsData, archiveData] = await Promise.all([
         fetchTrackedAnalytics(),
-        fetchTrackedProps(),
         fetchHistoryArchives(),
       ]);
       setAnalytics(analyticsData.analytics || null);
-      setTrackedProps(trackedData.props || []);
       setArchives(archiveData.archives || []);
       await loadReports();
     } catch (err) {
@@ -647,8 +641,8 @@ export default function PropLab() {
       (item) => String(item.slateDate) === viewedSlateDate
     );
     if (archive?.props?.length) return archive.props;
-    return trackedProps.filter((p) => p.slateDate === viewedSlateDate);
-  }, [trackedProps, viewedSlateDate, archives]);
+    return [];
+  }, [viewedSlateDate, archives]);
 
   const labTrackingSummary = useMemo(
     () => computeLabSlateTrackingSummary(slateTrackedProps, sectionA),

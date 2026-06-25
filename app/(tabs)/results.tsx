@@ -786,9 +786,10 @@ export default function ResultsScreen() {
 
         {!loading && !loadError && visibleSlates.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No tracked props for today yet.</Text>
+            <Text style={styles.emptyTitle}>No active Results slate</Text>
             <Text style={styles.emptyText}>
-              Refresh the board to generate today's props.
+              Legacy tracked props are stored on the server but hidden from Results.
+              Refresh the board when today's slate is ready to track.
             </Text>
           </View>
         ) : null}

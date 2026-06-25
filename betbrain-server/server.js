@@ -164,6 +164,8 @@ import {
 
 import {
   buildSlateLifecycleMap,
+  buildTrackedPropsLifecycleDiagnostics,
+  classifyTrackedPropsByLifecycle,
   SLATE_LIFECYCLE_STATES,
 } from "./services/slateLifecycleService.js";
 import {
@@ -195,7 +197,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-data-flow-v1";
+const SERVER_BUILD = "courteedge-active-results-filter-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2430,11 +2432,29 @@ app.delete("/saved-picks/:id", (req, res) => {
 });
 
 app.get("/tracked-props", (req, res) => {
+  const includeLegacy = String(req.query.includeLegacy || "").toLowerCase() === "true";
+  const allStored = getTrackedProps();
+  const rawReports = getRawDailySlateReports();
+  const archives = getAllHistoryArchives();
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const today = getTodayLocalDate();
+
+  const classification = classifyTrackedPropsByLifecycle(allStored, {
+    reports: rawReports,
+    archives,
+    lockedSlates,
+    today,
+  });
+  classification.trackedPropsReturnedMode = includeLegacy
+    ? "all_stored_with_lifecycle"
+    : "active_results_only";
+
+  const sourceProps = includeLegacy ? allStored : classification.activeResultsProps;
   const metaMap = getTopPickMetaMap();
-  const props = getTrackedProps().map((prop) => {
+  const props = sourceProps.map((prop) => {
     const key = prop.trackedKey || prop.trackedId;
     const meta = key ? metaMap.get(key) : undefined;
-    return meta
+    const enriched = meta
       ? {
           ...prop,
           topPickRank: meta.topPickRank,
@@ -2442,16 +2462,44 @@ app.get("/tracked-props", (req, res) => {
           topPickLeague: meta.league,
         }
       : prop;
+    if (includeLegacy && !enriched.trackedLifecycleState) {
+      enriched.trackedLifecycleState = prop.trackedLifecycleState || null;
+    }
+    return enriched;
   });
 
-  res.json({
+  const payload = {
     ok: true,
     props,
     count: props.length,
     topPicksSnapshot: getActiveTopPicksSnapshot(),
     bestSixSnapshot: getActiveBestSixSnapshot(),
     controlledTrackingCohortVersion: "controlled-tracking-cohort-v1",
-  });
+    trackedPropsReturnedMode: classification.trackedPropsReturnedMode,
+    activeResultsSlateDate: classification.activeResultsSlateDate,
+    trackedStoreTotalCount: classification.trackedStoreTotalCount,
+    activeResultsTrackedCount: classification.activeResultsTrackedCount,
+  };
+
+  if (includeLegacy) {
+    payload.lifecycle = {
+      categories: {
+        activeResults: classification.activeResultsProps.length,
+        labCurrent: classification.labCurrentTrackedCount,
+        archivedHistory: classification.archivedHistoryTrackedCount,
+        legacyCompleted: classification.legacyStoredTrackedCount,
+        staleUnresolved: classification.staleUnresolvedTrackedCount,
+        quarantinedLegacy: classification.quarantinedLegacyTrackedCount,
+        homeStaged: classification.homeStagedTrackedCount,
+      },
+      trackedCountsBySlateDate: classification.trackedCountsBySlateDate,
+      trackedCountsByLifecycleState: classification.trackedCountsByLifecycleState,
+      currentLabSlateDate: classification.currentLabSlateDate,
+      historySlateDates: classification.historySlateDates,
+    };
+  }
+
+  res.json(payload);
 });
 
 app.get("/tracked-props/analytics", (req, res) => {
@@ -2680,17 +2728,29 @@ app.get("/diagnostics", (req, res) => {
     labReport,
   });
 
+  const archives = getAllHistoryArchives();
+  const lifecycleClassification = classifyTrackedPropsByLifecycle(tracked, {
+    reports: rawReports,
+    archives,
+    lockedSlates: registry.slates || [],
+    today: getTodayLocalDate(),
+  });
+  lifecycleClassification.trackedPropsReturnedMode = "active_results_only";
+  const trackedPropsLifecycle = buildTrackedPropsLifecycleDiagnostics(
+    lifecycleClassification
+  );
+
   const trackingCohortDiagnostics = buildTrackingCohortDiagnostics(
     picksCache?.games || [],
     tracked,
     picksCache?.topProps || [],
     {
       todayLocalDate: getTodayLocalDate(),
-      activeResultsSlateDate: flowValidation.slateDate || getTodayLocalDate(),
+      activeResultsSlateDate: lifecycleClassification.activeResultsSlateDate,
+      activeResultsProps: lifecycleClassification.activeResultsProps,
     }
   );
 
-  const archives = getAllHistoryArchives();
   const slateLifecycle = buildSlateLifecycleMap({
     trackedProps: tracked,
     reports: rawReports,
@@ -2753,7 +2813,9 @@ app.get("/diagnostics", (req, res) => {
     admittedBeforeBestSixCap:
       trackingCohortDiagnostics.admittedBeforeBestSixCap ?? null,
     excessTrackedDueToPreCap:
-      trackingCohortDiagnostics.excessTrackedDueToPreCap ?? 0,
+      lifecycleClassification.activeResultsExcessCount ??
+      trackingCohortDiagnostics.excessTrackedDueToPreCap ??
+      0,
     qualityGatePassedCountByLeague:
       trackingCohortDiagnostics.qualityGatePassedCountByLeague || {},
     hiddenDueToBestSixCap: trackingCohortDiagnostics.hiddenDueToBestSixCap ?? 0,
@@ -2783,7 +2845,8 @@ app.get("/diagnostics", (req, res) => {
     officialTrackedCount: trackingCohortDiagnostics.officialTrackedCount,
     testTrackedCount: trackingCohortDiagnostics.testTrackedCount,
     todayLocalDate: trackingCohortDiagnostics.todayLocalDate,
-    activeResultsSlateDate: trackingCohortDiagnostics.activeResultsSlateDate,
+    activeResultsSlateDate: lifecycleClassification.activeResultsSlateDate,
+    ...trackedPropsLifecycle,
     reports: {
       total: reports.length,
       final: reports.filter((r) => r.reportStatus === "final").length,
