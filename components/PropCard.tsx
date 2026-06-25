@@ -40,8 +40,14 @@ export default function PropCard({
   const [fairLineExpanded, setFairLineExpanded] = useState(false);
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
+  const wnbaTrackingDecision =
+    pick.decisionIntelligence?.trackEligibility || pick.wnbaTrackingDecision;
+  const wnbaTrackingReason =
+    pick.decisionIntelligence?.gateReason || pick.wnbaTrackingReason;
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
   const wnbaV2 = String(pick.engineHandled || "") === "WNBA_V2";
+  const trueRisk = pick.decisionIntelligence?.trueRisk || pick.trueRisk;
+  const decisionExplanation = pick.decisionIntelligence?.simpleExplanation;
   const readerDecision = pick.readerDecision || pick.wnbaReader?.decision;
   const readerConfidence =
     pick.readerConfidence ?? pick.wnbaReader?.readerConfidence;
@@ -191,11 +197,12 @@ export default function PropCard({
           </View>
         ) : null}
 
-        {pick.wnbaTrackingDecision ? (
+        {wnbaTrackingDecision || decisionExplanation ? (
           <Text style={styles.wnbaV2Warn}>
-            Gate {pick.wnbaTrackingDecision}
-            {pick.wnbaTrackingReason ? ` · ${pick.wnbaTrackingReason}` : ""}
-            {pick.riskAfterCeiling ? ` · Risk ${pick.riskAfterCeiling}` : ""}
+            {decisionExplanation ||
+              `Gate ${wnbaTrackingDecision}${wnbaTrackingReason ? ` · ${wnbaTrackingReason}` : ""}`}
+            {trueRisk ? ` · True ${trueRisk}` : ""}
+            {pick.riskAfterCeiling ? ` · ${pick.riskAfterCeiling}` : ""}
           </Text>
         ) : null}
 
@@ -304,11 +311,12 @@ export default function PropCard({
 
       <View style={styles.metricGrid}>
         <Metric label="Risk" value={pick.riskAfterCeiling || pick.riskLabel || "—"} />
-        {pick.wnbaTrackingDecision ? (
-          <Metric label="Gate" value={pick.wnbaTrackingDecision} />
+        {trueRisk ? <Metric label="True Risk" value={trueRisk} /> : null}
+        {wnbaTrackingDecision ? (
+          <Metric label="Track" value={wnbaTrackingDecision} />
         ) : null}
-        {pick.wnbaTrackingReason ? (
-          <Metric label="Gate Reason" value={pick.wnbaTrackingReason} />
+        {wnbaTrackingReason ? (
+          <Metric label="Track Reason" value={wnbaTrackingReason} />
         ) : null}
         {pick.riskCeilingReason ? (
           <Metric label="Risk Ceiling" value={pick.riskCeilingReason} />
@@ -324,6 +332,13 @@ export default function PropCard({
         <Metric label="Data" value={`${safeDisplay(pick.dataQuality)}%`} />
         <Metric label="Market" value={`${safeDisplay(pick.marketQuality)}%`} />
       </View>
+
+      {decisionExplanation ? (
+        <View style={styles.decisionIntelBox}>
+          <Text style={styles.decisionIntelTitle}>Decision Intelligence</Text>
+          <Text style={styles.decisionIntelText}>{decisionExplanation}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.statRow}>
         <Text style={styles.statText}>
@@ -1003,6 +1018,27 @@ const styles = StyleSheet.create({
   wnbaV2Warn: {
     color: "#fca5a5",
     fontSize: 11,
+    fontWeight: "600",
+  },
+  decisionIntelBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  decisionIntelTitle: {
+    color: "#93c5fd",
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  decisionIntelText: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    lineHeight: 17,
     fontWeight: "600",
   },
   dataModeBadge: {

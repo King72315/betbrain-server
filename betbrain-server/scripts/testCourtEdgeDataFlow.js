@@ -529,7 +529,7 @@ test("49 tracking cohort audit inputCount matches Best 6", () => {
 
 test("50 SERVER build marker constant documented in cohort version", () => {
   assert.equal(CONTROLLED_TRACKING_COHORT_VERSION, "controlled-tracking-cohort-v1");
-  assert.equal(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-v2-fix");
+  assert.equal(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-di-v1");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed\n`);

@@ -657,6 +657,9 @@ export default function PropLab() {
   const sectionN = report?.sections?.N || report?.qualityGatePerformance;
   const sectionQ = report?.sections?.Q || report?.wnbaV2GateReview;
   const sectionR = report?.sections?.R || report?.retroGateSimulation;
+  const sectionS = report?.sections?.S || report?.decisionIntelligenceReview;
+  const sectionT = report?.sections?.T || report?.riskHonestyReview;
+  const sectionU = report?.sections?.U || report?.upgradeDemotionReview;
   const sectionP = report?.sections?.P || report?.slateResultsSnapshot;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
@@ -1244,8 +1247,81 @@ export default function PropLab() {
           </SectionCard>
         ) : null}
 
+        {sectionS ? (
+          <SectionCard title="Decision Intelligence Review">
+            <MetricRow
+              label="Version"
+              value={String(sectionS.version || "—")}
+            />
+            <MetricRow
+              label="Low Risk record"
+              value={String(sectionS.trueRiskRecords?.LOW?.record || "—")}
+            />
+            <MetricRow
+              label="Medium Risk record"
+              value={String(sectionS.trueRiskRecords?.MEDIUM?.record || "—")}
+            />
+            <MetricRow
+              label="High Risk record"
+              value={String(sectionS.trueRiskRecords?.HIGH?.record || "—")}
+            />
+            <MetricRow
+              label="TRACK record"
+              value={String(sectionS.trackEligibilityRecords?.TRACK?.record || "—")}
+            />
+            <MetricRow
+              label="BOARD_ONLY record"
+              value={String(sectionS.trackEligibilityRecords?.BOARD_ONLY?.record || "—")}
+            />
+          </SectionCard>
+        ) : null}
+
+        {sectionT ? (
+          <SectionCard title="Risk Honesty Review">
+            <Text style={styles.muted}>{sectionT.question || "Was risk honest?"}</Text>
+            <MetricRow label="Low Risk count" value={String(sectionT.lowRiskCount ?? 0)} />
+            <MetricRow label="Low Risk wins" value={String(sectionT.lowRiskActedLow ?? 0)} />
+            <MetricRow label="Low Risk losses" value={String(sectionT.lowRiskFailed ?? 0)} />
+            <MetricRow
+              label="High Risk excluded"
+              value={String(sectionT.highRiskCorrectlyExcluded ?? 0)}
+            />
+            {sectionT.mostPredictiveDebts?.slice(0, 5).map((item: any, index: number) => (
+              <Text key={`debt-${index}`} style={styles.breakdownLine}>
+                {item.code}: {item.lossCount} losses
+              </Text>
+            ))}
+          </SectionCard>
+        ) : null}
+
+        {sectionU ? (
+          <SectionCard title="Upgrade/Demotion Review">
+            <MetricRow
+              label="Upgraded to TRACK"
+              value={String(sectionU.upgradedToTrack?.length ?? 0)}
+            />
+            <MetricRow
+              label="Demoted to BOARD_ONLY"
+              value={String(sectionU.demotedToBoardOnly?.length ?? 0)}
+            />
+            <MetricRow
+              label="Blocked NO_BET"
+              value={String(sectionU.blockedNoBet?.length ?? 0)}
+            />
+            <MetricRow
+              label="Blocked would-have-won"
+              value={String(sectionU.blockedWouldHaveWon?.length ?? 0)}
+            />
+            {sectionU.allowedLost?.slice(0, 4).map((item: any, index: number) => (
+              <Text key={`allowed-loss-${index}`} style={styles.breakdownLine}>
+                LOSS kept {item.player} {item.side} {item.line}
+              </Text>
+            ))}
+          </SectionCard>
+        ) : null}
+
         {sectionR?.available !== false && sectionR?.simulatedRecord ? (
-          <SectionCard title="Retroactive 06/24 Gate Simulation">
+          <SectionCard title="Decision Intelligence Retro Simulation">
             <Text style={styles.muted}>Report-only — does not change historical grades.</Text>
             <MetricRow
               label="Actual record"

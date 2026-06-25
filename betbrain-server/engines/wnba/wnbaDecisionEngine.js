@@ -14,8 +14,11 @@ import { compareOverUnderRisk } from "../riskComparisonEngine.js";
 import { mergeIntelligenceIntoRiskComparison } from "../scoreLedgerEngine.js";
 import { buildScoreLedger } from "../scoreLedgerEngine.js";
 import { applyWnbaOfficialV1Rules } from "../wnbaOfficialEngine.js";
-import { applyQualityGateToPick, evaluateWnbaTrackingEligibility } from "./wnbaResultsQualityGate.js";
-import { applyWnbaRiskCeiling } from "./wnbaTrackingGateV2.js";
+import { evaluateWnbaTrackingEligibility } from "./wnbaResultsQualityGate.js";
+import {
+  applyDecisionIntelligenceToPick,
+  evaluatePropDecisionIntelligenceV1,
+} from "../decisionIntelligence/propDecisionIntelligenceV1.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
@@ -450,8 +453,12 @@ export async function evaluateWnbaPropDecision(context = {}) {
   pick = finalizeWnbaPickTracking(pick, reader);
 
   const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
-  pick = applyQualityGateToPick(pick, qualityGate);
-  pick = applyWnbaRiskCeiling(pick, qualityGate);
+  const decisionIntelligence = evaluatePropDecisionIntelligenceV1(pick, {
+    dataCard,
+    reader,
+    gate: qualityGate,
+  });
+  pick = applyDecisionIntelligenceToPick(pick, decisionIntelligence, qualityGate);
 
   if (typeof applyPickFinishers === "function") {
     pick = applyPickFinishers(pick) || pick;

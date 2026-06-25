@@ -34,6 +34,13 @@ import {
   buildRetroactiveGateSimulation,
   buildWnbaV2GateReview,
 } from "../engines/wnba/wnbaResultsQualityGate.js";
+import {
+  buildDecisionIntelligenceReview,
+  buildDecisionIntelligenceRetroSimulation,
+  buildRiskHonestyReview,
+  buildUpgradeDemotionReview,
+  DECISION_INTELLIGENCE_VERSION,
+} from "../engines/decisionIntelligence/propDecisionIntelligenceV1.js";
 import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -963,10 +970,12 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   );
 
   const wnbaV2GateReview = buildWnbaV2GateReview(slateProps);
-  const retroGateSimulation =
-    slateDate === "2026-06-24"
-      ? buildRetroactiveGateSimulation(slateProps, { slateDate })
-      : null;
+  const decisionIntelligenceReview = buildDecisionIntelligenceReview(slateProps);
+  const riskHonestyReview = buildRiskHonestyReview(slateProps);
+  const upgradeDemotionReview = buildUpgradeDemotionReview(slateProps);
+  const retroGateSimulation = allGraded
+    ? buildDecisionIntelligenceRetroSimulation(slateProps, { slateDate })
+    : null;
 
   const sectionA = {
     title: "Slate Summary",
@@ -981,7 +990,11 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     trackingCalibration,
     qualityGatePerformance,
     wnbaV2GateReview,
+    decisionIntelligenceReview,
+    riskHonestyReview,
+    upgradeDemotionReview,
     retroGateSimulation,
+    decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     graded: record.graded,
     pending: record.pending,
     wins: record.wins,
@@ -1145,15 +1158,28 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       },
       R: retroGateSimulation
         ? {
-            title: "Retroactive 06/24 Gate Simulation",
+            title: "Decision Intelligence Retro Simulation",
+            available: true,
             ...retroGateSimulation,
           }
         : {
-            title: "Retroactive Gate Simulation",
+            title: "Decision Intelligence Retro Simulation",
             reportOnly: true,
             available: false,
-            message: "Retro simulation available for 06/24 reference slate.",
+            message: "Retro simulation runs when slate is fully graded.",
           },
+      S: {
+        title: "Decision Intelligence Review",
+        ...decisionIntelligenceReview,
+      },
+      T: {
+        title: "Risk Honesty Review",
+        ...riskHonestyReview,
+      },
+      U: {
+        title: "Upgrade/Demotion Review",
+        ...upgradeDemotionReview,
+      },
     },
   };
 }

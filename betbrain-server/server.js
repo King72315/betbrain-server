@@ -98,10 +98,12 @@ import {
   isCourteEdgeWnbaV2Enabled,
 } from "./engines/wnba/wnbaDecisionEngine.js";
 import {
-  applyQualityGateToPick,
   evaluateWnbaTrackingEligibility,
 } from "./engines/wnba/wnbaResultsQualityGate.js";
-import { applyWnbaRiskCeiling } from "./engines/wnba/wnbaTrackingGateV2.js";
+import {
+  applyDecisionIntelligenceToPick,
+  DECISION_INTELLIGENCE_VERSION,
+} from "./engines/decisionIntelligence/propDecisionIntelligenceV1.js";
 
 import {
   appendMarketSnapshot,
@@ -204,7 +206,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-tracking-gate-v2-live";
+const SERVER_BUILD = "courteedge-decision-intelligence-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -1873,11 +1875,15 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 function ensureWnbaGateOnPick(pick = {}) {
   if (String(pick.league || "").toUpperCase() !== "WNBA") return pick;
   if (!pick.wnbaDataCard && !pick.wnbaReader) return pick;
-  if (pick.wnbaTrackingDecision && pick.riskAfterCeiling) return pick;
+  if (
+    pick.decisionIntelligence?.version === DECISION_INTELLIGENCE_VERSION &&
+    pick.wnbaTrackingDecision &&
+    pick.riskAfterCeiling
+  ) {
+    return pick;
+  }
   const gate = evaluateWnbaTrackingEligibility(pick, pick.wnbaDataCard, pick.wnbaReader);
-  let enriched = applyQualityGateToPick(pick, gate);
-  enriched = applyWnbaRiskCeiling(enriched, gate);
-  return enriched;
+  return applyDecisionIntelligenceToPick(pick, null, gate);
 }
 
 function ensureWnbaGateOnGames(games = []) {

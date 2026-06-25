@@ -16,13 +16,14 @@ import {
   collectAllGeneratedCandidates,
 } from "./topPropSelector.js";
 import {
-  applyQualityGateToPick,
   evaluateWnbaTrackingEligibility,
   isWnbaQualityGatePick,
 } from "../wnba/wnbaResultsQualityGate.js";
-import { applyWnbaRiskCeiling } from "../wnba/wnbaTrackingGateV2.js";
-
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-v2-fix";
+import {
+  applyDecisionIntelligenceToPick,
+  DECISION_INTELLIGENCE_VERSION,
+} from "../decisionIntelligence/propDecisionIntelligenceV1.js";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-di-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -160,17 +161,18 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
         pick.wnbaDataCard,
         pick.wnbaReader
       );
-      if (gate.trackingEligibility !== "TRACK") {
+      pick = applyDecisionIntelligenceToPick(pick, null, gate);
+      const di = pick.decisionIntelligence || {};
+      if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
-          reason: "quality_gate",
-          eligibility: gate.trackingEligibility,
+          reason: "decision_intelligence",
+          eligibility: di.trackEligibility,
+          trueRisk: di.trueRisk,
           pick: summarizePickForAudit(pick),
         });
         continue;
       }
-      pick = applyQualityGateToPick(pick, gate);
-      pick = applyWnbaRiskCeiling(pick, gate);
     }
 
     qualityPassed += 1;
@@ -347,6 +349,16 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
   const selectedTeamKeys = new Set();
 
   for (const pick of bestSix) {
+    const di = pick.decisionIntelligence || {};
+    if (di.topPickEligibility === false || String(di.trueRisk).toUpperCase() === "HIGH") {
+      audit.hidden.push({
+        reason: "top_pick_decision_intelligence",
+        trueRisk: di.trueRisk,
+        pick: summarizePickForAudit(pick),
+      });
+      continue;
+    }
+
     if (selected.length >= limit) {
       audit.hiddenDueToLeagueLimit += 1;
       audit.hidden.push({

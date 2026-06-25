@@ -152,6 +152,34 @@ export default function ExploreScreen() {
     return sum + Number(game.playableCandidateCount || game.picks?.length || 0);
   }, 0);
 
+  const boardIntelligence = useMemo(() => {
+    const counts = {
+      candidates: 0,
+      trackable: 0,
+      boardOnly: 0,
+      shadowOnly: 0,
+      noBet: 0,
+    };
+    for (const game of filteredGames) {
+      const pool = game.allGeneratedCandidates?.length
+        ? game.allGeneratedCandidates
+        : game.picks || [];
+      counts.candidates += pool.length;
+      for (const pick of pool) {
+        const eligibility =
+          pick.decisionIntelligence?.trackEligibility ||
+          pick.trackingEligibility ||
+          pick.wnbaTrackingDecision ||
+          "TRACK";
+        if (eligibility === "TRACK") counts.trackable += 1;
+        else if (eligibility === "BOARD_ONLY") counts.boardOnly += 1;
+        else if (eligibility === "SHADOW_ONLY") counts.shadowOnly += 1;
+        else if (eligibility === "NO_BET") counts.noBet += 1;
+      }
+    }
+    return counts;
+  }, [filteredGames]);
+
   const getReportText = () =>
     buildLeagueBoardReport({
       page: "Full Game Board",
@@ -228,6 +256,18 @@ export default function ExploreScreen() {
 
         <LoadErrorBanner message={loadError} />
 
+        {!loading && !loadError && boardIntelligence.candidates > 0 && (
+          <View style={styles.intelligenceSummary}>
+            <Text style={styles.intelligenceTitle}>Board Intelligence</Text>
+            <View style={styles.intelligenceRow}>
+              <Metric label="Candidates" value={boardIntelligence.candidates} />
+              <Metric label="Trackable" value={boardIntelligence.trackable} />
+              <Metric label="Board Only" value={boardIntelligence.boardOnly} />
+              <Metric label="No Bet" value={boardIntelligence.noBet} />
+            </View>
+          </View>
+        )}
+
         {!loading && !loadError && filteredBestSix.length > 0 && (
           <View style={styles.bestSixSection}>
             <Text style={styles.sectionTitle}>Controlled Best 6 Preview</Text>
@@ -300,10 +340,34 @@ export default function ExploreScreen() {
 
               <View style={styles.gameMetaRow}>
                 <Text style={styles.gameMeta}>
-                  Candidates: {game.allCandidateCount ?? 0}
+                  Candidates: {game.allCandidateCount ?? game.allGeneratedCandidates?.length ?? 0}
                 </Text>
                 <Text style={styles.gameMeta}>
-                  Playable: {game.playableCandidateCount ?? game.picks?.length ?? 0}
+                  Trackable:{" "}
+                  {(game.allGeneratedCandidates || game.picks || []).filter(
+                    (p: any) =>
+                      (p.decisionIntelligence?.trackEligibility ||
+                        p.trackingEligibility ||
+                        p.wnbaTrackingDecision) === "TRACK"
+                  ).length}
+                </Text>
+                <Text style={styles.gameMeta}>
+                  Board Only:{" "}
+                  {(game.allGeneratedCandidates || game.picks || []).filter(
+                    (p: any) =>
+                      (p.decisionIntelligence?.trackEligibility ||
+                        p.trackingEligibility ||
+                        p.wnbaTrackingDecision) === "BOARD_ONLY"
+                  ).length}
+                </Text>
+                <Text style={styles.gameMeta}>
+                  No Bet:{" "}
+                  {(game.allGeneratedCandidates || game.picks || []).filter(
+                    (p: any) =>
+                      (p.decisionIntelligence?.trackEligibility ||
+                        p.trackingEligibility ||
+                        p.wnbaTrackingDecision) === "NO_BET"
+                  ).length}
                 </Text>
               </View>
 
@@ -570,6 +634,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
     alignSelf: "flex-start",
+  },
+
+  intelligenceSummary: {
+    backgroundColor: "#111827",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1f2937",
+    padding: 14,
+    marginBottom: 16,
+  },
+  intelligenceTitle: {
+    color: "#93c5fd",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 10,
+  },
+  intelligenceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
 
   gameMetaRow: {

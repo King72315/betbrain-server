@@ -25,12 +25,15 @@ import {
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
-  applyQualityGateToPick,
   buildTrackingQualityAudit,
   evaluateWnbaTrackingEligibility,
   isWnbaQualityGatePick,
   QUALITY_GATE_VERSION,
 } from "../engines/wnba/wnbaResultsQualityGate.js";
+import {
+  applyDecisionIntelligenceToPick,
+  DECISION_INTELLIGENCE_VERSION,
+} from "../engines/decisionIntelligence/propDecisionIntelligenceV1.js";
 import {
   selectControlledBestSixCombined,
   CONTROLLED_BEST_SIX_VERSION,
@@ -613,10 +616,13 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     let gatedPick = pick;
     if (isWnbaQualityGatePick(pick)) {
       const gate = evaluateWnbaTrackingEligibility(pick, pick.wnbaDataCard, pick.wnbaReader);
-      gatedPick = applyQualityGateToPick(pick, gate);
-      auditEntry.trackingEligibility = gate.trackingEligibility;
+      gatedPick = applyDecisionIntelligenceToPick(pick, null, gate);
+      const di = gatedPick.decisionIntelligence || {};
+      auditEntry.trackingEligibility = di.trackEligibility || gate.trackingEligibility;
       auditEntry.qualityGateScore = gate.qualityGateScore;
       auditEntry.qualityGateVersion = gate.qualityGateVersion;
+      auditEntry.decisionIntelligenceVersion = DECISION_INTELLIGENCE_VERSION;
+      auditEntry.trueRisk = di.trueRisk;
       auditEntry.blockReasons = gate.trackingBlockReasons;
       auditEntry.warnings = gate.trackingWarnings;
       auditEntry.keyMetrics = gate.keyMetrics;
@@ -1569,6 +1575,14 @@ function mapPickToTrackedFields(pick = {}) {
     riskBeforeCeiling: pick.riskBeforeCeiling ?? null,
     riskAfterCeiling: pick.riskAfterCeiling ?? null,
     controlledBestSixApplied: pick.controlledBestSixApplied ?? null,
+    decisionIntelligence: pick.decisionIntelligence ?? null,
+    decisionIntelligenceVersion:
+      pick.decisionIntelligenceVersion ?? pick.decisionIntelligence?.version ?? null,
+    trueRisk: pick.trueRisk ?? pick.decisionIntelligence?.trueRisk ?? null,
+    bestSixEligibility:
+      pick.bestSixEligibility ?? pick.decisionIntelligence?.bestSixEligibility ?? null,
+    topPickEligibility:
+      pick.topPickEligibility ?? pick.decisionIntelligence?.topPickEligibility ?? null,
   };
 
   return {
