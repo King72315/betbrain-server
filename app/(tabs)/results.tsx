@@ -45,6 +45,27 @@ import {
 } from "../../utils/resultsQueue";
 import { computeSlateRotation, getTodayLocalDate } from "../../utils/slateRotation";
 import { formatPropLabelLine, getPropDisplayLabels } from "../../utils/propLabels";
+import {
+  buildSlateResultsSnapshot,
+  type SlateSnapshotEntry,
+} from "../../utils/slateResultsSnapshot";
+
+function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
+  return (
+    <View style={styles.snapshotLineRow}>
+      <Text style={styles.snapshotLineText}>{entry.formattedLine}</Text>
+      <View style={styles.snapshotBadgeRow}>
+        {entry.isTopPick ? <Text style={styles.topPickMiniBadge}>TOP</Text> : null}
+        {entry.bestSixRank ? (
+          <Text style={styles.bestSixMiniBadge}>B6 #{entry.bestSixRank}</Text>
+        ) : null}
+        {entry.readerOfficialDemoted ? (
+          <Text style={styles.demotedMiniBadge}>DEMOTED</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toUpperCase();
@@ -267,6 +288,26 @@ export default function ResultsScreen() {
     [reports, lockedSlates]
   );
 
+  const bestSixCapStatus = useMemo(() => {
+    const wnba = leagueTrackedCounts.wnba;
+    const nba = leagueTrackedCounts.nba;
+    const wnbaOver = wnba > 6;
+    const nbaOver = nba > 6;
+    if (wnbaOver || nbaOver) {
+      return `Best 6 cap exceeded — WNBA ${wnba}/6, NBA ${nba}/6 (pre-cap data; next refresh prunes)`;
+    }
+    return `Best 6 cap OK — WNBA ${wnba}/6, NBA ${nba}/6`;
+  }, [leagueTrackedCounts]);
+
+  const slateSnapshot = useMemo(() => {
+    const activeDate = activeResultsSummary.activeSlateDate;
+    if (!activeDate) return null;
+    const props = visibleSlates
+      .filter((s) => s.slateDate === activeDate)
+      .flatMap((s) => s.props);
+    return buildSlateResultsSnapshot(props, { slateDate: activeDate });
+  }, [visibleSlates, activeResultsSummary.activeSlateDate]);
+
   const keyTakeaways = useMemo(
     () =>
       buildKeyTakeaways(accuracySummary, {
@@ -341,12 +382,15 @@ export default function ResultsScreen() {
             {" • "}
             WNBA Tracked: {leagueTrackedCounts.wnba}
             {" • "}
-            Official Props: {trackingTypeCounts.official}
+            Official: {trackingTypeCounts.official}
+            {" • "}
+            Test / Learning: {trackingTypeCounts.test}
             {" • "}
             Reader Official Demoted TEST: {trackingTypeCounts.readerOfficialDemoted}
             {" • "}
             Reader Uncertain TEST: {trackingTypeCounts.readerUncertainTest}
           </Text>
+          <Text style={styles.cohortNote}>{bestSixCapStatus}</Text>
           <Text style={styles.cohortNote}>
             Controlled Best 6 cohort — up to 6 NBA + 6 WNBA tracked per active slate.
           </Text>
@@ -358,7 +402,8 @@ export default function ResultsScreen() {
           ) : null}
           <View style={styles.accuracyGrid}>
             <SummaryBox label="Total Tracked" value={trackedSummary.total} color="#e2e8f0" />
-            <SummaryBox label="Official Props" value={trackingTypeCounts.official} color="#f8fafc" />
+            <SummaryBox label="Official" value={trackingTypeCounts.official} color="#f8fafc" />
+            <SummaryBox label="Test / Learning" value={trackingTypeCounts.test} color="#ddd6fe" />
             <SummaryBox
               label="Demoted TEST"
               value={trackingTypeCounts.readerOfficialDemoted}
@@ -376,16 +421,51 @@ export default function ResultsScreen() {
               value={trackedSummary.awaitingStats}
               color="#f97316"
             />
-            <SummaryBox label="Wins" value={accuracySummary.wins} color="#4ade80" />
-            <SummaryBox label="Losses" value={accuracySummary.losses} color="#f87171" />
-            <SummaryBox label="Pushes" value={accuracySummary.pushes} color="#fbbf24" />
-            <SummaryBox
-              label="Official Win Rate"
-              value={accuracySummary.winRateLabel}
-              color="#e2e8f0"
-            />
+            <SummaryBox label="Record" value={`${accuracySummary.wins}-${accuracySummary.losses}-${accuracySummary.pushes}`} color="#e2e8f0" />
+            <SummaryBox label="Win Rate" value={accuracySummary.winRateLabel} color="#e2e8f0" />
           </View>
         </View>
+
+        {slateSnapshot && !slateSnapshot.snapshotMissing ? (
+          <View style={styles.dashboardCard}>
+            <Text style={styles.dashboardTitle}>Slate Results Snapshot</Text>
+            <Text style={styles.currentSlateLabel}>
+              {slateSnapshot.winsCount}W / {slateSnapshot.lossesCount}L / {slateSnapshot.pushesCount}P graded
+            </Text>
+            {slateSnapshot.biggestWins.length > 0 ? (
+              <>
+                <Text style={styles.snapshotSectionLabel}>Biggest Wins</Text>
+                {slateSnapshot.biggestWins.map((entry) => (
+                  <SnapshotPropLine key={`win-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : null}
+            {slateSnapshot.winningProps.length > slateSnapshot.biggestWins.length ? (
+              <>
+                <Text style={styles.snapshotSectionLabel}>All Winning Props</Text>
+                {slateSnapshot.winningProps.map((entry) => (
+                  <SnapshotPropLine key={`allwin-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : null}
+            {slateSnapshot.biggestMisses.length > 0 ? (
+              <>
+                <Text style={styles.snapshotSectionLabel}>Biggest Misses</Text>
+                {slateSnapshot.biggestMisses.map((entry) => (
+                  <SnapshotPropLine key={`loss-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : null}
+            {slateSnapshot.losingProps.length > slateSnapshot.biggestMisses.length ? (
+              <>
+                <Text style={styles.snapshotSectionLabel}>All Losing Props</Text>
+                {slateSnapshot.losingProps.map((entry) => (
+                  <SnapshotPropLine key={`allloss-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
         {(trackingTypeCounts.readerOfficialDemoted > 0 ||
           trackingTypeCounts.readerUncertainTest > 0) ? (
@@ -782,6 +862,45 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 10,
     lineHeight: 16,
+  },
+  snapshotSectionLabel: {
+    color: "#38bdf8",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  snapshotLineRow: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e293b",
+  },
+  snapshotLineText: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  snapshotBadgeRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  topPickMiniBadge: {
+    color: "#fbbf24",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  bestSixMiniBadge: {
+    color: "#38bdf8",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  demotedMiniBadge: {
+    color: "#a78bfa",
+    fontSize: 10,
+    fontWeight: "900",
   },
   priorSlateNote: {
     color: "#fdba74",

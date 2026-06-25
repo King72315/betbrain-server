@@ -34,6 +34,7 @@ import {
 import {
   selectControlledBestSixCombined,
   CONTROLLED_BEST_SIX_VERSION,
+  BEST_SIX_LIMIT,
 } from "../engines/topProps/controlledBestSixSelector.js";
 import {
   filterCompletedDailyReports,
@@ -702,6 +703,13 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       ...gatedPick,
       trackingType: decision,
       recordType: decision,
+      trackingAdmissionSource:
+        options.sourcePool === "CONTROLLED_BEST_SIX"
+          ? "CONTROLLED_BEST_SIX"
+          : gatedPick.trackingAdmissionSource || "LEGACY_QUALITY_GATE",
+      controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+      controlledBestSixApplied: options.sourcePool === "CONTROLLED_BEST_SIX",
+      sourcePool: options.sourcePool || gatedPick.sourcePool || null,
     };
     if (decision === "TEST") {
       normalizedPick.excludedFromOfficialRecord = true;
@@ -801,11 +809,30 @@ export function buildTrackingCohortDiagnostics(
       item.slateDate || getSlateDateCT(item.commenceTime || item.time),
   });
 
+  const wnbaTrackedCount = tracked.filter(
+    (p) => String(p.league || "").toUpperCase() === "WNBA"
+  ).length;
+  const nbaTrackedCount = tracked.filter(
+    (p) => String(p.league || "").toUpperCase() === "NBA"
+  ).length;
+  const activeSlateDate = options.activeResultsSlateDate || todayLocalDate;
+  const activeSlateTracked = tracked.filter(
+    (p) => String(p.slateDate || "") === String(activeSlateDate)
+  );
+  const activeWnbaTracked = activeSlateTracked.filter(
+    (p) => String(p.league || "").toUpperCase() === "WNBA"
+  ).length;
+  const activeNbaTracked = activeSlateTracked.filter(
+    (p) => String(p.league || "").toUpperCase() === "NBA"
+  ).length;
+  const excessTrackedDueToPreCap = Math.max(0, activeWnbaTracked - BEST_SIX_LIMIT) +
+    Math.max(0, activeNbaTracked - BEST_SIX_LIMIT);
+
   return {
     ...audit,
     trackingQualityAudit,
     todayLocalDate,
-    activeResultsSlateDate: options.activeResultsSlateDate || todayLocalDate,
+    activeResultsSlateDate: activeSlateDate,
     trackedPropsBySlate,
     topPropsSelectedBySlate: topPropsBySlate,
     generatedCandidatesBySlate,
@@ -814,6 +841,25 @@ export function buildTrackingCohortDiagnostics(
     topPropsDidNotControlTracking: false,
     trackingControlledByBestSix: true,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+    controlledBestSixApplied: true,
+    trackingAdmissionSource: "CONTROLLED_BEST_SIX",
+    admittedBeforeBestSixCap: activeSlateTracked.length,
+    bestSixWNBA: controlledSelection.bestSixWNBA || [],
+    bestSixNBA: controlledSelection.bestSixNBA || [],
+    bestSixWNBACount: controlledSelection.bestSixWNBA?.length || 0,
+    bestSixNBACount: controlledSelection.bestSixNBA?.length || 0,
+    trackedWNBACount: wnbaTrackedCount,
+    trackedNBACount: nbaTrackedCount,
+    excessTrackedDueToPreCap,
+    qualityGatePassedCountByLeague:
+      controlledSelection.controlledBestSixAudit?.qualityPassedCountByLeague || {},
+    hiddenDueToBestSixCap:
+      controlledSelection.controlledBestSixAudit?.hiddenDueToBestSixCap ?? 0,
+    blockedByQualityGate: audit.qualityGateBlockedCount,
+    noBetCount: audit.noBetCount,
+    topPropsSource: "CONTROLLED_BEST_SIX",
+    topWNBAPropsSelectedFromBestSix: true,
+    topNBAPropsSelectedFromBestSix: true,
     bestSixCountByLeague: controlledSelection.controlledBestSixAudit?.bestSixCountByLeague || {},
     controlledBestSixAudit: controlledSelection.controlledBestSixAudit || null,
     trackingMode: TRACKING_MODE,
@@ -828,12 +874,8 @@ export function buildTrackingCohortDiagnostics(
     boardCappedPropCount: collectAllGeneratedProps(gameCards).length,
     fullCandidateCount: allCandidates.length,
     cohortEligibleCount: cohort.length,
-    nbaTrackedCount: tracked.filter(
-      (p) => String(p.league || "").toUpperCase() === "NBA"
-    ).length,
-    wnbaTrackedCount: tracked.filter(
-      (p) => String(p.league || "").toUpperCase() === "WNBA"
-    ).length,
+    nbaTrackedCount,
+    wnbaTrackedCount,
   };
 }
 
@@ -1391,6 +1433,24 @@ function mapPickToTrackedFields(pick = {}) {
     noBetReasons: pick.noBetReasons || [],
     sideTrustScore: num(pick.sideTrustScore) || null,
     sideTrustable: pick.sideTrustable ?? null,
+    controlledBestSixRank:
+      pick.controlledBestSixRank ?? pick.bestSixRank ?? pick.leagueBestSixRank ?? null,
+    controlledBestSixVersion:
+      pick.controlledBestSixVersion ?? CONTROLLED_BEST_SIX_VERSION,
+    topPickRank: pick.topPickRank ?? pick.topPropRank ?? null,
+    sourcePool: pick.sourcePool ?? pick.trackingCohortSource ?? null,
+    trackingAdmissionSource:
+      pick.trackingAdmissionSource ??
+      (pick.trackingCohortSource === "CONTROLLED_BEST_SIX"
+        ? "CONTROLLED_BEST_SIX"
+        : null),
+    trackingCohortSource: pick.trackingCohortSource ?? null,
+    qualityGateVersion: pick.qualityGateVersion ?? null,
+    trackingEligibility: pick.trackingEligibility ?? null,
+    qualityGateScore: pick.qualityGateScore ?? null,
+    trackingBlockReasons: pick.trackingBlockReasons ?? null,
+    trackingWarnings: pick.trackingWarnings ?? null,
+    controlledBestSixApplied: pick.controlledBestSixApplied ?? null,
   };
 
   return {
@@ -1674,6 +1734,58 @@ function countPropsForSlate(tracked = [], slateDate = "") {
   return tracked.filter((item) => String(item.slateDate || "") === slateDate).length;
 }
 
+function rebuildTrackedIndex(working = []) {
+  const indexByStable = new Map();
+  working.forEach((item, index) => {
+    const stableKey = item.trackedKey || getStableTrackedPropKey(item);
+    indexByStable.set(stableKey, index);
+    const legacyKey = getLegacyTrackedPropKey(item);
+    if (legacyKey !== stableKey) {
+      indexByStable.set(legacyKey, index);
+    }
+  });
+  return indexByStable;
+}
+
+function pruneExcessPreCapProps(working = [], incoming = [], audit = {}) {
+  if (!incoming.length) return working;
+
+  const incomingKeys = new Set(
+    incoming.map((pick) => getStableTrackedPropKey(pick)).filter(Boolean)
+  );
+  const slatesToEnforce = new Set(
+    incoming
+      .map((pick) => String(mapPickToTrackedFields(pick).slateDate || ""))
+      .filter(Boolean)
+  );
+
+  let excessRemoved = 0;
+
+  for (const slateDate of slatesToEnforce) {
+    if (isSlateLocked(slateDate) || getHistoryArchiveProps(slateDate).length > 0) {
+      continue;
+    }
+
+    for (let i = working.length - 1; i >= 0; i -= 1) {
+      const item = working[i];
+      if (String(item.slateDate || "") !== slateDate) continue;
+      const key = item.trackedKey || getStableTrackedPropKey(item);
+      if (!incomingKeys.has(key)) {
+        working.splice(i, 1);
+        excessRemoved += 1;
+      }
+    }
+  }
+
+  if (excessRemoved > 0) {
+    audit.excessTrackedDueToPreCap = excessRemoved;
+    audit.controlledBestSixApplied = true;
+    audit.trackingAdmissionSource = "CONTROLLED_BEST_SIX";
+  }
+
+  return working;
+}
+
 function maybeAutoLockTodaySlate(working = [], audit = {}) {
   const today = getTodayLocalDate();
   if (!today || isSlateLocked(today)) {
@@ -1870,6 +1982,13 @@ export function addTrackedProps(picks = [], options = {}) {
         }
       }
     }
+  }
+
+  if (preFilteredCohort) {
+    pruneExcessPreCapProps(working, incoming, audit);
+    indexByStable.clear();
+    const rebuilt = rebuildTrackedIndex(working);
+    rebuilt.forEach((value, key) => indexByStable.set(key, value));
   }
 
   if (audit.blockedSlates.length > 0) {

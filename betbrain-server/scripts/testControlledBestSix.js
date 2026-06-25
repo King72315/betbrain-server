@@ -28,8 +28,10 @@ import {
 } from "../services/topPicksSnapshotService.js";
 import {
   buildResultsTrackingCohort,
+  buildTrackingCohortDiagnostics,
   getStableTrackedPropKey,
 } from "../services/trackedPropService.js";
+import { buildSlateResultsSnapshot } from "../services/slateResultsSnapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -393,8 +395,97 @@ function testExistingWnbaQualityGate() {
   runExistingSuite("testWnbaResultsQualityGate.js");
 }
 
+function testControlledBestSixMetadata() {
+  const pick = makeWnbaPick({ player: "Meta", team: "T1", overScore: 90 });
+  const { bestSix } = selectControlledBestSix([pick], "WNBA");
+  assert.strictEqual(bestSix[0].controlledBestSixRank, 1);
+  assert.strictEqual(bestSix[0].trackingAdmissionSource, "CONTROLLED_BEST_SIX");
+  assert.strictEqual(bestSix[0].controlledBestSixVersion, CONTROLLED_BEST_SIX_VERSION);
+}
+
+function testTrackingAdmissionSourceOnCohort() {
+  const pick = makeWnbaPick({ player: "Cohort", team: "T1", overScore: 90, trackingType: "TEST" });
+  const { cohort } = buildResultsTrackingCohort([pick], {
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
+  assert.strictEqual(cohort[0].trackingAdmissionSource, "CONTROLLED_BEST_SIX");
+  assert.strictEqual(cohort[0].controlledBestSixApplied, true);
+}
+
+function testDiagnosticsExposeCapFields() {
+  const candidates = Array.from({ length: 8 }, (_, i) =>
+    makeWnbaPick({
+      player: `Diag${i}`,
+      team: `Team${i}`,
+      overScore: 90 - i,
+      line: 10 + i,
+      trackingType: "TEST",
+    })
+  );
+  const game = makeGame(candidates.slice(0, 3), candidates);
+  const tracked = candidates.map((pick, i) => ({
+    ...pick,
+    trackedKey: getStableTrackedPropKey(pick),
+    slateDate: "2026-06-24",
+    league: "WNBA",
+  }));
+  const diag = buildTrackingCohortDiagnostics([game], tracked, [], {
+    todayLocalDate: "2026-06-24",
+    activeResultsSlateDate: "2026-06-24",
+  });
+  assert.ok(diag.controlledBestSixApplied);
+  assert.strictEqual(diag.trackingAdmissionSource, "CONTROLLED_BEST_SIX");
+  assert.ok(diag.bestSixWNBACount <= BEST_SIX_LIMIT);
+  assert.ok(typeof diag.excessTrackedDueToPreCap === "number");
+  assert.ok(diag.qualityGatePassedCountByLeague);
+}
+
+function testSlateResultsSnapshotUtility() {
+  const snapshot = buildSlateResultsSnapshot(
+    [
+      {
+        ...makeWnbaPick({ player: "Winner" }),
+        status: "win",
+        resultMargin: 4,
+        slateDate: "2026-06-24",
+      },
+    ],
+    { slateDate: "2026-06-24" }
+  );
+  assert.strictEqual(snapshot.winsCount, 1);
+  assert.ok(snapshot.winningProps[0].formattedLine.includes("[WIN]"));
+}
+
+function testSyncPathUsesBestSixNotFullPool() {
+  const candidates = Array.from({ length: 10 }, (_, i) =>
+    makeWnbaPick({
+      player: `Sync${i}`,
+      team: `Team${i}`,
+      overScore: 90 - i,
+      line: 10 + i,
+      trackingType: "TEST",
+    })
+  );
+  const game = makeGame(candidates.slice(0, 3), candidates);
+  const selection = selectControlledBestSixCombined([game]);
+  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
+    sourcePool: "CONTROLLED_BEST_SIX",
+  });
+  assert.ok(cohort.length <= BEST_SIX_LIMIT);
+  assert.ok(cohort.length < candidates.length);
+}
+
+function testExistingResultsTrackingCohort() {
+  runExistingSuite("testResultsTrackingCohort.js");
+}
+
+function testExistingSlateResultsSnapshot() {
+  runExistingSuite("testSlateResultsSnapshot.js");
+}
+
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-v2-fix");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],
@@ -419,6 +510,13 @@ function run() {
     ["20. existing lifecycle tests", testExistingTopPicksLifecycle],
     ["21. existing WNBA reader calibration", testExistingWnbaReaderCalibration],
     ["22. existing WNBA quality gate", testExistingWnbaQualityGate],
+    ["23. controlled metadata on Best 6", testControlledBestSixMetadata],
+    ["24. tracking admission source on cohort", testTrackingAdmissionSourceOnCohort],
+    ["25. diagnostics expose cap fields", testDiagnosticsExposeCapFields],
+    ["26. slate results snapshot utility", testSlateResultsSnapshotUtility],
+    ["27. sync path uses Best 6 not full pool", testSyncPathUsesBestSixNotFullPool],
+    ["28. existing results tracking cohort", testExistingResultsTrackingCohort],
+    ["29. existing slate results snapshot", testExistingSlateResultsSnapshot],
   ];
 
   let passed = 0;

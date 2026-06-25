@@ -431,7 +431,7 @@ export function buildHistoryReport(input: {
         : `Archive Note: ${entry.emptyLabel || "No completed official props yet"}`,
       entry.hasGradedPerformance
         ? `Status: ${entry.status} | Graded: ${entry.graded}/${entry.total} | Pending: ${entry.pending}`
-        : `Status: ${entry.status} | Official props tracked: ${entry.total} | Graded: 0`,
+        : `Status: ${entry.status} | Tracked: ${entry.total} | Graded: 0`,
       entry.topLesson ? `Top Lesson: ${entry.topLesson}` : null,
     ]);
 
@@ -875,7 +875,7 @@ export function buildPropLabReport(input: {
         : "No completed Lab slate yet. Current active slate remains in Results.",
       hasLabSlate ? `Report status: ${String(status).toUpperCase()}` : null,
       sectionA
-        ? `Official props: ${sectionA.totalOfficialProps || 0} | Graded/Pending: ${sectionA.graded}/${sectionA.pending}`
+        ? `Tracked: ${sectionA.totalTrackedProps || 0} | Official: ${sectionA.officialPropsCount || sectionA.totalOfficialProps || 0} | Test: ${sectionA.testPropsCount || 0} | Graded/Pending: ${sectionA.graded}/${sectionA.pending}`
         : null,
       sectionA
         ? `Slate record (pooled): ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`

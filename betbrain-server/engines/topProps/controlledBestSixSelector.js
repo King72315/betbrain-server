@@ -21,7 +21,7 @@ import {
   isWnbaQualityGatePick,
 } from "../wnba/wnbaResultsQualityGate.js";
 
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-v2-fix";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -280,10 +280,15 @@ function rankBestSix(selected = [], league = "") {
     return {
       ...pick,
       bestSixRank: rank,
+      controlledBestSixRank: rank,
       leagueBestSixRank: rank,
       bestSixLabel: `Best ${leagueCode} #${rank}`,
       selectedTeamKey: getPickTeamKey(pick),
       trackingCohortSource: "CONTROLLED_BEST_SIX",
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
+      controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+      controlledBestSixApplied: true,
+      sourcePool: "CONTROLLED_BEST_SIX",
     };
   });
 }

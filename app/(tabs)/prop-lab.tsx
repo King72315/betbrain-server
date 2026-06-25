@@ -36,6 +36,20 @@ import {
   isReaderUncertainTestProp,
   isTestTrackingProp,
 } from "../../utils/resultsQueue";
+import {
+  buildSlateResultsSnapshot,
+  type SlateSnapshotEntry,
+} from "../../utils/slateResultsSnapshot";
+
+function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
+  return (
+    <Text style={styles.snapshotLine}>
+      {entry.formattedLine}
+      {entry.isTopPick ? " • TOP" : ""}
+      {entry.bestSixRank ? ` • B6 #${entry.bestSixRank}` : ""}
+    </Text>
+  );
+}
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -592,6 +606,7 @@ export default function PropLab() {
   const sectionM = report?.sections?.M || report?.topPicksReview;
   const sectionO = report?.sections?.O || report?.bestSixReview;
   const sectionN = report?.sections?.N || report?.qualityGatePerformance;
+  const sectionP = report?.sections?.P || report?.slateResultsSnapshot;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
@@ -644,6 +659,14 @@ export default function PropLab() {
     () => computeTrackingTypeRecord(readerUncertainTestProps, getTrackedPropStatus),
     [readerUncertainTestProps]
   );
+
+  const labSnapshot = useMemo(() => {
+    if (!currentLabSlateDate) return null;
+    if (sectionP && !sectionP.snapshotMissing) return sectionP;
+    return buildSlateResultsSnapshot(slateTrackedProps, {
+      slateDate: currentLabSlateDate,
+    });
+  }, [sectionP, slateTrackedProps, currentLabSlateDate]);
 
   const contradictionPerf = useMemo(
     () => computeContradictionPerformance(testSlateProps),
@@ -730,7 +753,7 @@ export default function PropLab() {
         {sectionA ? (
           <SectionCard title="Tracked Slate Summary">
             <MetricRow label="Total tracked" value={String(slateTrackedProps.length)} />
-            <MetricRow label="Official props" value={String(officialRecord.total)} />
+            <MetricRow label="Official" value={String(officialRecord.total)} />
             <MetricRow label="Test / learning" value={String(testRecord.total)} />
             <MetricRow
               label="Reader official demoted"
@@ -808,6 +831,52 @@ export default function PropLab() {
                 sectionO.record?.winRate
               )}
             />
+            {sectionO.winningProps?.length ? (
+              <>
+                <Text style={styles.snapshotHeading}>Winning Props</Text>
+                {sectionO.winningProps.map((entry: SlateSnapshotEntry) => (
+                  <SnapshotPropLine key={`o-win-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : sectionO.picks?.length ? (
+              (() => {
+                const bestSixSnapshot = buildSlateResultsSnapshot(sectionO.picks, {
+                  slateDate: sectionO.slateDate,
+                });
+                if (!bestSixSnapshot.winningProps.length) return null;
+                return (
+                  <>
+                    <Text style={styles.snapshotHeading}>Winning Props</Text>
+                    {bestSixSnapshot.winningProps.map((entry) => (
+                      <SnapshotPropLine key={`o-win-${entry.trackedKey || entry.player}`} entry={entry} />
+                    ))}
+                  </>
+                );
+              })()
+            ) : null}
+            {sectionO.losingProps?.length ? (
+              <>
+                <Text style={styles.snapshotHeading}>Losing Props</Text>
+                {sectionO.losingProps.map((entry: SlateSnapshotEntry) => (
+                  <SnapshotPropLine key={`o-loss-${entry.trackedKey || entry.player}`} entry={entry} />
+                ))}
+              </>
+            ) : sectionO.picks?.length ? (
+              (() => {
+                const bestSixSnapshot = buildSlateResultsSnapshot(sectionO.picks, {
+                  slateDate: sectionO.slateDate,
+                });
+                if (!bestSixSnapshot.losingProps.length) return null;
+                return (
+                  <>
+                    <Text style={styles.snapshotHeading}>Losing Props</Text>
+                    {bestSixSnapshot.losingProps.map((entry) => (
+                      <SnapshotPropLine key={`o-loss-${entry.trackedKey || entry.player}`} entry={entry} />
+                    ))}
+                  </>
+                );
+              })()
+            ) : null}
             {sectionO.nbaBestSixReview?.record ? (
               <MetricRow
                 label="NBA Best 6 record"
@@ -834,6 +903,33 @@ export default function PropLab() {
               label="Official vs TEST"
               value={`${sectionO.officialVsTest?.officialRecord?.total ?? 0} official / ${sectionO.officialVsTest?.testRecord?.total ?? 0} test`}
             />
+          </SectionCard>
+        ) : sectionO?.snapshotMissing ? (
+          <SectionCard title="Controlled Best 6 Performance">
+            <Text style={styles.muted}>
+              {sectionO.message || "No Best 6 snapshot found for this slate."}
+            </Text>
+          </SectionCard>
+        ) : null}
+
+        {labSnapshot && !labSnapshot.snapshotMissing ? (
+          <SectionCard title="Slate Results Snapshot">
+            <MetricRow
+              label="Graded record"
+              value={`${labSnapshot.winsCount}W / ${labSnapshot.lossesCount}L / ${labSnapshot.pushesCount}P`}
+            />
+            {labSnapshot.biggestWins?.map((entry: SlateSnapshotEntry) => (
+              <SnapshotPropLine key={`p-win-${entry.trackedKey}`} entry={entry} />
+            ))}
+            {labSnapshot.biggestMisses?.map((entry: SlateSnapshotEntry) => (
+              <SnapshotPropLine key={`p-loss-${entry.trackedKey}`} entry={entry} />
+            ))}
+          </SectionCard>
+        ) : labSnapshot?.snapshotMissing ? (
+          <SectionCard title="Slate Results Snapshot">
+            <Text style={styles.muted}>
+              No graded props yet — snapshot appears after grading completes.
+            </Text>
           </SectionCard>
         ) : null}
 
@@ -1640,6 +1736,20 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 12,
     fontWeight: "600",
+  },
+  snapshotHeading: {
+    color: "#38bdf8",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  snapshotLine: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+    lineHeight: 18,
   },
   emptyCard: {
     backgroundColor: "#0f172a",

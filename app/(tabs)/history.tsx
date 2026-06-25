@@ -118,7 +118,7 @@ function HistoryEntryCard({
         <Text style={styles.entryMeta}>
           {showPerformance
             ? `Graded ${entry.graded}/${entry.total}${entry.pending > 0 ? ` • Pending ${entry.pending}` : ""}`
-            : `Official props tracked: ${entry.total}${entry.pending > 0 ? ` • Pending ${entry.pending}` : ""}`}
+            : `Tracked: ${entry.total}${entry.pending > 0 ? ` • Pending ${entry.pending}` : ""}`}
         </Text>
 
         {entry.topLesson && showPerformance ? (

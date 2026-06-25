@@ -190,7 +190,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-controlled-best-six-v1";
+const SERVER_BUILD = "courteedge-controlled-best-six-v2-fix";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -306,9 +306,24 @@ function clampTopPropsSelection(selection = {}, limit = null) {
 function syncTrackedFromCache() {
   if (!picksCache?.games?.length) return;
 
-  const generatedProps = collectAllGeneratedProps(picksCache.games);
-  if (generatedProps.length) {
-    addTrackedProps(generatedProps, { skipTopPickReferences: true });
+  const bestSixCohort =
+    picksCache.bestSixWNBA?.length || picksCache.bestSixNBA?.length
+      ? [...(picksCache.bestSixWNBA || []), ...(picksCache.bestSixNBA || [])]
+      : (() => {
+          const selection = buildTopPropsFromSelector(picksCache.games);
+          return [...(selection.bestSixWNBA || []), ...(selection.bestSixNBA || [])];
+        })();
+
+  const { cohort: trackingCohort } = buildResultsTrackingCohort(bestSixCohort, {
+    todayLocalDate: getTodayLocalDate(),
+    sourcePool: TOP_PICKS_SOURCE_POOL,
+  });
+
+  if (trackingCohort.length) {
+    addTrackedProps(trackingCohort, {
+      skipTopPickReferences: true,
+      preFilteredCohort: true,
+    });
   }
 }
 
@@ -2680,6 +2695,25 @@ app.get("/diagnostics", (req, res) => {
     topPropsDidNotControlTracking: false,
     trackingControlledByBestSix: true,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+    controlledBestSixApplied: trackingCohortDiagnostics.controlledBestSixApplied ?? true,
+    trackingAdmissionSource:
+      trackingCohortDiagnostics.trackingAdmissionSource || "CONTROLLED_BEST_SIX",
+    admittedBeforeBestSixCap:
+      trackingCohortDiagnostics.admittedBeforeBestSixCap ?? null,
+    excessTrackedDueToPreCap:
+      trackingCohortDiagnostics.excessTrackedDueToPreCap ?? 0,
+    qualityGatePassedCountByLeague:
+      trackingCohortDiagnostics.qualityGatePassedCountByLeague || {},
+    hiddenDueToBestSixCap: trackingCohortDiagnostics.hiddenDueToBestSixCap ?? 0,
+    blockedByQualityGate: trackingCohortDiagnostics.blockedByQualityGate ?? 0,
+    noBetCount: trackingCohortDiagnostics.noBetCount ?? 0,
+    topPropsSource: trackingCohortDiagnostics.topPropsSource || TOP_PICKS_SOURCE_POOL,
+    topWNBAPropsSelectedFromBestSix: true,
+    topNBAPropsSelectedFromBestSix: true,
+    bestSixWNBACount: trackingCohortDiagnostics.bestSixWNBACount ?? null,
+    bestSixNBACount: trackingCohortDiagnostics.bestSixNBACount ?? null,
+    trackedWNBACount: trackingCohortDiagnostics.trackedWNBACount ?? null,
+    trackedNBACount: trackingCohortDiagnostics.trackedNBACount ?? null,
     controlledBestSixAudit: trackingCohortDiagnostics.controlledBestSixAudit || null,
     bestSixCountByLeague: trackingCohortDiagnostics.bestSixCountByLeague || {},
     nbaTrackedCount: trackingCohortDiagnostics.nbaTrackedCount ?? null,

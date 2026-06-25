@@ -30,6 +30,7 @@ import {
   isOnOrAfterCleanDataCutoff,
 } from "./slateScopeService.js";
 import { buildQualityGatePerformanceFromProps } from "../engines/wnba/wnbaResultsQualityGate.js";
+import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -959,7 +960,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     title: "Slate Summary",
     slateDate,
     reportStatus,
-    totalOfficialProps: slateProps.length,
+    totalOfficialProps: trackingCalibration.officialCount,
     totalTrackedProps: slateProps.length,
     officialPropsCount: trackingCalibration.officialCount,
     testPropsCount: trackingCalibration.testCount,
@@ -1060,6 +1061,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       referenceOnly: true,
     };
 
+  const slateResultsSnapshot =
+    options.slateResultsSnapshot ||
+    buildSlateResultsSnapshot(slateProps, { slateDate });
+
   const sectionL = {
     title: "League-Split Calibration",
     ...leagueSplit,
@@ -1082,6 +1087,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     leagueSplit,
     topPicksReview,
     bestSixReview,
+    slateResultsSnapshot,
     sections: {
       A: {
         ...sectionA,
@@ -1109,6 +1115,10 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       O: {
         title: "Controlled Best 6 Performance",
         ...bestSixReview,
+      },
+      P: {
+        title: "Slate Results Snapshot",
+        ...slateResultsSnapshot,
       },
       N: {
         title: "WNBA Results Quality Gate Performance",

@@ -117,6 +117,11 @@ export default function PropCard({
       >
         <View style={styles.pickTopRow}>
           <View style={styles.badgeRow}>
+            {pick.bestSixLabel ? (
+              <Text style={styles.bestSixBadge}>{pick.bestSixLabel}</Text>
+            ) : pick.controlledBestSixRank ? (
+              <Text style={styles.bestSixBadge}>B6 #{pick.controlledBestSixRank}</Text>
+            ) : null}
             {pick.topPickLabel ? (
               <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
             ) : pick.topPickRank ? (
@@ -225,6 +230,11 @@ export default function PropCard({
           ) : null}
           {wnbaV2 ? (
             <Text style={styles.engineBadge}>WNBA v2</Text>
+          ) : null}
+          {pick.bestSixLabel ? (
+            <Text style={styles.bestSixBadge}>{pick.bestSixLabel}</Text>
+          ) : pick.controlledBestSixRank ? (
+            <Text style={styles.bestSixBadge}>B6 #{pick.controlledBestSixRank}</Text>
           ) : null}
           {pick.topPickLabel ? (
             <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
@@ -923,6 +933,16 @@ const styles = StyleSheet.create({
   topPickBadge: {
     color: "#fef9c3",
     backgroundColor: "#854d0e",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  bestSixBadge: {
+    color: "#bae6fd",
+    backgroundColor: "#0c4a6e",
     overflow: "hidden",
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -7,6 +7,7 @@ import { buildTopPickLabel } from "../engines/topProps/topPropSelector.js";
 import { TOP_PROP_SELECTOR_VERSION } from "../engines/topProps/topPropSelectionAudit.js";
 import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
 import { getStableTrackedPropKey } from "./trackedPropService.js";
+import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -154,7 +155,9 @@ function buildBestSixSnapshotEntry(pick = {}, rank = 1, options = {}) {
     slateDate: pick.slateDate || options.slateDate || "",
     league,
     sourcePool: TOP_PICKS_SOURCE_POOL,
-    bestSixRank: pick.bestSixRank || rank,
+    bestSixRank: pick.bestSixRank || pick.controlledBestSixRank || rank,
+    controlledBestSixRank: pick.controlledBestSixRank ?? pick.bestSixRank ?? rank,
+    controlledBestSixVersion: pick.controlledBestSixVersion || CONTROLLED_BEST_SIX_VERSION,
     bestSixLabel: pick.bestSixLabel || `Best ${league} #${rank}`,
     trackedId: trackedKey,
     trackedKey,
@@ -462,6 +465,7 @@ export function buildBestSixReview(slateDate, trackedProps = [], options = {}) {
   });
 
   const bestSixRecord = buildRecord(enrichedPicks);
+  const gradedSnapshot = buildSlateResultsSnapshot(enrichedPicks, { slateDate: date });
   const nbaReview = buildLeagueBestSixReview(enrichedPicks, "NBA");
   const wnbaReview = buildLeagueBestSixReview(enrichedPicks, "WNBA");
   const official = enrichedPicks.filter(
@@ -479,6 +483,10 @@ export function buildBestSixReview(slateDate, trackedProps = [], options = {}) {
     referenceOnly: false,
     subsetAnalysisOnly: false,
     record: bestSixRecord,
+    winningProps: gradedSnapshot.winningProps,
+    losingProps: gradedSnapshot.losingProps,
+    biggestWins: gradedSnapshot.biggestWins,
+    biggestMisses: gradedSnapshot.biggestMisses,
     nbaBestSixReview: nbaReview,
     wnbaBestSixReview: wnbaReview,
     officialVsTest: {
