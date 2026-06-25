@@ -1,5 +1,5 @@
 /**
- * CourtEdge slate rotation lifecycle tests (20 cases).
+ * CourtEdge slate rotation lifecycle tests (21 cases).
  * Usage: node betbrain-server/scripts/testSlateRotationLifecycle.js
  */
 import assert from "node:assert/strict";
@@ -85,7 +85,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 20 tests\n");
+console.log("\nSlate Rotation Lifecycle — 21 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport("2026-06-24"), makeCompletedReport("2026-06-21")];
@@ -253,6 +253,22 @@ test("20 stale unresolved excludes fully graded inferred slate", () => {
   const tracked = [makeProp("2026-06-24", "win"), makeProp("2026-06-24", "loss")];
   const meta = buildSlateRotationMetadata(reports, { trackedProps: tracked, today: TODAY });
   assert.ok(!meta.staleUnresolvedSlateDates.includes("2026-06-24"));
+});
+
+test("21 awaiting-stats-only pending still infers Lab slate", () => {
+  const reports = [makeInProgressReport("2026-06-24", 1), makeCompletedReport("2026-06-21")];
+  const tracked = [
+    ...Array.from({ length: 13 }, (_, i) =>
+      makeProp("2026-06-24", i % 2 === 0 ? "win" : "loss", { player: `P${i}` })
+    ),
+    makeProp("2026-06-24", "pending", {
+      player: "Awaiting Stats",
+      pendingReason: "Final player stats unavailable from source",
+    }),
+  ];
+  const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
+  assert.equal(rotation.currentLabSlateDate, "2026-06-24");
+  assert.ok(rotation.inferredCompletedSlateDates.includes("2026-06-24"));
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

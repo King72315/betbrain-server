@@ -123,19 +123,19 @@ test("04 ARCHIVED_HISTORY slate excluded from active results", () => {
   assert.equal(result.archivedHistoryTrackedCount, 1);
 });
 
-test("05 legacy completed slate without archive stays out of active results", () => {
+test("05 legacy completed slate stays out of active results", () => {
   const legacyDate = "2026-06-20";
   const props = Array.from({ length: 10 }, (_, i) =>
     makeProp({ slateDate: legacyDate, player: `Legacy ${i}`, status: "win", actualStat: 18, result: 18 })
   );
   const result = classifyTrackedPropsByLifecycle(props, {
-    reports: [],
+    reports: [completedReport("2026-06-24")],
     archives: [],
     lockedSlates: [],
     today: TODAY,
   });
   assert.equal(result.activeResultsTrackedCount, 0);
-  assert.ok(result.legacyStoredTrackedCount >= 10 || result.staleUnresolvedTrackedCount >= 10);
+  assert.ok(result.archivedHistoryTrackedCount >= 10);
 });
 
 test("06 stale unresolved past slate classified STALE_UNRESOLVED", () => {
@@ -286,7 +286,7 @@ test("14 archive-backed completed slate -> legacy completed not active", () => {
   );
 });
 
-test("15 READY_FOR_LAB without lab coverage -> legacy needs archive", () => {
+test("15 all-graded slate without archive inferred to current Lab", () => {
   const slate = "2026-06-20";
   const props = [makeProp({ slateDate: slate, status: "win", actualStat: 10, result: 10 })];
   const result = classifyTrackedPropsByLifecycle(props, {
@@ -295,11 +295,8 @@ test("15 READY_FOR_LAB without lab coverage -> legacy needs archive", () => {
     lockedSlates: [],
     today: TODAY,
   });
-  const lifecycle = result.trackedCountsByLifecycleState;
-  assert.ok(
-    lifecycle[TRACKED_PROP_LIFECYCLE.LEGACY_COMPLETED_NEEDS_ARCHIVE] === 1 ||
-      lifecycle[TRACKED_PROP_LIFECYCLE.STALE_UNRESOLVED] === 1
-  );
+  assert.equal(result.labCurrentTrackedCount, 1);
+  assert.equal(result.currentLabSlateDate, slate);
 });
 
 test("16 active results within cap when count <= 6 per league", () => {

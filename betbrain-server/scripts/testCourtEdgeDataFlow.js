@@ -311,16 +311,18 @@ test("24 lifecycle PARTIALLY_GRADED with mixed statuses", () => {
   assert.equal(state.state, SLATE_LIFECYCLE_STATES.PARTIALLY_GRADED);
 });
 
-test("25 lifecycle READY_FOR_LAB when all graded", () => {
-  const state = resolveSlateLifecycleState("2026-06-23", {
+test("25 lifecycle LAB_CURRENT when all graded and newest completed", () => {
+  const slateDate = "2026-06-23";
+  const state = resolveSlateLifecycleState(slateDate, {
     trackedProps: [
-      makePick({ status: "win", player: "A" }),
-      makePick({ status: "loss", player: "B" }),
+      makePick({ slateDate, status: "win", player: "A", actualStat: 15, result: 15 }),
+      makePick({ slateDate, status: "loss", player: "B", actualStat: 10, result: 10 }),
     ],
     reports: [],
     archives: [],
+    today: "2026-06-25",
   });
-  assert.equal(state.state, SLATE_LIFECYCLE_STATES.READY_FOR_LAB);
+  assert.equal(state.state, SLATE_LIFECYCLE_STATES.LAB_CURRENT);
 });
 
 test("26 lifecycle LAB_CURRENT matches rotation", () => {

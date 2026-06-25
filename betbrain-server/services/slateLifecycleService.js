@@ -70,10 +70,10 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
   }
 
   const rotation = computeSlateRotation(reports, {
-    archives: context.archives || [],
-    lockedSlates: context.lockedSlates || [],
-    trackedProps: context.trackedProps || [],
-    today: context.today || getTodayLocalDate(),
+    archives,
+    lockedSlates,
+    trackedProps,
+    today,
   });
   if (rotation.currentLabSlateDate === date) {
     return {
@@ -182,12 +182,12 @@ function collectStaleUnresolvedSlateDates(
   today = getTodayLocalDate(),
   options = {}
 ) {
-  const { activeResultsSlateDate = null, lockedSlates = [] } = options;
+  const { activeResultsSlateDate = null, lockedSlates = [], archives = [] } = options;
   const rotation = computeSlateRotation(reports, {
-    archives: context.archives || [],
-    lockedSlates: context.lockedSlates || [],
-    trackedProps: context.trackedProps || [],
-    today: context.today || getTodayLocalDate(),
+    archives,
+    lockedSlates,
+    trackedProps,
+    today,
   });
   const historyDates = new Set(
     rotation.historySlates.map((report) => String(report.slateDate || ""))
@@ -235,12 +235,12 @@ function collectStaleUnresolvedSlateDates(
 }
 
 function slateHasLabOrHistoryCoverage(slateDate, context = {}) {
-  const { reports = [], archives = [] } = context;
+  const { reports = [], archives = [], lockedSlates = [], trackedProps = [], today = getTodayLocalDate() } = context;
   const rotation = computeSlateRotation(reports, {
-    archives: context.archives || [],
-    lockedSlates: context.lockedSlates || [],
-    trackedProps: context.trackedProps || [],
-    today: context.today || getTodayLocalDate(),
+    archives,
+    lockedSlates,
+    trackedProps,
+    today,
   });
   const hasArchive =
     (archives || []).some(
@@ -321,7 +321,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
   }
 
   if (slateState === SLATE_LIFECYCLE_STATES.READY_FOR_LAB) {
-    if (slateHasLabOrHistoryCoverage(slateDate, { reports, archives })) {
+    if (slateHasLabOrHistoryCoverage(slateDate, { reports, archives, lockedSlates, trackedProps, today })) {
       return TRACKED_PROP_LIFECYCLE.LEGACY_COMPLETED;
     }
     return TRACKED_PROP_LIFECYCLE.LEGACY_COMPLETED_NEEDS_ARCHIVE;
@@ -331,7 +331,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     if (isPastSlateDate(slateDate, today)) {
       const report = reports.find((item) => String(item.slateDate) === slateDate) || null;
       if (isCompletedSlate(report)) {
-        return slateHasLabOrHistoryCoverage(slateDate, { reports, archives })
+        return slateHasLabOrHistoryCoverage(slateDate, { reports, archives, lockedSlates, trackedProps, today })
           ? TRACKED_PROP_LIFECYCLE.LEGACY_COMPLETED
           : TRACKED_PROP_LIFECYCLE.LEGACY_COMPLETED_NEEDS_ARCHIVE;
       }
@@ -358,10 +358,10 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
   } = context;
 
   const rotation = computeSlateRotation(reports, {
-    archives: context.archives || [],
-    lockedSlates: context.lockedSlates || [],
-    trackedProps: context.trackedProps || [],
-    today: context.today || getTodayLocalDate(),
+    archives,
+    lockedSlates,
+    trackedProps,
+    today,
   });
   const slateLifecycleMap = buildSlateLifecycleMap({
     trackedProps,
@@ -380,7 +380,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     trackedProps,
     reports,
     today,
-    { activeResultsSlateDate, lockedSlates }
+    { activeResultsSlateDate, lockedSlates, archives }
   );
 
   const lifecycleContext = {

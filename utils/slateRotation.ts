@@ -206,17 +206,23 @@ function isOfficialTrackingProp(prop: any = {}) {
   return true;
 }
 
+function isAwaitingStatsPendingReason(pendingReason = "") {
+  const reason = String(pendingReason || "").toLowerCase();
+  return (
+    reason.includes("awaiting official player stat") ||
+    reason.includes("final player stats unavailable from source") ||
+    reason.includes("game final, awaiting official player stat")
+  );
+}
+
 function isPropBlockingLabInference(prop: any = {}) {
   const status = String(prop.status || "").toLowerCase();
   if (isResolvedPropStatus(status)) return false;
 
-  const pendingReason = String(prop.pendingReason || "").toLowerCase();
+  const pendingReason = String(prop.pendingReason || "");
   const resolveDebug = prop.resolveDebug || {};
 
-  if (
-    pendingReason.includes("awaiting official player stat") ||
-    pendingReason.includes("awaiting official player stats")
-  ) {
+  if (isAwaitingStatsPendingReason(pendingReason)) {
     return false;
   }
 
