@@ -376,24 +376,15 @@ export function computeSlateRotation(
   }
   const historySlates = sortReportsByDateDesc([...historyByDate.values()]);
 
-  const activeResults = validReports.filter((report) => {
-    const slateDate = String(report.slateDate || "");
-    if (activeResultsSlateDate && slateDate === activeResultsSlateDate) return true;
-    return !isCompletedSlate(report);
-  });
+  const activeResults = activeResultsSlateDate
+    ? validReports.filter(
+        (report) => String(report.slateDate || "") === activeResultsSlateDate
+      )
+    : [];
 
-  const activeInProgressSlateDates = [
-    ...new Set(
-      activeResults.map((report) => String(report.slateDate || "")).filter(Boolean)
-    ),
-  ];
-  if (
-    activeResultsSlateDate &&
-    !activeInProgressSlateDates.includes(activeResultsSlateDate)
-  ) {
-    activeInProgressSlateDates.push(activeResultsSlateDate);
-  }
-  activeInProgressSlateDates.sort();
+  const activeInProgressSlateDates = activeResultsSlateDate
+    ? [activeResultsSlateDate]
+    : [];
 
   const historySlateDates = [
     ...new Set([

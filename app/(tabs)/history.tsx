@@ -209,6 +209,13 @@ export default function History() {
   const [picks, setPicks] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
+  const [rotationMeta, setRotationMeta] = useState<{
+    currentLabSlateDate: string | null;
+    historySlateDates: string[];
+  }>({
+    currentLabSlateDate: null,
+    historySlateDates: [],
+  });
   const [filter, setFilter] = useState<HistoryFilter>("All");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -224,7 +231,7 @@ export default function History() {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const [pickData, reportData, trackedData, archiveData] = await Promise.all([
+      const [pickData, reportData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchHistoryArchives(),
@@ -233,6 +240,10 @@ export default function History() {
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
       setArchives(archiveData.archives || []);
+      setRotationMeta({
+        currentLabSlateDate: reportData.currentLabSlateDate || null,
+        historySlateDates: reportData.historySlateDates || [],
+      });
       setLoadError(null);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
@@ -245,7 +256,7 @@ export default function History() {
   const refreshHistory = async () => {
     try {
       setRefreshing(true);
-      const [pickData, reportData, trackedData, archiveData] = await Promise.all([
+      const [pickData, reportData, archiveData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchHistoryArchives(),
@@ -254,6 +265,10 @@ export default function History() {
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
       setArchives(archiveData.archives || []);
+      setRotationMeta({
+        currentLabSlateDate: reportData.currentLabSlateDate || null,
+        historySlateDates: reportData.historySlateDates || [],
+      });
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
       setLoadError(String(err));
@@ -268,17 +283,27 @@ export default function History() {
     }, [])
   );
 
-  const rotation = useMemo(
-    () =>
-      computeSlateRotation(reports, {
-        archives,
-      }),
-    [reports, archives]
+  const rotation = useMemo(() => {
+    const base = computeSlateRotation(reports, { archives });
+    return {
+      ...base,
+      currentLabSlateDate:
+        rotationMeta.currentLabSlateDate ?? base.currentLabSlateDate,
+      historySlateDates:
+        rotationMeta.historySlateDates.length > 0
+          ? rotationMeta.historySlateDates
+          : base.historySlateDates,
+    };
+  }, [reports, archives, rotationMeta]);
+
+  const archiveTrackedProps = useMemo(
+    () => archives.flatMap((archive) => archive?.props || []),
+    [archives]
   );
 
   const entries = useMemo(
-    () => buildHistoryEntries(picks, reports, [], archives),
-    [picks, reports, archives]
+    () => buildHistoryEntries(picks, reports, archiveTrackedProps, archives),
+    [picks, reports, archiveTrackedProps, archives]
   );
 
   const retainedEntries = useMemo(

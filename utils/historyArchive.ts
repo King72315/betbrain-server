@@ -286,6 +286,7 @@ export function buildHistoryEntries(
 ) {
   const { historySlates, currentLabSlateDate } = computeSlateRotation(reports, {
     archives,
+    trackedProps,
   });
 
   const officialEntries = buildOfficialSlateEntries(

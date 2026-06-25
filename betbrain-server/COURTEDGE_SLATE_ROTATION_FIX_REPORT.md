@@ -114,13 +114,84 @@ node betbrain-server/scripts/testCourtEdgeDataFlow.js           → 50 passed, 0
 
 ## Production Repair
 
-**Yes — run on Render after deploy:**
+**Yes — required on Render.** Code deploy (`courteedge-slate-rotation-v1`) is live but **runtime JSON was never repaired**. Prod inspection on 2026-06-25:
+
+| Field | Prod (broken) | Expected |
+|-------|---------------|----------|
+| `currentLabSlateDate` | `2026-06-21` | `2026-06-24` |
+| `historySlateDates` | `[]` | `["2026-06-21"]` |
+| `activeResultsSlateDate` | `null` | `null` until official Best 6 admitted |
+| `activeInProgressSlateDates` | `["2026-06-25"]` | `[]` (phantom in-progress report; no official props) |
+| `history-archive/2026-06-21` phase | `LAB` | `ARCHIVED` |
+| Tracked props for `2026-06-24` | **0 rows** | 14 rows |
+| `daily-slate-reports` for `2026-06-24` | **missing** | rebuilt final/inferred |
+
+### Prod root cause (why Lab still 06/21)
+
+1. **`repairSlateRotation0624.js` never run on Render** — 06/21 archive still `phase: LAB`, not `ARCHIVED`.
+2. **06/24 cohort missing entirely on prod** — no tracked props and no daily report; only completed valid report is 06/21 → rotation picks 06/21 as Lab.
+3. **06/25 in-progress report exists** but today's 4 tracked props are all `trackingType: TEST` / `WATCHLIST` → not admitted to Results (`activeResultsSlateDate: null`). Pre-fix code still counted the phantom 06/25 report in `activeInProgress` (fixed in this pass).
+4. **History UI bug** — `history.tsx` destructured 4 values from 3 `Promise.all` results, so `archives` never loaded client-side (`archiveData` was always `undefined`).
+
+### Render shell steps (in order)
 
 ```bash
-node betbrain-server/scripts/repairSlateRotation0624.js
+# 1. Backup (automatic inside script)
+cd betbrain-server
+
+# 2. If 06/24 props are missing (prod today), restore from a backup file first:
+#    Upload a known-good tracked-props.json slice or full backup to the instance, then:
+export RESTORE_0624_PROPS_FROM=/opt/render/project/src/betbrain-server/backups/2026-06-25T18-15-37-671Z-pre-slate-rotation-v1/tracked-props.json
+
+# 3. Run repair (idempotent)
+node scripts/repairSlateRotation0624.js
+
+# 4. Verify
+node -e "
+import { buildSlateRotationMetadata, getTodayLocalDate } from './services/slateScopeService.js';
+import { getRawDailySlateReports } from './services/dailySlateReportService.js';
+import { getTrackedProps } from './services/trackedPropService.js';
+import { getAllHistoryArchives, getLockedSlatesRegistry } from './services/slateLockService.js';
+const m = buildSlateRotationMetadata(getRawDailySlateReports(), {
+  trackedProps: getTrackedProps(),
+  archives: getAllHistoryArchives(),
+  lockedSlates: getLockedSlatesRegistry().slates || [],
+  today: getTodayLocalDate(),
+});
+console.log({
+  currentLab: m.currentLabSlateDate,
+  history: m.historySlateDates,
+  activeResults: m.activeResultsSlateDate,
+  activeInProgress: m.activeInProgressSlateDates,
+});
+"
 ```
 
-Prod likely still has stale 06/24 report, `LAB`-phase 06/21 archive, and pre-fix rotation metadata. The repair script is idempotent (skips 06/21 archive if already `ARCHIVED`). Code deploy alone fixes read-time rotation; the script rebuilds the 06/24 report file and ensures 06/21 archive phase.
+**Expected post-repair:** `currentLab: 2026-06-24`, `history: [2026-06-21]`, `activeResults: null`, `activeInProgress: []`.
+
+**If 06/24 props cannot be restored:** archive step still moves 06/21 to History, but Lab remains 06/21 until 06/24 tracked props exist on prod.
+
+### Local repair (verified 2026-06-25)
+
+```
+Backup: betbrain-server/backups/2026-06-25T18-51-56-373Z-pre-slate-rotation-v1/
+Post-repair: Lab=2026-06-24, History=[2026-06-21], Results=null, inferred=[2026-06-24]
+```
+
+## Additional code fixes (this pass)
+
+- `activeInProgressSlateDates` only populated when `activeResultsSlateDate` is admitted (no phantom 06/25 in-progress count).
+- `app/(tabs)/history.tsx` — fix `Promise.all` destructuring so archives load; use server `currentLabSlateDate` / `historySlateDates`; pass archive props into `buildHistoryEntries`.
+- `utils/historyArchive.ts` — pass `trackedProps` into `computeSlateRotation`.
+- `repairSlateRotation0624.js` — optional `RESTORE_0624_PROPS_FROM` for prod missing-cohort recovery.
+
+## Tests (this pass)
+
+```
+node betbrain-server/scripts/testSlateRotationLifecycle.js      → 23 passed, 0 failed
+node betbrain-server/scripts/testCleanDataCutoff.js             → all passed
+node betbrain-server/scripts/testTrackedPropsLifecycleFilter.js → 17 passed, 0 failed
+```
 
 ## When 06/25 Completes
 

@@ -1,5 +1,5 @@
 /**
- * CourtEdge slate rotation lifecycle tests (21 cases).
+ * CourtEdge slate rotation lifecycle tests (23 cases).
  * Usage: node betbrain-server/scripts/testSlateRotationLifecycle.js
  */
 import assert from "node:assert/strict";
@@ -85,7 +85,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 21 tests\n");
+console.log("\nSlate Rotation Lifecycle — 23 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport("2026-06-24"), makeCompletedReport("2026-06-21")];
@@ -269,6 +269,23 @@ test("21 awaiting-stats-only pending still infers Lab slate", () => {
   const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
   assert.equal(rotation.currentLabSlateDate, "2026-06-24");
   assert.ok(rotation.inferredCompletedSlateDates.includes("2026-06-24"));
+});
+
+test("22 no activeInProgress when Results slate not admitted", () => {
+  const reports = [makeInProgressReport("2026-06-25"), makeCompletedReport("2026-06-21")];
+  const rotation = computeSlateRotation(reports, { today: TODAY });
+  assert.deepEqual(rotation.activeInProgressSlateDates, []);
+  assert.equal(rotation.activeResults.length, 0);
+});
+
+test("23 TEST-only today props do not admit Results slate", () => {
+  const tracked = [
+    makeProp("2026-06-25", "pending", { trackingType: "TEST", tier: "WATCHLIST" }),
+  ];
+  const reports = [makeInProgressReport("2026-06-25"), makeCompletedReport("2026-06-21")];
+  const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
+  assert.equal(rotation.activeResultsSlateDate, null);
+  assert.deepEqual(rotation.activeInProgressSlateDates, []);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
