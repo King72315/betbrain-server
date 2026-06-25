@@ -185,6 +185,7 @@ import {
   RESLATE_SLATE_DATE,
 } from "./services/reslate0622V1Service.js";
 import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
+import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Service.js";
 import {
   isOfficialPick,
   isTestPick,
@@ -3153,6 +3154,43 @@ app.post("/admin/reslate-0622-test", requireAdminSecret, async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "06/22 TEST reslate failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/repair-slate-rotation", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        targetLabDate: "2026-06-24",
+        archiveDate: "2026-06-21",
+      });
+    }
+
+    const result = repairSlateRotation0624({
+      dryRun,
+      restorePath: req.body?.restorePath,
+      backupReason: req.body?.backupReason || "pre-slate-rotation-v1",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Slate rotation repair dry-run complete"
+        : "Slate rotation repair applied",
+      result,
+    });
+  } catch (error) {
+    console.log("REPAIR SLATE ROTATION ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Slate rotation repair failed",
       error: error.message,
     });
   }

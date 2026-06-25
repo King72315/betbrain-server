@@ -3,132 +3,36 @@
  * Usage: node betbrain-server/scripts/repairSlateRotation0624.js
  *
  * Optional env:
- *   RESTORE_0624_PROPS_FROM=/path/to/tracked-props.json — merge missing 06/24 props before rebuild
+ *   RESTORE_0624_PROPS_FROM=/path/to/tracked-props.json — override bundled 06/24 slice
  */
-import fs from "fs";
-
-import { createBackup } from "../services/backupService.js";
 import {
-  archiveSlate,
-  getHistoryArchive,
-  getLockedSlatesRegistry,
-} from "../services/slateLockService.js";
-import {
-  buildDailySlateReportsFromTrackedProps,
-  getDailySlateReport,
-  getRawDailySlateReports,
-} from "../services/dailySlateReportService.js";
-import {
-  getTrackedProps,
-  replaceTrackedPropsForSlate,
-} from "../services/trackedPropService.js";
-import {
-  buildSlateRotationMetadata,
-  getTodayLocalDate,
-} from "../services/slateScopeService.js";
-import { getAllHistoryArchives } from "../services/slateLockService.js";
-
-const LAB_ARCHIVE_DATE = "2026-06-21";
-const TARGET_LAB_DATE = "2026-06-24";
-
-function countPropsForDate(trackedProps = [], slateDate = "") {
-  return trackedProps.filter((prop) => String(prop.slateDate || "") === slateDate).length;
-}
-
-function mergeMissing0624Props(trackedProps = [], restorePath = "") {
-  if (!restorePath || !fs.existsSync(restorePath)) {
-    return { merged: 0, trackedProps };
-  }
-
-  const source = JSON.parse(fs.readFileSync(restorePath, "utf8"));
-  const sourceProps = Array.isArray(source) ? source : source.props || [];
-  const existingIds = new Set(
-    trackedProps.map((prop) => String(prop.id || prop.trackedId || prop.trackedKey || ""))
-  );
-  const toAdd = sourceProps.filter((prop) => {
-    if (String(prop.slateDate || "") !== TARGET_LAB_DATE) return false;
-    const id = String(prop.id || prop.trackedId || prop.trackedKey || "");
-    return id ? !existingIds.has(id) : true;
-  });
-
-  if (!toAdd.length) {
-    return { merged: 0, trackedProps };
-  }
-
-  const next = [...trackedProps, ...toAdd];
-  replaceTrackedPropsForSlate(TARGET_LAB_DATE, toAdd);
-  return { merged: toAdd.length, trackedProps: getTrackedProps() };
-}
+  BUNDLED_0624_RESTORE_PATH,
+  repairSlateRotation0624,
+} from "../services/repairSlateRotation0624Service.js";
 
 async function main() {
-  const backup = createBackup("pre-slate-rotation-v1");
-  console.log("Backup created:", backup.backupId);
+  const result = repairSlateRotation0624();
 
-  let trackedProps = getTrackedProps();
-  const before0624 = countPropsForDate(trackedProps, TARGET_LAB_DATE);
-  if (before0624 === 0) {
-    const restorePath = process.env.RESTORE_0624_PROPS_FROM || "";
-    const { merged, trackedProps: mergedProps } = mergeMissing0624Props(
-      trackedProps,
-      restorePath
+  console.log("Backup created:", result.backupId);
+  console.log("Restore:", result.restorePreview);
+
+  if (result.restorePreview?.merged > 0) {
+    console.log(
+      `Restored ${result.restorePreview.merged} missing 06/24 props from ${result.restorePreview.usedRestorePath}`
     );
-    trackedProps = mergedProps;
-    if (merged > 0) {
-      console.log(`Restored ${merged} missing 06/24 props from ${restorePath}`);
-    } else {
-      console.warn(
-        `WARNING: no tracked props for ${TARGET_LAB_DATE}. Rebuild will be empty unless props are restored.`
-      );
-      if (restorePath) {
-        console.warn(`RESTORE_0624_PROPS_FROM not found or had no 06/24 rows: ${restorePath}`);
-      } else {
-        console.warn(
-          "Set RESTORE_0624_PROPS_FROM to a backup tracked-props.json that contains 06/24 props."
-        );
-      }
-    }
-  } else {
-    console.log(`06/24 props present: ${before0624}`);
+  } else if (result.restorePreview?.skippedRestore) {
+    console.log(`06/24 props present: ${result.restorePreview.existing0624Count}`);
+  } else if (result.before0624 === 0) {
+    console.warn(
+      `WARNING: no tracked props for 2026-06-24 after restore attempt. Bundled slice: ${BUNDLED_0624_RESTORE_PATH}`
+    );
   }
 
-  const rebuild = buildDailySlateReportsFromTrackedProps(trackedProps, {
-    slateDate: TARGET_LAB_DATE,
-    forceRebuild: true,
-  });
-  console.log("Rebuild 06/24:", rebuild.summary?.slates?.[0] || rebuild.summary);
+  console.log("Rebuild 06/24:", result.rebuildSummary);
+  console.log("Archive 06/21:", result.archive621);
+  console.log("\nPost-repair rotation:", result.meta);
 
-  const archive621 = getHistoryArchive(LAB_ARCHIVE_DATE);
-  if (archive621?.props?.length) {
-    const registry = getLockedSlatesRegistry();
-    const entry = registry.slates?.find((s) => s.slateDate === LAB_ARCHIVE_DATE);
-    if (entry && String(entry.phase || "").toUpperCase() !== "ARCHIVED") {
-      const report = getDailySlateReport(LAB_ARCHIVE_DATE);
-      const archived = archiveSlate(LAB_ARCHIVE_DATE, { report });
-      console.log("Archive 06/21:", archived.message);
-    } else {
-      console.log("06/21 already ARCHIVED — skipped");
-    }
-  } else {
-    console.log("06/21 archive bundle missing — skipped archiveSlate");
-  }
-
-  const meta = buildSlateRotationMetadata(getRawDailySlateReports(), {
-    trackedProps: getTrackedProps(),
-    archives: getAllHistoryArchives(),
-    lockedSlates: getLockedSlatesRegistry().slates || [],
-    today: getTodayLocalDate(),
-  });
-
-  console.log("\nPost-repair rotation:");
-  console.log({
-    currentLabSlateDate: meta.currentLabSlateDate,
-    historySlateDates: meta.historySlateDates,
-    activeResultsSlateDate: meta.activeResultsSlateDate,
-    activeInProgressSlateDates: meta.activeInProgressSlateDates,
-    inferredCompletedSlateDates: meta.inferredCompletedSlateDates,
-  });
-
-  return { backupId: backup.backupId, meta };
+  return result;
 }
 
 main().catch((error) => {

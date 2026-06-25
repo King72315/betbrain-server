@@ -131,59 +131,71 @@ node betbrain-server/scripts/testCourtEdgeDataFlow.js           → 50 passed, 0
 1. **`repairSlateRotation0624.js` never run on Render** — 06/21 archive still `phase: LAB`, not `ARCHIVED`.
 2. **06/24 cohort missing entirely on prod** — no tracked props and no daily report; only completed valid report is 06/21 → rotation picks 06/21 as Lab.
 3. **06/25 in-progress report exists** but today's 4 tracked props are all `trackingType: TEST` / `WATCHLIST` → not admitted to Results (`activeResultsSlateDate: null`). Pre-fix code still counted the phantom 06/25 report in `activeInProgress` (fixed in this pass).
-4. **History UI bug** — `history.tsx` destructured 4 values from 3 `Promise.all` results, so `archives` never loaded client-side (`archiveData` was always `undefined`).
+4. **Render disk lacks local backup** — `2026-06-25T18-15-37-671Z-pre-slate-rotation-v1/` exists locally only; prod cannot restore 06/24 without a bundled slice in the repo.
 
-### Render shell steps (in order)
+### Prod repair delivery (this pass)
+
+**Approach:** Option A + B combined — minimal, idempotent, safe.
+
+1. **Bundled 06/24 slice in repo:** `betbrain-server/backups/courteedge-repair-0624-tracked-props-slice.json` (14 props, deploys with Render).
+2. **Shared service:** `betbrain-server/services/repairSlateRotation0624Service.js` — backup → restore missing 06/24 from bundled slice (or override path) → rebuild 06/24 report → archive 06/21 if still `LAB`.
+3. **Admin HTTP endpoint:** `POST /admin/repair-slate-rotation` (requires `ADMIN_SECRET` via `x-admin-secret` header). Supports `dryRun: true` for inspection without mutation.
+
+**Does NOT:** call `/clear-tracked-props`, delete 06/21 data, or destructively mutate 06/21 prop records.
+
+### Trigger on prod (recommended — curl after deploy)
+
+Replace `$ADMIN_SECRET` with the Render env `ADMIN_SECRET` value.
 
 ```bash
-# 1. Backup (automatic inside script)
+# 1. Dry-run (no writes) — expect wouldMerge=14, wouldArchive621=true on prod today
+curl -sS -X POST "https://betbrain-server-1.onrender.com/admin/repair-slate-rotation" \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: $ADMIN_SECRET" \
+  -d '{"dryRun": true}' | jq .
+
+# 2. Apply repair (creates backup, restores 06/24, rebuilds report, archives 06/21)
+curl -sS -X POST "https://betbrain-server-1.onrender.com/admin/repair-slate-rotation" \
+  -H "Content-Type: application/json" \
+  -H "x-admin-secret: $ADMIN_SECRET" \
+  -d '{"confirm": true}' | jq .
+
+# 3. Verify rotation metadata
+curl -sS "https://betbrain-server-1.onrender.com/daily-slate-reports" | jq '{
+  currentLabSlateDate,
+  historySlateDates,
+  activeResultsSlateDate,
+  activeInProgressSlateDates
+}'
+```
+
+**Expected post-repair:** `currentLabSlateDate: "2026-06-24"`, `historySlateDates: ["2026-06-21"]`, `activeResultsSlateDate: null`, `activeInProgressSlateDates: []`.
+
+### Alternative — Render shell
+
+```bash
 cd betbrain-server
-
-# 2. If 06/24 props are missing (prod today), restore from a backup file first:
-#    Upload a known-good tracked-props.json slice or full backup to the instance, then:
-export RESTORE_0624_PROPS_FROM=/opt/render/project/src/betbrain-server/backups/2026-06-25T18-15-37-671Z-pre-slate-rotation-v1/tracked-props.json
-
-# 3. Run repair (idempotent)
+# Bundled slice ships with deploy; RESTORE_0624_PROPS_FROM optional override
 node scripts/repairSlateRotation0624.js
-
-# 4. Verify
-node -e "
-import { buildSlateRotationMetadata, getTodayLocalDate } from './services/slateScopeService.js';
-import { getRawDailySlateReports } from './services/dailySlateReportService.js';
-import { getTrackedProps } from './services/trackedPropService.js';
-import { getAllHistoryArchives, getLockedSlatesRegistry } from './services/slateLockService.js';
-const m = buildSlateRotationMetadata(getRawDailySlateReports(), {
-  trackedProps: getTrackedProps(),
-  archives: getAllHistoryArchives(),
-  lockedSlates: getLockedSlatesRegistry().slates || [],
-  today: getTodayLocalDate(),
-});
-console.log({
-  currentLab: m.currentLabSlateDate,
-  history: m.historySlateDates,
-  activeResults: m.activeResultsSlateDate,
-  activeInProgress: m.activeInProgressSlateDates,
-});
-"
 ```
 
-**Expected post-repair:** `currentLab: 2026-06-24`, `history: [2026-06-21]`, `activeResults: null`, `activeInProgress: []`.
-
-**If 06/24 props cannot be restored:** archive step still moves 06/21 to History, but Lab remains 06/21 until 06/24 tracked props exist on prod.
-
-### Local repair (verified 2026-06-25)
+### Local verification (2026-06-25)
 
 ```
-Backup: betbrain-server/backups/2026-06-25T18-51-56-373Z-pre-slate-rotation-v1/
+Dry-run (already-repaired local): Lab=2026-06-24, History=[2026-06-21], wouldMerge=0
+Idempotent repair run: backup 2026-06-25T19-14-23-586Z-pre-slate-rotation-v1
 Post-repair: Lab=2026-06-24, History=[2026-06-21], Results=null, inferred=[2026-06-24]
+Bundled slice: 14 props @ backups/courteedge-repair-0624-tracked-props-slice.json
 ```
+
+**If 06/24 props cannot be restored:** archive step still moves 06/21 to History when bundle exists, but Lab remains 06/21 until 06/24 tracked props exist on prod. With bundled slice deployed, restore should succeed on prod.
 
 ## Additional code fixes (this pass)
 
-- `activeInProgressSlateDates` only populated when `activeResultsSlateDate` is admitted (no phantom 06/25 in-progress count).
-- `app/(tabs)/history.tsx` — fix `Promise.all` destructuring so archives load; use server `currentLabSlateDate` / `historySlateDates`; pass archive props into `buildHistoryEntries`.
-- `utils/historyArchive.ts` — pass `trackedProps` into `computeSlateRotation`.
-- `repairSlateRotation0624.js` — optional `RESTORE_0624_PROPS_FROM` for prod missing-cohort recovery.
+- `betbrain-server/services/repairSlateRotation0624Service.js` — shared repair logic + bundled restore path resolution.
+- `POST /admin/repair-slate-rotation` — prod-triggerable repair with `dryRun` / `confirm`.
+- `betbrain-server/backups/courteedge-repair-0624-tracked-props-slice.json` — 14 official 06/24 props for prod restore.
+- `repairSlateRotation0624.js` — thin CLI wrapper over service; defaults to bundled slice.
 
 ## Tests (this pass)
 
