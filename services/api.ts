@@ -28,6 +28,12 @@ type ApiResult = {
   topProps?: any[];
   topNBAProps?: any[];
   topWNBAProps?: any[];
+  topWNBAProps?: any[];
+  bestSixWNBA?: any[];
+  bestSixNBA?: any[];
+  bestSixLimit?: number | null;
+  controlledBestSixVersion?: string | null;
+  wnbaTopPropLimit?: number | null;
   filterAudit?: any;
   trackingMode?: string;
   generatedPropCount?: number;
@@ -69,6 +75,11 @@ function normalizePicksResponse(data: any = {}): ApiResult {
     topProps: data.topProps || [],
     topNBAProps: data.topNBAProps || [],
     topWNBAProps: data.topWNBAProps || [],
+    bestSixWNBA: data.bestSixWNBA || [],
+    bestSixNBA: data.bestSixNBA || [],
+    bestSixLimit: data.bestSixLimit ?? null,
+    controlledBestSixVersion: data.controlledBestSixVersion ?? null,
+    wnbaTopPropLimit: data.wnbaTopPropLimit ?? null,
     filterAudit: data.filterAudit || null,
     trackingMode: data.trackingMode || data.filterAudit?.trackingMode || null,
     generatedPropCount: data.generatedPropCount ?? null,

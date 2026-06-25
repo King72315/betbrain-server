@@ -20,6 +20,7 @@ type PropCardProps = {
   showSaveHint?: boolean;
   showDelete?: boolean;
   compact?: boolean;
+  variant?: "default" | "bestSix";
   playType?: "Official" | "Test";
 };
 
@@ -32,6 +33,7 @@ export default function PropCard({
   showSaveHint = false,
   showDelete = false,
   compact = false,
+  variant = "default",
   playType,
 }: PropCardProps) {
   const [expanded, setExpanded] = useState(false);
@@ -107,6 +109,127 @@ export default function PropCard({
   const resolvedPlayType =
     playType ||
     (pick.officialEligible === false ? "Test" : "Official");
+
+  if (variant === "bestSix") {
+    const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
+    const trackDecision =
+      pick.displayTrackEligibility ||
+      wnbaTrackingDecision ||
+      "TRACK";
+    const displayTrueRisk =
+      pick.displayTrueRisk || trueRisk || pick.riskAfterCeiling || "—";
+    const whyText =
+      pick.displayWhy || decisionExplanation || wnbaTrackingReason || "";
+    const riskDebts: string[] =
+      pick.displayRiskDebts ||
+      (pick.decisionIntelligence?.riskDebts || []).map((d: any) =>
+        typeof d === "string" ? d : d.label || d.code || String(d)
+      );
+    const riskRepairs: string[] =
+      pick.displayRiskRepairs ||
+      (pick.decisionIntelligence?.riskRepairs || []).map((d: any) =>
+        typeof d === "string" ? d : d.label || d.code || String(d)
+      );
+
+    return (
+      <TouchableOpacity
+        activeOpacity={onSave ? 0.86 : 1}
+        onPress={onSave}
+        disabled={!onSave}
+        style={[styles.pickCard, styles.bestSixCard]}
+      >
+        <View style={styles.pickTopRow}>
+          <View style={styles.badgeRow}>
+            <Text style={styles.bestSixBadge}>#{rank}</Text>
+            {pick.topPickLabel ? (
+              <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
+            ) : null}
+            <Text style={[styles.decisionBadge, getDecisionStyle(trackDecision)]}>
+              {trackDecision}
+            </Text>
+          </View>
+          <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
+        </View>
+
+        <Text style={styles.playerName}>{pick.player}</Text>
+        <Text style={styles.teamText}>
+          {formatTeam(team)} · {gameLabel}
+        </Text>
+        {startTimeDisplay ? (
+          <Text style={styles.metaText}>{startTimeDisplay}</Text>
+        ) : null}
+
+        <View style={styles.pickLineBox}>
+          <Text style={styles.pickSide}>
+            {side} {safeDisplay(line)} {stat}
+          </Text>
+        </View>
+
+        <View style={styles.bestSixMetricRow}>
+          <Metric label="True Risk" value={displayTrueRisk} />
+          <Metric label="Decision" value={trackDecision} />
+        </View>
+
+        {whyText ? (
+          <View style={styles.bestSixWhyBox}>
+            <Text style={styles.bestSixWhyTitle}>Why</Text>
+            <Text style={styles.bestSixWhyText}>{whyText}</Text>
+          </View>
+        ) : null}
+
+        {riskDebts.length > 0 ? (
+          <View style={styles.bestSixDebtBox}>
+            <Text style={styles.bestSixDebtTitle}>Risk Debt</Text>
+            {riskDebts.slice(0, ledgerExpanded ? 8 : 3).map((line, i) => (
+              <Text key={`debt-${i}`} style={styles.bestSixDebtLine}>
+                • {line}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {riskRepairs.length > 0 ? (
+          <View style={styles.bestSixRepairBox}>
+            <Text style={styles.bestSixRepairTitle}>Risk Repair</Text>
+            {riskRepairs.slice(0, ledgerExpanded ? 8 : 3).map((line, i) => (
+              <Text key={`repair-${i}`} style={styles.bestSixRepairLine}>
+                • {line}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {scoreLedger.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => setLedgerExpanded((value) => !value)}
+            style={styles.expandButton}
+          >
+            <Text style={styles.expandButtonText}>
+              {ledgerExpanded
+                ? "Hide Score Ledger"
+                : `Show Score Ledger (${Math.min(scoreLedger.length, 6)})`}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {ledgerExpanded && scoreLedger.length > 0 ? (
+          <View style={styles.previewBox}>
+            {scoreLedger.slice(0, 12).map((row: any, i: number) => (
+              <Text key={`ledger-${i}`} style={styles.previewReason}>
+                {row.side && row.side !== "NEUTRAL" ? `[${row.side}] ` : ""}
+                {row.label}
+                {row.explanation ? ` — ${row.explanation}` : ""}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {showSaveHint && onSave ? (
+          <Text style={styles.saveHint}>Tap card to save pick</Text>
+        ) : null}
+      </TouchableOpacity>
+    );
+  }
 
   if (compact) {
     const topReasons = [
@@ -882,6 +1005,20 @@ function getStatusStyle(status: string) {
   return { backgroundColor: "#334155", color: "#e2e8f0" };
 }
 
+function getDecisionStyle(decision: string) {
+  const normalized = String(decision || "").toUpperCase();
+  if (normalized === "TRACK") {
+    return { backgroundColor: "#14532d", color: "#bbf7d0" };
+  }
+  if (normalized === "BOARD_ONLY") {
+    return { backgroundColor: "#713f12", color: "#fef9c3" };
+  }
+  if (normalized === "NO_BET") {
+    return { backgroundColor: "#7f1d1d", color: "#fecaca" };
+  }
+  return { backgroundColor: "#334155", color: "#e2e8f0" };
+}
+
 const styles = StyleSheet.create({
   pickCard: {
     backgroundColor: "#1e293b",
@@ -894,6 +1031,84 @@ const styles = StyleSheet.create({
   premiumPickCard: {
     borderColor: "#facc15",
     backgroundColor: "#172033",
+  },
+  bestSixCard: {
+    borderColor: "#831843",
+    backgroundColor: "#1a1520",
+  },
+  decisionBadge: {
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  bestSixMetricRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  bestSixWhyBox: {
+    backgroundColor: "#052e16",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#166534",
+    marginBottom: 10,
+  },
+  bestSixWhyTitle: {
+    color: "#86efac",
+    fontWeight: "900",
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  bestSixWhyText: {
+    color: "#dcfce7",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  bestSixDebtBox: {
+    backgroundColor: "#450a0a",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#7f1d1d",
+    marginBottom: 10,
+  },
+  bestSixDebtTitle: {
+    color: "#fecaca",
+    fontWeight: "900",
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  bestSixDebtLine: {
+    color: "#fee2e2",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  bestSixRepairBox: {
+    backgroundColor: "#0c4a6e",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#0369a1",
+    marginBottom: 10,
+  },
+  bestSixRepairTitle: {
+    color: "#bae6fd",
+    fontWeight: "900",
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  bestSixRepairLine: {
+    color: "#e0f2fe",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 2,
   },
   pickTopRow: {
     flexDirection: "row",
