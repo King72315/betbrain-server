@@ -29,7 +29,11 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
 } from "./slateScopeService.js";
-import { buildQualityGatePerformanceFromProps } from "../engines/wnba/wnbaResultsQualityGate.js";
+import {
+  buildQualityGatePerformanceFromProps,
+  buildRetroactiveGateSimulation,
+  buildWnbaV2GateReview,
+} from "../engines/wnba/wnbaResultsQualityGate.js";
 import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -952,9 +956,17 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     slateProps.filter(
       (p) =>
         String(p.league).toUpperCase() === "WNBA" &&
-        (p.trackingEligibility === "TRACK" || !p.trackingEligibility)
+        (p.wnbaTrackingDecision === "TRACK" ||
+          p.trackingEligibility === "TRACK" ||
+          !p.trackingEligibility)
     )
   );
+
+  const wnbaV2GateReview = buildWnbaV2GateReview(slateProps);
+  const retroGateSimulation =
+    slateDate === "2026-06-24"
+      ? buildRetroactiveGateSimulation(slateProps, { slateDate })
+      : null;
 
   const sectionA = {
     title: "Slate Summary",
@@ -968,6 +980,8 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     readerUncertainTestCount: trackingCalibration.readerUncertainTestCount,
     trackingCalibration,
     qualityGatePerformance,
+    wnbaV2GateReview,
+    retroGateSimulation,
     graded: record.graded,
     pending: record.pending,
     wins: record.wins,
@@ -1121,9 +1135,25 @@ function buildSlateReport(slateDate, props = [], options = {}) {
         ...slateResultsSnapshot,
       },
       N: {
-        title: "WNBA Results Quality Gate Performance",
+        title: "WNBA v2 Gate Review",
+        ...wnbaV2GateReview,
         ...qualityGatePerformance,
       },
+      Q: {
+        title: "WNBA v2 Gate Review Detail",
+        ...wnbaV2GateReview,
+      },
+      R: retroGateSimulation
+        ? {
+            title: "Retroactive 06/24 Gate Simulation",
+            ...retroGateSimulation,
+          }
+        : {
+            title: "Retroactive Gate Simulation",
+            reportOnly: true,
+            available: false,
+            message: "Retro simulation available for 06/24 reference slate.",
+          },
     },
   };
 }

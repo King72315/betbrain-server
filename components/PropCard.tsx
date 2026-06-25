@@ -295,7 +295,10 @@ export default function PropCard({
       </View>
 
       <View style={styles.metricGrid}>
-        <Metric label="Risk" value={pick.riskLabel || "—"} />
+        <Metric label="Risk" value={pick.riskAfterCeiling || pick.riskLabel || "—"} />
+        {pick.wnbaTrackingDecision ? (
+          <Metric label="Gate" value={pick.wnbaTrackingDecision} />
+        ) : null}
         <Metric label="Signal" value={pick.signalStrength || "—"} />
         <Metric label="Support" value={safeDisplay(pick.supportScore)} />
         <Metric
