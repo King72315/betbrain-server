@@ -244,6 +244,8 @@ export default function ExploreScreen() {
                 </Text>
                 <Text style={styles.bestSixText}>
                   {pick.player} {pick.pick || pick.side} {pick.line} ({pick.league})
+                  {pick.riskAfterCeiling ? ` · ${pick.riskAfterCeiling}` : ""}
+                  {pick.wnbaTrackingDecision ? ` · ${pick.wnbaTrackingDecision}` : ""}
                 </Text>
               </View>
             ))}

@@ -451,6 +451,228 @@ test("24 gate version and floors exported", () => {
   assert.strictEqual(WNBA_LIMITED_OVER_GAP_FLOOR, 4.0);
 });
 
+function assertRiskNotLow(pick, gate) {
+  const risked = applyWnbaRiskCeiling(pick, gate);
+  assert.notStrictEqual(risked.riskLabel, "Low Risk");
+  assert.notStrictEqual(gate.riskAfterCeiling, "Low Risk");
+}
+
+function live0625Pick(player, side, line, cardOverrides = {}, pickOverrides = {}) {
+  const sideLabel = side === "UNDER" ? "Under" : "Over";
+  const gap = pickOverrides.gap ?? 4;
+  const projection =
+    cardOverrides.projection?.projection ??
+    (side === "UNDER" ? line - gap : line + gap);
+  const card = baseCard({
+    player,
+    bookLine: line,
+    projection: {
+      projection,
+      expectedMinutes: cardOverrides.last5?.minutes ?? 26,
+      expectedFGA: cardOverrides.last5?.fga ?? 10,
+      ...(cardOverrides.projection || {}),
+    },
+    ...cardOverrides,
+  });
+  const reader = pickOverrides.wnbaReader || readWnbaProp(card);
+  return makeWnbaPick({
+    player,
+    side: sideLabel,
+    line,
+    riskLabel: "Low Risk",
+    netEdge: pickOverrides.netEdge ?? reader.margin ?? 6,
+    wnbaDataCard: card,
+    wnbaReader: reader,
+    ...pickOverrides,
+  });
+}
+
+test("25 live 06/25 Natisha Hiedeman O15.5 TRACK not Low", () => {
+  const pick = live0625Pick("Natisha Hiedeman", "OVER", 15.5, {
+    minutesVolatility: "unstable",
+    projection: { projection: 19.5, expectedMinutes: 28, expectedFGA: 11 },
+    last5: { points: 18, minutes: 28, fga: 11, ptsPerFGA: 1.1, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 4, fairLineQuality: 60 },
+  }, { netEdge: 9 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("26 live 06/25 Azzi Fudd O13.5 TRACK not Low", () => {
+  const pick = live0625Pick("Azzi Fudd", "OVER", 13.5, {
+    minutesVolatility: "stable",
+    projection: { projection: 18, expectedMinutes: 28, expectedFGA: 10 },
+    last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 4.5, fairLineQuality: 65 },
+  }, { netEdge: 8 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("27 live 06/25 Jessica Shepard O12.5 not Low Risk", () => {
+  const pick = live0625Pick("Jessica Shepard", "OVER", 12.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 17, expectedMinutes: 26, expectedFGA: 10 },
+    last5: { points: 16, minutes: 26, fga: 10, ptsPerFGA: 1.05, games: 5 },
+  }, { netEdge: 7 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assertRiskNotLow(pick, gate);
+});
+
+test("28 live 06/25 Sabrina Ionescu U17.5 elite TRACK not Low", () => {
+  const pick = live0625Pick("Sabrina Ionescu", "UNDER", 17.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 13, expectedMinutes: 30, expectedFGA: 12 },
+    last5: { points: 14, minutes: 30, fga: 12, ptsPerFGA: 1.1, games: 5 },
+    bookCount: 5,
+    dataConfidenceScore: 72,
+    fairLine: { fairLineSide: "UNDER", fairLineEdge: 5, fairLineQuality: 70 },
+  }, { netEdge: 9 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("29 live 06/25 Dearica Hamby U15.5 BOARD_ONLY", () => {
+  const pick = live0625Pick("Dearica Hamby", "UNDER", 15.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 11.5, expectedMinutes: 24, expectedFGA: 8 },
+    last5: { points: 12, minutes: 24, fga: 8, fta: 1.2, ptsPerFGA: 1.05, games: 5 },
+    season: { points: 14, minutes: 26, fga: 9, fta: 3.5, ptsPerFGA: 1.05 },
+    fairLine: { fairLineSide: "UNDER", fairLineEdge: 4, fairLineQuality: 60 },
+  }, { netEdge: 6 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("30 live 06/25 Ariel Atkins U10.5 BOARD_ONLY thin volatile", () => {
+  const pick = live0625Pick("Ariel Atkins", "UNDER", 10.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 7.2, expectedMinutes: 24, expectedFGA: 8 },
+    last5: { points: 8, minutes: 24, fga: 8, ptsPerFGA: 1.0, games: 5 },
+  }, { netEdge: 5, gap: 3.3 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "BOARD_ONLY");
+  assertRiskNotLow(pick, gate);
+});
+
+test("31 live 06/25 NaLyssa Smith O10.5 trap not TRACK", () => {
+  const pick = live0625Pick("NaLyssa Smith", "OVER", 10.5, {
+    minutesVolatility: "stable",
+    projection: { projection: 12.5, expectedMinutes: 18, expectedFGA: 5 },
+    last5: { points: 11, minutes: 18, fga: 5, ptsPerFGA: 1.1, games: 5 },
+  }, { netEdge: 4 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("32 live 06/25 A'ja Wilson U25.5 BOARD_ONLY thin volatile", () => {
+  const pick = live0625Pick("A'ja Wilson", "UNDER", 25.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 22.5, expectedMinutes: 30, expectedFGA: 14 },
+    last5: { points: 23, minutes: 30, fga: 14, ptsPerFGA: 1.1, games: 5 },
+  }, { netEdge: 6, gap: 3.0 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "BOARD_ONLY");
+  assertRiskNotLow(pick, gate);
+});
+
+test("33 live 06/25 Marine Johannes U9.5 BOARD_ONLY", () => {
+  const pick = live0625Pick("Marine Johannes", "UNDER", 9.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 6, expectedMinutes: 16, expectedFGA: 5 },
+    last5: { points: 7, minutes: 16, fga: 5, ptsPerFGA: 1.0, games: 5 },
+  }, { netEdge: 5 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("34 live 06/25 Shakira Austin U13.5 danger stack not TRACK", () => {
+  const pick = live0625Pick("Shakira Austin", "UNDER", 13.5, {
+    minutesVolatility: "unstable",
+    bookCount: 1,
+    projection: { projection: 10.5, expectedMinutes: 18, expectedFGA: 5 },
+    last5: { points: 11, minutes: 18, fga: 5, ptsPerFGA: 1.1, games: 5 },
+    opponentDefense: { proxyUsed: true, label: "neutral" },
+    injuryAvailability: { level: "UNKNOWN", dataMissing: true },
+  }, { netEdge: 4, gap: 3.0 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("35 live 06/25 Angel Reese O13.5 BOARD_ONLY thin edge", () => {
+  const pick = live0625Pick("Angel Reese", "OVER", 13.5, {
+    minutesVolatility: "stable",
+    projection: { projection: 14.7, expectedMinutes: 26, expectedFGA: 9 },
+    last5: { points: 14, minutes: 26, fga: 9, ptsPerFGA: 1.05, games: 5 },
+  }, { netEdge: 1.2, gap: 1.2 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "BOARD_ONLY");
+  assertRiskNotLow(pick, gate);
+});
+
+test("36 live 06/25 Gabby Williams O16.5 volatile not TRACK", () => {
+  const pick = live0625Pick("Gabby Williams", "OVER", 16.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 18, expectedMinutes: 24, expectedFGA: 9 },
+    last5: { points: 17, minutes: 24, fga: 9, ptsPerFGA: 1.05, games: 5 },
+  }, { netEdge: 4, gap: 1.5 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("37 live 06/25 Rhyne Howard O18.5 thin edge not TRACK", () => {
+  const pick = live0625Pick("Rhyne Howard", "OVER", 18.5, {
+    minutesVolatility: "stable",
+    projection: { projection: 19, expectedMinutes: 28, expectedFGA: 11 },
+    last5: { points: 18, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+  }, { netEdge: 0.5, gap: 0.5 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assertRiskNotLow(pick, gate);
+});
+
+test("38 risk ceiling LIMITED_DATA unstable minutes min Medium", () => {
+  const pick = live0625Pick("Test Player", "OVER", 14.5, {
+    minutesVolatility: "unstable",
+    projection: { projection: 19, expectedMinutes: 28, expectedFGA: 11 },
+    last5: { points: 18, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+  }, { netEdge: 9 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.riskAfterCeiling, "Medium Risk");
+  assert.ok(gate.riskCeilingReason);
+});
+
+test("39 risk ceiling Under volatile never Low", () => {
+  const pick = live0625Pick("Test Under", "UNDER", 12.5, {
+    minutesVolatility: "volatile",
+    projection: { projection: 8, expectedMinutes: 26, expectedFGA: 9 },
+    last5: { points: 9, minutes: 26, fga: 9, ptsPerFGA: 1.0, games: 5 },
+    fairLine: { fairLineSide: "UNDER", fairLineEdge: 5, fairLineQuality: 65 },
+  }, { netEdge: 8 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assertRiskNotLow(pick, gate);
+});
+
+test("40 low volume over trap blocks TRACK and High risk ceiling", () => {
+  const pick = live0625Pick("Trap Over", "OVER", 10.5, {
+    projection: { projection: 13, expectedMinutes: 17, expectedFGA: 5 },
+    last5: { points: 12, minutes: 17, fga: 5, ptsPerFGA: 1.1, games: 5 },
+  }, { netEdge: 5 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.notStrictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assert.ok(
+    gate.riskAfterCeiling === "High Risk" || gate.riskAfterCeiling === "Medium Risk"
+  );
+});
+
 let passed = 0;
 let failed = 0;
 

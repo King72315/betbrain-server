@@ -4,7 +4,7 @@
  */
 import { resolveQualityGateInputs, isWnbaQualityGatePick } from "./wnbaGateInputs.js";
 
-export const WNBA_TRACKING_GATE_VERSION = "wnba-tracking-gate-v2";
+export const WNBA_TRACKING_GATE_VERSION = "wnba-tracking-gate-v2-live";
 export const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.5;
 export const WNBA_LIMITED_OVER_GAP_FLOOR = 4.0;
 export const WNBA_LIMITED_UNDER_FAIR_FLOOR = 3.5;
@@ -63,6 +63,15 @@ function isEliteLimitedDataProfile(metrics = {}) {
   );
 }
 
+function hasEliteEdgeOverride(metrics = {}) {
+  return (
+    metrics.netEdge >= 8 &&
+    metrics.dataConfidence >= 65 &&
+    metrics.bookCount >= 3 &&
+    metrics.projectionGap >= (metrics.side === "UNDER" ? 3.5 : 4)
+  );
+}
+
 function isLowVolumeOverTrap(metrics = {}, side = "") {
   if (side !== "OVER") return false;
   if (metrics.fga > 0 && metrics.fga < 7 && metrics.minutes < 20) return true;
@@ -71,7 +80,29 @@ function isLowVolumeOverTrap(metrics = {}, side = "") {
   if (metrics.fga > 0 && metrics.fga < WNBA_MIN_FGA_OVER && metrics.projectionGap < WNBA_LIMITED_OVER_GAP_FLOOR + 1) {
     return true;
   }
+  if (
+    metrics.fga > 0 &&
+    metrics.fga < WNBA_MIN_FGA_OVER &&
+    metrics.minutes > 0 &&
+    metrics.minutes < WNBA_MIN_MINUTES_OVER
+  ) {
+    return true;
+  }
   return false;
+}
+
+function hasMinutesVolatility(metrics = {}, volumeProfile = {}) {
+  const vol = String(
+    volumeProfile.minutesVolatility || metrics.volatility || "stable"
+  ).toLowerCase();
+  return vol === "volatile" || vol === "unstable";
+}
+
+function hasFtaCollapse(metrics = {}, card = {}) {
+  const recentFta = num(card.last5?.fta ?? metrics.fta);
+  const seasonFta = num(card.season?.fta);
+  if (recentFta <= 0 || seasonFta <= 0) return false;
+  return recentFta <= seasonFta * 0.55;
 }
 
 function isStrongFairDisagree(metrics = {}, side = "") {
@@ -123,6 +154,10 @@ function resolveDangerGateStack(pick = {}, metrics = {}, side = "") {
 
   if (isLowVolumeOverTrap(metrics, side)) stack.push("lowVolumeOverTrap");
   if (metrics.minutes > 0 && metrics.minutes < 20) stack.push("lowMinutesFloor");
+  if (hasFtaCollapse(metrics, metrics.card || pick.wnbaDataCard || {})) {
+    stack.push("ftaCollapse");
+  }
+  if (isEfficiencyOnlySpike(metrics, side)) stack.push("efficiencyOnlyScoring");
   if (metrics.bookCount === 1) stack.push("oneBookMarket");
   if (metrics.defenseProxyUsed) stack.push("missingOpponentDefense");
   if (metrics.availabilityDataMissing) stack.push("missingAvailability");
@@ -209,15 +244,19 @@ function computeReliabilityScores(metrics = {}, dangerCount = 0) {
 function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
   const limited = metrics.dataMode === "WNBA_LIMITED_DATA";
   const blockReasons = [];
+  const boardOnlyReasons = [];
   const warnings = [];
   let sideGatePassed = true;
   let underFragilityPenalty = 0;
   let overVolumePenalty = 0;
   let limitedDataPenalty = limited ? 12 : 0;
+  const elite = isEliteLimitedDataProfile(metrics);
+  const eliteEdge = hasEliteEdgeOverride({ ...metrics, side });
+  const volatileMinutes = hasMinutesVolatility(metrics);
 
   if (limited && side === "UNDER") {
     if (metrics.projectionGap < WNBA_LIMITED_UNDER_GAP_FLOOR) {
-      blockReasons.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+      boardOnlyReasons.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
       sideGatePassed = false;
     }
     if (
@@ -225,7 +264,7 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
       Math.abs(metrics.fairLineEdge) < WNBA_LIMITED_UNDER_FAIR_FLOOR &&
       metrics.fairLineQuality >= 40
     ) {
-      blockReasons.push("UNDER_FAIR_LINE_TOO_THIN");
+      boardOnlyReasons.push("UNDER_FAIR_LINE_TOO_THIN");
       sideGatePassed = false;
     }
     if (EXPANDING_ROLE.has(metrics.roleTrend)) {
@@ -233,25 +272,41 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
       sideGatePassed = false;
     }
     if (metrics.line <= WNBA_LOW_LINE_THRESHOLD && metrics.projectionGap < WNBA_LIMITED_UNDER_GAP_FLOOR + 0.5) {
-      blockReasons.push("UNDER_LOW_LINE_THIN_EDGE");
+      boardOnlyReasons.push("UNDER_LOW_LINE_THIN_EDGE");
       sideGatePassed = false;
       underFragilityPenalty = 18;
     }
-    if (metrics.volatility === "volatile" || metrics.volatility === "unstable") {
-      blockReasons.push("UNDER_UNSTABLE_VOLUME");
+    if (volatileMinutes && !elite && !eliteEdge) {
+      boardOnlyReasons.push("UNDER_UNSTABLE_VOLUME");
       sideGatePassed = false;
       underFragilityPenalty += 10;
     }
     if (metrics.bookCount < 2 && metrics.netEdge < 7) {
-      blockReasons.push("UNDER_THIN_MARKET");
+      boardOnlyReasons.push("UNDER_THIN_MARKET");
       sideGatePassed = false;
     }
   }
 
+  if (side === "UNDER" && volatileMinutes && !elite && !eliteEdge) {
+    if (metrics.projectionGap < WNBA_LIMITED_UNDER_GAP_FLOOR) {
+      boardOnlyReasons.push("UNDER_VOLATILE_THIN_GAP");
+      sideGatePassed = false;
+      underFragilityPenalty += 12;
+    } else if (!limited) {
+      boardOnlyReasons.push("UNDER_VOLATILE_MINUTES");
+      sideGatePassed = false;
+      underFragilityPenalty += 8;
+    }
+    if (dangerStack.includes("ftaCollapse")) {
+      boardOnlyReasons.push("UNDER_FTA_COLLAPSE");
+      sideGatePassed = false;
+      underFragilityPenalty += 6;
+    }
+  }
+
   if (limited && side === "OVER") {
-    const elite = isEliteLimitedDataProfile(metrics);
     if (metrics.projectionGap < WNBA_LIMITED_OVER_GAP_FLOOR && !elite) {
-      blockReasons.push("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+      boardOnlyReasons.push("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
       sideGatePassed = false;
     }
     if (
@@ -268,22 +323,40 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
       overVolumePenalty = 20;
     }
     if (metrics.minutes > 0 && metrics.minutes < WNBA_MIN_MINUTES_OVER && metrics.projectionGap < 5 && !elite) {
-      blockReasons.push("OVER_LOW_MINUTES_NO_CUSHION");
+      boardOnlyReasons.push("OVER_LOW_MINUTES_NO_CUSHION");
       sideGatePassed = false;
       overVolumePenalty += 8;
     }
-    if (
-      (metrics.volatility === "volatile" || metrics.volatility === "unstable") &&
-      !EXPANDING_ROLE.has(metrics.roleTrend) &&
-      metrics.projectionGap < 5
-    ) {
-      blockReasons.push("OVER_UNSTABLE_ROLE_NOT_EXPANDING");
+    if (volatileMinutes && !EXPANDING_ROLE.has(metrics.roleTrend) && metrics.projectionGap < WNBA_LIMITED_OVER_GAP_FLOOR && !elite) {
+      boardOnlyReasons.push("OVER_UNSTABLE_ROLE_NOT_EXPANDING");
       sideGatePassed = false;
     }
     if (metrics.bookCount === 1 && metrics.netEdge < 7) {
-      blockReasons.push("ONE_BOOK_WEAK_EDGE");
+      boardOnlyReasons.push("ONE_BOOK_WEAK_EDGE");
       sideGatePassed = false;
     }
+  }
+
+  if (side === "OVER" && volatileMinutes && !EXPANDING_ROLE.has(metrics.roleTrend) && !elite) {
+    if (metrics.projectionGap < WNBA_LIMITED_OVER_GAP_FLOOR) {
+      boardOnlyReasons.push("OVER_THIN_GAP_VOLATILE");
+      sideGatePassed = false;
+      overVolumePenalty += 10;
+    }
+    if (metrics.netEdge < 6 && metrics.projectionGap < 5) {
+      boardOnlyReasons.push("OVER_VOLATILE_WEAK_EDGE");
+      sideGatePassed = false;
+    }
+  }
+
+  if (side === "OVER" && metrics.netEdge < 2.5 && metrics.projectionGap < 2.5) {
+    boardOnlyReasons.push("OVER_EDGE_TOO_THIN");
+    sideGatePassed = false;
+  }
+
+  if (side === "OVER" && metrics.projectionGap < 2.5 && metrics.netEdge < 4) {
+    boardOnlyReasons.push("OVER_PROJECTION_GAP_TOO_THIN");
+    sideGatePassed = false;
   }
 
   if (isLowVolumeOverTrap(metrics, side)) {
@@ -310,6 +383,7 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
   return {
     sideGatePassed,
     blockReasons,
+    boardOnlyReasons,
     warnings,
     underFragilityPenalty,
     overVolumePenalty,
@@ -322,10 +396,38 @@ function computeRiskCeiling(pick = {}, metrics = {}, dangerStack = [], side = ""
   const riskBeforeCeiling = pick.riskLabel || "Medium Risk";
   let rank = riskRank(riskBeforeCeiling);
   let riskCeilingReason = null;
+  const unstableMinutes =
+    dangerStack.includes("unstableMinutes") || metrics.volatility === "unstable";
+  const volatileMinutes =
+    dangerStack.includes("volatileMinutes") || metrics.volatility === "volatile";
 
   if (metrics.dataMode === "WNBA_LIMITED_DATA" && rank < 2) {
     rank = 2;
     riskCeilingReason = "WNBA_LIMITED_DATA_MIN_MEDIUM";
+  }
+  if (
+    metrics.dataMode === "WNBA_LIMITED_DATA" &&
+    (unstableMinutes || volatileMinutes) &&
+    rank < 2
+  ) {
+    rank = 2;
+    riskCeilingReason = riskCeilingReason || "LIMITED_DATA_VOLATILE_MIN_MEDIUM";
+  }
+  if (side === "UNDER" && (unstableMinutes || volatileMinutes) && rank < 2) {
+    rank = 2;
+    riskCeilingReason = riskCeilingReason || "UNDER_VOLATILE_MIN_MEDIUM";
+  }
+  if (dangerStack.includes("lowMinutesFloor") && rank < 2) {
+    rank = 2;
+    riskCeilingReason = riskCeilingReason || "LOW_MINUTES_FLOOR_NO_LOW";
+  }
+  if (dangerStack.includes("efficiencyOnlyScoring") && rank < 2) {
+    rank = 2;
+    riskCeilingReason = riskCeilingReason || "EFFICIENCY_ONLY_NO_LOW";
+  }
+  if (isEfficiencyOnlySpike(metrics, side) && rank < 2) {
+    rank = 2;
+    riskCeilingReason = riskCeilingReason || "EFFICIENCY_ONLY_NO_LOW";
   }
   if (dangerStack.length >= 1 && rank < 2) {
     rank = 2;
@@ -343,13 +445,13 @@ function computeRiskCeiling(pick = {}, metrics = {}, dangerStack = [], side = ""
     rank = 2;
     riskCeilingReason = riskCeilingReason || "DANGER_STACK_2_NO_LOW";
   }
-  if (dangerStack.length >= 3 && rank < 3) {
-    rank = 3;
-    riskCeilingReason = riskCeilingReason || "DANGER_STACK_3_HIGH";
-  }
   if (dangerStack.includes("lowVolumeOverTrap") && rank < 3) {
     rank = 3;
     riskCeilingReason = riskCeilingReason || "LOW_VOLUME_OVER_TRAP_HIGH";
+  }
+  if (dangerStack.length >= 3 && rank < 3) {
+    rank = 3;
+    riskCeilingReason = riskCeilingReason || "DANGER_STACK_3_HIGH";
   }
 
   return {
@@ -376,6 +478,7 @@ function computeFinalTrackScore(metrics = {}, dangerCount = 0, penalties = {}) {
 
 function resolveTrackingDecision({
   blockReasons = [],
+  boardOnlyReasons = [],
   warnings = [],
   dangerStack = [],
   sideGatePassed = true,
@@ -405,14 +508,15 @@ function resolveTrackingDecision({
   if (!sideGatePassed) {
     return {
       wnbaTrackingDecision: "BOARD_ONLY",
-      wnbaTrackingReason: warnings[0] || "SIDE_GATE_FAILED",
+      wnbaTrackingReason: boardOnlyReasons[0] || warnings[0] || "SIDE_GATE_FAILED",
       trackingEligibility: "BOARD_ONLY",
     };
   }
 
   if (dangerCount >= 3) {
     const elite = isEliteLimitedDataProfile(metrics);
-    if (!elite) {
+    const eliteEdge = hasEliteEdgeOverride({ ...metrics, side });
+    if (!elite && !eliteEdge) {
       return {
         wnbaTrackingDecision: "BOARD_ONLY",
         wnbaTrackingReason: "DANGER_GATE_STACK_BOARD_ONLY",
@@ -506,7 +610,7 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
   const dangerGateStack = resolveDangerGateStack(pick, metrics, side);
   const sideGate = evaluateSideGate(metrics, side, dangerGateStack);
   blockReasons.push(...sideGate.blockReasons);
-  warnings.push(...sideGate.warnings);
+  warnings.push(...sideGate.boardOnlyReasons, ...sideGate.warnings);
 
   if (
     side === "OVER" &&
@@ -545,6 +649,7 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
   const uniqueBlocks = [...new Set(blockReasons)];
   const decision = resolveTrackingDecision({
     blockReasons: uniqueBlocks,
+    boardOnlyReasons: sideGate.boardOnlyReasons || [],
     warnings,
     dangerStack: dangerGateStack,
     sideGatePassed: sideGate.sideGatePassed,

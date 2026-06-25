@@ -191,6 +191,14 @@ export default function PropCard({
           </View>
         ) : null}
 
+        {pick.wnbaTrackingDecision ? (
+          <Text style={styles.wnbaV2Warn}>
+            Gate {pick.wnbaTrackingDecision}
+            {pick.wnbaTrackingReason ? ` · ${pick.wnbaTrackingReason}` : ""}
+            {pick.riskAfterCeiling ? ` · Risk ${pick.riskAfterCeiling}` : ""}
+          </Text>
+        ) : null}
+
         {!wnbaV2 && missingWarnings?.length ? (
           <Text style={styles.wnbaV2Warn}>
             Missing: {missingWarnings.slice(0, 3).join(", ")}
@@ -298,6 +306,12 @@ export default function PropCard({
         <Metric label="Risk" value={pick.riskAfterCeiling || pick.riskLabel || "—"} />
         {pick.wnbaTrackingDecision ? (
           <Metric label="Gate" value={pick.wnbaTrackingDecision} />
+        ) : null}
+        {pick.wnbaTrackingReason ? (
+          <Metric label="Gate Reason" value={pick.wnbaTrackingReason} />
+        ) : null}
+        {pick.riskCeilingReason ? (
+          <Metric label="Risk Ceiling" value={pick.riskCeilingReason} />
         ) : null}
         <Metric label="Signal" value={pick.signalStrength || "—"} />
         <Metric label="Support" value={safeDisplay(pick.supportScore)} />

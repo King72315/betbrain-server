@@ -97,6 +97,11 @@ import {
   evaluateWnbaPropDecision,
   isCourteEdgeWnbaV2Enabled,
 } from "./engines/wnba/wnbaDecisionEngine.js";
+import {
+  applyQualityGateToPick,
+  evaluateWnbaTrackingEligibility,
+} from "./engines/wnba/wnbaResultsQualityGate.js";
+import { applyWnbaRiskCeiling } from "./engines/wnba/wnbaTrackingGateV2.js";
 
 import {
   appendMarketSnapshot,
@@ -199,7 +204,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-tracking-gate-v2";
+const SERVER_BUILD = "courteedge-wnba-tracking-gate-v2-live";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -1865,6 +1870,30 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   return { gameCards, sideAudit };
 }
 
+function ensureWnbaGateOnPick(pick = {}) {
+  if (String(pick.league || "").toUpperCase() !== "WNBA") return pick;
+  if (!pick.wnbaDataCard && !pick.wnbaReader) return pick;
+  if (pick.wnbaTrackingDecision && pick.riskAfterCeiling) return pick;
+  const gate = evaluateWnbaTrackingEligibility(pick, pick.wnbaDataCard, pick.wnbaReader);
+  let enriched = applyQualityGateToPick(pick, gate);
+  enriched = applyWnbaRiskCeiling(enriched, gate);
+  return enriched;
+}
+
+function ensureWnbaGateOnGames(games = []) {
+  return games.map((game) => {
+    const picks = (game.picks || []).map(ensureWnbaGateOnPick);
+    const allGeneratedCandidates = (game.allGeneratedCandidates || picks).map(
+      ensureWnbaGateOnPick
+    );
+    return {
+      ...game,
+      picks,
+      allGeneratedCandidates,
+    };
+  });
+}
+
 async function refreshAllPicks() {
   const sideAudit = createSideAudit();
 
@@ -1964,7 +1993,7 @@ async function refreshAllPicks() {
   const todayCards = [...todayNba.gameCards, ...todayWnba.gameCards];
   const tomorrowCards = [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards];
 
-  const games = [
+  const games = ensureWnbaGateOnGames([
     ...todayCards.map((g) => ({
       ...g,
       dateLabel: "Today",
@@ -1975,7 +2004,7 @@ async function refreshAllPicks() {
       dateLabel: "Tomorrow",
       dayBucket: "TOMORROW",
     })),
-  ];
+  ]);
 
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");

@@ -151,9 +151,10 @@ function test3LimitedDataUnderBelowFloorBlocked() {
     })
   );
   assert.ok(reader.underGap < WNBA_LIMITED_UNDER_GAP_FLOOR);
-  assert.strictEqual(gate.trackingEligibility, "NO_BET");
+  assert.strictEqual(gate.trackingEligibility, "BOARD_ONLY");
   assert.ok(
-    gate.trackingBlockReasons.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR")
+    gate.wnbaTrackingReason === "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR" ||
+      (gate.trackingWarnings || []).includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR")
   );
 }
 

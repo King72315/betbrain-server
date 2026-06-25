@@ -20,6 +20,7 @@ import {
   evaluateWnbaTrackingEligibility,
   isWnbaQualityGatePick,
 } from "../wnba/wnbaResultsQualityGate.js";
+import { applyWnbaRiskCeiling } from "../wnba/wnbaTrackingGateV2.js";
 
 export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-v2-fix";
 export const BEST_SIX_LIMIT = 6;
@@ -169,6 +170,7 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
         continue;
       }
       pick = applyQualityGateToPick(pick, gate);
+      pick = applyWnbaRiskCeiling(pick, gate);
     }
 
     qualityPassed += 1;
