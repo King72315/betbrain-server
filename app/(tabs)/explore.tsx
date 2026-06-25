@@ -29,6 +29,13 @@ type LeagueFilter = (typeof FILTERS)[number];
 export default function ExploreScreen() {
   const [games, setGames] = useState<any[]>([]);
   const [topProps, setTopProps] = useState<any[]>([]);
+  const [bestSixWNBA, setBestSixWNBA] = useState<any[]>([]);
+  const [bestSixNBA, setBestSixNBA] = useState<any[]>([]);
+  const [slateSummary, setSlateSummary] = useState<{
+    generatedPropCount?: number;
+    bestSixLimit?: number;
+    controlledBestSixVersion?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -49,6 +56,12 @@ export default function ExploreScreen() {
     return topProps.filter((pick) => pick.league === leagueFilter);
   }, [topProps, leagueFilter]);
 
+  const filteredBestSix = useMemo(() => {
+    const combined = [...bestSixNBA, ...bestSixWNBA];
+    if (leagueFilter === "ALL") return combined;
+    return combined.filter((pick) => pick.league === leagueFilter);
+  }, [bestSixNBA, bestSixWNBA, leagueFilter]);
+
   const groupedTopProps = useMemo(
     () => groupByDayBucket(filteredTopProps),
     [filteredTopProps]
@@ -67,6 +80,13 @@ export default function ExploreScreen() {
 
       setGames(data.games || []);
       setTopProps(data.topProps || []);
+      setBestSixWNBA(data.bestSixWNBA || []);
+      setBestSixNBA(data.bestSixNBA || []);
+      setSlateSummary({
+        generatedPropCount: data.generatedPropCount,
+        bestSixLimit: data.bestSixLimit,
+        controlledBestSixVersion: data.controlledBestSixVersion,
+      });
       setLastUpdated(data.lastUpdated || null);
       setLoadError(formatApiLoadError(data));
     } catch (err) {
@@ -207,6 +227,28 @@ export default function ExploreScreen() {
         )}
 
         <LoadErrorBanner message={loadError} />
+
+        {!loading && !loadError && filteredBestSix.length > 0 && (
+          <View style={styles.bestSixSection}>
+            <Text style={styles.sectionTitle}>Controlled Best 6 Preview</Text>
+            <Text style={styles.sectionSubtext}>
+              Results tracking cohort — max 6 per league
+              {slateSummary?.generatedPropCount != null
+                ? ` · ${slateSummary.generatedPropCount} tracked from Best 6`
+                : ""}
+            </Text>
+            {filteredBestSix.slice(0, 6).map((pick, index) => (
+              <View key={`best6-${pick.player}-${index}`} style={styles.bestSixRow}>
+                <Text style={styles.bestSixRank}>
+                  #{pick.bestSixRank || pick.controlledBestSixRank || index + 1}
+                </Text>
+                <Text style={styles.bestSixText}>
+                  {pick.player} {pick.pick || pick.side} {pick.line} ({pick.league})
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {!loading && !loadError && filteredTopProps.length > 0 && (
           <View style={styles.topSection}>
@@ -423,6 +465,36 @@ const styles = StyleSheet.create({
 
   topSection: {
     marginBottom: 22,
+  },
+
+  bestSixSection: {
+    marginBottom: 18,
+    backgroundColor: "#0f172a",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+
+  bestSixRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+  },
+
+  bestSixRank: {
+    color: "#fbbf24",
+    fontWeight: "900",
+    fontSize: 13,
+    width: 28,
+  },
+
+  bestSixText: {
+    color: "#e2e8f0",
+    fontSize: 13,
+    fontWeight: "700",
+    flex: 1,
   },
 
   sectionTitle: {

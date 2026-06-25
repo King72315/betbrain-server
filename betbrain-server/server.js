@@ -117,6 +117,7 @@ import {
   addTrackedProps,
   applySlateLockFreeze,
   buildFlowValidationDiagnostics,
+  buildControlledTrackingCohort,
   buildResultsTrackingCohort,
   buildTrackedPropAnalytics,
   buildTrackingCohortDiagnostics,
@@ -162,6 +163,10 @@ import {
 } from "./services/slateScopeService.js";
 
 import {
+  buildSlateLifecycleMap,
+  SLATE_LIFECYCLE_STATES,
+} from "./services/slateLifecycleService.js";
+import {
   getLabBundleInfo,
   getOfficialFreezeInfo,
   LAB_SLATE_BUNDLE_CATALOG,
@@ -190,7 +195,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-controlled-best-six-v2-fix";
+const SERVER_BUILD = "courteedge-data-flow-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -306,21 +311,41 @@ function clampTopPropsSelection(selection = {}, limit = null) {
 function syncTrackedFromCache() {
   if (!picksCache?.games?.length) return;
 
-  const bestSixCohort =
-    picksCache.bestSixWNBA?.length || picksCache.bestSixNBA?.length
-      ? [...(picksCache.bestSixWNBA || []), ...(picksCache.bestSixNBA || [])]
-      : (() => {
-          const selection = buildTopPropsFromSelector(picksCache.games);
-          return [...(selection.bestSixWNBA || []), ...(selection.bestSixNBA || [])];
-        })();
+  const hasCachedBestSix =
+    picksCache.bestSixWNBA?.length || picksCache.bestSixNBA?.length;
 
-  const { cohort: trackingCohort } = buildResultsTrackingCohort(bestSixCohort, {
-    todayLocalDate: getTodayLocalDate(),
-    sourcePool: TOP_PICKS_SOURCE_POOL,
-  });
+  const cohortBundle = buildControlledTrackingCohort(
+    { gameCards: picksCache.games },
+    {
+      todayLocalDate: getTodayLocalDate(),
+      sourcePool: TOP_PICKS_SOURCE_POOL,
+      controlledSelection: hasCachedBestSix
+        ? {
+            bestSixWNBA: picksCache.bestSixWNBA || [],
+            bestSixNBA: picksCache.bestSixNBA || [],
+            topProps: picksCache.topProps || [],
+            topNBAProps: picksCache.topNBAProps || [],
+            topWNBAProps: picksCache.topWNBAProps || [],
+            topOfficialProps: picksCache.topOfficialProps || [],
+            topTestProps: picksCache.topTestProps || [],
+            topNBAOfficialProps: picksCache.topNBAOfficialProps || [],
+            topNBATestProps: picksCache.topNBATestProps || [],
+            topWNBAOfficialProps: picksCache.topWNBAOfficialProps || [],
+            topWNBATestProps: picksCache.topWNBATestProps || [],
+            controlledBestSixAudit: picksCache.controlledBestSixAudit || null,
+            topSelectionAudit: picksCache.topSelectionAudit || null,
+            candidateCount: picksCache.candidateCount,
+            selectedCount: picksCache.selectedCount,
+            selectedNBA: picksCache.selectedNBA,
+            selectedWNBA: picksCache.selectedWNBA,
+            noBetCount: picksCache.noBetCount,
+          }
+        : undefined,
+    }
+  );
 
-  if (trackingCohort.length) {
-    addTrackedProps(trackingCohort, {
+  if (cohortBundle.trackingCohort.length) {
+    addTrackedProps(cohortBundle.trackingCohort, {
       skipTopPickReferences: true,
       preFilteredCohort: true,
     });
@@ -1952,8 +1977,17 @@ async function refreshAllPicks() {
   const wnbaGames = games.filter((g) => g.league === "WNBA");
 
   const controlledSelection = buildTopPropsFromSelector(games);
-  const bestSixWNBA = controlledSelection.bestSixWNBA;
-  const bestSixNBA = controlledSelection.bestSixNBA;
+  const cohortBundle = buildControlledTrackingCohort(
+    { gameCards: games },
+    {
+      todayLocalDate: getTodayLocalDate(),
+      sourcePool: TOP_PICKS_SOURCE_POOL,
+      controlledSelection,
+    }
+  );
+
+  const bestSixWNBA = cohortBundle.bestSixWNBA;
+  const bestSixNBA = cohortBundle.bestSixNBA;
   const topProps = controlledSelection.topProps;
   const topNBAProps = controlledSelection.topNBAProps;
   const topWNBAProps = controlledSelection.topWNBAProps;
@@ -1979,13 +2013,8 @@ async function refreshAllPicks() {
     controlledBestSixAudit: topSelectionAudit,
   });
 
-  const allGeneratedCandidates = collectAllGeneratedCandidatesFromGames(games);
-  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
-  const { cohort: trackingCohort, audit: trackingCohortAudit } =
-    buildResultsTrackingCohort(bestSixCohort, {
-      todayLocalDate: getTodayLocalDate(),
-      sourcePool: TOP_PICKS_SOURCE_POOL,
-    });
+  const trackingCohort = cohortBundle.trackingCohort;
+  const trackingCohortAudit = cohortBundle.trackingCohortAudit;
   addTrackedProps(trackingCohort, {
     skipTopPickReferences: true,
     preFilteredCohort: true,
@@ -2072,6 +2101,8 @@ async function refreshAllPicks() {
     boardCappedProps,
     trackingCohortAudit,
     trackingCohortVersion: trackingCohortAudit.trackingCohortVersion,
+    controlledTrackingCohortVersion: cohortBundle.audit.version,
+    controlledTrackingCohortAudit: cohortBundle.audit,
     trackingMode: TRACKING_MODE,
     generatedPropCount: generatedProps.length,
     boardCappedPropCount: boardCappedProps.length,
@@ -2228,6 +2259,7 @@ app.get("/top-props", async (req, res) => {
       generatedPropCount: picksCache.generatedPropCount ?? null,
       topPicksSnapshot: getActiveTopPicksSnapshot(),
       bestSixSnapshot: getActiveBestSixSnapshot(),
+      controlledTrackingCohortVersion: picksCache?.controlledTrackingCohortAudit?.version || "controlled-tracking-cohort-v1",
     });
   } catch (error) {
     console.log("GET TOP PROPS ERROR:", error.message);
@@ -2417,6 +2449,8 @@ app.get("/tracked-props", (req, res) => {
     props,
     count: props.length,
     topPicksSnapshot: getActiveTopPicksSnapshot(),
+    bestSixSnapshot: getActiveBestSixSnapshot(),
+    controlledTrackingCohortVersion: "controlled-tracking-cohort-v1",
   });
 });
 
@@ -2492,6 +2526,13 @@ app.get("/daily-slate-reports", (req, res) => {
     ok: true,
     reports,
     count: reports.length,
+    slateLifecycle: buildSlateLifecycleMap({
+      trackedProps: getTrackedProps(),
+      reports,
+      archives: getAllHistoryArchives(),
+      lockedSlates: getLockedSlatesRegistry().slates || [],
+      today: getTodayLocalDate(),
+    }),
   });
 });
 
@@ -2650,6 +2691,14 @@ app.get("/diagnostics", (req, res) => {
   );
 
   const archives = getAllHistoryArchives();
+  const slateLifecycle = buildSlateLifecycleMap({
+    trackedProps: tracked,
+    reports: rawReports,
+    archives,
+    lockedSlates: registry.slates || [],
+    today: getTodayLocalDate(),
+    hasGeneratedBoard: Boolean(picksCache?.games?.length),
+  });
   const courtEdgeFlow = buildCourtEdgeFlowDiagnostics(
     tracked,
     rawReports,
@@ -2680,6 +2729,9 @@ app.get("/diagnostics", (req, res) => {
       duplicates: dupes,
     },
     courtEdgeFlow,
+    slateLifecycle,
+    slateLifecycleStates: SLATE_LIFECYCLE_STATES,
+    controlledTrackingCohortVersion: picksCache?.controlledTrackingCohortAudit?.version || "controlled-tracking-cohort-v1",
     flowValidation,
     trackingCohort: trackingCohortDiagnostics,
     trackingAudit: trackingCohortDiagnostics.trackingAudit || [],

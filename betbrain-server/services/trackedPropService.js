@@ -735,6 +735,103 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
   return { cohort, audit };
 }
 
+export const CONTROLLED_TRACKING_COHORT_VERSION = "controlled-tracking-cohort-v1";
+
+/**
+ * Shared tracking admission: full pool → Controlled Best 6 → Results cohort.
+ * Used by refreshAllPicks, syncTrackedFromCache, /picks, /top-props.
+ * Never admits via collectAllGeneratedProps (board-capped display picks).
+ */
+export function buildControlledTrackingCohort(input = {}, options = {}) {
+  const gameCards = input.gameCards || [];
+  const slateDate = input.slateDate || options.slateDate || getTodayLocalDate();
+  const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
+  const sourcePool = options.sourcePool || "CONTROLLED_BEST_SIX";
+  const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
+
+  const fullGeneratedCandidates =
+    input.fullGeneratedCandidates?.length > 0
+      ? input.fullGeneratedCandidates
+      : collectAllGeneratedCandidatesFromGames(gameCards);
+
+  const selection =
+    options.controlledSelection ||
+    selectControlledBestSixCombined(gameCards, options.selectorOptions || {});
+
+  const bestSixWNBA = selection.bestSixWNBA || [];
+  const bestSixNBA = selection.bestSixNBA || [];
+  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
+
+  const { cohort: trackingCohort, audit: trackingCohortAudit } =
+    buildResultsTrackingCohort(bestSixCohort, {
+      todayLocalDate,
+      sourcePool,
+    });
+
+  const bestSixSnapshot = {
+    slateDate,
+    selectorVersion,
+    sourcePool,
+    pickCount: bestSixCohort.length,
+    bestSixCountByLeague: {
+      WNBA: bestSixWNBA.length,
+      NBA: bestSixNBA.length,
+    },
+    picks: bestSixCohort.map((pick) => ({
+      ...pick,
+      slateDate: pick.slateDate || slateDate,
+      referenceOnly: true,
+    })),
+    controlledBestSixAudit: selection.controlledBestSixAudit || null,
+    referenceOnly: true,
+  };
+
+  const audit = {
+    version: CONTROLLED_TRACKING_COHORT_VERSION,
+    selectorVersion,
+    qualityGateVersion: QUALITY_GATE_VERSION,
+    slateDate,
+    sourcePool,
+    fullCandidateCount: fullGeneratedCandidates.length,
+    bestSixCount: bestSixCohort.length,
+    trackingCohortCount: trackingCohort.length,
+    controlledBestSixAudit: selection.controlledBestSixAudit || null,
+    trackingCohortAudit,
+    admissionPath: "CONTROLLED_BEST_SIX",
+    collectAllGeneratedPropsBypass: false,
+  };
+
+  return {
+    fullGeneratedCandidates,
+    bestSixWNBA,
+    bestSixNBA,
+    topProps: selection.topProps || [],
+    topNBAProps: selection.topNBAProps || [],
+    topWNBAProps: selection.topWNBAProps || [],
+    topOfficialProps: selection.topOfficialProps || [],
+    topTestProps: selection.topTestProps || [],
+    topNBAOfficialProps: selection.topNBAOfficialProps || [],
+    topNBATestProps: selection.topNBATestProps || [],
+    topWNBAOfficialProps: selection.topWNBAOfficialProps || [],
+    topWNBATestProps: selection.topWNBATestProps || [],
+    controlledSelection: selection,
+    controlledBestSixAudit: selection.controlledBestSixAudit || null,
+    topSelectionAudit:
+      selection.topSelectionAudit || selection.controlledBestSixAudit || null,
+    trackingCohort,
+    trackingCohortAudit,
+    bestSixSnapshot,
+    audit,
+    candidateCount: selection.candidateCount ?? fullGeneratedCandidates.length,
+    selectedCount: selection.selectedCount ?? (selection.topProps?.length || 0),
+    selectedNBA: selection.selectedNBA ?? (selection.topNBAProps?.length || 0),
+    selectedWNBA: selection.selectedWNBA ?? (selection.topWNBAProps?.length || 0),
+    controlledBestSixVersion: selectorVersion,
+    topPropsSource: sourcePool,
+    noBetCount: selection.noBetCount ?? null,
+  };
+}
+
 export function buildTrackingCohortDiagnostics(
   gameCards = [],
   tracked = [],
@@ -743,15 +840,13 @@ export function buildTrackingCohortDiagnostics(
 ) {
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
   const allCandidates = collectAllGeneratedCandidatesFromGames(gameCards);
-  const controlledSelection = selectControlledBestSixCombined(gameCards);
-  const bestSixCohort = [
-    ...controlledSelection.bestSixWNBA,
-    ...controlledSelection.bestSixNBA,
-  ];
-  const { cohort, audit } = buildResultsTrackingCohort(bestSixCohort, {
-    ...options,
-    sourcePool: "CONTROLLED_BEST_SIX",
-  });
+  const cohortBundle = buildControlledTrackingCohort(
+    { gameCards, fullGeneratedCandidates: allCandidates },
+    { todayLocalDate, sourcePool: "CONTROLLED_BEST_SIX" }
+  );
+  const controlledSelection = cohortBundle.controlledSelection;
+  const cohort = cohortBundle.trackingCohort;
+  const audit = cohortBundle.trackingCohortAudit;
   const trackedKeys = new Set(
     tracked.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
   );
