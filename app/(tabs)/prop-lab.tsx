@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   RefreshControl,
@@ -40,6 +40,10 @@ import {
   buildSlateResultsSnapshot,
   type SlateSnapshotEntry,
 } from "../../utils/slateResultsSnapshot";
+import {
+  computeLabSlateTrackingSummary,
+  formatLabTrackingSummaryLine,
+} from "../../utils/labTrackingInference";
 
 function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
   return (
@@ -504,38 +508,55 @@ export default function PropLab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [selectedSlateDate, setSelectedSlateDate] = useState<string | null>(null);
 
   const rotation = useMemo(() => computeSlateRotation(reports), [reports]);
   const currentLabSlateDate = rotation.currentLabSlateDate;
+  const viewedSlateDate = selectedSlateDate || currentLabSlateDate;
+  const isViewingHistoricalReport = Boolean(
+    viewedSlateDate && currentLabSlateDate && viewedSlateDate !== currentLabSlateDate
+  );
   const validCompletedReports = useMemo(
     () => filterCompletedDailyReports(reports),
     [reports]
   );
-  const hasCompletedLabSlate = Boolean(currentLabSlateDate && report);
+  const historySlateCount = rotation.historySlates.length;
+  const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
 
-  const loadReports = async () => {
+  const loadReportForSlate = async (slateDate: string, validReports: any[]) => {
+    const frozenReport =
+      validReports.find(
+        (r) =>
+          r.slateDate === slateDate && (r.frozen === true || r.locked === true)
+      ) || null;
+    const detail = frozenReport
+      ? { ok: true, report: frozenReport }
+      : await fetchDailySlateReport(slateDate);
+    setReport(
+      detail.report || validReports.find((r) => r.slateDate === slateDate) || null
+    );
+  };
+
+  const loadReports = async (targetSlateDate?: string | null) => {
     const list = await fetchDailySlateReports();
     const rawReports = list.reports || [];
     const validReports = filterValidDailyReports(rawReports);
     setReports(validReports);
 
     const { currentLabSlateDate: labDate } = computeSlateRotation(validReports);
+    const slateToLoad = targetSlateDate || selectedSlateDate || labDate;
 
-    if (labDate) {
-      const frozenReport =
-        validReports.find(
-          (r) =>
-            r.slateDate === labDate && (r.frozen === true || r.locked === true)
-        ) || null;
-      const detail = frozenReport
-        ? { ok: true, report: frozenReport }
-        : await fetchDailySlateReport(labDate);
-      setReport(
-        detail.report || validReports.find((r) => r.slateDate === labDate) || null
-      );
+    if (slateToLoad) {
+      await loadReportForSlate(slateToLoad, validReports);
     } else {
       setReport(null);
     }
+  };
+
+  const handleSelectSlate = async (slateDate: string) => {
+    setSelectedSlateDate(slateDate);
+    const validReports = filterValidDailyReports(reports);
+    await loadReportForSlate(slateDate, validReports);
   };
 
   const loadData = async () => {
@@ -597,6 +618,13 @@ export default function PropLab() {
     }, [])
   );
 
+  useEffect(() => {
+    if (!currentLabSlateDate) return;
+    if (!selectedSlateDate || selectedSlateDate === currentLabSlateDate) {
+      setSelectedSlateDate(currentLabSlateDate);
+    }
+  }, [currentLabSlateDate, selectedSlateDate]);
+
   const sectionA = report?.sections?.A;
   const sectionB = report?.sections?.B;
   const sectionC = report?.sections?.C;
@@ -614,13 +642,18 @@ export default function PropLab() {
   const leagueSplit = report?.leagueSplit || report?.sections?.L;
 
   const slateTrackedProps = useMemo(() => {
-    if (!currentLabSlateDate) return [];
+    if (!viewedSlateDate) return [];
     const archive = archives.find(
-      (item) => String(item.slateDate) === currentLabSlateDate
+      (item) => String(item.slateDate) === viewedSlateDate
     );
     if (archive?.props?.length) return archive.props;
-    return trackedProps.filter((p) => p.slateDate === currentLabSlateDate);
-  }, [trackedProps, currentLabSlateDate, archives]);
+    return trackedProps.filter((p) => p.slateDate === viewedSlateDate);
+  }, [trackedProps, viewedSlateDate, archives]);
+
+  const labTrackingSummary = useMemo(
+    () => computeLabSlateTrackingSummary(slateTrackedProps, sectionA),
+    [slateTrackedProps, sectionA]
+  );
 
   const officialSlateProps = useMemo(() => {
     return slateTrackedProps.filter(isOfficialTrackingProp);
@@ -661,12 +694,12 @@ export default function PropLab() {
   );
 
   const labSnapshot = useMemo(() => {
-    if (!currentLabSlateDate) return null;
+    if (!viewedSlateDate) return null;
     if (sectionP && !sectionP.snapshotMissing) return sectionP;
     return buildSlateResultsSnapshot(slateTrackedProps, {
-      slateDate: currentLabSlateDate,
+      slateDate: viewedSlateDate,
     });
-  }, [sectionP, slateTrackedProps, currentLabSlateDate]);
+  }, [sectionP, slateTrackedProps, viewedSlateDate]);
 
   const contradictionPerf = useMemo(
     () => computeContradictionPerformance(testSlateProps),
@@ -691,6 +724,9 @@ export default function PropLab() {
       loading,
       building,
       refreshing,
+      viewedSlateDate,
+      isViewingHistoricalReport,
+      labTrackingSummary,
     });
 
   return (
@@ -713,8 +749,42 @@ export default function PropLab() {
             label="Reports Available"
             value={String(validCompletedReports.length)}
           />
+          <MetricRow
+            label="History Slates"
+            value={String(historySlateCount)}
+          />
           <CopyReportButton getReportText={getReportText} />
         </View>
+
+        {validCompletedReports.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.slatePicker}
+            contentContainerStyle={styles.slatePickerContent}
+          >
+            {validCompletedReports.map((item) => {
+              const slateDate = String(item.slateDate);
+              const isActive = slateDate === viewedSlateDate;
+              return (
+                <TouchableOpacity
+                  key={slateDate}
+                  style={[styles.slateChip, isActive && styles.slateChipActive]}
+                  onPress={() => handleSelectSlate(slateDate)}
+                >
+                  <Text
+                    style={[
+                      styles.slateChipText,
+                      isActive && styles.slateChipTextActive,
+                    ]}
+                  >
+                    {formatSlateLabel(slateDate)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -742,19 +812,57 @@ export default function PropLab() {
 
         {report ? (
           <View style={styles.labBanner}>
-            <Text style={styles.labBannerTitle}>Current Lab Slate</Text>
-            <Text style={styles.labBannerNote}>
-              This slate remains in Lab until the next completed slate replaces it. Older
-              completed slates move to History automatically.
-            </Text>
+            {isViewingHistoricalReport ? (
+              <>
+                <Text style={styles.labBannerTitle}>
+                  Viewing Report: {formatSlateLabel(viewedSlateDate || "")}
+                </Text>
+                {currentLabSlateDate ? (
+                  <Text style={styles.activeNote}>
+                    Current Lab Slate: {formatSlateLabel(currentLabSlateDate)}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.labBannerTitle}>
+                  Current Lab Slate: {formatSlateLabel(viewedSlateDate || "")}
+                </Text>
+                <Text style={styles.labBannerNote}>
+                  This slate remains in Lab until the next completed slate replaces it. Older
+                  completed slates move to History automatically.
+                </Text>
+              </>
+            )}
           </View>
         ) : null}
 
         {sectionA ? (
           <SectionCard title="Tracked Slate Summary">
-            <MetricRow label="Total tracked" value={String(slateTrackedProps.length)} />
-            <MetricRow label="Official" value={String(officialRecord.total)} />
-            <MetricRow label="Test / learning" value={String(testRecord.total)} />
+            <MetricRow
+              label="Total Props"
+              value={String(labTrackingSummary.totalProps)}
+            />
+            <MetricRow
+              label="Official Props"
+              value={String(labTrackingSummary.officialProps)}
+            />
+            <MetricRow
+              label="Test / Watchlist Props"
+              value={String(labTrackingSummary.testWatchlistProps)}
+            />
+            {labTrackingSummary.legacyLeanProps > 0 ? (
+              <MetricRow
+                label="Legacy LEAN Props"
+                value={String(labTrackingSummary.legacyLeanProps)}
+              />
+            ) : null}
+            {labTrackingSummary.legacyWatchlistProps > 0 ? (
+              <MetricRow
+                label="Legacy WATCHLIST Props"
+                value={String(labTrackingSummary.legacyWatchlistProps)}
+              />
+            ) : null}
             <MetricRow
               label="Reader official demoted"
               value={String(readerOfficialDemotedRecord.total)}

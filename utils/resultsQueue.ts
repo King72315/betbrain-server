@@ -1,5 +1,6 @@
 import { formatTeam } from "../components/PropCard";
 import { getPickSlateDate } from "./historyArchive";
+import { inferTrackingType } from "./labTrackingInference";
 import {
   computeSlateRotation,
   getBlockingActiveResultsSlateDate,
@@ -231,8 +232,7 @@ export type AccuracySummary = {
 };
 
 export function isTestTrackingProp(prop: any = {}): boolean {
-  const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
-  return trackingType === "TEST";
+  return inferTrackingType(prop) === "TEST";
 }
 
 export function isReaderOfficialDemotedProp(prop: any = {}): boolean {
@@ -244,12 +244,7 @@ export function isReaderUncertainTestProp(prop: any = {}): boolean {
 }
 
 export function isOfficialTrackingProp(prop: any = {}): boolean {
-  const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
-  if (trackingType === "TEST" || trackingType === "NO_BET") return false;
-  if (trackingType === "OFFICIAL") return true;
-  if (prop.excludedFromOfficialRecord === true) return false;
-  if (prop.preV1Shadow === true || prop.excludedFromV1OfficialRecord === true) return false;
-  return true;
+  return inferTrackingType(prop) === "OFFICIAL";
 }
 
 export function splitResultsPropsByTrackingType(props: any[] = []) {

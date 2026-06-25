@@ -22,6 +22,11 @@ import {
   AWAITING_STATS_LABEL,
 } from "./resultsQueue";
 import { filterCompletedDailyReports, getTodayLocalDate, isOnOrAfterCleanDataCutoff } from "./slateRotation";
+import {
+  type LabSlateTrackingSummary,
+  computeLabSlateTrackingSummary,
+  formatLabTrackingSummaryLine,
+} from "./labTrackingInference";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -756,6 +761,9 @@ export function buildPropLabReport(input: {
   building: boolean;
   refreshing: boolean;
   error?: string | null;
+  viewedSlateDate?: string | null;
+  isViewingHistoricalReport?: boolean;
+  labTrackingSummary?: LabSlateTrackingSummary | null;
 }) {
   const sectionA = input.report?.sections?.A;
   const sectionB = input.report?.sections?.B;
@@ -770,6 +778,15 @@ export function buildPropLabReport(input: {
   const leagueSplit = input.report?.leagueSplit || input.report?.sections?.L;
   const status = sectionA?.reportStatus || input.report?.status || "—";
   const currentLabSlateDate = input.rotation.currentLabSlateDate;
+  const viewedSlateDate = input.viewedSlateDate || currentLabSlateDate;
+  const isViewingHistorical =
+    input.isViewingHistoricalReport ??
+    Boolean(
+      viewedSlateDate && currentLabSlateDate && viewedSlateDate !== currentLabSlateDate
+    );
+  const labTrackingSummary =
+    input.labTrackingSummary ||
+    computeLabSlateTrackingSummary([], sectionA);
 
   const engineLines = (engineScorecard?.engines || []).map(
     (engine: any) =>
@@ -843,7 +860,7 @@ export function buildPropLabReport(input: {
     )
   );
   const reportsAvailable = validCompletedReports.length;
-  const hasLabSlate = Boolean(currentLabSlateDate && input.report);
+  const hasLabSlate = Boolean(viewedSlateDate && input.report);
   const allTimeRecord = hasLabSlate && analyticsOverall?.currentEngine
     ? `${analyticsOverall.currentEngine.wins}-${analyticsOverall.currentEngine.losses}-${analyticsOverall.currentEngine.pushes} (${analyticsOverall.currentEngine.accuracy}%)`
     : "—";
@@ -854,13 +871,15 @@ export function buildPropLabReport(input: {
 
   return buildPageReport({
     page: "Prop Lab",
-    leagueFilter: selectedSlateLabel(currentLabSlateDate),
+    leagueFilter: selectedSlateLabel(viewedSlateDate),
     lastUpdated: input.report?.updatedAt || input.report?.builtAt || null,
     dataSource: "GET /daily-slate-reports, /tracked-analytics",
     extraContext: {
+      "Viewed Slate": viewedSlateDate || "—",
       "Current Lab Slate": currentLabSlateDate || "—",
+      "Viewing Historical": isViewingHistorical ? "yes" : "no",
       "History Slates": input.rotation.historySlates.length,
-      "Active / In-Progress": 0,
+      "Active / In-Progress": input.rotation.activeResults.length,
       "Report Status": hasLabSlate ? status : "—",
       "Reports Available": reportsAvailable,
       "Backend URL": backendUrl,
@@ -870,13 +889,16 @@ export function buildPropLabReport(input: {
       Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
-      currentLabSlateDate
+      isViewingHistorical && viewedSlateDate
+        ? `Viewing Report: ${selectedSlateLabel(viewedSlateDate)}`
+        : viewedSlateDate
+          ? `Current Lab Slate: ${selectedSlateLabel(viewedSlateDate)}`
+          : "No completed Lab slate yet. Current active slate remains in Results.",
+      isViewingHistorical && currentLabSlateDate
         ? `Current Lab Slate: ${selectedSlateLabel(currentLabSlateDate)}`
-        : "No completed Lab slate yet. Current active slate remains in Results.",
-      hasLabSlate ? `Report status: ${String(status).toUpperCase()}` : null,
-      sectionA
-        ? `Tracked: ${sectionA.totalTrackedProps || 0} | Official: ${sectionA.officialPropsCount || sectionA.totalOfficialProps || 0} | Test: ${sectionA.testPropsCount || 0} | Graded/Pending: ${sectionA.graded}/${sectionA.pending}`
         : null,
+      hasLabSlate ? `Report status: ${String(status).toUpperCase()}` : null,
+      sectionA ? formatLabTrackingSummaryLine(labTrackingSummary) : null,
       sectionA
         ? `Slate record (pooled): ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`
         : null,
@@ -903,9 +925,14 @@ export function buildPropLabReport(input: {
           : "All-time tracked engine: —",
     ]),
     mainData: joinLines([
-      currentLabSlateDate
-        ? `Current Lab Slate (${selectedSlateLabel(currentLabSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
-        : "No completed Lab slate yet. Current active slate remains in Results.",
+      isViewingHistorical && viewedSlateDate
+        ? `Viewing Report (${selectedSlateLabel(viewedSlateDate)})`
+        : viewedSlateDate
+          ? `Current Lab Slate (${selectedSlateLabel(viewedSlateDate)})\nThis slate remains in Lab until the next completed slate replaces it.`
+          : "No completed Lab slate yet. Current active slate remains in Results.",
+      isViewingHistorical && currentLabSlateDate
+        ? `Active Lab slate: ${selectedSlateLabel(currentLabSlateDate)}`
+        : null,
       sectionA
         ? `Daily Slate Report\nLeagues: ${(sectionA.leagues || []).join(", ") || "—"}`
         : null,
