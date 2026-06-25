@@ -22,6 +22,7 @@ import {
   AWAITING_STATS_LABEL,
 } from "./resultsQueue";
 import { filterCompletedDailyReports, getTodayLocalDate, isOnOrAfterCleanDataCutoff } from "./slateRotation";
+import { formatSlateMessageDate } from "./slateMessages";
 import {
   type LabSlateTrackingSummary,
   computeLabSlateTrackingSummary,
@@ -545,6 +546,7 @@ export function buildResultsReport(input: {
   const takeaways = buildKeyTakeaways(accuracy);
   const todayLocalDate = getTodayLocalDate();
   const activeSlateDate = input.visibleSlates[0]?.slateDate || todayLocalDate;
+  const activeSlateLabel = formatSlateMessageDate(activeSlateDate);
 
   const formatResultPropLine = (prop: any, index: number) => {
     const status = getTrackedPropStatus(prop);
@@ -584,8 +586,8 @@ export function buildResultsReport(input: {
     };
 
     return joinLines([
-      `--- Active Slate: ${slate.slateDate} ---`,
-      `Current Results Slate: ${activeSlateDate}`,
+      `--- Active Slate: ${formatSlateMessageDate(slate.slateDate)} ---`,
+      `Current Results Slate: ${slate.slateDate}`,
       `Total Tracked Props: ${slate.summary?.total ?? slateProps.length}`,
       `Official Props: ${officialAccuracy.total} | Test / Learning Props: ${testAccuracy.total}`,
       `Graded: ${slate.summary?.graded ?? 0} | Pending: ${slate.summary?.pending ?? 0} | Awaiting Stats: ${slate.summary?.failed ?? 0}`,
@@ -599,7 +601,9 @@ export function buildResultsReport(input: {
         AWAITING_STATS_LABEL
       ),
       formatGameStateBlock("Game Not Final — Live / Upcoming", gameState.livePending),
-      !slateProps.length ? "No tracked props in this view." : null,
+      !slateProps.length
+        ? `No tracked props for ${formatSlateMessageDate(slate.slateDate)} slate in this view.`
+        : null,
     ]);
   });
 
@@ -607,6 +611,7 @@ export function buildResultsReport(input: {
     "--- Accuracy Summary ---",
     `Today (CT): ${todayLocalDate}`,
     `Results rule: today's tracked props only`,
+    `Active Results slate: ${activeSlateLabel}`,
     `Total Tracked: ${accuracy.total}`,
     `Official Props: ${officialAccuracy.total}`,
     `Test / Learning Props: ${testAccuracy.total}`,
@@ -620,6 +625,7 @@ export function buildResultsReport(input: {
   const pendingCheckBlock = pendingCheck
     ? joinLines([
         "--- Pending Check Summary ---",
+        `Active slate: ${activeSlateLabel}`,
         `Checked: ${pendingCheck.checked}`,
         `Graded: ${pendingCheck.graded}`,
         `Still Pending: ${pendingCheck.stillPending}`,
@@ -629,6 +635,7 @@ export function buildResultsReport(input: {
     : input.resolveCheckMessage
       ? joinLines([
           "--- Pending Check Summary ---",
+          `Active slate: ${activeSlateLabel}`,
           `Last check message: ${input.resolveCheckMessage}`,
         ])
       : null;

@@ -193,6 +193,8 @@ import {
 } from "./services/reslate0622V1Service.js";
 import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
 import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Service.js";
+import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
+import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
   isOfficialPick,
   isTestPick,
@@ -206,7 +208,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-decision-intelligence-v1";
+const SERVER_BUILD = "courteedge-lab-history-message-cleanup-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2556,21 +2558,31 @@ app.get("/tracked-props/analytics", (req, res) => {
 
 app.post("/resolve-tracked-props", async (req, res) => {
   try {
+    const beforeProps = getTrackedProps();
+    const rawReports = getRawDailySlateReports();
+    const archives = getAllHistoryArchives();
+    const lockedSlates = getLockedSlatesRegistry().slates || [];
+
     const { props, summary } = await resolveTrackedProps({
       requireLikelyFinished: Boolean(req.body?.requireLikelyFinished),
     });
 
+    const scopedSummary = buildScopedResolveSummary({
+      beforeProps,
+      afterProps: props,
+      summary,
+      reports: rawReports,
+      lockedSlates,
+      archives,
+    });
+
     res.json({
       ok: true,
-      message: "Tracked props resolved",
+      message: scopedSummary.checkMessage || "Tracked props resolved",
       props,
-      summary,
+      summary: scopedSummary,
       analytics: buildTrackedPropAnalytics(
-        getAnalyticsScopeProps(
-          props,
-          getRawDailySlateReports(),
-          getAllHistoryArchives()
-        )
+        getAnalyticsScopeProps(props, rawReports, archives)
       ),
     });
   } catch (error) {
@@ -3189,6 +3201,44 @@ app.post("/admin/reslate-0622-test", requireAdminSecret, async (req, res) => {
     res.status(500).json({
       ok: false,
       message: "06/22 TEST reslate failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/repair-lab-history-0625", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        targetLabDate: "2026-06-24",
+        archiveDate: "2026-06-21",
+      });
+    }
+
+    const result = repairLabHistoryMessages0625({
+      dryRun,
+      restorePath: req.body?.restorePath,
+      backupReason:
+        req.body?.backupReason || "pre-lab-history-message-cleanup-v1-0625",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Lab/History message cleanup repair dry-run complete"
+        : "Lab/History message cleanup repair applied",
+      result,
+    });
+  } catch (error) {
+    console.log("REPAIR LAB HISTORY 0625 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab/History message cleanup repair failed",
       error: error.message,
     });
   }

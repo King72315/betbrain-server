@@ -33,6 +33,7 @@ import {
   getTrackedPropStatus,
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
+  countNewlyGradedPropsOnSlate,
   pickResolveCheckMessage,
   type ResolveCheckStatus,
   splitResultsPropsByTrackingType,
@@ -40,7 +41,7 @@ import {
   isReaderOfficialDemotedProp,
   isReaderUncertainTestProp,
   isPriorSlateStillActive,
-  PRIOR_SLATE_STILL_ACTIVE_LABEL,
+  formatPriorSlateStillActiveLabel,
   summarizeActiveResultsSlate,
   type ResultsFilter,
 } from "../../utils/resultsQueue";
@@ -177,21 +178,36 @@ export default function ResultsScreen() {
   const handleResolveAll = async () => {
     try {
       setResolving(true);
-      setCheckStatus({ message: "Checking pending results...", type: "info" });
       const beforeVisible = computeVisibleResultsSlates(
         trackedProps,
         reports,
         getTodayLocalDate(),
         lockedSlates
       );
+      const activeDateBefore =
+        beforeVisible[0]?.slateDate || activeResultsSummary.activeSlateDate;
+      setCheckStatus({
+        message: activeDateBefore
+          ? `Checking ${activeDateBefore} slate pending results...`
+          : "Checking pending results...",
+        type: "info",
+      });
 
       const resolved = await resolveTrackedProps({ requireLikelyFinished: false });
-      setLastResolveSummary(resolved.summary || null);
-
       const nextTracked = resolved.props?.length ? resolved.props : trackedProps;
       if (resolved.props?.length) {
         setTrackedProps(resolved.props);
       }
+
+      const activeSlateGradedCount = countNewlyGradedPropsOnSlate(
+        nextTracked,
+        beforeVisible[0]?.props || [],
+        activeDateBefore
+      );
+      setLastResolveSummary({
+        ...(resolved.summary || {}),
+        activeSlateGradedCount,
+      });
 
       await buildDailySlateReports();
       const reportData = await fetchDailySlateReports();
@@ -204,8 +220,14 @@ export default function ResultsScreen() {
         getTodayLocalDate(),
         lockedSlates
       );
-      const afterRotation = computeSlateRotation(nextReports, lockedSlates);
-      const afterAccuracy = computeAccuracySummary(afterVisible);
+      const afterRotation = computeSlateRotation(nextReports, {
+        lockedSlates,
+        trackedProps: nextTracked,
+      });
+      const scopedAfter = activeDateBefore
+        ? afterVisible.filter((slate) => slate.slateDate === activeDateBefore)
+        : afterVisible;
+      const afterAccuracy = computeAccuracySummary(scopedAfter);
       setCheckStatus(
         pickResolveCheckMessage({
           beforeVisible,
@@ -213,6 +235,8 @@ export default function ResultsScreen() {
           afterRotation,
           gradedCount: resolved.summary?.gradedCount ?? 0,
           awaitingStatsCount: afterAccuracy.awaitingStats,
+          activeResultsSlateDate: activeDateBefore,
+          gradedCountForActiveSlate: activeSlateGradedCount,
         })
       );
     } catch (err) {
@@ -377,6 +401,7 @@ export default function ResultsScreen() {
             getReportText={getReportText}
             label="Copy Results Report"
             style={styles.actionRowItem}
+            slateDate={activeResultsSummary.activeSlateDate}
           />
           <TouchableOpacity
             style={[
@@ -425,7 +450,9 @@ export default function ResultsScreen() {
             <Text style={styles.noOfficialNote}>No Official Plays Found</Text>
           ) : null}
           {priorSlateStillActive ? (
-            <Text style={styles.priorSlateNote}>{PRIOR_SLATE_STILL_ACTIVE_LABEL}</Text>
+            <Text style={styles.priorSlateNote}>
+              {formatPriorSlateStillActiveLabel(activeResultsSummary.activeSlateDate)}
+            </Text>
           ) : null}
           <View style={styles.accuracyGrid}>
             <SummaryBox label="Total Tracked" value={trackedSummary.total} color="#e2e8f0" />

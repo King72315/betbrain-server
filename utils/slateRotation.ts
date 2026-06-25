@@ -449,8 +449,12 @@ export function sortReportsByDateDesc(reports: any[]) {
   );
 }
 
+import { formatPriorSlateStillActiveLabel } from "./slateMessages";
+
 export const PRIOR_SLATE_STILL_ACTIVE_LABEL =
-  "Still resolving prior slate. Newer slate remains on board until this slate closes.";
+  "Still resolving prior slate. Newer slate remains on board until that slate closes.";
+
+export { formatPriorSlateStillActiveLabel };
 
 /** True when the active Results slate is before today (prior slate still open). */
 export function isPriorSlateStillActive(

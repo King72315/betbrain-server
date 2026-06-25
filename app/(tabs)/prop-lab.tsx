@@ -43,6 +43,7 @@ import {
   computeLabSlateTrackingSummary,
   formatLabTrackingSummaryLine,
 } from "../../utils/labTrackingInference";
+import { formatSlateMessageDate } from "../../utils/slateMessages";
 
 function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
   return (
@@ -311,13 +312,23 @@ function EngineScorecardSection({ scorecard }: { scorecard: any }) {
   );
 }
 
-function MistakeBreakdownSection({ breakdown }: { breakdown: any }) {
+function MistakeBreakdownSection({
+  breakdown,
+  slateDate,
+}: {
+  breakdown: any;
+  slateDate?: string | null;
+}) {
   if (!breakdown) {
     return <Text style={styles.muted}>No mistake breakdown yet.</Text>;
   }
 
   if ((breakdown.totalLosses || 0) === 0) {
-    return <Text style={styles.muted}>No losses on this slate.</Text>;
+    return (
+      <Text style={styles.muted}>
+        No losses on {formatSlateMessageDate(slateDate)} slate.
+      </Text>
+    );
   }
 
   const categories = Object.values(breakdown.categories || {}).filter(
@@ -779,7 +790,7 @@ export default function PropLab() {
             label="History Slates"
             value={String(historySlateCount)}
           />
-          <CopyReportButton getReportText={getReportText} />
+          <CopyReportButton getReportText={getReportText} slateDate={viewedSlateDate} />
         </View>
 
         {validCompletedReports.length > 1 ? (
@@ -855,8 +866,9 @@ export default function PropLab() {
                   Current Lab Slate: {formatSlateLabel(viewedSlateDate || "")}
                 </Text>
                 <Text style={styles.labBannerNote}>
-                  This slate remains in Lab until the next completed slate replaces it. Older
-                  completed slates move to History automatically.
+                  {formatSlateMessageDate(viewedSlateDate)} slate remains in Lab until the next
+                  completed slate replaces it. Older completed slates move to History
+                  automatically.
                 </Text>
               </>
             )}
@@ -1041,7 +1053,8 @@ export default function PropLab() {
         ) : sectionO?.snapshotMissing ? (
           <SectionCard title="Controlled Best 6 Performance">
             <Text style={styles.muted}>
-              {sectionO.message || "No Best 6 snapshot found for this slate."}
+              {sectionO.message ||
+                `No Best 6 snapshot found for ${formatSlateMessageDate(viewedSlateDate)} slate.`}
             </Text>
           </SectionCard>
         ) : null}
@@ -1072,7 +1085,8 @@ export default function PropLab() {
             {sectionM.snapshotMissing ? (
               <SectionCard title="Top Picks Selection Review">
                 <Text style={styles.muted}>
-                  {sectionM.message || "No Top Picks snapshot found for this slate."}
+                  {sectionM.message ||
+                    `No Top Picks snapshot found for ${formatSlateMessageDate(viewedSlateDate)} slate.`}
                 </Text>
               </SectionCard>
             ) : (
@@ -1164,7 +1178,9 @@ export default function PropLab() {
           </>
         ) : (
           <SectionCard title="Top Picks Selection Review">
-            <Text style={styles.muted}>No Top Picks snapshot found for this slate.</Text>
+            <Text style={styles.muted}>
+              No Top Picks snapshot found for {formatSlateMessageDate(viewedSlateDate)} slate.
+            </Text>
           </SectionCard>
         )}
 
@@ -1466,7 +1482,7 @@ export default function PropLab() {
 
         {mistakeBreakdown ? (
           <SectionCard title="Mistake Breakdown">
-            <MistakeBreakdownSection breakdown={mistakeBreakdown} />
+            <MistakeBreakdownSection breakdown={mistakeBreakdown} slateDate={viewedSlateDate} />
           </SectionCard>
         ) : null}
 
@@ -1545,7 +1561,9 @@ export default function PropLab() {
         {sectionE ? (
           <SectionCard title="Loss Detail (Legacy)">
             {(sectionE.losses || []).length === 0 ? (
-              <Text style={styles.muted}>No losses on this slate.</Text>
+              <Text style={styles.muted}>
+                No losses on {formatSlateMessageDate(viewedSlateDate)} slate.
+              </Text>
             ) : (
               sectionE.losses.map((loss: any, index: number) => (
                 <View key={`${loss.player}-${index}`} style={styles.lossRow}>
@@ -1639,7 +1657,9 @@ export default function PropLab() {
 
         <SectionCard title="Raw Tracked Props (Slate Sample)">
           {slateTrackedProps.length === 0 ? (
-            <Text style={styles.muted}>No tracked props for this slate.</Text>
+            <Text style={styles.muted}>
+              No tracked props for {formatSlateMessageDate(viewedSlateDate)} slate.
+            </Text>
           ) : (
             slateTrackedProps.slice(0, 24).map((prop, index) => (
               <View key={prop.trackedId || prop.trackedKey || index} style={styles.rawPropRow}>

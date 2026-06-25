@@ -8,24 +8,28 @@ import {
 } from "react-native";
 
 import { copyTextToClipboard } from "../utils/copyReport";
+import { formatSlateMessageDate } from "../utils/slateMessages";
 
 type CopyReportButtonProps = {
   getReportText: () => string;
   label?: string;
   style?: ViewStyle;
+  slateDate?: string | null;
 };
 
 export default function CopyReportButton({
   getReportText,
   label = "Copy Page Report",
   style,
+  slateDate,
 }: CopyReportButtonProps) {
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleCopy = async () => {
     const text = getReportText();
     const ok = await copyTextToClipboard(text);
-    setFeedback(ok ? "Report copied" : "Failed to copy");
+    const dateSuffix = slateDate ? ` (${formatSlateMessageDate(slateDate)})` : "";
+    setFeedback(ok ? `Report copied${dateSuffix}` : "Failed to copy report");
 
     setTimeout(() => {
       setFeedback(null);

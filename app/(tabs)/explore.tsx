@@ -21,6 +21,8 @@ import {
 import { formatApiLoadError } from "../../utils/apiLoadError";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
 import { buildLeagueBoardReport } from "../../utils/reportBuilders";
+import { getTodayLocalDate } from "../../utils/slateRotation";
+import { formatSlateMessageDate } from "../../utils/slateMessages";
 
 const FILTERS = ["ALL", "NBA", "WNBA"] as const;
 
@@ -126,10 +128,20 @@ export default function ExploreScreen() {
       savedAt: new Date().toISOString(),
     });
 
+    const slateDate = String(
+      pick.gameDate || pick.date || game.date || getTodayLocalDate()
+    ).slice(0, 10);
+
     if (saved.ok) {
-      Alert.alert("Pick Saved", `${pick.player} ${pick.pick} ${pick.line}`);
+      Alert.alert(
+        "Pick Saved",
+        `${formatSlateMessageDate(slateDate)} slate: ${pick.player} ${pick.pick} ${pick.line}`
+      );
     } else {
-      Alert.alert("Save Failed", saved.message || "Could not save pick.");
+      Alert.alert(
+        "Save Failed",
+        saved.message || `Could not save pick for ${formatSlateMessageDate(slateDate)} slate.`
+      );
     }
   };
 

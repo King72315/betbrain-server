@@ -19,6 +19,8 @@ import {
 } from "../../services/api";
 import { formatApiLoadError } from "../../utils/apiLoadError";
 import { buildTopPropsReport } from "../../utils/reportBuilders";
+import { getTodayLocalDate } from "../../utils/slateRotation";
+import { formatSlateMessageDate } from "../../utils/slateMessages";
 
 type DisplayCard = {
   pick: any;
@@ -112,10 +114,18 @@ export default function TopPropsScreen() {
       savedAt: new Date().toISOString(),
     });
 
+    const slateDate = String(pick.gameDate || pick.date || getTodayLocalDate()).slice(0, 10);
+
     if (saved.ok) {
-      Alert.alert("Pick Saved", `${pick.player} ${pick.pick} ${pick.line}`);
+      Alert.alert(
+        "Pick Saved",
+        `${formatSlateMessageDate(slateDate)} slate: ${pick.player} ${pick.pick} ${pick.line}`
+      );
     } else {
-      Alert.alert("Save Failed", saved.message || "Could not save pick.");
+      Alert.alert(
+        "Save Failed",
+        saved.message || `Could not save pick for ${formatSlateMessageDate(slateDate)} slate.`
+      );
     }
   };
 

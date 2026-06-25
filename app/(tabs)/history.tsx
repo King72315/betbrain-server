@@ -17,6 +17,7 @@ import {
   fetchDailySlateReports,
   fetchHistoryArchives,
   fetchPickHistory,
+  fetchTrackedProps,
 } from "../../services/api";
 import {
   HISTORY_FILTERS,
@@ -130,7 +131,14 @@ function HistoryEntryCard({
       {expanded ? (
         <View style={styles.entryDetails}>
           {!showPerformance && entry.emptyLabel ? (
-            <Text style={styles.emptyArchiveNote}>{entry.emptyLabel}</Text>
+            <Text
+              style={[
+                styles.emptyArchiveNote,
+                entry.metadataOnly ? styles.emptyArchiveError : null,
+              ]}
+            >
+              {entry.emptyLabel}
+            </Text>
           ) : null}
 
           {lesson ? (
@@ -206,6 +214,7 @@ function HistoryEntryCard({
 }
 
 export default function History() {
+  const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [picks, setPicks] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [archives, setArchives] = useState<any[]>([]);
@@ -231,15 +240,17 @@ export default function History() {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const [pickData, reportData, archiveData] = await Promise.all([
+      const [pickData, reportData, archiveData, trackedData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchHistoryArchives(),
+        fetchTrackedProps(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
       setArchives(archiveData.archives || []);
+      setTrackedProps(trackedData.props || []);
       setRotationMeta({
         currentLabSlateDate: reportData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
@@ -256,15 +267,17 @@ export default function History() {
   const refreshHistory = async () => {
     try {
       setRefreshing(true);
-      const [pickData, reportData, archiveData] = await Promise.all([
+      const [pickData, reportData, archiveData, trackedData] = await Promise.all([
         fetchPickHistory(),
         fetchDailySlateReports(),
         fetchHistoryArchives(),
+        fetchTrackedProps(),
       ]);
 
       setPicks(pickData.picks || []);
       setReports(filterValidDailyReports(reportData.reports || []));
       setArchives(archiveData.archives || []);
+      setTrackedProps(trackedData.props || []);
       setRotationMeta({
         currentLabSlateDate: reportData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
@@ -284,7 +297,7 @@ export default function History() {
   );
 
   const rotation = useMemo(() => {
-    const base = computeSlateRotation(reports, { archives });
+    const base = computeSlateRotation(reports, { archives, trackedProps });
     return {
       ...base,
       currentLabSlateDate:
@@ -294,16 +307,11 @@ export default function History() {
           ? rotationMeta.historySlateDates
           : base.historySlateDates,
     };
-  }, [reports, archives, rotationMeta]);
-
-  const archiveTrackedProps = useMemo(
-    () => archives.flatMap((archive) => archive?.props || []),
-    [archives]
-  );
+  }, [reports, archives, trackedProps, rotationMeta]);
 
   const entries = useMemo(
-    () => buildHistoryEntries(picks, reports, archiveTrackedProps, archives),
-    [picks, reports, archiveTrackedProps, archives]
+    () => buildHistoryEntries(picks, reports, trackedProps, archives),
+    [picks, reports, trackedProps, archives]
   );
 
   const retainedEntries = useMemo(
@@ -472,10 +480,18 @@ export default function History() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No archived entries visible.</Text>
             <Text style={styles.emptyText}>
-              Graded saved picks and older completed Lab slates appear here automatically
-              within {HISTORY_RETENTION_DAYS} days. The current Lab slate is not duplicated
-              here. Use Clear History to hide display only — nothing is deleted on the server.
+              {rotation.historySlateDates.length > 0
+                ? `Archived slate dates on server: ${rotation.historySlateDates.join(", ")}. They may be hidden by the ${HISTORY_RETENTION_DAYS}-day display rule, filtered out, or cleared locally.`
+                : `Graded saved picks and older completed Lab slates appear here automatically within ${HISTORY_RETENTION_DAYS} days.`}{" "}
+              The current Lab slate
+              {rotation.currentLabSlateDate
+                ? ` (${rotation.currentLabSlateDate})`
+                : ""}{" "}
+              is not duplicated here.
             </Text>
+            {loadError ? (
+              <Text style={styles.emptyArchiveError}>Load error: {loadError}</Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -845,5 +861,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     marginBottom: 10,
+  },
+  emptyArchiveError: {
+    color: "#fca5a5",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 8,
   },
 });

@@ -2,6 +2,10 @@ import { formatTeam } from "../components/PropCard";
 import { getPickSlateDate } from "./historyArchive";
 import { inferTrackingType } from "./labTrackingInference";
 import {
+  formatSlateMessageDate,
+  formatSlateMovedToLabMessage,
+} from "./slateMessages";
+import {
   computeSlateRotation,
   getBlockingActiveResultsSlateDate,
   getReportPending,
@@ -389,7 +393,7 @@ export type PendingCheckSummary = {
   awaitingStats: number;
 };
 
-/** User-facing summary from the last resolve check — avoids raw backend counts in UI. */
+/** User-facing summary from the last resolve check — scoped to the active Results slate. */
 export function computePendingCheckSummary(
   lastResolveSummary: any | null,
   visibleSlates: ActiveResultsSlate[] = []
@@ -397,13 +401,44 @@ export function computePendingCheckSummary(
   if (!lastResolveSummary) return null;
 
   const accuracy = computeAccuracySummary(visibleSlates);
+  const activeGraded =
+    lastResolveSummary.activeSlateGradedCount ?? lastResolveSummary.gradedCount ?? 0;
 
   return {
-    checked: lastResolveSummary.gradeable ?? 0,
-    graded: lastResolveSummary.gradedCount ?? 0,
-    stillPending: lastResolveSummary.stillPending ?? 0,
+    checked: accuracy.total,
+    graded: activeGraded,
+    stillPending: accuracy.pending,
     awaitingStats: accuracy.awaitingStats,
   };
+}
+
+/** Count props newly graded on one slate between before/after resolve snapshots. */
+export function countNewlyGradedPropsOnSlate(
+  afterProps: any[] = [],
+  beforeProps: any[] = [],
+  slateDate: string | null | undefined
+): number {
+  if (!slateDate) return 0;
+
+  const beforeStatusByKey = new Map<string, TrackedPropStatus>();
+  for (const prop of beforeProps) {
+    if (getResultsPropSlateDate(prop) !== slateDate) continue;
+    const key = String(prop.id || prop.trackedId || prop.trackedKey || prop.player || "");
+    beforeStatusByKey.set(key, getTrackedPropStatus(prop));
+  }
+
+  let count = 0;
+  for (const prop of afterProps) {
+    if (getResultsPropSlateDate(prop) !== slateDate) continue;
+    const key = String(prop.id || prop.trackedId || prop.trackedKey || prop.player || "");
+    const beforeStatus = beforeStatusByKey.get(key) || "Pending";
+    const afterStatus = getTrackedPropStatus(prop);
+    const wasOpen = beforeStatus === "Pending" || beforeStatus === "Awaiting stats";
+    const isGraded = afterStatus === "Win" || afterStatus === "Loss" || afterStatus === "Push";
+    if (wasOpen && isGraded) count += 1;
+  }
+
+  return count;
 }
 
 /** Plain-English takeaways from accuracy counts for the Results dashboard. */
@@ -454,8 +489,8 @@ export function buildKeyTakeaways(
 
     bullets.push(
       promoted
-        ? "All props graded — slate complete. Moved to Lab."
-        : "All props graded. Lab report build pending."
+        ? `${formatSlateMessageDate(slateDate)} slate complete — moved to Lab.`
+        : `${formatSlateMessageDate(slateDate)} slate: all props graded. Lab report build pending.`
     );
   }
 
@@ -697,6 +732,8 @@ export type ResolveCheckMessageInput = {
   afterRotation: SlateRotation;
   gradedCount: number;
   awaitingStatsCount?: number;
+  activeResultsSlateDate?: string | null;
+  gradedCountForActiveSlate?: number;
 };
 
 export function isSlatePromotedToLab(
@@ -721,65 +758,104 @@ export type ResolveCheckStatus = {
   type: ResolveCheckStatusType;
 };
 
-/** User-facing message after Check Pending Results — UI only, no grading side effects. */
+/** User-facing message after Check Pending Results — scoped to activeResultsSlateDate only. */
 export function pickResolveCheckMessage(input: ResolveCheckMessageInput): ResolveCheckStatus {
-  const { beforeVisible, afterVisible, afterRotation, gradedCount, awaitingStatsCount } =
-    input;
+  const {
+    beforeVisible,
+    afterVisible,
+    afterRotation,
+    gradedCount,
+    awaitingStatsCount,
+    activeResultsSlateDate,
+    gradedCountForActiveSlate,
+  } = input;
 
-  const beforeDates = new Set(beforeVisible.map((slate) => slate.slateDate));
-  const afterDates = new Set(afterVisible.map((slate) => slate.slateDate));
-  const labDate = afterRotation.currentLabSlateDate;
-  const afterAccuracy = computeAccuracySummary(afterVisible);
+  const activeDate =
+    activeResultsSlateDate ||
+    afterRotation.activeResultsSlateDate ||
+    beforeVisible[0]?.slateDate ||
+    afterVisible[0]?.slateDate ||
+    null;
+  const dateLabel = formatSlateMessageDate(activeDate);
+
+  const activeAfter = activeDate
+    ? afterVisible.find((slate) => slate.slateDate === activeDate) || null
+    : afterVisible[0] || null;
+  const activeBefore = activeDate
+    ? beforeVisible.find((slate) => slate.slateDate === activeDate) || null
+    : beforeVisible[0] || null;
+
+  const scopedSlates = activeAfter ? [activeAfter] : afterVisible;
+  const afterAccuracy = computeAccuracySummary(scopedSlates);
   const awaitingStats = awaitingStatsCount ?? afterAccuracy.awaitingStats;
+  const pending = afterAccuracy.pending;
+  const gradedOnCheck =
+    gradedCountForActiveSlate ??
+    (activeDate ? Math.min(gradedCount, afterAccuracy.graded) : gradedCount);
 
-  if (labDate && beforeDates.has(labDate) && !afterDates.has(labDate)) {
-    if (isSlatePromotedToLab(labDate, afterRotation)) {
-      return {
-        message: "This slate has already been moved to the Lab.",
-        type: "warning",
-      };
-    }
-    return {
-      message: "All props graded. Lab report build pending.",
-      type: "info",
-    };
-  }
+  const labDate = afterRotation.currentLabSlateDate;
 
-  if (beforeVisible.length === 0 && labDate) {
+  if (
+    activeDate &&
+    labDate === activeDate &&
+    activeBefore &&
+    !activeAfter &&
+    isSlatePromotedToLab(labDate, afterRotation)
+  ) {
     return {
-      message: "This slate has already been moved to the Lab.",
-      type: "info",
-    };
-  }
-
-  if (gradedCount > 0) {
-    const noun = gradedCount === 1 ? "prop" : "props";
-    return {
-      message: `${gradedCount} ${noun} graded.`,
-      type: "success",
-    };
-  }
-
-  if (awaitingStats > 0) {
-    return {
-      message: "Awaiting stats from source.",
-      type: "info",
+      message: formatSlateMovedToLabMessage(labDate),
+      type: "warning",
     };
   }
 
   if (
-    afterAccuracy.total > 0 &&
-    afterAccuracy.pending === 0 &&
-    afterAccuracy.awaitingStats === 0
+    activeDate &&
+    labDate === activeDate &&
+    activeBefore &&
+    !activeAfter &&
+    !isSlatePromotedToLab(labDate, afterRotation)
   ) {
     return {
-      message: "All props already graded.",
+      message: `${dateLabel} slate: all props graded. Lab report build pending.`,
+      type: "info",
+    };
+  }
+
+  if (!activeDate) {
+    return {
+      message: "No active Results slate to check.",
+      type: "info",
+    };
+  }
+
+  if (gradedOnCheck > 0) {
+    const pendingSuffix =
+      pending > 0 ? `, ${pending} still pending` : "";
+    const awaitingSuffix =
+      awaitingStats > 0 ? `, ${awaitingStats} awaiting stats` : "";
+    return {
+      message: `${dateLabel} slate checked: ${gradedOnCheck} graded${pendingSuffix}${awaitingSuffix}.`,
+      type: "success",
+    };
+  }
+
+  if (pending > 0 || awaitingStats > 0) {
+    const openCount = pending + awaitingStats;
+    return {
+      message: `${dateLabel} slate checked: 0 graded, ${openCount} still pending.`,
+      type: "info",
+    };
+  }
+
+  if (afterAccuracy.total > 0 && pending === 0 && awaitingStats === 0) {
+    return {
+      message: `${dateLabel} slate checked: all ${afterAccuracy.graded} props already graded.`,
       type: "info",
     };
   }
 
   return {
-    message: "No new final scores yet.",
+    message: `${dateLabel} slate: no new final scores yet.`,
     type: "info",
   };
 }

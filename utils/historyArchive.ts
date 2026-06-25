@@ -43,6 +43,7 @@ export type HistoryEntry = {
   archiveLabel: string | null;
   picks: any[];
   reportSummary: any | null;
+  metadataOnly?: boolean;
 };
 
 export function getPickStatus(pick: any) {
@@ -152,19 +153,51 @@ function buildSavedPickEntries(picks: any[]): HistoryEntry[] {
 }
 
 function buildEntryFromArchive(archive: any): HistoryEntry | null {
-  if (!archive?.slateDate || !Array.isArray(archive.props) || !archive.props.length) {
-    return null;
-  }
+  if (!archive?.slateDate) return null;
 
   const report = archive.report || null;
   const sectionA = report?.sections?.A || report || {};
   const slateDate = String(archive.slateDate);
-  const slateProps = archive.props;
+  const slateProps = Array.isArray(archive.props) ? archive.props : [];
+  const hasProps = slateProps.length > 0;
+  const hasReport = Boolean(report && (report.sections || report.slateDate || report.status));
+
+  if (!hasProps && !hasReport) return null;
+
   const slateLesson = report?.slateLesson || report?.sections?.J;
   const graded = Number(sectionA.graded ?? 0);
   const total = Number(sectionA.totalOfficialProps ?? slateProps.length);
   const hasGradedPerformance =
     Boolean(report && isCompletedSlate(report)) || graded > 0;
+
+  if (!hasProps && hasReport) {
+    return {
+      id: `official-${slateDate}`,
+      type: "official-slate",
+      slateDate,
+      leagues: (sectionA.leagues || []).length ? sectionA.leagues : [],
+      wins: Number(sectionA.wins ?? 0),
+      losses: Number(sectionA.losses ?? 0),
+      pushes: Number(sectionA.pushes ?? 0),
+      pending: Number(sectionA.pending ?? 0),
+      graded,
+      total: total || 0,
+      winRate:
+        sectionA.overallWinRate !== null && sectionA.overallWinRate !== undefined
+          ? Math.round(Number(sectionA.overallWinRate))
+          : null,
+      netUnits: Number(sectionA.wins ?? 0) - Number(sectionA.losses ?? 0),
+      status: archive.phase === "ARCHIVED" ? "ARCHIVED LAB" : "ARCHIVED LAB",
+      hasGradedPerformance: false,
+      emptyLabel: `${slateDate} archive metadata found but prop bundle is missing`,
+      topLesson: slateLesson?.headline || slateLesson?.body || null,
+      archiveLabel:
+        archive.phase === "ARCHIVED" ? "Archived Slate" : "Archived Lab Slate",
+      picks: [],
+      reportSummary: report,
+      metadataOnly: true,
+    };
+  }
 
   return {
     id: `official-${slateDate}`,
@@ -192,6 +225,7 @@ function buildEntryFromArchive(archive: any): HistoryEntry | null {
       archive.phase === "ARCHIVED" ? "Archived Slate" : "Archived Lab Slate",
     picks: slateProps,
     reportSummary: report,
+    metadataOnly: false,
   };
 }
 
