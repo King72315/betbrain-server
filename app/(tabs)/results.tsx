@@ -34,6 +34,7 @@ import {
   groupResultsPropsByGame,
   groupResultsPropsByGameState,
   pickResolveCheckMessage,
+  type ResolveCheckStatus,
   splitResultsPropsByTrackingType,
   summarizeTrackingTypeCounts,
   isReaderOfficialDemotedProp,
@@ -67,6 +68,29 @@ function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
   );
 }
 
+function CheckStatusPanel({ status }: { status: ResolveCheckStatus }) {
+  const panelStyle = [
+    styles.checkStatusPanel,
+    status.type === "success" && styles.checkStatusSuccess,
+    status.type === "info" && styles.checkStatusInfo,
+    status.type === "warning" && styles.checkStatusWarning,
+    status.type === "error" && styles.checkStatusError,
+  ];
+  const textStyle = [
+    styles.checkStatusText,
+    status.type === "success" && styles.checkStatusTextSuccess,
+    status.type === "info" && styles.checkStatusTextInfo,
+    status.type === "warning" && styles.checkStatusTextWarning,
+    status.type === "error" && styles.checkStatusTextError,
+  ];
+
+  return (
+    <View style={panelStyle}>
+      <Text style={textStyle}>{status.message}</Text>
+    </View>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toUpperCase();
   let style = styles.statusPending;
@@ -96,7 +120,7 @@ export default function ResultsScreen() {
   const [resolving, setResolving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastResolveSummary, setLastResolveSummary] = useState<any>(null);
-  const [resolveCheckMessage, setResolveCheckMessage] = useState<string | null>(null);
+  const [checkStatus, setCheckStatus] = useState<ResolveCheckStatus | null>(null);
   const [lockedSlates, setLockedSlates] = useState<any[]>([]);
   const [todayLocalDate, setTodayLocalDate] = useState(() => getTodayLocalDate());
 
@@ -153,6 +177,7 @@ export default function ResultsScreen() {
   const handleResolveAll = async () => {
     try {
       setResolving(true);
+      setCheckStatus({ message: "Checking pending results...", type: "info" });
       const beforeVisible = computeVisibleResultsSlates(
         trackedProps,
         reports,
@@ -181,7 +206,7 @@ export default function ResultsScreen() {
       );
       const afterRotation = computeSlateRotation(nextReports, lockedSlates);
       const afterAccuracy = computeAccuracySummary(afterVisible);
-      setResolveCheckMessage(
+      setCheckStatus(
         pickResolveCheckMessage({
           beforeVisible,
           afterVisible,
@@ -192,7 +217,7 @@ export default function ResultsScreen() {
       );
     } catch (err) {
       console.log("RESOLVE RESULTS ERROR:", err);
-      setLoadError(String(err));
+      setCheckStatus({ message: String(err), type: "error" });
     } finally {
       setResolving(false);
     }
@@ -326,7 +351,7 @@ export default function ResultsScreen() {
       loading,
       refreshing,
       lastResolveSummary,
-      resolveCheckMessage,
+      resolveCheckMessage: checkStatus?.message ?? null,
       error: loadError,
     });
 
@@ -363,10 +388,12 @@ export default function ResultsScreen() {
             disabled={loading || refreshing || resolving}
           >
             <Text style={styles.actionBtnText}>
-              {resolving ? "Checking..." : "Check / Refresh Grading"}
+              {resolving ? "Checking..." : "Check Pending Results"}
             </Text>
           </TouchableOpacity>
         </View>
+
+        {checkStatus ? <CheckStatusPanel status={checkStatus} /> : null}
 
         <View style={styles.dashboardCard}>
           <Text style={styles.dashboardTitle}>Tracked Slate Summary</Text>
@@ -504,10 +531,6 @@ export default function ResultsScreen() {
               />
             </View>
           </View>
-        ) : null}
-
-        {resolveCheckMessage ? (
-          <Text style={styles.resolveMeta}>{resolveCheckMessage}</Text>
         ) : null}
 
         {pendingCheckSummary ? (
@@ -1038,11 +1061,45 @@ const styles = StyleSheet.create({
     fontSize: 17,
     textAlign: "center",
   },
-  resolveMeta: {
-    color: "#93c5fd",
-    fontSize: 12,
-    fontWeight: "700",
+  checkStatusPanel: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginBottom: 14,
+    borderWidth: 1,
+  },
+  checkStatusSuccess: {
+    backgroundColor: "#14532d",
+    borderColor: "#22c55e",
+  },
+  checkStatusInfo: {
+    backgroundColor: "#172554",
+    borderColor: "#3b82f6",
+  },
+  checkStatusWarning: {
+    backgroundColor: "#451a03",
+    borderColor: "#f59e0b",
+  },
+  checkStatusError: {
+    backgroundColor: "#450a0a",
+    borderColor: "#ef4444",
+  },
+  checkStatusText: {
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  checkStatusTextSuccess: {
+    color: "#bbf7d0",
+  },
+  checkStatusTextInfo: {
+    color: "#bfdbfe",
+  },
+  checkStatusTextWarning: {
+    color: "#fde68a",
+  },
+  checkStatusTextError: {
+    color: "#fecaca",
   },
   filterRow: {
     marginBottom: 14,

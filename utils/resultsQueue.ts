@@ -715,35 +715,72 @@ export function isSlatePromotedToLab(
   return Boolean(report && isCompletedSlate(report) && getReportPending(report) === 0);
 }
 
-/** User-facing message after Check / Refresh Grading — UI only, no grading side effects. */
-export function pickResolveCheckMessage(input: ResolveCheckMessageInput): string {
+export type ResolveCheckStatusType = "success" | "info" | "warning" | "error";
+
+export type ResolveCheckStatus = {
+  message: string;
+  type: ResolveCheckStatusType;
+};
+
+/** User-facing message after Check Pending Results — UI only, no grading side effects. */
+export function pickResolveCheckMessage(input: ResolveCheckMessageInput): ResolveCheckStatus {
   const { beforeVisible, afterVisible, afterRotation, gradedCount, awaitingStatsCount } =
     input;
 
   const beforeDates = new Set(beforeVisible.map((slate) => slate.slateDate));
   const afterDates = new Set(afterVisible.map((slate) => slate.slateDate));
   const labDate = afterRotation.currentLabSlateDate;
-  const awaitingStats =
-    awaitingStatsCount ?? computeAccuracySummary(afterVisible).awaitingStats;
+  const afterAccuracy = computeAccuracySummary(afterVisible);
+  const awaitingStats = awaitingStatsCount ?? afterAccuracy.awaitingStats;
 
   if (labDate && beforeDates.has(labDate) && !afterDates.has(labDate)) {
     if (isSlatePromotedToLab(labDate, afterRotation)) {
-      return "Slate complete. Moved to Lab.";
+      return {
+        message: "This slate has already been moved to the Lab.",
+        type: "warning",
+      };
     }
-    return "All props graded. Lab report build pending.";
+    return {
+      message: "All props graded. Lab report build pending.",
+      type: "info",
+    };
   }
 
   if (beforeVisible.length === 0 && labDate) {
-    return "This slate is already in Lab. Rechecked grades.";
+    return {
+      message: "This slate has already been moved to the Lab.",
+      type: "info",
+    };
   }
 
   if (gradedCount > 0) {
-    return "Checked pending results.";
+    const noun = gradedCount === 1 ? "prop" : "props";
+    return {
+      message: `${gradedCount} ${noun} graded.`,
+      type: "success",
+    };
   }
 
   if (awaitingStats > 0) {
-    return "Awaiting stats from source";
+    return {
+      message: "Awaiting stats from source.",
+      type: "info",
+    };
   }
 
-  return "No new final scores yet.";
+  if (
+    afterAccuracy.total > 0 &&
+    afterAccuracy.pending === 0 &&
+    afterAccuracy.awaitingStats === 0
+  ) {
+    return {
+      message: "All props already graded.",
+      type: "info",
+    };
+  }
+
+  return {
+    message: "No new final scores yet.",
+    type: "info",
+  };
 }
