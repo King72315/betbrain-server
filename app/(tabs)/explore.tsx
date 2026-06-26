@@ -24,9 +24,8 @@ import {
   buildTopPickBadgeMap,
   buildWnbaControlledSummary,
   countCandidatesByEligibility,
-  enrichBestSixForDisplay,
-  filterBestSixByDateView,
   formatDateViewLabel,
+  prepareBestSixDisplayCards,
   resolveBestSixDisplayPool,
   shouldShowScoutMode,
 } from "../../utils/controlledBestSixDisplay";
@@ -85,11 +84,8 @@ export default function ExploreScreen() {
 
   const bestSixCards = useMemo(() => {
     const displayPool = resolveBestSixDisplayPool(bestSixDisplayWNBA, bestSixWNBA);
-    const filtered = filterBestSixByDateView(displayPool, dateView);
-    return filtered.map((pick, index) =>
-      enrichBestSixForDisplay(pick, topPickBadgeMap, index)
-    );
-  }, [bestSixDisplayWNBA, bestSixWNBA, dateView, topPickBadgeMap]);
+    return prepareBestSixDisplayCards(displayPool, topPickBadgeMap);
+  }, [bestSixDisplayWNBA, bestSixWNBA, topPickBadgeMap]);
 
   const groupedGames = useMemo(() => groupByDayBucket(wnbaGames), [wnbaGames]);
 

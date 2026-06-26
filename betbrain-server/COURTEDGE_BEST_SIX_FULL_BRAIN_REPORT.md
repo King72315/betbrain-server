@@ -128,3 +128,40 @@ Key assertions:
 - No gate lowering to force TRACK
 - No `/clear-tracked-props`
 - No runtime JSON commits
+
+---
+
+## Display Rank Gap Fix (2026-06-26 follow-up)
+
+**SERVER_BUILD:** `courteedge-best-six-display-fix-v1`  
+**Selector:** `controlled-best-six-display-fix-v1`
+
+### Symptom (6/26 prod snapshot)
+
+Summary: Controlled Best 6 **3/6**, Results Track **1/6**, Board Candidates **16**.
+
+Rendered rows showed **Best #2, #4, #5** only. TRACK prop (Results 1/6) missing from Controlled Best 6 list.
+
+### Root cause
+
+Client-side in `utils/controlledBestSixDisplay.js` + `explore.tsx`:
+
+1. `filterBestSixByDateView` on Best 6 display removed non-matching day buckets (tomorrow picks at ranks 1, 3, 6).
+2. `enrichBestSixForDisplay` kept server ranks after filter → gaps (#2, #4, #5).
+
+PropCard did not hide eligibility types; rows were filtered before render.
+
+### Fix
+
+- `prepareBestSixDisplayCards()` — full slate pool, contiguous ranks 1..N
+- Summary `controlledBestSixTotal` uses full pool; date tab scopes board candidates only
+- `bestSixHiddenByDateView` diagnostic when tabs would have hidden rows
+
+### Before / after (6/26 scenario)
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Rendered rows (Today tab) | 3 at ranks 2,4,5 | 6 at ranks 1-6 |
+| TRACK in display | hidden | visible |
+| Controlled Best 6 summary | 3/6 | 6/6 |
+| Results Track | 1/6 | 1/6 |

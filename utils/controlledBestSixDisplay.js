@@ -85,14 +85,16 @@ export function stablePickKey(pick = {}) {
 export function enrichBestSixForDisplay(pick = {}, topPickBadgeMap = new Map(), index = 0) {
   const key = stablePickKey(pick);
   const topMeta = topPickBadgeMap.get(key);
-  const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
+  const serverRank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
+  const rank = index + 1;
   const di = pick.decisionIntelligence || {};
 
   return {
     ...pick,
     bestSixRank: rank,
     controlledBestSixRank: rank,
-    bestSixLabel: pick.bestSixLabel || `Best WNBA #${rank}`,
+    serverBestSixRank: serverRank,
+    bestSixLabel: `Best WNBA #${rank}`,
     topPickRank: topMeta?.topPickRank ?? pick.topPickRank ?? null,
     topPickLabel: topMeta?.topPickLabel ?? pick.topPickLabel ?? null,
     league: pick.league || "WNBA",
@@ -149,6 +151,35 @@ export function filterBestSixByDateView(bestSix = [], dateView = "today") {
   return bestSix.filter((pick) => resolveDayBucket(pick) === target);
 }
 
+/**
+ * Controlled Best 6 is slate-level (not date-tab scoped). Renders full server pool
+ * with contiguous display ranks so UI/report never show Best #2/#4 gaps.
+ */
+export function prepareBestSixDisplayCards(
+  displayPool = [],
+  topPickBadgeMap = new Map()
+) {
+  return displayPool.map((pick, index) =>
+    enrichBestSixForDisplay(pick, topPickBadgeMap, index)
+  );
+}
+
+export function assertContiguousBestSixRanks(cards = []) {
+  for (let index = 0; index < cards.length; index += 1) {
+    const expected = index + 1;
+    const rank = cards[index].bestSixRank || cards[index].controlledBestSixRank;
+    if (rank !== expected) {
+      return {
+        ok: false,
+        index,
+        expected,
+        actual: rank,
+      };
+    }
+  }
+  return { ok: true, count: cards.length };
+}
+
 export function collectWnbaCandidatesFromGames(games = []) {
   const candidates = [];
   for (const game of games) {
@@ -184,12 +215,12 @@ export function buildWnbaControlledSummary({
   bestSixLimit = BEST_SIX_LIMIT,
 } = {}) {
   const displayPool = resolveBestSixDisplayPool(bestSixDisplayWNBA, bestSixWNBA);
-  const filteredDisplay = filterBestSixByDateView(displayPool, dateView);
   const filteredResults = filterBestSixByDateView(bestSixWNBA, dateView);
+  const dateScopedDisplay = filterBestSixByDateView(displayPool, dateView);
   const resultsTrackCount = filteredResults.filter(
     (p) => resolveTrackEligibility(p) === "TRACK"
   ).length;
-  const displayResultsCount = filteredDisplay.filter(
+  const displayResultsCount = displayPool.filter(
     (p) =>
       p.resultsAdmissionEligible === true ||
       (p.resultsAdmissionEligible == null &&
@@ -211,8 +242,9 @@ export function buildWnbaControlledSummary({
 
   return {
     controlledBestSix: displayResultsCount,
-    controlledBestSixTotal: filteredDisplay.length,
+    controlledBestSixTotal: displayPool.length,
     controlledBestSixTrack: resultsTrackCount,
+    bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
     bestSixLimit,
     topPicks: Math.min(topPickCount, WNBA_TOP_PICK_LIMIT),
     topPickLimit: WNBA_TOP_PICK_LIMIT,

@@ -29,7 +29,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-full-brain-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-display-fix-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;

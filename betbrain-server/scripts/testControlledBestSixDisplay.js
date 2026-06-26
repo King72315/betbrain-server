@@ -17,6 +17,8 @@ const {
   buildTopPickBadgeMap,
   enrichBestSixForDisplay,
   filterBestSixByDateView,
+  prepareBestSixDisplayCards,
+  assertContiguousBestSixRanks,
   buildWnbaControlledSummary,
   shouldShowScoutMode,
   formatDateViewLabel,
@@ -124,11 +126,12 @@ test("06 enrichBestSixForDisplay adds rank and badges", () => {
     { ...todayPick, topPickRank: 1, topPickLabel: "Top WNBA #1" },
   ]);
   const enriched = enrichBestSixForDisplay(
-    { ...todayPick, bestSixRank: 2 },
+    { ...todayPick, bestSixRank: 5, controlledBestSixRank: 5 },
     map,
-    1
+    0
   );
-  assert.strictEqual(enriched.bestSixRank, 2);
+  assert.strictEqual(enriched.bestSixRank, 1);
+  assert.strictEqual(enriched.serverBestSixRank, 5);
   assert.strictEqual(enriched.topPickLabel, "Top WNBA #1");
   assert.strictEqual(enriched.displayTrackEligibility, "TRACK");
   assert.ok(enriched.displayRiskDebts.length > 0);
@@ -201,9 +204,10 @@ test("13 formatDateViewLabel maps views", () => {
   assert.strictEqual(formatDateViewLabel("full_board"), "Full Board");
 });
 
-test("14 tomorrow summary scopes candidates", () => {
+test("14 tomorrow summary scopes board candidates only", () => {
   const summary = buildWnbaControlledSummary({
     bestSixWNBA: [tomorrowPick],
+    bestSixDisplayWNBA: [todayPick, tomorrowPick],
     wnbaGames: [
       {
         league: "WNBA",
@@ -212,7 +216,7 @@ test("14 tomorrow summary scopes candidates", () => {
     ],
     dateView: "tomorrow",
   });
-  assert.strictEqual(summary.controlledBestSixTotal, 1);
+  assert.strictEqual(summary.controlledBestSixTotal, 2);
   assert.strictEqual(summary.boardCandidates, 1);
 });
 
@@ -552,6 +556,48 @@ test("32 acceptance: 15 candidates yield 6 display Best 6 with full brain", () =
   assert.ok(display.bestSix.some((p) => p.resultsAdmissionEligible === false));
   assert.ok(results.bestSix.every((p) => p.decisionIntelligence?.trackEligibility === "TRACK"));
   assert.ok(display.bestSix.length > results.bestSix.length);
+});
+
+test("33 prepareBestSixDisplayCards renumbers contiguously after server gaps", () => {
+  const cards = prepareBestSixDisplayCards(
+    [
+      { ...todayPick, controlledBestSixRank: 2, dayBucket: "TODAY" },
+      { ...tomorrowPick, controlledBestSixRank: 4, dayBucket: "TOMORROW" },
+      {
+        ...todayPick,
+        player: "Angel Reese",
+        controlledBestSixRank: 5,
+        dayBucket: "TODAY",
+        decisionIntelligence: { trackEligibility: "BOARD_ONLY", trueRisk: "MEDIUM" },
+      },
+    ],
+    new Map()
+  );
+  const check = assertContiguousBestSixRanks(cards);
+  assert.strictEqual(check.ok, true);
+  assert.strictEqual(cards[0].bestSixRank, 1);
+  assert.strictEqual(cards[1].bestSixRank, 2);
+  assert.strictEqual(cards[2].bestSixRank, 3);
+  assert.strictEqual(cards[0].serverBestSixRank, 2);
+});
+
+test("34 today view keeps full Best 6 count including tomorrow picks", () => {
+  const summary = buildWnbaControlledSummary({
+    bestSixDisplayWNBA: [todayPick, tomorrowPick],
+    bestSixWNBA: [todayPick],
+    wnbaGames: [],
+    dateView: "today",
+  });
+  assert.strictEqual(summary.controlledBestSixTotal, 2);
+  assert.strictEqual(summary.bestSixHiddenByDateView, 1);
+  assert.strictEqual(summary.controlledBestSixTrack, 1);
+});
+
+test("35 TRACK pick visible in prepared display cards", () => {
+  const cards = prepareBestSixDisplayCards([todayPick], new Map());
+  assert.strictEqual(cards.length, 1);
+  assert.strictEqual(cards[0].displayTrackEligibility, "TRACK");
+  assert.strictEqual(cards[0].bestSixRank, 1);
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);
