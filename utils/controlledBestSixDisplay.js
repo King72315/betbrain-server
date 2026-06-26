@@ -77,6 +77,15 @@ export function enrichBestSixForDisplay(pick = {}, topPickBadgeMap = new Map(), 
       "",
     displayRiskDebts: (di.riskDebts || []).map(formatRiskDebt),
     displayRiskRepairs: (di.riskRepairs || []).map(formatRiskRepair),
+    displaySideRescueAction:
+      pick.sideRescueAction ?? pick.sideRescue?.action ?? null,
+    displaySideRescueExplanation:
+      pick.sideRescueExplanation ?? pick.sideRescue?.simpleExplanation ?? null,
+    displayInitialSide: pick.initialSide ?? pick.sideRescue?.originalSide ?? null,
+    displayFlippedFromSide: pick.flippedFromSide ?? null,
+    displaySideRescueFlipped: Boolean(
+      pick.sideRescueFlipped || pick.flippedFromSide || pick.sideRescue?.action === "FLIP_SIDE"
+    ),
   };
 }
 
@@ -200,6 +209,16 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
     pick.decisionIntelligence?.simpleExplanation ||
     pick.wnbaTrackingReason ||
     "";
+  const sideRescueAction =
+    pick.displaySideRescueAction ??
+    pick.sideRescueAction ??
+    pick.sideRescue?.action ??
+    null;
+  const sideRescueExplanation =
+    pick.displaySideRescueExplanation ??
+    pick.sideRescueExplanation ??
+    pick.sideRescue?.simpleExplanation ??
+    "";
   const topBadge = pick.topPickLabel ? ` · ${pick.topPickLabel}` : "";
 
   return [
@@ -208,6 +227,8 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
     `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
     why ? `  Why: ${why}` : null,
+    sideRescueAction ? `  Side Rescue: ${sideRescueAction}` : null,
+    sideRescueExplanation ? `  Rescue: ${sideRescueExplanation}` : null,
   ]
     .filter(Boolean)
     .join("\n");

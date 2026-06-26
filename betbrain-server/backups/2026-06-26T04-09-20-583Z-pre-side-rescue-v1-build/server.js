@@ -104,7 +104,6 @@ import {
   applyDecisionIntelligenceToPick,
   DECISION_INTELLIGENCE_VERSION,
 } from "./engines/decisionIntelligence/propDecisionIntelligenceV1.js";
-import { SIDE_RESCUE_VERSION } from "./engines/decisionIntelligence/sideRescueEngineV1.js";
 
 import {
   appendMarketSnapshot,
@@ -276,13 +275,6 @@ function cacheFresh() {
   if (
     picksCache.decisionIntelligenceVersion &&
     picksCache.decisionIntelligenceVersion !== DECISION_INTELLIGENCE_VERSION
-  ) {
-    return false;
-  }
-
-  if (
-    picksCache.sideRescueVersion &&
-    picksCache.sideRescueVersion !== SIDE_RESCUE_VERSION
   ) {
     return false;
   }
@@ -2153,7 +2145,6 @@ async function refreshAllPicks() {
     topPropSelectorVersion: TOP_PROP_SELECTOR_VERSION,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
-    sideRescueVersion: SIDE_RESCUE_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     bestSixLimit: 6,
     generatedProps,

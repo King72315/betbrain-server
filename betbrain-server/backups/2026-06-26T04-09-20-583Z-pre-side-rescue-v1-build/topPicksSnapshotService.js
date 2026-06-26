@@ -118,11 +118,6 @@ function buildSnapshotEntry(pick = {}, rank = 1, options = {}) {
     officialEligible: pick.officialEligible,
     readerDecision: pick.readerDecision || pick.wnbaReader?.decision,
     engineHandled: pick.engineHandled,
-    sideRescueAction: pick.sideRescueAction ?? pick.sideRescue?.action ?? null,
-    sideRescueExplanation:
-      pick.sideRescueExplanation ?? pick.sideRescue?.simpleExplanation ?? null,
-    initialSide: pick.initialSide ?? pick.sideRescue?.originalSide ?? null,
-    flippedFromSide: pick.flippedFromSide ?? null,
     isTopPickReference: true,
     referenceOnly: true,
   };
@@ -172,11 +167,6 @@ function buildBestSixSnapshotEntry(pick = {}, rank = 1, options = {}) {
     selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
     bestPropScore: pick.bestPropScore ?? pick.pickScore ?? null,
     qualityGateScore: pick.qualityGateScore ?? null,
-    sideRescueAction: pick.sideRescueAction ?? pick.sideRescue?.action ?? null,
-    sideRescueExplanation:
-      pick.sideRescueExplanation ?? pick.sideRescue?.simpleExplanation ?? null,
-    initialSide: pick.initialSide ?? pick.sideRescue?.originalSide ?? null,
-    flippedFromSide: pick.flippedFromSide ?? null,
     referenceOnly: true,
     isTopPickReference: false,
   };

@@ -130,6 +130,16 @@ export default function PropCard({
       (pick.decisionIntelligence?.riskRepairs || []).map((d: any) =>
         typeof d === "string" ? d : d.label || d.code || String(d)
       );
+    const sideRescueAction =
+      pick.displaySideRescueAction ??
+      pick.sideRescueAction ??
+      pick.sideRescue?.action ??
+      null;
+    const sideRescueExplanation =
+      pick.displaySideRescueExplanation ??
+      pick.sideRescueExplanation ??
+      pick.sideRescue?.simpleExplanation ??
+      "";
 
     return (
       <TouchableOpacity
@@ -196,6 +206,19 @@ export default function PropCard({
                 • {line}
               </Text>
             ))}
+          </View>
+        ) : null}
+
+        {sideRescueAction && sideRescueAction !== "KEEP_ORIGINAL" ? (
+          <View style={styles.bestSixRescueBox}>
+            <Text style={styles.bestSixRescueTitle}>
+              Side Rescue: {sideRescueAction}
+            </Text>
+            {sideRescueExplanation ? (
+              <Text style={styles.bestSixRescueText} numberOfLines={2}>
+                {sideRescueExplanation.replace(/^Side Rescue: [^—]+ — /, "")}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -1084,6 +1107,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     marginBottom: 2,
+  },
+  bestSixRescueBox: {
+    backgroundColor: "rgba(251, 191, 36, 0.12)",
+    borderColor: "rgba(251, 191, 36, 0.35)",
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    padding: 8,
+  },
+  bestSixRescueTitle: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "900",
+    marginBottom: 2,
+  },
+  bestSixRescueText: {
+    color: "#fde68a",
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   pickTopRow: {
     flexDirection: "row",

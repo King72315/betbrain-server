@@ -706,6 +706,17 @@ export default function ResultsScreen() {
                   {awaitingLabel ? (
                     <Text style={styles.pendingReason}>{awaitingLabel}</Text>
                   ) : null}
+                  {prop.flippedFromSide || prop.sideRescueFlipped ? (
+                    <Text style={styles.flipNote}>
+                      Flipped from{" "}
+                      {prop.flippedFromSideLabel ||
+                        (String(prop.flippedFromSide || prop.initialSide || "")
+                          .toUpperCase()
+                          .startsWith("O")
+                          ? "Over"
+                          : "Under")}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             );
@@ -1301,6 +1312,12 @@ const styles = StyleSheet.create({
   },
   pendingReason: {
     color: "#fdba74",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  flipNote: {
+    color: "#fbbf24",
     fontSize: 12,
     fontWeight: "700",
     marginTop: 6,

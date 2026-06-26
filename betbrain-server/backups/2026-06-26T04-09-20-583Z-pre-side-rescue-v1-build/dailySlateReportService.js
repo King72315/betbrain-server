@@ -41,11 +41,6 @@ import {
   buildUpgradeDemotionReview,
   DECISION_INTELLIGENCE_VERSION,
 } from "../engines/decisionIntelligence/propDecisionIntelligenceV1.js";
-import {
-  buildSideRescueReview,
-  buildSideRescueRetroSimulation,
-  SIDE_RESCUE_VERSION,
-} from "../engines/decisionIntelligence/sideRescueEngineV1.js";
 import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -981,10 +976,6 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   const retroGateSimulation = allGraded
     ? buildDecisionIntelligenceRetroSimulation(slateProps, { slateDate })
     : null;
-  const sideRescueReview = buildSideRescueReview(slateProps);
-  const sideRescueRetroSimulation = allGraded
-    ? buildSideRescueRetroSimulation(slateProps, { slateDate })
-    : null;
 
   const sectionA = {
     title: "Slate Summary",
@@ -1003,10 +994,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     riskHonestyReview,
     upgradeDemotionReview,
     retroGateSimulation,
-    sideRescueReview,
-    sideRescueRetroSimulation,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
-    sideRescueVersion: SIDE_RESCUE_VERSION,
     graded: record.graded,
     pending: record.pending,
     wins: record.wins,
@@ -1127,8 +1115,6 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     topPicksReview,
     bestSixReview,
     slateResultsSnapshot,
-    sideRescueReview,
-    sideRescueRetroSimulation,
     sections: {
       A: {
         ...sectionA,
@@ -1194,22 +1180,6 @@ function buildSlateReport(slateDate, props = [], options = {}) {
         title: "Upgrade/Demotion Review",
         ...upgradeDemotionReview,
       },
-      V: {
-        title: "Side Rescue Review",
-        ...sideRescueReview,
-      },
-      W: sideRescueRetroSimulation
-        ? {
-            title: "Side Rescue Retro Simulation",
-            available: true,
-            ...sideRescueRetroSimulation,
-          }
-        : {
-            title: "Side Rescue Retro Simulation",
-            reportOnly: true,
-            available: false,
-            message: "Retro simulation runs when slate is fully graded.",
-          },
     },
   };
 }

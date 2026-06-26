@@ -671,6 +671,8 @@ export default function PropLab() {
   const sectionS = report?.sections?.S || report?.decisionIntelligenceReview;
   const sectionT = report?.sections?.T || report?.riskHonestyReview;
   const sectionU = report?.sections?.U || report?.upgradeDemotionReview;
+  const sectionV = report?.sections?.V || report?.sideRescueReview;
+  const sectionW = report?.sections?.W || report?.sideRescueRetroSimulation;
   const sectionP = report?.sections?.P || report?.slateResultsSnapshot;
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
@@ -1333,6 +1335,85 @@ export default function PropLab() {
                 LOSS kept {item.player} {item.side} {item.line}
               </Text>
             ))}
+          </SectionCard>
+        ) : null}
+
+        {sectionV ? (
+          <SectionCard title="Side Rescue Review">
+            <Text style={styles.muted}>{sectionV.question || "Did Side Rescue improve direction?"}</Text>
+            <MetricRow label="Version" value={String(sectionV.version || "—")} />
+            <MetricRow label="Evaluated" value={String(sectionV.evaluatedCount ?? 0)} />
+            <MetricRow
+              label="KEEP_ORIGINAL"
+              value={String(sectionV.actionRecords?.KEEP_ORIGINAL?.record || "—")}
+            />
+            <MetricRow
+              label="FLIP_SIDE"
+              value={String(sectionV.actionRecords?.FLIP_SIDE?.record || "—")}
+            />
+            <MetricRow
+              label="BOARD_ONLY"
+              value={String(sectionV.actionRecords?.BOARD_ONLY?.record || "—")}
+            />
+            <MetricRow
+              label="NO_BET"
+              value={String(sectionV.actionRecords?.NO_BET?.record || "—")}
+            />
+            <MetricRow
+              label="WNBA Under rescue"
+              value={String(sectionV.wnbaUnderRescueRecord?.record || "—")}
+            />
+            <MetricRow
+              label="FTA rebound cases"
+              value={String(sectionV.ftaReboundRiskRecord?.record || "—")}
+            />
+            {sectionV.entries?.slice(0, 6).map((item: any, index: number) => (
+              <Text key={`side-rescue-${index}`} style={styles.breakdownLine}>
+                {item.player} {item.originalSide}→{item.finalSide || item.originalSide} — {item.action}
+              </Text>
+            ))}
+          </SectionCard>
+        ) : null}
+
+        {sectionW?.available !== false && sectionW?.simulatedSideRescueRecord ? (
+          <SectionCard title="Side Rescue Retro Simulation">
+            <Text style={styles.muted}>Report-only — does not change historical grades.</Text>
+            <MetricRow
+              label="Actual tracked record"
+              value={String(sectionW.actualTrackedRecord?.record || "—")}
+            />
+            <MetricRow
+              label="Simulated Side Rescue record"
+              value={String(sectionW.simulatedSideRescueRecord?.record || "—")}
+            />
+            <MetricRow
+              label="Losses would stay original"
+              value={String(sectionW.lossesWouldStayOriginal ?? 0)}
+            />
+            <MetricRow
+              label="Losses would flip"
+              value={String(sectionW.lossesWouldFlip ?? 0)}
+            />
+            <MetricRow
+              label="Losses would board-only"
+              value={String(sectionW.lossesWouldBoardOnly ?? 0)}
+            />
+            <MetricRow
+              label="Wins lost by rule change"
+              value={String(sectionW.winsLostByRuleChange ?? 0)}
+            />
+            <MetricRow label="Assessment" value={String(sectionW.assessment || "—")} />
+            {sectionW.dearicaStyleCases?.slice(0, 4).map((item: any, index: number) => (
+              <Text key={`dearica-case-${index}`} style={styles.breakdownLine}>
+                {item.player} {item.originalSide}→{item.finalSide} — {item.action}
+              </Text>
+            ))}
+          </SectionCard>
+        ) : sectionW?.available === false ? (
+          <SectionCard title="Side Rescue Retro Simulation">
+            <Text style={styles.muted}>
+              {sectionW.message || "Retro simulation runs when slate is fully graded."}
+            </Text>
           </SectionCard>
         ) : null}
 
