@@ -710,6 +710,22 @@ export function summarizeOpponentMatchup(
   };
 }
 
+export function bustBallPlayerCache(playerName, league = "NBA") {
+  const key = `${league}-${clean(playerName)}`;
+  playerCache.delete(key);
+}
+
+export function bustBallStatsCache(playerName, league = "NBA") {
+  const seasonYear = getSeasonYear(league);
+  const key = `${league}-${seasonYear}-${clean(playerName)}`;
+  statsCache.delete(key);
+}
+
+export function bustBallCachesForPlayer(playerName, league = "NBA") {
+  bustBallPlayerCache(playerName, league);
+  bustBallStatsCache(playerName, league);
+}
+
 export async function getBallPlayerTeam(playerName, league = "NBA") {
   const player = await findBallPlayer(playerName, league);
 

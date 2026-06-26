@@ -6,7 +6,14 @@ import {
   DATA_INTEGRITY_VERSION,
   summarizeDataIntegrityForDisplay,
 } from "./wnbaDataIntegrityV1.js";
+import {
+  attemptWnbaDataRecovery,
+  attachDataRecoveryToIntegrity,
+  DATA_RECOVERY_VERSION,
+  summarizeRecoveryForDisplay,
+} from "./wnbaDataRecoveryV1.js";
 import { resolveStableWnbaPlayerId } from "./wnbaPlayerIdResolver.js";
+import { evaluateWnbaAvailability } from "../../services/wnbaAvailabilityService.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -92,6 +99,8 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     marketIntelligence = {},
     opportunity = {},
     matchupGames = [],
+    runDataRecovery = true,
+    beforeTime = null,
   } = context;
 
   const ballPlayer = await findBallPlayer(playerName, "WNBA");
@@ -225,7 +234,7 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
 
   const availabilityDataMissing = Boolean(availabilityGate.availabilityDataMissing);
 
-  const dataIntegrity = auditWnbaDataIntegrity({
+  let dataIntegrity = auditWnbaDataIntegrity({
     playerName,
     playerId,
     team,
@@ -241,12 +250,75 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     ballPlayerResolved: Boolean(ballPlayer),
     stablePlayerIdUsed,
   });
+
+  let recoveredContext = null;
+  let dataRecovery = null;
+
+  if (runDataRecovery) {
+    const recoveryResult = await attemptWnbaDataRecovery(
+      {
+        playerName,
+        playerId,
+        team,
+        opponent,
+        last5,
+        matchupGames,
+        seasonAverage: seasonPoints,
+        availabilityGate,
+        defenseResult,
+        prop,
+        playerState,
+        ballPlayerResolved: Boolean(ballPlayer),
+        stablePlayerIdUsed,
+        game,
+        beforeTime: beforeTime || game?.commenceTime || null,
+        evaluateAvailability: evaluateWnbaAvailability,
+      },
+      dataIntegrity
+    );
+    dataIntegrity = recoveryResult.dataIntegrity;
+    dataRecovery = recoveryResult.dataRecovery;
+    recoveredContext = recoveryResult.context;
+    dataIntegrity = attachDataRecoveryToIntegrity(dataIntegrity, dataRecovery);
+  }
+
+  const effectivePlayerId = recoveredContext?.playerId || playerId;
+  const effectiveSeasonPoints = num(
+    recoveredContext?.playerState?.seasonPoints ?? seasonPoints
+  );
+  const effectiveLast5 = recoveredContext?.last5 || last5;
+  const effectiveRecentPoints = num(
+    recoveredContext?.playerState?.recentPoints ??
+      avg(effectiveLast5.map((g) => g.points))
+  );
+  const effectiveRecentMinutes = num(
+    recoveredContext?.playerState?.recentMinutes ?? recentMinutes
+  );
+  const effectiveRecentFGA = num(
+    recoveredContext?.playerState?.recentFGA ?? recentFGA
+  );
+  const effectiveRecentFTA = num(
+    recoveredContext?.playerState?.recentFTA ?? recentFTA
+  );
+  const effectiveSeasonMinutes = num(
+    recoveredContext?.playerState?.seasonMinutes ?? seasonMinutes
+  );
+  const effectiveSeasonFGA = num(
+    recoveredContext?.playerState?.seasonFGA ?? seasonFGA
+  );
+  const effectiveSeasonFTA = num(
+    recoveredContext?.playerState?.seasonFTA ?? seasonFTA
+  );
+  const effectiveLast5Points = effectiveLast5.map((g) => num(g.points));
   const dataIntegrityDisplay = summarizeDataIntegrityForDisplay(dataIntegrity);
+  const dataRecoveryDisplay = dataRecovery
+    ? summarizeRecoveryForDisplay(dataRecovery)
+    : null;
 
   return {
     version: "wnba-data-card-v2",
     dataMode: playerState.dataMode || "",
-    playerId,
+    playerId: effectivePlayerId,
     player: playerName,
     team,
     opponent,
@@ -265,22 +337,22 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     underOdds: prop.underOdds ?? null,
     marketQuality: num(prop.marketQuality),
     season: {
-      points: seasonPoints,
-      minutes: seasonMinutes,
-      fga: seasonFGA,
-      fta: seasonFTA,
-      ptsPerFGA: ptsPerFGA(seasonPoints, seasonFGA),
-      ftPath: seasonFTA > 0,
+      points: effectiveSeasonPoints,
+      minutes: effectiveSeasonMinutes,
+      fga: effectiveSeasonFGA,
+      fta: effectiveSeasonFTA,
+      ptsPerFGA: ptsPerFGA(effectiveSeasonPoints, effectiveSeasonFGA),
+      ftPath: effectiveSeasonFTA > 0,
     },
     last5: {
-      points: recentPoints,
-      pointsList: last5Points,
-      minutes: recentMinutes,
-      fga: recentFGA,
-      fta: recentFTA,
-      ptsPerFGA: ptsPerFGA(recentPoints, recentFGA),
-      ftPath: recentFTA >= 2,
-      games: last5.length,
+      points: effectiveRecentPoints,
+      pointsList: effectiveLast5Points,
+      minutes: effectiveRecentMinutes,
+      fga: effectiveRecentFGA,
+      fta: effectiveRecentFTA,
+      ptsPerFGA: ptsPerFGA(effectiveRecentPoints, effectiveRecentFGA),
+      ftPath: effectiveRecentFTA >= 2,
+      games: effectiveLast5.length,
     },
     scoringTrend,
     usageShotTrend: volumeProfile.volumeStability || opportunity.shotVolumeStability?.label || "unknown",
@@ -316,6 +388,9 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     dataConfidenceScore,
     dataIntegrity,
     dataIntegrityVersion: DATA_INTEGRITY_VERSION,
+    dataRecoveryVersion: dataRecovery ? DATA_RECOVERY_VERSION : null,
+    dataRecovery,
+    dataRecoveryCompact: dataRecoveryDisplay,
     dataIntegrityOverall: dataIntegrityDisplay.label,
     dataIntegrityCompact: dataIntegrityDisplay.compact,
     lineToRecentAvgRatio,

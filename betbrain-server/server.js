@@ -111,10 +111,16 @@ import {
   DATA_INTEGRITY_VERSION,
 } from "./engines/wnba/wnbaDataIntegrityV1.js";
 import {
+  attemptWnbaDataRecovery,
+  attachDataRecoveryToIntegrity,
+  DATA_RECOVERY_VERSION,
+} from "./engines/wnba/wnbaDataRecoveryV1.js";
+import {
   resolveWnbaTeamId,
   teamsMatch,
 } from "./engines/wnba/wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "./engines/wnba/wnbaPlayerIdResolver.js";
+import { buildSlateRejectionAnalysisFromProps } from "./services/wnbaSlateRejectionAnalysis.js";
 
 import {
   appendMarketSnapshot,
@@ -219,7 +225,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-data-integrity-v1";
+const SERVER_BUILD = "courteedge-data-recovery-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -300,6 +306,13 @@ function cacheFresh() {
   if (
     picksCache.dataIntegrityVersion &&
     picksCache.dataIntegrityVersion !== DATA_INTEGRITY_VERSION
+  ) {
+    return false;
+  }
+
+  if (
+    picksCache.dataRecoveryVersion &&
+    picksCache.dataRecoveryVersion !== DATA_RECOVERY_VERSION
   ) {
     return false;
   }
@@ -984,6 +997,7 @@ async function buildDataIntegrityAuditRequest({
   league = "WNBA",
   line = 0,
   beforeTime = null,
+  includeRecovery = false,
 } = {}) {
   const normalizedLeague = String(league || "WNBA").toUpperCase();
   const resolvedTeam = resolveWnbaTeamId(team) || team;
@@ -1040,23 +1054,89 @@ async function buildDataIntegrityAuditRequest({
     stablePlayerIdUsed: Boolean(stableId && String(ballPlayer?.id) === stableId),
   });
 
+  let dataRecovery = null;
+  let finalIntegrity = dataIntegrity;
+  let recoveryContext = null;
+
+  if (includeRecovery) {
+    const recoveryResult = await attemptWnbaDataRecovery(
+      {
+        playerName,
+        playerId,
+        team: resolvedTeam,
+        opponent: resolvedOpponent,
+        last5,
+        matchupGames,
+        matchupAverage,
+        seasonAverage,
+        availabilityGate,
+        defenseResult: {},
+        prop: { line: Number(line) || 0, bookCount: 1 },
+        playerState: {
+          matchupAverage,
+          seasonPoints: seasonAverage,
+        },
+        ballPlayerResolved: Boolean(ballPlayer),
+        stablePlayerIdUsed: Boolean(stableId && String(ballPlayer?.id) === stableId),
+        beforeTime,
+        evaluateAvailability: evaluateWnbaAvailability,
+      },
+      dataIntegrity
+    );
+    finalIntegrity = attachDataRecoveryToIntegrity(
+      recoveryResult.dataIntegrity,
+      recoveryResult.dataRecovery
+    );
+    dataRecovery = recoveryResult.dataRecovery;
+    recoveryContext = recoveryResult.context;
+  }
+
   return {
     playerName,
     team: resolvedTeam,
     opponent: resolvedOpponent,
-    playerId: playerId || null,
-    matchupGames: matchupGames.map((g) => ({
+    playerId: recoveryContext?.playerId || playerId || null,
+    matchupGames: (recoveryContext?.matchupGames || matchupGames).map((g) => ({
       date: g.date,
       opponent: g.opponent,
       opponentTeamId: g.opponentTeamId || g.opponent,
       points: g.points,
     })),
-    matchupAverage,
-    availabilityGate,
-    dataIntegrity,
+    matchupAverage:
+      recoveryContext?.playerState?.matchupAverage ?? matchupAverage,
+    availabilityGate: recoveryContext?.availabilityGate || availabilityGate,
+    dataIntegrity: finalIntegrity,
     dataIntegrityVersion: DATA_INTEGRITY_VERSION,
+    dataRecovery,
+    dataRecoveryVersion: includeRecovery ? DATA_RECOVERY_VERSION : null,
+    beforeIntegrity: includeRecovery ? dataIntegrity : null,
     serverBuild: SERVER_BUILD,
     auditedAt: new Date().toISOString(),
+  };
+}
+
+async function buildSlateRejectionChain({
+  slateDate = "",
+  league = "WNBA",
+  includeRecovery = false,
+} = {}) {
+  if (!cacheFresh()) {
+    await refreshAllPicks();
+  }
+
+  const generatedProps = picksCache?.generatedProps || [];
+  const analysis = buildSlateRejectionAnalysisFromProps(generatedProps, {
+    slateDate,
+    league,
+  });
+
+  return {
+    ...analysis,
+    serverBuild: SERVER_BUILD,
+    dataRecoveryVersion: DATA_RECOVERY_VERSION,
+    includeRecovery,
+    slateDate,
+    analyzedAt: new Date().toISOString(),
   };
 }
 
@@ -2274,6 +2354,7 @@ async function refreshAllPicks() {
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     sideRescueVersion: SIDE_RESCUE_VERSION,
     dataIntegrityVersion: DATA_INTEGRITY_VERSION,
+    dataRecoveryVersion: DATA_RECOVERY_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     bestSixLimit: 6,
     generatedProps,
@@ -2923,15 +3004,32 @@ app.get("/debug/data-integrity", async (req, res) => {
     const opponent = String(req.query.opponent || "").trim();
     const league = String(req.query.league || "WNBA").trim();
     const line = Number(req.query.line || 0);
-    const beforeTime = req.query.beforeTime || req.query.commenceTime || null;
+    const slateDate = String(req.query.date || req.query.slateDate || "").trim();
+    const includeRecovery =
+      String(req.query.includeRecovery || "").toLowerCase() === "true";
+    const beforeTime =
+      req.query.beforeTime ||
+      req.query.commenceTime ||
+      (slateDate ? `${slateDate}T23:59:59Z` : null);
 
-    if (!playerName) {
+    if (!playerName && !slateDate) {
       return res.status(400).json({
         ok: false,
-        message: "Provide player query param",
+        message: "Provide player or date query param",
         example:
-          "/debug/data-integrity?player=Azura%20Stevens&team=chicagosky&opponent=portlandfire",
+          "/debug/data-integrity?player=Azura%20Stevens&team=chicagosky&opponent=portlandfire&includeRecovery=true",
+        slateExample:
+          "/debug/data-integrity?date=2026-06-26&league=WNBA&includeRecovery=true",
       });
+    }
+
+    if (slateDate && !playerName) {
+      const chain = await buildSlateRejectionChain({
+        slateDate,
+        league,
+        includeRecovery,
+      });
+      return res.json({ ok: true, slateDate, league, includeRecovery, ...chain });
     }
 
     const audit = await buildDataIntegrityAuditRequest({
@@ -2941,6 +3039,7 @@ app.get("/debug/data-integrity", async (req, res) => {
       league,
       line,
       beforeTime,
+      includeRecovery,
     });
 
     res.json({ ok: true, ...audit });
