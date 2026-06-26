@@ -72,7 +72,7 @@ function testMatchupMissingIssue() {
   const matchup = audit.issues.find((i) => i.key === "matchup");
   assert.ok(matchup);
   assert.ok(matchup.message.includes("No opponent matchup history"));
-  assert.strictEqual(matchup.meta.lookupMethod, "teamId-bidirectional");
+  assert.strictEqual(matchup.meta.lookupMethod, "games-then-player_stats");
   console.log("✓ missing matchup issue");
 }
 

@@ -10,8 +10,9 @@ function cleanKey(value = "") {
 
 /** Verified BDL WNBA player_ids — used when search returns no safe match. */
 const STABLE_WNBA_PLAYER_IDS = {
-  azurastevens: "42",
-  sydneytaylor: "528",
+  // Prod-verified 2026-06-26 refresh (525 not legacy 42; 67033 not 528 which is Gabby Williams)
+  azurastevens: "525",
+  sydneytaylor: "67033",
 };
 
 export function resolveStableWnbaPlayerId(playerName = "") {

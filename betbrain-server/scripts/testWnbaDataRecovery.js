@@ -43,6 +43,7 @@ function testVersionConstant() {
 
 function testRecoveryClassEnum() {
   assert.ok(RECOVERY_CLASS.TRUE_SOURCE_UNAVAILABLE);
+  assert.ok(RECOVERY_CLASS.TRUE_NO_PLAYER_H2H);
   assert.ok(RECOVERY_CLASS.FIXABLE_PLAYER_ID_FAILURE);
   assert.ok(RECOVERY_CLASS.FIXABLE_ALIAS_FAILURE);
   assert.ok(RECOVERY_CLASS.FIXABLE_CACHE_FAILURE);
@@ -104,13 +105,73 @@ function testClassifySeasonStatsCache() {
   console.log("✓ classify season stats cache failure");
 }
 
-function testClassifyMatchupLookup() {
+function testClassifyMatchupTrueUnavailable() {
   const cls = classifyIntegrityIssue(
-    { key: "matchup", status: "MISSING", repairable: true },
-    {}
+    {
+      key: "matchup",
+      status: "MISSING",
+      repairable: false,
+      meta: {
+        opponentTeamId: "portlandfire",
+        teamId: "chicagosky",
+        matchupLookupClass: "BALL_GAME_LOOKUP_EMPTY",
+      },
+    },
+    {
+      playerName: "Azura Stevens",
+      playerId: "525",
+      ballPlayerResolved: true,
+      matchupProbe: { classification: "BALL_GAME_LOOKUP_EMPTY" },
+    }
+  );
+  assert.strictEqual(cls, RECOVERY_CLASS.NEEDS_FALLBACK_SOURCE);
+  console.log("✓ classify matchup needs fallback when games probe empty");
+}
+
+function testClassifyMatchupTrueNoPlayerH2H() {
+  const cls = classifyIntegrityIssue(
+    {
+      key: "matchup",
+      status: "MISSING",
+      repairable: false,
+      meta: {
+        opponentTeamId: "portlandfire",
+        teamId: "chicagosky",
+        matchupLookupClass: "PLAYER_DID_NOT_PLAY_IN_MATCHUP",
+      },
+    },
+    {
+      playerName: "Azura Stevens",
+      playerId: "525",
+      ballPlayerResolved: true,
+      matchupProbe: { classification: "PLAYER_DID_NOT_PLAY_IN_MATCHUP" },
+    }
+  );
+  assert.strictEqual(cls, RECOVERY_CLASS.TRUE_NO_PLAYER_H2H);
+  console.log("✓ classify matchup true no player h2h when games exist but DNP");
+}
+
+function testClassifyMatchupFixableWhenWrongQuery() {
+  const cls = classifyIntegrityIssue(
+    {
+      key: "matchup",
+      status: "MISSING",
+      repairable: false,
+      meta: {
+        opponentTeamId: "portlandfire",
+        teamId: "chicagosky",
+        matchupLookupClass: "WRONG_QUERY_KEY_SUSPECTED",
+      },
+    },
+    {
+      playerName: "Azura Stevens",
+      playerId: "525",
+      ballPlayerResolved: true,
+      matchupProbe: { classification: "WRONG_QUERY_KEY_SUSPECTED" },
+    }
   );
   assert.strictEqual(cls, RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE);
-  console.log("✓ classify matchup lookup");
+  console.log("✓ classify matchup fixable when wrong query suspected");
 }
 
 function testClassifyDefenseFallback() {
@@ -179,7 +240,7 @@ async function testStablePlayerIdRecovery() {
   assert.strictEqual(dataRecovery.attempted, true);
   assert.ok(
     dataRecovery.recoveredFields.includes("playerId") ||
-      context.playerId === "42"
+      context.playerId === "525"
   );
   console.log("✓ stable player id recovery");
 }
@@ -356,7 +417,9 @@ async function main() {
   testClassifyMarketUnavailable();
   testClassifyAvailabilityFallback();
   testClassifySeasonStatsCache();
-  testClassifyMatchupLookup();
+  testClassifyMatchupTrueUnavailable();
+  testClassifyMatchupTrueNoPlayerH2H();
+  testClassifyMatchupFixableWhenWrongQuery();
   testClassifyDefenseFallback();
   testClassifyOkReturnsNull();
   testEmptyRecoveryShape();
@@ -374,7 +437,7 @@ async function main() {
   testDataBlindVsWeakSlateLabel();
   testIntegrityWithRecoveryAttached();
   await testWouldEligibilityImproveFlag();
-  console.log("\nAll WNBA data recovery tests passed (26).");
+  console.log("\nAll WNBA data recovery tests passed (28).");
 }
 
 main().catch((err) => {

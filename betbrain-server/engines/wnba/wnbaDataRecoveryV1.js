@@ -13,13 +13,19 @@ import {
   fetchPlayerStats,
   fetchLast5,
   fetchLast3VsOpponent,
+  probeWnbaMatchupLookup,
   bustBallCachesForPlayer,
 } from "../../services/ballService.js";
+import {
+  MATCHUP_LOOKUP_CLASS,
+  mapProbeToRecoveryClass,
+} from "./wnbaMatchupLookupV1.js";
 
 export const DATA_RECOVERY_VERSION = "wnba-data-recovery-v1";
 
 export const RECOVERY_CLASS = {
   TRUE_SOURCE_UNAVAILABLE: "TRUE_SOURCE_UNAVAILABLE",
+  TRUE_NO_PLAYER_H2H: "TRUE_NO_PLAYER_H2H",
   FIXABLE_LOOKUP_FAILURE: "FIXABLE_LOOKUP_FAILURE",
   FIXABLE_ALIAS_FAILURE: "FIXABLE_ALIAS_FAILURE",
   FIXABLE_PLAYER_ID_FAILURE: "FIXABLE_PLAYER_ID_FAILURE",
@@ -28,6 +34,8 @@ export const RECOVERY_CLASS = {
   FIXABLE_PARSER_FAILURE: "FIXABLE_PARSER_FAILURE",
   NEEDS_FALLBACK_SOURCE: "NEEDS_FALLBACK_SOURCE",
 };
+
+export { MATCHUP_LOOKUP_CLASS };
 
 const ELIGIBILITY_BLOCKING_KEYS = new Set([
   "playerId",
@@ -53,6 +61,7 @@ export function classifyIntegrityIssue(issue = {}, context = {}) {
   const { ballPlayerResolved = false } = context;
 
   if (status === "OK") return null;
+  if (status === "WEAK") return null;
 
   if (key === "playerId") {
     if (resolveStableWnbaPlayerId(context.playerName)) {
@@ -78,13 +87,60 @@ export function classifyIntegrityIssue(issue = {}, context = {}) {
   }
 
   if (key === "matchup") {
-    if (status === "LOOKUP_FAILED") {
+    if (status === "LOOKUP_FAILED" || repairable) {
+      const probeClass = context.matchupProbe?.classification;
+      if (probeClass === MATCHUP_LOOKUP_CLASS.WRONG_QUERY_KEY_SUSPECTED) {
+        return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
+      }
+      if (probeClass === MATCHUP_LOOKUP_CLASS.FALLBACK_WNBA_MATCHUP_REQUIRED) {
+        return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
+      }
+      if (repairable && !probeClass) {
+        return RECOVERY_CLASS.FIXABLE_ALIAS_FAILURE;
+      }
       return RECOVERY_CLASS.FIXABLE_ALIAS_FAILURE;
     }
-    if (repairable) {
-      return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
+
+    const probeClass =
+      context.matchupProbe?.classification ||
+      issue.meta?.matchupLookupClass ||
+      null;
+
+    if (probeClass) {
+      const mapped = mapProbeToRecoveryClass(probeClass);
+      if (mapped === "TRUE_NO_PLAYER_H2H") {
+        return RECOVERY_CLASS.TRUE_NO_PLAYER_H2H;
+      }
+      if (mapped === "NEEDS_FALLBACK_SOURCE") {
+        return RECOVERY_CLASS.NEEDS_FALLBACK_SOURCE;
+      }
+      if (mapped === "FIXABLE_LOOKUP_FAILURE") {
+        return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
+      }
     }
-    return RECOVERY_CLASS.TRUE_SOURCE_UNAVAILABLE;
+
+    const hasResolvedTeams = Boolean(
+      issue.meta?.opponentTeamId && issue.meta?.teamId
+    );
+    const hasPlayerContext = Boolean(
+      context.playerId ||
+        resolveStableWnbaPlayerId(context.playerName) ||
+        context.ballPlayerResolved
+    );
+
+    if (hasResolvedTeams && hasPlayerContext) {
+      if (probeClass === MATCHUP_LOOKUP_CLASS.PLAYER_DID_NOT_PLAY_IN_MATCHUP) {
+        return RECOVERY_CLASS.TRUE_NO_PLAYER_H2H;
+      }
+      if (probeClass === MATCHUP_LOOKUP_CLASS.BALL_GAME_LOOKUP_EMPTY) {
+        return RECOVERY_CLASS.NEEDS_FALLBACK_SOURCE;
+      }
+      if (probeClass === MATCHUP_LOOKUP_CLASS.MATCHUP_GAMES_EXIST) {
+        return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
+      }
+      return RECOVERY_CLASS.NEEDS_FALLBACK_SOURCE;
+    }
+    return RECOVERY_CLASS.FIXABLE_LOOKUP_FAILURE;
   }
 
   if (key === "availability") {
@@ -246,15 +302,27 @@ export async function attemptWnbaDataRecovery(context = {}, dataIntegrity = null
         }
 
         const beforeTime = merged.beforeTime || merged.game?.commenceTime || null;
-        const seasonGames = await fetchPlayerStats(merged.playerName, "WNBA");
-        const last5 = await fetchLast5(merged.playerName, "WNBA", { beforeTime });
         const resolvedOpponent =
           resolveTeamViaAliases(merged.opponent) || merged.opponent;
+        const resolvedPlayerTeam =
+          resolveTeamViaAliases(merged.team) || merged.team;
+
+        const matchupProbe = await probeWnbaMatchupLookup({
+          playerName: merged.playerName,
+          playerId: merged.playerId,
+          playerTeam: resolvedPlayerTeam,
+          opponent: resolvedOpponent,
+          beforeTime,
+        });
+        merged.matchupProbe = matchupProbe;
+
+        const seasonGames = await fetchPlayerStats(merged.playerName, "WNBA");
+        const last5 = await fetchLast5(merged.playerName, "WNBA", { beforeTime });
         const matchupGames = await fetchLast3VsOpponent(
           merged.playerName,
           resolvedOpponent,
           "WNBA",
-          { beforeTime }
+          { beforeTime, playerTeam: resolvedPlayerTeam }
         );
 
         merged.last5 = last5;
@@ -331,6 +399,7 @@ export async function attemptWnbaDataRecovery(context = {}, dataIntegrity = null
     playerState: merged.playerState || {},
     ballPlayerResolved: merged.ballPlayerResolved,
     stablePlayerIdUsed: merged.stablePlayerIdUsed,
+    matchupProbe: merged.matchupProbe || null,
   });
 
   recovery.stillBlockingEligibility = blockingKeysFromAudit(postAudit);

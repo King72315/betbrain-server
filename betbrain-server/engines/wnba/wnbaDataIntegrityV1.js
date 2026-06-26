@@ -8,6 +8,7 @@ import {
   listWnbaTeamAliases,
 } from "./wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "./wnbaPlayerIdResolver.js";
+import { MATCHUP_LOOKUP_CLASS } from "./wnbaMatchupLookupV1.js";
 
 export const DATA_INTEGRITY_VERSION = "wnba-data-integrity-v1";
 
@@ -54,6 +55,7 @@ export function auditWnbaDataIntegrity(context = {}) {
     playerState = {},
     ballPlayerResolved = false,
     stablePlayerIdUsed = false,
+    matchupProbe = null,
   } = context;
 
   const issues = [];
@@ -140,23 +142,42 @@ export function auditWnbaDataIntegrity(context = {}) {
 
   const matchupCount = matchupGames.length;
   const hasMatchup = matchupCount > 0 || num(matchupAverage) > 0;
+  const matchupLookupClass =
+    matchupProbe?.classification ||
+    (hasMatchup ? MATCHUP_LOOKUP_CLASS.PLAYER_H2H_EXISTS : null);
+
   if (!hasMatchup) {
     const aliasNote =
       teamId && opponentTeamId
         ? ` (${formatWnbaTeamDisplay(teamId)} vs ${formatWnbaTeamDisplay(opponentTeamId)})`
         : "";
+    const probeNote = matchupLookupClass
+      ? ` [${matchupLookupClass}]`
+      : "";
     issues.push(
       issue({
         key: "matchup",
         status: opponentTeamId ? "MISSING" : "LOOKUP_FAILED",
         severity: "medium",
-        message: `No opponent matchup history${aliasNote}`,
-        repairable: Boolean(opponentTeamId),
+        message: opponentTeamId
+          ? `No opponent matchup history${aliasNote}${probeNote}`
+          : `Could not resolve opponent for matchup lookup${aliasNote}`,
+        repairable:
+          !opponentTeamId ||
+          matchupLookupClass === MATCHUP_LOOKUP_CLASS.WRONG_QUERY_KEY_SUSPECTED ||
+          matchupLookupClass === MATCHUP_LOOKUP_CLASS.FALLBACK_WNBA_MATCHUP_REQUIRED ||
+          matchupLookupClass === MATCHUP_LOOKUP_CLASS.BALL_PLAYER_STATS_EMPTY,
         meta: {
           opponentTeamId,
           teamId,
           opponentAliases: listWnbaTeamAliases(opponent),
-          lookupMethod: "teamId-bidirectional",
+          lookupMethod: matchupProbe?.lookupMethod || "games-then-player_stats",
+          seasonHeadToHeadEmpty: Boolean(opponentTeamId && teamId),
+          matchupLookupClass,
+          gamesProbeCount: matchupProbe?.gamesCount ?? null,
+          matchedGameIds: matchupProbe?.matchedGameIds || [],
+          playerStatsProbeCount: matchupProbe?.playerStatsCount ?? null,
+          wrongQueryStatsCount: matchupProbe?.wrongQueryStatsCount ?? null,
         },
       })
     );
@@ -297,7 +318,16 @@ export function auditWnbaDataIntegrity(context = {}) {
       gamesFound: matchupCount,
       average: num(matchupAverage) || null,
       opponentTeamId: opponentTeamId || null,
-      lookupMethod: "teamId-bidirectional",
+      lookupMethod: matchupProbe?.lookupMethod || "games-then-player_stats",
+      matchupLookupClass,
+      probe: matchupProbe
+        ? {
+            gamesCount: matchupProbe.gamesCount,
+            matchedGameIds: matchupProbe.matchedGameIds,
+            playerStatsCount: matchupProbe.playerStatsCount,
+            classification: matchupProbe.classification,
+          }
+        : null,
     },
     availability: {
       status: availabilityGate.statusLevel || "UNKNOWN",

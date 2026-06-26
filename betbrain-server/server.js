@@ -33,6 +33,7 @@ import {
   filterGamesBeforeCutoff,
   findBallPlayer,
   getBallPlayerTeam,
+  probeWnbaMatchupLookup,
   summarizeOpponentMatchup,
   summarizeScoringProfile,
 } from "./services/ballService.js";
@@ -225,7 +226,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-data-recovery-v1";
+const SERVER_BUILD = "courteedge-matchup-lookup-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -1006,15 +1007,25 @@ async function buildDataIntegrityAuditRequest({
   const last5 = await fetchLast5(playerName, normalizedLeague, {
     beforeTime,
   });
+  const ballPlayer = await findBallPlayer(playerName, normalizedLeague);
+  const stableId = resolveStableWnbaPlayerId(playerName);
+  const playerId = String(ballPlayer?.id || stableId || "");
+  const matchupProbe =
+    normalizedLeague === "WNBA"
+      ? await probeWnbaMatchupLookup({
+          playerName,
+          playerId,
+          playerTeam: resolvedTeam,
+          opponent: resolvedOpponent,
+          beforeTime,
+        })
+      : null;
   const matchupGames = await fetchLast3VsOpponent(
     playerName,
     resolvedOpponent,
     normalizedLeague,
-    { beforeTime }
+    { beforeTime, playerTeam: resolvedTeam }
   );
-  const ballPlayer = await findBallPlayer(playerName, normalizedLeague);
-  const stableId = resolveStableWnbaPlayerId(playerName);
-  const playerId = String(ballPlayer?.id || stableId || "");
   const availabilityGate = await evaluateWnbaAvailability({
     playerId,
     playerName,
@@ -1052,6 +1063,7 @@ async function buildDataIntegrityAuditRequest({
     },
     ballPlayerResolved: Boolean(ballPlayer),
     stablePlayerIdUsed: Boolean(stableId && String(ballPlayer?.id) === stableId),
+    matchupProbe,
   });
 
   let dataRecovery = null;
@@ -1334,7 +1346,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         playerName,
         opponent,
         league,
-        { beforeTime: gameCutoff }
+        { beforeTime: gameCutoff, playerTeam: team }
       );
 
       const last5Profile = summarizeScoringProfile(last5);

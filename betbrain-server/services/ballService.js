@@ -5,6 +5,15 @@ import {
   teamsMatch,
 } from "../engines/wnba/wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "../engines/wnba/wnbaPlayerIdResolver.js";
+import {
+  MATCHUP_LOOKUP_CLASS,
+  buildWnbaGamesMatchupUrl,
+  buildWnbaPlayerStatsUrl,
+  buildWrongOpponentTeamStatsUrl,
+  classifyWnbaMatchupProbe,
+  filterWnbaGamesVsOpponent,
+  summarizeMatchupUrls,
+} from "../engines/wnba/wnbaMatchupLookupV1.js";
 
 console.log("🔥 BALL SERVICE LOADED");
 
@@ -15,6 +24,7 @@ const WNBA_BASE = "https://api.balldontlie.io/wnba/v1";
 
 const playerCache = new Map();
 const statsCache = new Map();
+const ballApiTeamIdCache = new Map();
 
 function getBallBase(league = "NBA") {
   return league === "WNBA" ? WNBA_BASE : NBA_BASE;
@@ -403,6 +413,189 @@ function normalizeStat(stat, league = "NBA") {
   };
 }
 
+async function ensureBallApiTeamMap(league = "WNBA") {
+  const loadedKey = `${league}-teams-loaded`;
+  if (ballApiTeamIdCache.has(loadedKey)) return;
+
+  const teams = await fetchBallTeams(league);
+  for (const team of teams) {
+    const canonical = resolveWnbaTeamId(team);
+    if (canonical && team?.id != null) {
+      ballApiTeamIdCache.set(`${league}-${canonical}`, team.id);
+    }
+  }
+  ballApiTeamIdCache.set(loadedKey, true);
+}
+
+export async function resolveBallApiTeamId(canonicalTeamId, league = "WNBA") {
+  const canonical = resolveWnbaTeamId(canonicalTeamId);
+  if (!canonical) return null;
+  await ensureBallApiTeamMap(league);
+  return ballApiTeamIdCache.get(`${league}-${canonical}`) ?? null;
+}
+
+async function fetchWnbaPlayerStatsByUrl(url, label) {
+  const data = await ballFetch(url, label);
+  return data?.data || [];
+}
+
+async function fetchLast3FromSeasonStatsFilter(
+  playerName,
+  opponent,
+  options = {}
+) {
+  const games = await fetchPlayerStats(playerName, "WNBA");
+  const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
+  const targetOpponentId = resolveWnbaTeamId(opponent);
+
+  return eligible
+    .filter((g) => teamsMatch(g.opponentTeamId || g.opponent, targetOpponentId))
+    .slice(0, 3);
+}
+
+export async function probeWnbaMatchupLookup({
+  playerName = "",
+  playerId = "",
+  playerTeam = "",
+  opponent = "",
+  beforeTime = null,
+} = {}) {
+  const seasonYear = getSeasonYear("WNBA");
+  const resolvedPlayerTeam = resolveWnbaTeamId(playerTeam);
+  const resolvedOpponent = resolveWnbaTeamId(opponent);
+  let ballPlayerId = playerId;
+
+  if (!ballPlayerId && playerName) {
+    const player = await findBallPlayer(playerName, "WNBA");
+    ballPlayerId = player?.id || resolveStableWnbaPlayerId(playerName) || "";
+  }
+
+  const playerBallTeamId = resolvedPlayerTeam
+    ? await resolveBallApiTeamId(resolvedPlayerTeam, "WNBA")
+    : null;
+  const opponentBallTeamId = resolvedOpponent
+    ? await resolveBallApiTeamId(resolvedOpponent, "WNBA")
+    : null;
+
+  const urlSummary = summarizeMatchupUrls({
+    playerId: ballPlayerId,
+    playerBallTeamId,
+    opponentBallTeamId,
+    matchedGameIds: [],
+    seasonYear,
+    beforeTime,
+  });
+
+  const legacySeasonGames = playerName
+    ? await fetchLast3FromSeasonStatsFilter(playerName, opponent, { beforeTime })
+    : [];
+
+  if (!ballPlayerId || !playerBallTeamId || !opponentBallTeamId) {
+    return {
+      classification: MATCHUP_LOOKUP_CLASS.FALLBACK_WNBA_MATCHUP_REQUIRED,
+      gamesCount: 0,
+      matchedGameIds: [],
+      matchedGames: [],
+      playerStatsCount: 0,
+      wrongQueryStatsCount: 0,
+      legacySeasonFilterCount: legacySeasonGames.length,
+      matchupGames: legacySeasonGames,
+      ...urlSummary,
+    };
+  }
+
+  const gamesUrl = buildWnbaGamesMatchupUrl(playerBallTeamId, seasonYear, {
+    beforeTime,
+    startDate: `${seasonYear}-01-01`,
+    endDate: beforeTime
+      ? new Date(beforeTime).toISOString().slice(0, 10)
+      : `${seasonYear}-12-31`,
+  });
+
+  const gamesPayload = await ballFetch(
+    gamesUrl,
+    `BALL WNBA MATCHUP GAMES (${resolvedPlayerTeam} vs ${resolvedOpponent})`
+  );
+  const allTeamGames = gamesPayload?.data || [];
+  const matchedGames = filterWnbaGamesVsOpponent(
+    allTeamGames,
+    playerBallTeamId,
+    opponentBallTeamId
+  );
+  const matchedGameIds = matchedGames.map((g) => g.id).filter(Boolean);
+
+  const fixedStatsUrl = buildWnbaPlayerStatsUrl({
+    playerId: ballPlayerId,
+    gameIds: matchedGameIds,
+  });
+  const wrongStatsUrl = buildWrongOpponentTeamStatsUrl(
+    ballPlayerId,
+    opponentBallTeamId,
+    seasonYear
+  );
+
+  let playerStats = [];
+  if (matchedGameIds.length) {
+    playerStats = await fetchWnbaPlayerStatsByUrl(
+      fixedStatsUrl,
+      `BALL WNBA MATCHUP STATS game_ids (${playerName || ballPlayerId})`
+    );
+  }
+
+  const wrongQueryStats = matchedGameIds.length
+    ? await fetchWnbaPlayerStatsByUrl(
+        wrongStatsUrl,
+        `BALL WNBA MATCHUP STATS wrong team_ids probe (${playerName || ballPlayerId})`
+      )
+    : [];
+
+  const matchupGames = playerStats
+    .map((stat) => normalizeStat(stat, "WNBA"))
+    .filter((g) => g.played && g.date)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const eligible = filterGamesBeforeCutoff(matchupGames, beforeTime);
+
+  const classification = classifyWnbaMatchupProbe({
+    gamesCount: allTeamGames.length,
+    matchedGameIds,
+    playerStatsCount: eligible.length,
+    wrongQueryStatsCount: wrongQueryStats.length,
+    legacySeasonFilterCount: legacySeasonGames.length,
+  });
+
+  const finalSummary = summarizeMatchupUrls({
+    playerId: ballPlayerId,
+    playerBallTeamId,
+    opponentBallTeamId,
+    matchedGameIds,
+    seasonYear,
+    beforeTime,
+  });
+
+  return {
+    classification,
+    gamesCount: allTeamGames.length,
+    matchedGameIds,
+    matchedGames: matchedGames.map((g) => ({
+      id: g.id,
+      date: g.date,
+      home: g.home_team?.abbreviation || g.home_team?.full_name,
+      visitor:
+        g.visitor_team?.abbreviation ||
+        g.away_team?.abbreviation ||
+        g.visitor_team?.full_name,
+    })),
+    playerStatsCount: eligible.length,
+    wrongQueryStatsCount: wrongQueryStats.length,
+    legacySeasonFilterCount: legacySeasonGames.length,
+    matchupGames: eligible,
+    fixedPlayerStatsUrl: fixedStatsUrl,
+    wrongOpponentTeamStatsUrl: wrongStatsUrl,
+    ...finalSummary,
+  };
+}
+
 export async function fetchPlayerStats(playerName, league = "NBA") {
   console.log("🔥 FETCH PLAYER STATS FIRED:", league, playerName);
 
@@ -500,19 +693,63 @@ export async function fetchLast3VsOpponent(
 ) {
   console.log("🔥 FETCH LAST3 VS OPP FIRED:", league, playerName, opponent);
 
+  if (league === "WNBA") {
+    const player = await findBallPlayer(playerName, "WNBA");
+    const playerTeam =
+      resolveWnbaTeamId(options.playerTeam) ||
+      (player?.team ? resolveWnbaTeamId(player.team) : "");
+
+    const probe = await probeWnbaMatchupLookup({
+      playerName,
+      playerId: player?.id || resolveStableWnbaPlayerId(playerName) || "",
+      playerTeam,
+      opponent,
+      beforeTime: options.beforeTime || null,
+    });
+
+    if (probe.matchupGames?.length) {
+      const matches = probe.matchupGames.slice(0, 3);
+      console.log(
+        "🔥 LAST3 VS OPP RESULT (games-first):",
+        league,
+        playerName,
+        opponent,
+        probe.classification,
+        matches.map((g) => ({
+          date: g.date,
+          points: g.points,
+          opponent: g.opponentTeamId || g.opponent,
+        }))
+      );
+      return matches;
+    }
+
+    const legacy = await fetchLast3FromSeasonStatsFilter(
+      playerName,
+      opponent,
+      options
+    );
+    console.log(
+      "🔥 LAST3 VS OPP RESULT (legacy season filter):",
+      league,
+      playerName,
+      opponent,
+      probe.classification,
+      legacy.map((g) => ({
+        date: g.date,
+        points: g.points,
+        opponent: g.opponent,
+      }))
+    );
+    return legacy;
+  }
+
   const games = await fetchPlayerStats(playerName, league);
   const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
-
-  const targetOpponentId =
-    league === "WNBA" ? resolveWnbaTeamId(opponent) : clean(opponent);
+  const targetOpponentId = clean(opponent);
 
   const matches = eligible
-    .filter((g) => {
-      if (league === "WNBA") {
-        return teamsMatch(g.opponentTeamId || g.opponent, targetOpponentId);
-      }
-      return clean(g.opponent) === targetOpponentId;
-    })
+    .filter((g) => clean(g.opponent) === targetOpponentId)
     .slice(0, 3);
 
   console.log(
