@@ -55,13 +55,26 @@ export default function PropCard({
     pick.readerConfidence ?? pick.wnbaReader?.readerConfidence;
   const dataConfidence =
     pick.dataConfidence ?? pick.wnbaDataCard?.dataConfidenceScore ?? pick.dataQuality;
+  const dataIntegrity =
+    pick.dataIntegrity || pick.wnbaDataCard?.dataIntegrity || null;
+  const dataIntegrityLabel =
+    pick.dataIntegrityOverall ||
+    dataIntegrity?.overall ||
+    (Number(dataConfidence) >= 75
+      ? "GOOD"
+      : Number(dataConfidence) >= 55
+        ? "PARTIAL"
+        : "BAD");
+  const dataIntegrityIssues = dataIntegrity?.issues || [];
   const bestPropScore = pick.bestPropScore ?? pick.finalBestPropScore;
   const whySide = pick.whySide || pick.wnbaReader?.supports || pick.support || [];
   const missingWarnings =
     pick.missingDataWarnings ||
-    (pick.wnbaDataCard?.dataMissingFlags || [])
-      .filter((f: any) => f.missing)
-      .map((f: any) => f.note || f.key);
+    (dataIntegrityIssues.length
+      ? dataIntegrityIssues.map((issue: any) => issue.message || issue.key)
+      : (pick.wnbaDataCard?.dataMissingFlags || [])
+          .filter((f: any) => f.missing)
+          .map((f: any) => f.note || f.key));
   const wnbaShadowEnabled =
     process.env.EXPO_PUBLIC_WNBA_SHADOW_RECALIBRATION === "true";
   const wnbaShadow = pick.wnbaShadow || null;
@@ -178,6 +191,7 @@ export default function PropCard({
         <View style={styles.bestSixMetricRow}>
           <Metric label="True Risk" value={displayTrueRisk} />
           <Metric label="Decision" value={trackDecision} />
+          <Metric label="Data" value={dataIntegrityLabel} />
         </View>
 
         {whyText ? (
@@ -288,7 +302,7 @@ export default function PropCard({
             <View style={styles.wnbaV2Compact}>
               <Text style={styles.wnbaV2Line}>
                 Score {safeDisplay(bestPropScore)} • {readerDecision || "—"} • Reader{" "}
-                {safeDisplay(readerConfidence)}% • Data {safeDisplay(dataConfidence)}%
+                {safeDisplay(readerConfidence)}% • Data {dataIntegrityLabel}
               </Text>
               {whySide?.length ? (
                 <Text style={styles.wnbaV2Why} numberOfLines={2}>
@@ -406,7 +420,7 @@ export default function PropCard({
           <View style={styles.wnbaV2Compact}>
             <Text style={styles.wnbaV2Line}>
               Score {safeDisplay(bestPropScore)} • {readerDecision || "—"} • Reader{" "}
-              {safeDisplay(readerConfidence)}% • Data {safeDisplay(dataConfidence)}%
+              {safeDisplay(readerConfidence)}% • Data {dataIntegrityLabel}
             </Text>
             {whySide?.length ? (
               <Text style={styles.wnbaV2Why} numberOfLines={2}>
@@ -597,6 +611,19 @@ export default function PropCard({
         <Text style={styles.ledgerMeta}>
           Availability: {formatAvailabilitySummary(availabilityGate, league)}
         </Text>
+        {wnbaV2 && dataIntegrity ? (
+          <View style={styles.previewBox}>
+            <Text style={styles.ledgerMeta}>
+              Data Integrity: {dataIntegrityLabel}
+              {dataIntegrity.score != null ? ` (${safeDisplay(dataIntegrity.score)}%)` : ""}
+            </Text>
+            {dataIntegrityIssues.slice(0, 6).map((issue: any, i: number) => (
+              <Text key={`di-${i}`} style={styles.previewRisk}>
+                • [{issue.status || issue.key}] {issue.message || issue.key}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         {volumeDangerGates.gates?.length ? (
           <View style={styles.previewBox}>

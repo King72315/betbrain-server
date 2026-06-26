@@ -139,10 +139,11 @@ async function testUnknownAvailabilityMissingData() {
   });
   assert.strictEqual(avail.statusLevel, "UNKNOWN");
   assert.strictEqual(avail.availabilityDataMissing, true);
-  assert.strictEqual(avail.availabilityRisk, false);
-  assert.strictEqual(avail.dangerPressure, 0);
+  assert.strictEqual(avail.availabilityRisk, true);
+  assert.strictEqual(avail.availabilitySourceStatus, "SOURCE_UNAVAILABLE");
+  assert.ok(avail.dangerPressure > 0);
   assert.strictEqual(avail.blocksOfficial, false);
-  console.log("✓ 8 unknown availability = missing data, not risk");
+  console.log("✓ 8 unknown availability = missing data + uncertainty risk");
 }
 
 function testReaderOfficialDemotedFlag() {

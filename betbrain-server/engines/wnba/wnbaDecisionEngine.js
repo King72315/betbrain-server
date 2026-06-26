@@ -175,6 +175,7 @@ export async function evaluateWnbaPropDecision(context = {}) {
       marketSnapshot,
       marketIntelligence: {},
       opportunity,
+      matchupGames,
     }
   );
 
@@ -409,6 +410,10 @@ export async function evaluateWnbaPropDecision(context = {}) {
     lineDelta: marketIntelligence.lineDelta,
     ...fairLine,
     wnbaDataCard: dataCard,
+    dataIntegrity: dataCard.dataIntegrity,
+    dataIntegrityVersion: dataCard.dataIntegrityVersion,
+    dataIntegrityOverall: dataCard.dataIntegrityOverall,
+    dataIntegrityCompact: dataCard.dataIntegrityCompact,
     wnbaReader: reader,
     underGap: reader.underGap,
     underGapFloorUsed: reader.underGapFloorUsed,

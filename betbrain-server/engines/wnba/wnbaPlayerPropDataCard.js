@@ -1,6 +1,12 @@
 import { findBallPlayer } from "../../services/ballService.js";
 import { buildFairLine } from "../fairLineEngine.js";
 import { projectWnbaPoints } from "./wnbaProjectionEngine.js";
+import {
+  auditWnbaDataIntegrity,
+  DATA_INTEGRITY_VERSION,
+  summarizeDataIntegrityForDisplay,
+} from "./wnbaDataIntegrityV1.js";
+import { resolveStableWnbaPlayerId } from "./wnbaPlayerIdResolver.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -85,11 +91,17 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     marketSnapshot = {},
     marketIntelligence = {},
     opportunity = {},
+    matchupGames = [],
   } = context;
 
   const ballPlayer = await findBallPlayer(playerName, "WNBA");
+  const stablePlayerId = resolveStableWnbaPlayerId(playerName);
+  const stablePlayerIdUsed = Boolean(
+    stablePlayerId && String(ballPlayer?.id || "") === String(stablePlayerId)
+  );
   const playerId = String(
     ballPlayer?.id ||
+      stablePlayerId ||
       playerState.playerId ||
       pick.playerId ||
       ""
@@ -166,7 +178,8 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   flag(
     "availabilityFeed",
     Boolean(availabilityGate.availabilityDataMissing),
-    "WNBA availability feed missing"
+    availabilityGate.availabilityMessage ||
+      "WNBA availability feed missing — uncertainty treated as risk"
   );
   flag(
     "defense",
@@ -175,7 +188,7 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   );
   flag(
     "matchup",
-    num(playerState.matchupAverage) <= 0,
+    num(playerState.matchupAverage) <= 0 && matchupGames.length === 0,
     "No opponent matchup history"
   );
   flag("market", num(prop.bookCount) <= 0, "No book line data");
@@ -211,16 +224,24 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       : "unknown";
 
   const availabilityDataMissing = Boolean(availabilityGate.availabilityDataMissing);
-  const dataMissingWithAvailability = availabilityDataMissing
-    ? [
-        ...dataMissingFlags,
-        {
-          key: "WNBA_AVAILABILITY_FEED_MISSING",
-          missing: true,
-          note: "WNBA availability feed missing — not treated as risk",
-        },
-      ]
-    : dataMissingFlags;
+
+  const dataIntegrity = auditWnbaDataIntegrity({
+    playerName,
+    playerId,
+    team,
+    opponent,
+    last5,
+    matchupGames,
+    matchupAverage: playerState.matchupAverage,
+    seasonAverage: seasonPoints,
+    availabilityGate,
+    defenseResult,
+    prop,
+    playerState,
+    ballPlayerResolved: Boolean(ballPlayer),
+    stablePlayerIdUsed,
+  });
+  const dataIntegrityDisplay = summarizeDataIntegrityForDisplay(dataIntegrity);
 
   return {
     version: "wnba-data-card-v2",
@@ -270,6 +291,8 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       availabilityStatus: availabilityGate.availabilityStatus || availabilityGate.statusLevel || "UNKNOWN",
       availabilityDataMissing,
       availabilityRisk: Boolean(availabilityGate.availabilityRisk),
+      availabilitySourceStatus:
+        availabilityGate.availabilitySourceStatus || "OK",
       blocksPlay: Boolean(availabilityGate.noPlay),
       reasons: availabilityGate.noPlayReasons || availabilityGate.dangerReasons || [],
     },
@@ -289,8 +312,12 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     },
     projection: projectionResult,
     fairLine,
-    dataMissingFlags: dataMissingWithAvailability,
+    dataMissingFlags,
     dataConfidenceScore,
+    dataIntegrity,
+    dataIntegrityVersion: DATA_INTEGRITY_VERSION,
+    dataIntegrityOverall: dataIntegrityDisplay.label,
+    dataIntegrityCompact: dataIntegrityDisplay.compact,
     lineToRecentAvgRatio,
     lineToSeasonAvgRatio,
     absoluteLineBucket,

@@ -132,9 +132,14 @@ export async function evaluateWnbaAvailability({
       statusLabel: "Unknown",
       availabilityStatus: "UNKNOWN",
       availabilityDataMissing: true,
-      availabilityRisk: false,
-      dangerPressure: 0,
-      dangerReasons: [],
+      availabilityRisk: true,
+      availabilitySourceStatus: "SOURCE_UNAVAILABLE",
+      availabilityMessage:
+        "WNBA availability feed missing — uncertainty treated as risk",
+      dangerPressure: 0.08,
+      dangerReasons: [
+        "Availability feed has no injury row — uncertainty treated as risk",
+      ],
       noPlay: false,
       noPlayReasons: [],
       blocksOfficial: false,
@@ -163,7 +168,9 @@ export async function evaluateWnbaAvailability({
     blocksOfficial = true;
   } else if (level === "UNKNOWN") {
     availabilityDataMissing = true;
-    availabilityRisk = false;
+    availabilityRisk = true;
+    dangerReasons.push("Injury status unclear — uncertainty treated as risk");
+    dangerPressure = 0.08;
   }
 
   return {
@@ -174,6 +181,12 @@ export async function evaluateWnbaAvailability({
     availabilityStatus: level,
     availabilityDataMissing,
     availabilityRisk,
+    availabilitySourceStatus: availabilityDataMissing
+      ? "SOURCE_UNAVAILABLE"
+      : "OK",
+    availabilityMessage: availabilityDataMissing
+      ? "WNBA availability feed missing — uncertainty treated as risk"
+      : "",
     dangerPressure,
     dangerReasons,
     noPlay,

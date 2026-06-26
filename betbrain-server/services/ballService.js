@@ -1,5 +1,10 @@
 import fetch from "node-fetch";
 import { CONFIG } from "../config.js";
+import {
+  resolveWnbaTeamId,
+  teamsMatch,
+} from "../engines/wnba/wnbaTeamAliasResolver.js";
+import { resolveStableWnbaPlayerId } from "../engines/wnba/wnbaPlayerIdResolver.js";
 
 console.log("🔥 BALL SERVICE LOADED");
 
@@ -307,25 +312,75 @@ export async function findBallPlayer(playerName, league = "NBA") {
     }))
   );
 
+  if (league === "WNBA") {
+    const stableId = resolveStableWnbaPlayerId(playerName);
+    if (stableId) {
+      const stablePlayer = {
+        id: Number(stableId) || stableId,
+        first_name: firstName,
+        last_name: lastName,
+        team: null,
+        _stableOverride: true,
+      };
+      console.log(
+        "BALL PLAYER STABLE OVERRIDE:",
+        league,
+        playerName,
+        "=>",
+        stableId
+      );
+      playerCache.set(key, stablePlayer);
+      return stablePlayer;
+    }
+  }
+
   playerCache.set(key, null);
   return null;
 }
 
-function normalizeStat(stat) {
-  const playerTeam = normalizeTeamName(stat.team);
+function resolveOpponentFromStat(stat = {}, league = "NBA") {
+  const homeObj = stat.game?.home_team;
+  const awayObj = stat.game?.visitor_team || stat.game?.away_team;
 
-  const home = normalizeGameTeam(stat.game?.home_team);
-  const away = normalizeGameTeam(stat.game?.visitor_team);
+  if (league === "WNBA") {
+    const homeId = resolveWnbaTeamId(homeObj);
+    const awayId = resolveWnbaTeamId(awayObj);
+    const playerTeamId = resolveWnbaTeamId(stat.team);
 
-  let opponent = "";
+    if (teamsMatch(playerTeamId, homeId)) return awayId;
+    if (teamsMatch(playerTeamId, awayId)) return homeId;
 
-  if (playerTeam && home && playerTeam === home) {
-    opponent = away;
-  } else if (playerTeam && away && playerTeam === away) {
-    opponent = home;
-  } else {
-    opponent = home || away || "";
+    const playerApiTeamId = stat.team?.id;
+    if (playerApiTeamId && homeObj?.id && playerApiTeamId === homeObj.id) {
+      return awayId;
+    }
+    if (playerApiTeamId && awayObj?.id && playerApiTeamId === awayObj.id) {
+      return homeId;
+    }
+
+    return awayId || homeId || "";
   }
+
+  const playerTeam = normalizeTeamName(stat.team);
+  const home = normalizeGameTeam(homeObj);
+  const away = normalizeGameTeam(awayObj);
+
+  if (playerTeam && home && playerTeam === home) return away;
+  if (playerTeam && away && playerTeam === away) return home;
+  return home || away || "";
+}
+
+function normalizeStat(stat, league = "NBA") {
+  const playerTeam =
+    league === "WNBA"
+      ? resolveWnbaTeamId(stat.team)
+      : normalizeTeamName(stat.team);
+
+  const opponentTeamId = resolveOpponentFromStat(stat, league);
+  const opponent =
+    league === "WNBA"
+      ? opponentTeamId || ""
+      : clean(opponentTeamId);
 
   const points = getStatPoints(stat);
   const minutes = parseMinutes(stat.min ?? stat.minutes);
@@ -334,6 +389,7 @@ function normalizeStat(stat) {
     date: stat.game?.date || "",
     team: playerTeam,
     opponent,
+    opponentTeamId: league === "WNBA" ? opponentTeamId : clean(opponent),
 
     points,
     minutes,
@@ -386,7 +442,7 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
   }
 
   const games = (data?.data || [])
-    .map(normalizeStat)
+    .map((stat) => normalizeStat(stat, league))
     .filter((g) => g.date)
     .filter((g) => g.played)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -446,10 +502,17 @@ export async function fetchLast3VsOpponent(
 
   const games = await fetchPlayerStats(playerName, league);
   const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
-  const opp = clean(opponent);
+
+  const targetOpponentId =
+    league === "WNBA" ? resolveWnbaTeamId(opponent) : clean(opponent);
 
   const matches = eligible
-    .filter((g) => clean(g.opponent) === opp)
+    .filter((g) => {
+      if (league === "WNBA") {
+        return teamsMatch(g.opponentTeamId || g.opponent, targetOpponentId);
+      }
+      return clean(g.opponent) === targetOpponentId;
+    })
     .slice(0, 3);
 
   console.log(
@@ -650,7 +713,14 @@ export function summarizeOpponentMatchup(
 export async function getBallPlayerTeam(playerName, league = "NBA") {
   const player = await findBallPlayer(playerName, league);
 
-  if (!player?.team) return "";
+  if (!player?.team) {
+    if (league === "WNBA") return "";
+    return "";
+  }
+
+  if (league === "WNBA") {
+    return resolveWnbaTeamId(player.team) || normalizeTeamName(player.team);
+  }
 
   return normalizeTeamName(player.team);
 }

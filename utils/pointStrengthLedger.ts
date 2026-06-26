@@ -17,12 +17,18 @@ function formatGateLabel(gate: string) {
 }
 
 function formatAvailabilitySummary(availabilityGate: any, league = "") {
-  if (
-    availabilityGate.applicable === false ||
-    availabilityGate.status === "N/A" ||
-    league === "WNBA"
-  ) {
-    return "Skipped (WNBA — no injury feed)";
+  if (availabilityGate.applicable === false || availabilityGate.status === "N/A") {
+    return "Skipped (N/A)";
+  }
+
+  if (String(league).toUpperCase() === "WNBA") {
+    if (availabilityGate.availabilityDataMissing) {
+      return `Unknown — feed missing (${availabilityGate.availabilitySourceStatus || "SOURCE_UNAVAILABLE"}, uncertainty risk)`;
+    }
+    const level = availabilityGate.statusLevel || availabilityGate.status || "—";
+    const label = availabilityGate.statusLabel || availabilityGate.status || "";
+    const suffix = availabilityGate.noPlay ? " — NO PLAY" : "";
+    return `${level}${label && label !== level ? ` (${label})` : ""}${suffix}`;
   }
 
   const level = availabilityGate.statusLevel || availabilityGate.status || "—";

@@ -31,6 +31,7 @@ import {
   fetchLast5,
   fetchPlayerStats,
   filterGamesBeforeCutoff,
+  findBallPlayer,
   getBallPlayerTeam,
   summarizeOpponentMatchup,
   summarizeScoringProfile,
@@ -105,6 +106,15 @@ import {
   DECISION_INTELLIGENCE_VERSION,
 } from "./engines/decisionIntelligence/propDecisionIntelligenceV1.js";
 import { SIDE_RESCUE_VERSION } from "./engines/decisionIntelligence/sideRescueEngineV1.js";
+import {
+  auditWnbaDataIntegrity,
+  DATA_INTEGRITY_VERSION,
+} from "./engines/wnba/wnbaDataIntegrityV1.js";
+import {
+  resolveWnbaTeamId,
+  teamsMatch,
+} from "./engines/wnba/wnbaTeamAliasResolver.js";
+import { resolveStableWnbaPlayerId } from "./engines/wnba/wnbaPlayerIdResolver.js";
 
 import {
   appendMarketSnapshot,
@@ -209,7 +219,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-side-rescue-v1";
+const SERVER_BUILD = "courteedge-data-integrity-v1";
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -283,6 +293,13 @@ function cacheFresh() {
   if (
     picksCache.sideRescueVersion &&
     picksCache.sideRescueVersion !== SIDE_RESCUE_VERSION
+  ) {
+    return false;
+  }
+
+  if (
+    picksCache.dataIntegrityVersion &&
+    picksCache.dataIntegrityVersion !== DATA_INTEGRITY_VERSION
   ) {
     return false;
   }
@@ -900,8 +917,17 @@ function getTier({
   return { tier: "LEAN", tierReasons, premiumGateAudit };
 }
 
-function getOpponentFromGame(team, game) {
+function getOpponentFromGame(team, game, league = "NBA") {
   if (!team) return "";
+
+  if (String(league).toUpperCase() === "WNBA") {
+    const teamId = resolveWnbaTeamId(team);
+    const homeId = resolveWnbaTeamId(game.homeTeam);
+    const awayId = resolveWnbaTeamId(game.awayTeam);
+    if (teamsMatch(teamId, homeId)) return awayId;
+    if (teamsMatch(teamId, awayId)) return homeId;
+    return "";
+  }
 
   if (clean(team) === clean(game.homeTeam)) return game.awayTeam;
   if (clean(team) === clean(game.awayTeam)) return game.homeTeam;
@@ -949,6 +975,89 @@ function formatStartTimeDisplay(commenceTime) {
       minute: "2-digit",
     }) + " CT"
   );
+}
+
+async function buildDataIntegrityAuditRequest({
+  playerName = "",
+  team = "",
+  opponent = "",
+  league = "WNBA",
+  line = 0,
+  beforeTime = null,
+} = {}) {
+  const normalizedLeague = String(league || "WNBA").toUpperCase();
+  const resolvedTeam = resolveWnbaTeamId(team) || team;
+  const resolvedOpponent = resolveWnbaTeamId(opponent) || opponent;
+
+  const last5 = await fetchLast5(playerName, normalizedLeague, {
+    beforeTime,
+  });
+  const matchupGames = await fetchLast3VsOpponent(
+    playerName,
+    resolvedOpponent,
+    normalizedLeague,
+    { beforeTime }
+  );
+  const ballPlayer = await findBallPlayer(playerName, normalizedLeague);
+  const stableId = resolveStableWnbaPlayerId(playerName);
+  const playerId = String(ballPlayer?.id || stableId || "");
+  const availabilityGate = await evaluateWnbaAvailability({
+    playerId,
+    playerName,
+    league: normalizedLeague,
+  });
+  const seasonGames = await fetchPlayerStats(playerName, normalizedLeague);
+  const seasonAverage = seasonGames.length
+    ? seasonGames.reduce((sum, g) => sum + Number(g.points || 0), 0) /
+      seasonGames.length
+    : 0;
+  const matchupAverage = matchupGames.length
+    ? Number(
+        (
+          matchupGames.reduce((sum, g) => sum + Number(g.points || 0), 0) /
+          matchupGames.length
+        ).toFixed(1)
+      )
+    : null;
+
+  const dataIntegrity = auditWnbaDataIntegrity({
+    playerName,
+    playerId,
+    team: resolvedTeam,
+    opponent: resolvedOpponent,
+    last5,
+    matchupGames,
+    matchupAverage,
+    seasonAverage,
+    availabilityGate,
+    defenseResult: {},
+    prop: { line: Number(line) || 0, bookCount: 1 },
+    playerState: {
+      matchupAverage,
+      seasonPoints: seasonAverage,
+    },
+    ballPlayerResolved: Boolean(ballPlayer),
+    stablePlayerIdUsed: Boolean(stableId && String(ballPlayer?.id) === stableId),
+  });
+
+  return {
+    playerName,
+    team: resolvedTeam,
+    opponent: resolvedOpponent,
+    playerId: playerId || null,
+    matchupGames: matchupGames.map((g) => ({
+      date: g.date,
+      opponent: g.opponent,
+      opponentTeamId: g.opponentTeamId || g.opponent,
+      points: g.points,
+    })),
+    matchupAverage,
+    availabilityGate,
+    dataIntegrity,
+    dataIntegrityVersion: DATA_INTEGRITY_VERSION,
+    serverBuild: SERVER_BUILD,
+    auditedAt: new Date().toISOString(),
+  };
 }
 
 function createSideAudit() {
@@ -1092,8 +1201,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       const opponent =
         league === "WNBA"
-          ? getOpponentFromGame(team, game)
-          : getOpponentForTeam(game, team) || getOpponentFromGame(team, game);
+          ? getOpponentFromGame(team, game, league)
+          : getOpponentForTeam(game, team) || getOpponentFromGame(team, game, league);
 
       if (!opponent) {
         trackSideAuditRejection(sideAudit, null, ["Missing player data"]);
@@ -1167,6 +1276,16 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       const playerData =
         playerMap.get(clean(playerName)) || projectionData || {};
 
+      const wnbaBallPlayer =
+        league === "WNBA" ? await findBallPlayer(playerName, league) : null;
+      const wnbaPlayerId = String(
+        wnbaBallPlayer?.id ||
+          resolveStableWnbaPlayerId(playerName) ||
+          playerData.PlayerID ||
+          playerData.id ||
+          ""
+      );
+
       const missingPlayers =
         league === "WNBA" ? [] : getMissingPlayers(safeTeam, players);
 
@@ -1215,7 +1334,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       const playerState = buildPlayerState({
         playerName,
-        playerId: playerData.PlayerID || projectionData.PlayerID || "",
+        playerId: wnbaPlayerId || playerData.PlayerID || projectionData.PlayerID || "",
         league,
         team: safeTeam,
         opponent,
@@ -1246,7 +1365,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       const availabilityGate =
         league === "WNBA" && isCourteEdgeWnbaV1Enabled()
           ? await evaluateWnbaAvailability({
-              playerId: playerData.PlayerID || playerData.id || "",
+              playerId: wnbaPlayerId || playerData.PlayerID || playerData.id || "",
               playerName,
               league,
             })
@@ -2154,6 +2273,7 @@ async function refreshAllPicks() {
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     sideRescueVersion: SIDE_RESCUE_VERSION,
+    dataIntegrityVersion: DATA_INTEGRITY_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
     bestSixLimit: 6,
     generatedProps,
@@ -2795,6 +2915,100 @@ function sendHistoryArchiveByDate(req, res) {
 
 app.get("/history-archives/:slateDate", sendHistoryArchiveByDate);
 app.get("/history-archive/:slateDate", sendHistoryArchiveByDate);
+
+app.get("/debug/data-integrity", async (req, res) => {
+  try {
+    const playerName = String(req.query.player || req.query.playerName || "").trim();
+    const team = String(req.query.team || "").trim();
+    const opponent = String(req.query.opponent || "").trim();
+    const league = String(req.query.league || "WNBA").trim();
+    const line = Number(req.query.line || 0);
+    const beforeTime = req.query.beforeTime || req.query.commenceTime || null;
+
+    if (!playerName) {
+      return res.status(400).json({
+        ok: false,
+        message: "Provide player query param",
+        example:
+          "/debug/data-integrity?player=Azura%20Stevens&team=chicagosky&opponent=portlandfire",
+      });
+    }
+
+    const audit = await buildDataIntegrityAuditRequest({
+      playerName,
+      team,
+      opponent,
+      league,
+      line,
+      beforeTime,
+    });
+
+    res.json({ ok: true, ...audit });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: "Data integrity audit failed",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/admin/data-integrity-audit", requireAdminSecret, async (req, res) => {
+  try {
+    const playerName = String(req.query.player || req.query.playerName || "").trim();
+    const team = String(req.query.team || "").trim();
+    const opponent = String(req.query.opponent || "").trim();
+    const league = String(req.query.league || "WNBA").trim();
+    const line = Number(req.query.line || 0);
+    const beforeTime = req.query.beforeTime || req.query.commenceTime || null;
+    const pickKey = String(req.query.pickKey || req.query.trackedKey || "").trim();
+
+    if (pickKey && picksCache?.generatedProps?.length) {
+      const cached = picksCache.generatedProps.find(
+        (p) =>
+          String(p.trackedKey || p.stablePropKey || "") === pickKey ||
+          String(p.player || "").toLowerCase() === pickKey.toLowerCase()
+      );
+      if (cached?.dataIntegrity || cached?.wnbaDataCard?.dataIntegrity) {
+        return res.json({
+          ok: true,
+          source: "cache",
+          playerName: cached.player,
+          team: cached.team,
+          opponent: cached.opponent,
+          dataIntegrity:
+            cached.dataIntegrity || cached.wnbaDataCard?.dataIntegrity,
+          wnbaDataCard: cached.wnbaDataCard || null,
+          serverBuild: SERVER_BUILD,
+        });
+      }
+    }
+
+    if (!playerName) {
+      return res.status(400).json({
+        ok: false,
+        message: "Provide player or pickKey query param",
+      });
+    }
+
+    const audit = await buildDataIntegrityAuditRequest({
+      playerName,
+      team,
+      opponent,
+      league,
+      line,
+      beforeTime,
+    });
+
+    res.json({ ok: true, source: "live-audit", ...audit });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: "Admin data integrity audit failed",
+      error: error.message,
+    });
+  }
+});
 
 app.get("/diagnostics", (req, res) => {
   const tracked = getTrackedProps();
