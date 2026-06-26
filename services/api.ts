@@ -30,7 +30,9 @@ type ApiResult = {
   topWNBAProps?: any[];
   topWNBAProps?: any[];
   bestSixWNBA?: any[];
+  bestSixDisplayWNBA?: any[];
   bestSixNBA?: any[];
+  bestSixDisplayNBA?: any[];
   bestSixLimit?: number | null;
   controlledBestSixVersion?: string | null;
   wnbaTopPropLimit?: number | null;
@@ -76,7 +78,9 @@ function normalizePicksResponse(data: any = {}): ApiResult {
     topNBAProps: data.topNBAProps || [],
     topWNBAProps: data.topWNBAProps || [],
     bestSixWNBA: data.bestSixWNBA || [],
+    bestSixDisplayWNBA: data.bestSixDisplayWNBA || [],
     bestSixNBA: data.bestSixNBA || [],
+    bestSixDisplayNBA: data.bestSixDisplayNBA || [],
     bestSixLimit: data.bestSixLimit ?? null,
     controlledBestSixVersion: data.controlledBestSixVersion ?? null,
     wnbaTopPropLimit: data.wnbaTopPropLimit ?? null,
@@ -218,7 +222,9 @@ export const fetchTopProps = async () => {
     topWNBAOfficialProps: data.topWNBAOfficialProps || [],
     topWNBATestProps: data.topWNBATestProps || [],
     bestSixWNBA: data.bestSixWNBA || [],
+    bestSixDisplayWNBA: data.bestSixDisplayWNBA || [],
     bestSixNBA: data.bestSixNBA || [],
+    bestSixDisplayNBA: data.bestSixDisplayNBA || [],
     topPropsSource: data.topPropsSource || null,
     topWNBAPropsSelectedFromBestSix: data.topWNBAPropsSelectedFromBestSix ?? null,
     topNBAPropsSelectedFromBestSix: data.topNBAPropsSelectedFromBestSix ?? null,

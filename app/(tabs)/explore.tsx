@@ -23,9 +23,11 @@ import {
   BEST_SIX_LIMIT,
   buildTopPickBadgeMap,
   buildWnbaControlledSummary,
+  countCandidatesByEligibility,
   enrichBestSixForDisplay,
   filterBestSixByDateView,
   formatDateViewLabel,
+  resolveBestSixDisplayPool,
   shouldShowScoutMode,
 } from "../../utils/controlledBestSixDisplay";
 import { groupByDayBucket } from "../../utils/groupByDayBucket";
@@ -44,6 +46,7 @@ const DATE_VIEWS: { key: DateView; label: string }[] = [
 export default function ExploreScreen() {
   const [wnbaGames, setWnbaGames] = useState<any[]>([]);
   const [bestSixWNBA, setBestSixWNBA] = useState<any[]>([]);
+  const [bestSixDisplayWNBA, setBestSixDisplayWNBA] = useState<any[]>([]);
   const [topWNBAProps, setTopWNBAProps] = useState<any[]>([]);
   const [slateSummary, setSlateSummary] = useState<{
     bestSixLimit?: number;
@@ -71,20 +74,22 @@ export default function ExploreScreen() {
     () =>
       buildWnbaControlledSummary({
         bestSixWNBA,
+        bestSixDisplayWNBA,
         topWNBAProps,
         wnbaGames,
         dateView,
         bestSixLimit: slateSummary?.bestSixLimit ?? BEST_SIX_LIMIT,
       }),
-    [bestSixWNBA, topWNBAProps, wnbaGames, dateView, slateSummary]
+    [bestSixWNBA, bestSixDisplayWNBA, topWNBAProps, wnbaGames, dateView, slateSummary]
   );
 
   const bestSixCards = useMemo(() => {
-    const filtered = filterBestSixByDateView(bestSixWNBA, dateView);
+    const displayPool = resolveBestSixDisplayPool(bestSixDisplayWNBA, bestSixWNBA);
+    const filtered = filterBestSixByDateView(displayPool, dateView);
     return filtered.map((pick, index) =>
       enrichBestSixForDisplay(pick, topPickBadgeMap, index)
     );
-  }, [bestSixWNBA, dateView, topPickBadgeMap]);
+  }, [bestSixDisplayWNBA, bestSixWNBA, dateView, topPickBadgeMap]);
 
   const groupedGames = useMemo(() => groupByDayBucket(wnbaGames), [wnbaGames]);
 
@@ -103,6 +108,7 @@ export default function ExploreScreen() {
 
       setWnbaGames(games);
       setBestSixWNBA(data.bestSixWNBA || []);
+      setBestSixDisplayWNBA(data.bestSixDisplayWNBA || []);
       setTopWNBAProps(data.topWNBAProps || []);
       setSlateSummary({
         bestSixLimit: data.bestSixLimit ?? BEST_SIX_LIMIT,
@@ -114,6 +120,7 @@ export default function ExploreScreen() {
       console.log("LOAD WNBA PROPS ERROR:", err);
       setWnbaGames([]);
       setBestSixWNBA([]);
+      setBestSixDisplayWNBA([]);
       setTopWNBAProps([]);
       setLoadError(String(err));
     } finally {
@@ -264,6 +271,10 @@ export default function ExploreScreen() {
                 value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
               />
               <SummaryMetric
+                label="Results Track"
+                value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
+              />
+              <SummaryMetric
                 label="Top Picks"
                 value={`${summary.topPicks}/${summary.topPickLimit}`}
               />
@@ -271,8 +282,15 @@ export default function ExploreScreen() {
                 label="Board Candidates"
                 value={summary.boardCandidates}
               />
+              <SummaryMetric label="Track" value={summary.track ?? 0} />
               <SummaryMetric label="Board Only" value={summary.boardOnly} />
               <SummaryMetric label="No Bet" value={summary.noBet} />
+              {(summary.shadowOnly ?? 0) > 0 ? (
+                <SummaryMetric label="Shadow Only" value={summary.shadowOnly} />
+              ) : null}
+              {(summary.other ?? 0) > 0 ? (
+                <SummaryMetric label="Other" value={summary.other} />
+              ) : null}
             </View>
           </View>
         )}
@@ -281,7 +299,8 @@ export default function ExploreScreen() {
           <View style={styles.bestSixSection}>
             <Text style={styles.sectionTitle}>Controlled Best 6</Text>
             <Text style={styles.sectionSubtext}>
-              Max {summary.bestSixLimit} TRACK props · Top #1/#2 badges inline
+              Top {summary.bestSixLimit} board ranks · TRACK-only → Results (
+              {summary.controlledBestSixTrack ?? summary.controlledBestSix} admitted)
             </Text>
             {bestSixCards.map((pick, index) => (
               <PropCard
@@ -352,39 +371,27 @@ export default function ExploreScreen() {
                       </View>
 
                       <View style={styles.gameMetaRow}>
-                        <Text style={styles.gameMeta}>
-                          Candidates:{" "}
-                          {game.allCandidateCount ??
-                            game.allGeneratedCandidates?.length ??
-                            0}
-                        </Text>
-                        <Text style={styles.gameMeta}>
-                          Track:{" "}
-                          {(game.allGeneratedCandidates || game.picks || []).filter(
-                            (p: any) =>
-                              (p.decisionIntelligence?.trackEligibility ||
-                                p.trackingEligibility ||
-                                p.wnbaTrackingDecision) === "TRACK"
-                          ).length}
-                        </Text>
-                        <Text style={styles.gameMeta}>
-                          Board Only:{" "}
-                          {(game.allGeneratedCandidates || game.picks || []).filter(
-                            (p: any) =>
-                              (p.decisionIntelligence?.trackEligibility ||
-                                p.trackingEligibility ||
-                                p.wnbaTrackingDecision) === "BOARD_ONLY"
-                          ).length}
-                        </Text>
-                        <Text style={styles.gameMeta}>
-                          No Bet:{" "}
-                          {(game.allGeneratedCandidates || game.picks || []).filter(
-                            (p: any) =>
-                              (p.decisionIntelligence?.trackEligibility ||
-                                p.trackingEligibility ||
-                                p.wnbaTrackingDecision) === "NO_BET"
-                          ).length}
-                        </Text>
+                        {(() => {
+                          const pool = game.allGeneratedCandidates || game.picks || [];
+                          const counts = countCandidatesByEligibility(pool);
+                          return (
+                            <>
+                              <Text style={styles.gameMeta}>
+                                Candidates: {game.allCandidateCount ?? pool.length}
+                              </Text>
+                              <Text style={styles.gameMeta}>Track: {counts.track}</Text>
+                              <Text style={styles.gameMeta}>
+                                Board Only: {counts.boardOnly}
+                              </Text>
+                              <Text style={styles.gameMeta}>No Bet: {counts.noBet}</Text>
+                              {counts.shadowOnly > 0 ? (
+                                <Text style={styles.gameMeta}>
+                                  Shadow: {counts.shadowOnly}
+                                </Text>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </View>
 
                       <Text style={styles.gameSectionTitle}>All Candidates</Text>

@@ -23,6 +23,8 @@ const {
   stablePickKey,
   buildWnbaControlledBestSixReportText,
   formatControlledBestSixPickLine,
+  countCandidatesByEligibility,
+  resolveBestSixDisplayPool,
 } = await import(pathToFileURL(helperPath).href);
 
 const selectorPath = path.resolve(
@@ -36,7 +38,9 @@ const diPath = path.resolve(
 const gatePath = path.resolve(__dirname, "../engines/wnba/wnbaTrackingGateV2.js");
 const readerPath = path.resolve(__dirname, "../engines/wnba/wnbaReaderEngine.js");
 
-const { selectControlledBestSix } = await import(pathToFileURL(selectorPath).href);
+const { selectControlledBestSix, selectBestSixDisplay } = await import(
+  pathToFileURL(selectorPath).href
+);
 const {
   applyDecisionIntelligenceToPick,
   evaluatePropDecisionIntelligenceV1,
@@ -169,8 +173,10 @@ test("09 buildWnbaControlledSummary counts board candidates", () => {
   assert.strictEqual(summary.controlledBestSixTotal, 1);
   assert.strictEqual(summary.topPicks, 1);
   assert.strictEqual(summary.boardCandidates, 3);
+  assert.strictEqual(summary.track, 1);
   assert.strictEqual(summary.boardOnly, 1);
   assert.strictEqual(summary.noBet, 1);
+  assert.strictEqual(summary.track + summary.boardOnly + summary.noBet, summary.boardCandidates);
 });
 
 test("10 summary uses Board Candidates label not Playable", () => {
@@ -412,6 +418,84 @@ test("27 acceptance: default report structure has summary then controlled list o
   assert.ok(summaryIndex >= 0 && listIndex > summaryIndex);
   assert.ok(!report.includes("--- Game Board ---"));
   assert.ok(!report.includes("Top Props:"));
+});
+
+test("28 count reconciliation includes shadow-only bucket", () => {
+  const candidates = [
+    todayPick,
+    {
+      player: "Shadow",
+      decisionIntelligence: { trackEligibility: "SHADOW_ONLY" },
+      dayBucket: "TODAY",
+    },
+    {
+      player: "Board Only",
+      decisionIntelligence: { trackEligibility: "BOARD_ONLY" },
+      dayBucket: "TODAY",
+    },
+    {
+      player: "No Bet",
+      decisionIntelligence: { trackEligibility: "NO_BET" },
+      dayBucket: "TODAY",
+    },
+  ];
+  const counts = countCandidatesByEligibility(candidates);
+  assert.strictEqual(counts.track, 1);
+  assert.strictEqual(counts.shadowOnly, 1);
+  assert.strictEqual(counts.boardOnly, 1);
+  assert.strictEqual(counts.noBet, 1);
+  assert.strictEqual(
+    counts.track + counts.shadowOnly + counts.boardOnly + counts.noBet + counts.other,
+    candidates.length
+  );
+});
+
+test("29 resolveBestSixDisplayPool prefers display array", () => {
+  const display = [{ player: "Display" }];
+  const results = [{ player: "Results" }];
+  assert.strictEqual(resolveBestSixDisplayPool(display, results)[0].player, "Display");
+  assert.strictEqual(resolveBestSixDisplayPool([], results)[0].player, "Results");
+});
+
+test("30 display Best 6 can exceed TRACK-only Results Best 6", () => {
+  const trackPick = applyDecisionIntelligenceToPick(
+    todayPick,
+    evaluatePropDecisionIntelligenceV1(todayPick, {
+      gate: evaluateWnbaTrackingGateV2(todayPick),
+    }),
+    evaluateWnbaTrackingGateV2(todayPick)
+  );
+  const boardOnlyPick = {
+    ...makeDearicaHambyFixture(),
+    netEdge: 8,
+    confidence: 80,
+  };
+  const preparedBoard = applyDecisionIntelligenceToPick(
+    boardOnlyPick,
+    evaluatePropDecisionIntelligenceV1(boardOnlyPick, {
+      gate: evaluateWnbaTrackingGateV2(boardOnlyPick),
+    }),
+    evaluateWnbaTrackingGateV2(boardOnlyPick)
+  );
+  const pool = [preparedBoard, trackPick];
+  const display = selectBestSixDisplay(pool, "WNBA");
+  const results = selectControlledBestSix(pool, "WNBA");
+  assert.ok(display.bestSix.length >= results.bestSix.length);
+  assert.ok(
+    display.bestSix.some((pick) => pick.resultsAdmissionEligible === false)
+  );
+  assert.ok(results.bestSix.every((pick) => pick.resultsAdmissionEligible !== false));
+});
+
+test("31 summary uses display pool for controlled total", () => {
+  const summary = buildWnbaControlledSummary({
+    bestSixWNBA: [todayPick],
+    bestSixDisplayWNBA: [todayPick, tomorrowPick],
+    wnbaGames: [],
+    dateView: "full_board",
+  });
+  assert.strictEqual(summary.controlledBestSixTotal, 2);
+  assert.strictEqual(summary.controlledBestSixTrack, 1);
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);

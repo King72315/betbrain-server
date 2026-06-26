@@ -99,3 +99,36 @@ node betbrain-server/scripts/testControlledBestSixDisplay.js
 node betbrain-server/scripts/testControlledBestSix.js
 node betbrain-server/scripts/testPropDecisionIntelligenceV1.js
 ```
+
+---
+
+## Best 6 Display vs Results Split (2026-06-26)
+
+**Build:** `courteedge-best-six-display-v1`  
+**Selector:** `controlled-best-six-display-v1`
+
+### How it works
+
+| Layer | API field | Admission rule |
+|-------|-----------|----------------|
+| **Display Best 6** | `bestSixDisplayWNBA` | Top 6 ranked from full board pool (score + diversity caps). Includes BOARD_ONLY, SHADOW_ONLY, and TRACK props that failed Results gates. Each slot carries `resultsAdmissionEligible` + `resultsAdmissionReason`. |
+| **Results Best 6** | `bestSixWNBA` | TRACK-only (`trackEligibility === TRACK` && `bestSixEligibility === true`). Unchanged — feeds `buildResultsTrackingCohort` / tracked props. |
+| **Top Picks** | `topWNBAProps` | Still selected from TRACK-only Results Best 6 (max 2). |
+
+UI (`explore.tsx`) renders `bestSixDisplayWNBA` (fallback: `bestSixWNBA`). PropCard `bestSix` variant shows a **Not in Results** box when `resultsAdmissionEligible === false`.
+
+### Count bug root cause
+
+Summary and scout per-game counts used **strict string equality** (`=== "TRACK"`) and only tallied Board Only + No Bet. Candidates with `SHADOW_ONLY` (or missing/empty eligibility) were included in **Board Candidates** but not in any visible bucket — e.g. Track 1 + Board Only 10 + No Bet 3 = 14 vs Board Candidates 15.
+
+**Fix:** `countCandidatesByEligibility()` buckets Track / Board Only / No Bet / Shadow Only / Other using normalized `resolveTrackEligibility()`. Summary now shows all buckets so they sum to Board Candidates.
+
+### Files changed
+
+- `betbrain-server/engines/topProps/controlledBestSixSelector.js` — `selectBestSixDisplay`, `bestSixDisplayWNBA`
+- `betbrain-server/server.js` — expose display arrays; `SERVER_BUILD` bump
+- `utils/controlledBestSixDisplay.js` — summary reconciliation, display pool resolver
+- `app/(tabs)/explore.tsx` — display pool + reconciled summary/scout counts
+- `components/PropCard.tsx` — Results admission reason on Best 6 cards
+- `services/api.ts` — `bestSixDisplayWNBA` typing
+- `betbrain-server/scripts/testControlledBestSixDisplay.js` — 31 tests

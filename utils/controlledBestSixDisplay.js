@@ -12,8 +12,36 @@ export function resolveTrackEligibility(pick = {}) {
     pick.decisionIntelligence?.trackEligibility ||
       pick.trackingEligibility ||
       pick.wnbaTrackingDecision ||
-      "TRACK"
+      ""
   ).toUpperCase();
+}
+
+export function countCandidatesByEligibility(candidates = []) {
+  const counts = {
+    track: 0,
+    boardOnly: 0,
+    noBet: 0,
+    shadowOnly: 0,
+    other: 0,
+  };
+
+  for (const pick of candidates) {
+    const eligibility = resolveTrackEligibility(pick);
+    if (eligibility === "TRACK") counts.track += 1;
+    else if (eligibility === "BOARD_ONLY") counts.boardOnly += 1;
+    else if (eligibility === "NO_BET") counts.noBet += 1;
+    else if (eligibility === "SHADOW_ONLY") counts.shadowOnly += 1;
+    else counts.other += 1;
+  }
+
+  return counts;
+}
+
+export function resolveBestSixDisplayPool(
+  bestSixDisplayWNBA = [],
+  bestSixWNBA = []
+) {
+  return bestSixDisplayWNBA?.length ? bestSixDisplayWNBA : bestSixWNBA;
 }
 
 export function resolveTrueRisk(pick = {}) {
@@ -71,10 +99,22 @@ export function enrichBestSixForDisplay(pick = {}, topPickBadgeMap = new Map(), 
     displayTrackEligibility: resolveTrackEligibility(pick),
     displayTrueRisk: resolveTrueRisk(pick),
     displayWhy:
+      pick.displayResultsReason ||
+      pick.resultsAdmissionReason ||
       di.simpleExplanation ||
       pick.decisionIntelligence?.simpleExplanation ||
       pick.wnbaTrackingReason ||
       "",
+    displayResultsReason:
+      pick.displayResultsReason ||
+      pick.resultsAdmissionReason ||
+      (resolveTrackEligibility(pick) !== "TRACK" || pick.resultsAdmissionEligible === false
+        ? di.simpleExplanation || pick.wnbaTrackingReason || ""
+        : ""),
+    resultsAdmissionEligible:
+      pick.resultsAdmissionEligible ??
+      (resolveTrackEligibility(pick) === "TRACK" &&
+        pick.decisionIntelligence?.bestSixEligibility === true),
     displayRiskDebts: (di.riskDebts || []).map(formatRiskDebt),
     displayRiskRepairs: (di.riskRepairs || []).map(formatRiskRepair),
     displaySideRescueAction:
@@ -137,26 +177,29 @@ export function scopeCandidatesByDateView(candidates = [], dateView = "today") {
 
 export function buildWnbaControlledSummary({
   bestSixWNBA = [],
+  bestSixDisplayWNBA = [],
   topWNBAProps = [],
   wnbaGames = [],
   dateView = "today",
   bestSixLimit = BEST_SIX_LIMIT,
 } = {}) {
-  const filteredBestSix = filterBestSixByDateView(bestSixWNBA, dateView);
-  const trackCount = filteredBestSix.filter(
+  const displayPool = resolveBestSixDisplayPool(bestSixDisplayWNBA, bestSixWNBA);
+  const filteredDisplay = filterBestSixByDateView(displayPool, dateView);
+  const filteredResults = filterBestSixByDateView(bestSixWNBA, dateView);
+  const resultsTrackCount = filteredResults.filter(
     (p) => resolveTrackEligibility(p) === "TRACK"
+  ).length;
+  const displayResultsCount = filteredDisplay.filter(
+    (p) =>
+      p.resultsAdmissionEligible === true ||
+      (p.resultsAdmissionEligible == null &&
+        resolveTrackEligibility(p) === "TRACK" &&
+        p.decisionIntelligence?.bestSixEligibility === true)
   ).length;
 
   const candidates = collectWnbaCandidatesFromGames(wnbaGames);
   const scopedCandidates = scopeCandidatesByDateView(candidates, dateView);
-
-  let boardOnly = 0;
-  let noBet = 0;
-  for (const pick of scopedCandidates) {
-    const eligibility = resolveTrackEligibility(pick);
-    if (eligibility === "BOARD_ONLY") boardOnly += 1;
-    else if (eligibility === "NO_BET") noBet += 1;
-  }
+  const eligibilityCounts = countCandidatesByEligibility(scopedCandidates);
 
   const topPickCount =
     dateView === "full_board"
@@ -167,14 +210,18 @@ export function buildWnbaControlledSummary({
         }).length;
 
   return {
-    controlledBestSix: trackCount,
-    controlledBestSixTotal: filteredBestSix.length,
+    controlledBestSix: displayResultsCount,
+    controlledBestSixTotal: filteredDisplay.length,
+    controlledBestSixTrack: resultsTrackCount,
     bestSixLimit,
     topPicks: Math.min(topPickCount, WNBA_TOP_PICK_LIMIT),
     topPickLimit: WNBA_TOP_PICK_LIMIT,
     boardCandidates: scopedCandidates.length,
-    boardOnly,
-    noBet,
+    track: eligibilityCounts.track,
+    boardOnly: eligibilityCounts.boardOnly,
+    noBet: eligibilityCounts.noBet,
+    shadowOnly: eligibilityCounts.shadowOnly,
+    other: eligibilityCounts.other,
     dateView,
   };
 }
@@ -205,10 +252,17 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
   const trackDecision = resolveTrackEligibility(pick);
   const trueRisk = resolveTrueRisk(pick);
   const why =
+    pick.displayResultsReason ||
     pick.displayWhy ||
     pick.decisionIntelligence?.simpleExplanation ||
     pick.wnbaTrackingReason ||
     "";
+  const resultsNote =
+    pick.resultsAdmissionEligible === false && pick.displayResultsReason
+      ? `Results: ${pick.displayResultsReason}`
+      : pick.resultsAdmissionEligible === false && pick.resultsAdmissionReason
+        ? `Results: ${pick.resultsAdmissionReason}`
+        : null;
   const sideRescueAction =
     pick.displaySideRescueAction ??
     pick.sideRescueAction ??
@@ -227,6 +281,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
     `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
     why ? `  Why: ${why}` : null,
+    resultsNote,
     sideRescueAction ? `  Side Rescue: ${sideRescueAction}` : null,
     sideRescueExplanation ? `  Rescue: ${sideRescueExplanation}` : null,
   ]
@@ -249,8 +304,12 @@ export function buildWnbaControlledBestSixReportText({
   const controlledTotal = summary.controlledBestSixTotal ?? bestSixCards.length;
   const topPicks = summary.topPicks ?? 0;
   const boardCandidates = summary.boardCandidates ?? 0;
+  const track = summary.track ?? 0;
   const boardOnly = summary.boardOnly ?? 0;
   const noBet = summary.noBet ?? 0;
+  const shadowOnly = summary.shadowOnly ?? 0;
+  const other = summary.other ?? 0;
+  const resultsTrack = summary.controlledBestSixTrack ?? summary.controlledBestSix ?? 0;
 
   const lines = [
     "WNBA Props — Controlled Best 6",
@@ -259,10 +318,14 @@ export function buildWnbaControlledBestSixReportText({
     "",
     "--- Summary ---",
     `Controlled Best 6: ${controlledTotal}/${bestSixLimit}`,
+    `Results Track: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
+    `Track: ${track}`,
     `Board Only: ${boardOnly}`,
     `No Bet: ${noBet}`,
+    shadowOnly ? `Shadow Only: ${shadowOnly}` : null,
+    other ? `Other: ${other}` : null,
     "",
     "--- Controlled Best 6 ---",
     bestSixCards.length

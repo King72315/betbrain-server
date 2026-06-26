@@ -201,6 +201,16 @@ export default function PropCard({
           </View>
         ) : null}
 
+        {pick.resultsAdmissionEligible === false &&
+        (pick.displayResultsReason || pick.resultsAdmissionReason) ? (
+          <View style={styles.bestSixResultsBox}>
+            <Text style={styles.bestSixResultsTitle}>Not in Results</Text>
+            <Text style={styles.bestSixResultsText}>
+              {pick.displayResultsReason || pick.resultsAdmissionReason}
+            </Text>
+          </View>
+        ) : null}
+
         {riskDebts.length > 0 ? (
           <View style={styles.bestSixDebtBox}>
             <Text style={styles.bestSixDebtTitle}>Risk Debt</Text>
@@ -1091,6 +1101,26 @@ const styles = StyleSheet.create({
   },
   bestSixWhyText: {
     color: "#dcfce7",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  bestSixResultsBox: {
+    backgroundColor: "#422006",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#92400e",
+    marginBottom: 10,
+  },
+  bestSixResultsTitle: {
+    color: "#fcd34d",
+    fontWeight: "900",
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  bestSixResultsText: {
+    color: "#fef3c7",
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 17,

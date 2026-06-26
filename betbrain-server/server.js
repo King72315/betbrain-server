@@ -228,7 +228,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-quarantine-0624-v1";
+const SERVER_BUILD = "courteedge-best-six-display-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2269,6 +2269,8 @@ async function refreshAllPicks() {
 
   const bestSixWNBA = cohortBundle.bestSixWNBA;
   const bestSixNBA = cohortBundle.bestSixNBA;
+  const bestSixDisplayWNBA = controlledSelection.bestSixDisplayWNBA || [];
+  const bestSixDisplayNBA = controlledSelection.bestSixDisplayNBA || [];
   const topProps = controlledSelection.topProps;
   const topNBAProps = controlledSelection.topNBAProps;
   const topWNBAProps = controlledSelection.topWNBAProps;
@@ -2344,6 +2346,8 @@ async function refreshAllPicks() {
     topWNBATestProps,
     bestSixWNBA,
     bestSixNBA,
+    bestSixDisplayWNBA,
+    bestSixDisplayNBA,
     topPropsSource: TOP_PICKS_SOURCE_POOL,
     topWNBAPropsSelectedFromBestSix: true,
     topNBAPropsSelectedFromBestSix: true,
@@ -2498,6 +2502,8 @@ app.get("/top-props", async (req, res) => {
       ),
       bestSixWNBA: picksCache.bestSixWNBA || [],
       bestSixNBA: picksCache.bestSixNBA || [],
+      bestSixDisplayWNBA: picksCache.bestSixDisplayWNBA || [],
+      bestSixDisplayNBA: picksCache.bestSixDisplayNBA || [],
       topPropsSource: picksCache.topPropsSource || TOP_PICKS_SOURCE_POOL,
       topWNBAPropsSelectedFromBestSix: true,
       topNBAPropsSelectedFromBestSix: true,

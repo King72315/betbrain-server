@@ -485,7 +485,7 @@ function testExistingSlateResultsSnapshot() {
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-side-rescue-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-display-v1");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],

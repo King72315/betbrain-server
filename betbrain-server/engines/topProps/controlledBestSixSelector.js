@@ -28,7 +28,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-side-rescue-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-display-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -135,89 +135,27 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
   let qualityPassed = 0;
 
   for (const rawPick of candidates) {
+    if (!passesBaseCandidateFilters(rawPick, audit)) continue;
+
     let pick = rawPick;
 
-    if (pick.isStarted) {
-      audit.hiddenStarted += 1;
-      audit.rejected.push({ reason: "started", pick: summarizePickForAudit(pick) });
-      continue;
-    }
-
-    if (!hasCoreFields(pick)) {
-      audit.rejected.push({ reason: "missing_data", pick: summarizePickForAudit(pick) });
-      continue;
-    }
-
-    if (isNoBetPick(pick)) {
-      audit.hiddenNoBet += 1;
-      audit.rejected.push({ reason: "no_bet", pick: summarizePickForAudit(pick) });
-      continue;
-    }
-
-    if (pick.noPlay) {
-      audit.hiddenNoPlay += 1;
-      audit.rejected.push({ reason: "no_play", pick: summarizePickForAudit(pick) });
-      continue;
-    }
-
-  if (String(pick.league || "").toUpperCase() === "WNBA") {
-      if (!isWnbaQualityGatePick(pick)) {
+    if (String(pick.league || "").toUpperCase() === "WNBA") {
+      const prepared = applyWnbaDecisionStack(pick);
+      if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
-          reason: "missing_wnba_gate_inputs",
+          reason: prepared.rejectReason || "missing_wnba_gate_inputs",
           pick: summarizePickForAudit(pick),
         });
         continue;
       }
-
-      const gate = evaluateWnbaTrackingEligibility(
-        pick,
-        pick.wnbaDataCard,
-        pick.wnbaReader
-      );
-      pick = applyDecisionIntelligenceToPick(pick, null, gate);
-      const di = pick.decisionIntelligence || {};
-      if (!pick.sideRescue) {
-        const sideRescue = evaluateSideRescue(pick, {
-          decisionIntelligence: di,
-          gate,
-          dataCard: pick.wnbaDataCard,
-          reader: pick.wnbaReader,
-          originalSide: pick.initialSide,
-        });
-        pick = applySideRescueToPick(pick, sideRescue, {
-          dataCard: pick.wnbaDataCard,
-          reader: pick.wnbaReader,
-        });
-        if (sideRescue.action === "FLIP_SIDE" && sideRescue.finalSide) {
-          const flippedGate = evaluateWnbaTrackingEligibility(
-            pick,
-            pick.wnbaDataCard,
-            pick.wnbaReader
-          );
-          pick = applyDecisionIntelligenceToPick(pick, null, flippedGate);
-          pick = applySideRescueToPick(pick, sideRescue, {
-            dataCard: pick.wnbaDataCard,
-            reader: pick.wnbaReader,
-          });
-        }
-      }
-      const sr = pick.sideRescue || {};
-      if (sr.action === "BOARD_ONLY" || sr.action === "NO_BET") {
-        audit.hiddenDueToQualityGate += 1;
-        audit.rejected.push({
-          reason: "side_rescue",
-          action: sr.action,
-          pick: summarizePickForAudit(pick),
-        });
-        continue;
-      }
-      if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) {
+      pick = prepared.pick;
+      if (!passesResultsEligibility(pick)) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
           reason: "decision_intelligence",
-          eligibility: di.trackEligibility,
-          trueRisk: di.trueRisk,
+          eligibility: pick.decisionIntelligence?.trackEligibility,
+          trueRisk: pick.decisionIntelligence?.trueRisk,
           pick: summarizePickForAudit(pick),
         });
         continue;
@@ -226,46 +164,7 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
 
     qualityPassed += 1;
 
-    const dupeKey = exactDupeKey(pick);
-    if (exactSeen.has(dupeKey)) {
-      audit.hiddenExactDupe += 1;
-      audit.hidden.push({
-        reason: "exact_dupe",
-        pick: summarizePickForAudit(pick),
-        kept: summarizePickForAudit(exactSeen.get(dupeKey)),
-      });
-      continue;
-    }
-
-    const pKey = playerKey(pick);
-    if (exactSeen.has(`player|${pKey}`)) {
-      audit.hiddenDuplicatePlayer += 1;
-      audit.hidden.push({
-        reason: "duplicate_player",
-        pick: summarizePickForAudit(pick),
-      });
-      continue;
-    }
-
-    const plKey = playerLineKey(pick);
-    const prior = playerLineBest.get(plKey);
-    if (prior) {
-      const priorSide = normalizeSide(prior.side || prior.pick);
-      const nextSide = normalizeSide(pick.side || pick.pick);
-      if (priorSide && nextSide && priorSide !== nextSide) {
-        audit.hiddenOppositeSide += 1;
-        audit.hidden.push({
-          reason: "opposite_side",
-          pick: summarizePickForAudit(pick),
-          kept: summarizePickForAudit(prior),
-        });
-        continue;
-      }
-    }
-
-    exactSeen.set(dupeKey, pick);
-    exactSeen.set(`player|${pKey}`, pick);
-    playerLineBest.set(plKey, pick);
+    if (!dedupeCandidate(pick, exactSeen, playerLineBest, audit)) continue;
     valid.push(pick);
   }
 
@@ -325,25 +224,249 @@ function selectBestSixWithDiversity(sorted = [], options = {}, audit = {}) {
   return selected;
 }
 
-function rankBestSix(selected = [], league = "") {
+function rankBestSix(selected = [], league = "", options = {}) {
   const leagueCode = String(league || selected[0]?.league || "").toUpperCase();
+  const forDisplay = options.forDisplay === true;
 
   return selected.map((pick, index) => {
     const rank = index + 1;
-    return {
+    const ranked = {
       ...pick,
       bestSixRank: rank,
       controlledBestSixRank: rank,
       leagueBestSixRank: rank,
       bestSixLabel: `Best ${leagueCode} #${rank}`,
       selectedTeamKey: getPickTeamKey(pick),
-      trackingCohortSource: "CONTROLLED_BEST_SIX",
-      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
       controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
       controlledBestSixApplied: true,
-      sourcePool: "CONTROLLED_BEST_SIX",
+      sourcePool: forDisplay ? "CONTROLLED_BEST_SIX_DISPLAY" : "CONTROLLED_BEST_SIX",
+    };
+
+    if (forDisplay) {
+      return annotateResultsAdmission({
+        ...ranked,
+        bestSixDisplayRank: rank,
+        controlledBestSixDisplay: true,
+      });
+    }
+
+    return {
+      ...ranked,
+      trackingCohortSource: "CONTROLLED_BEST_SIX",
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
     };
   });
+}
+
+function applyWnbaDecisionStack(pick = {}) {
+  if (!isWnbaQualityGatePick(pick)) {
+    return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
+  }
+
+  let enriched = pick;
+  const gate = evaluateWnbaTrackingEligibility(
+    enriched,
+    enriched.wnbaDataCard,
+    enriched.wnbaReader
+  );
+  enriched = applyDecisionIntelligenceToPick(enriched, null, gate);
+
+  if (!enriched.sideRescue) {
+    const di = enriched.decisionIntelligence || {};
+    const sideRescue = evaluateSideRescue(enriched, {
+      decisionIntelligence: di,
+      gate,
+      dataCard: enriched.wnbaDataCard,
+      reader: enriched.wnbaReader,
+      originalSide: enriched.initialSide,
+    });
+    enriched = applySideRescueToPick(enriched, sideRescue, {
+      dataCard: enriched.wnbaDataCard,
+      reader: enriched.wnbaReader,
+    });
+    if (sideRescue.action === "FLIP_SIDE" && sideRescue.finalSide) {
+      const flippedGate = evaluateWnbaTrackingEligibility(
+        enriched,
+        enriched.wnbaDataCard,
+        enriched.wnbaReader
+      );
+      enriched = applyDecisionIntelligenceToPick(enriched, null, flippedGate);
+      enriched = applySideRescueToPick(enriched, sideRescue, {
+        dataCard: enriched.wnbaDataCard,
+        reader: enriched.wnbaReader,
+      });
+    }
+  }
+
+  return { pick: enriched };
+}
+
+function passesBaseCandidateFilters(pick = {}, audit = {}) {
+  if (pick.isStarted) {
+    audit.hiddenStarted += 1;
+    audit.rejected.push({ reason: "started", pick: summarizePickForAudit(pick) });
+    return false;
+  }
+
+  if (!hasCoreFields(pick)) {
+    audit.rejected.push({ reason: "missing_data", pick: summarizePickForAudit(pick) });
+    return false;
+  }
+
+  if (isNoBetPick(pick)) {
+    audit.hiddenNoBet += 1;
+    audit.rejected.push({ reason: "no_bet", pick: summarizePickForAudit(pick) });
+    return false;
+  }
+
+  if (pick.noPlay) {
+    audit.hiddenNoPlay += 1;
+    audit.rejected.push({ reason: "no_play", pick: summarizePickForAudit(pick) });
+    return false;
+  }
+
+  return true;
+}
+
+function passesDisplayEligibility(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const eligibility = String(
+    di.trackEligibility || pick.wnbaTrackingDecision || pick.trackingEligibility || ""
+  ).toUpperCase();
+  const sr = pick.sideRescue || {};
+
+  if (sr.action === "NO_BET") return false;
+  if (eligibility === "NO_BET") return false;
+  return true;
+}
+
+function passesResultsEligibility(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const sr = pick.sideRescue || {};
+
+  if (sr.action === "BOARD_ONLY" || sr.action === "NO_BET") return false;
+  if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) return false;
+  return true;
+}
+
+export function annotateResultsAdmission(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const eligibility = String(
+    di.trackEligibility || pick.wnbaTrackingDecision || pick.trackingEligibility || "BOARD_ONLY"
+  ).toUpperCase();
+  const eligible = eligibility === "TRACK" && di.bestSixEligibility === true;
+  let resultsAdmissionReason = "";
+
+  if (!eligible) {
+    if (eligibility !== "TRACK") {
+      resultsAdmissionReason =
+        di.simpleExplanation ||
+        pick.wnbaTrackingReason ||
+        `${eligibility} — not admitted to Results`;
+    } else {
+      const demotions = (di.demotionReasons || []).filter(Boolean);
+      resultsAdmissionReason =
+        demotions.join("; ") ||
+        di.simpleExplanation ||
+        pick.wnbaTrackingReason ||
+        "TRACK blocked from Results admission";
+    }
+  }
+
+  return {
+    ...pick,
+    resultsAdmissionEligible: eligible,
+    resultsAdmissionReason: resultsAdmissionReason,
+    displayResultsReason: resultsAdmissionReason,
+  };
+}
+
+function dedupeCandidate(pick = {}, exactSeen = new Map(), playerLineBest = new Map(), audit = {}) {
+  const dupeKey = exactDupeKey(pick);
+  if (exactSeen.has(dupeKey)) {
+    audit.hiddenExactDupe += 1;
+    audit.hidden.push({
+      reason: "exact_dupe",
+      pick: summarizePickForAudit(pick),
+      kept: summarizePickForAudit(exactSeen.get(dupeKey)),
+    });
+    return false;
+  }
+
+  const pKey = playerKey(pick);
+  if (exactSeen.has(`player|${pKey}`)) {
+    audit.hiddenDuplicatePlayer += 1;
+    audit.hidden.push({
+      reason: "duplicate_player",
+      pick: summarizePickForAudit(pick),
+    });
+    return false;
+  }
+
+  const plKey = playerLineKey(pick);
+  const prior = playerLineBest.get(plKey);
+  if (prior) {
+    const priorSide = normalizeSide(prior.side || prior.pick);
+    const nextSide = normalizeSide(pick.side || pick.pick);
+    if (priorSide && nextSide && priorSide !== nextSide) {
+      audit.hiddenOppositeSide += 1;
+      audit.hidden.push({
+        reason: "opposite_side",
+        pick: summarizePickForAudit(pick),
+        kept: summarizePickForAudit(prior),
+      });
+      return false;
+    }
+  }
+
+  exactSeen.set(dupeKey, pick);
+  exactSeen.set(`player|${pKey}`, pick);
+  playerLineBest.set(plKey, pick);
+  return true;
+}
+
+function filterDisplayCandidates(candidates = [], audit = {}) {
+  const exactSeen = new Map();
+  const playerLineBest = new Map();
+  const valid = [];
+  let qualityPassed = 0;
+
+  for (const rawPick of candidates) {
+    if (!passesBaseCandidateFilters(rawPick, audit)) continue;
+
+    let pick = rawPick;
+    const league = String(pick.league || "").toUpperCase();
+
+    if (league === "WNBA") {
+      const prepared = applyWnbaDecisionStack(pick);
+      if (!prepared.pick) {
+        audit.hiddenDueToQualityGate += 1;
+        audit.rejected.push({
+          reason: prepared.rejectReason || "missing_wnba_gate_inputs",
+          pick: summarizePickForAudit(pick),
+        });
+        continue;
+      }
+      pick = prepared.pick;
+      if (!passesDisplayEligibility(pick)) {
+        audit.hiddenDueToQualityGate += 1;
+        audit.rejected.push({
+          reason: "display_ineligible",
+          eligibility: pick.decisionIntelligence?.trackEligibility,
+          pick: summarizePickForAudit(pick),
+        });
+        continue;
+      }
+    }
+
+    qualityPassed += 1;
+
+    if (!dedupeCandidate(pick, exactSeen, playerLineBest, audit)) continue;
+    valid.push(pick);
+  }
+
+  audit.qualityPassedCount = qualityPassed;
+  return valid;
 }
 
 export function selectControlledBestSix(candidates = [], league = "", options = {}) {
@@ -379,6 +502,44 @@ export function selectControlledBestSix(candidates = [], league = "", options = 
   return {
     bestSix: ranked,
     controlledBestSixAudit: audit,
+  };
+}
+
+export function selectBestSixDisplay(candidates = [], league = "", options = {}) {
+  const leagueCode = String(league || "").toUpperCase();
+  const audit = createControlledBestSixAudit(leagueCode);
+  audit.displayMode = true;
+
+  const pool = (Array.isArray(candidates) ? candidates : []).filter(
+    (p) => String(p.league || "").toUpperCase() === leagueCode
+  );
+  audit.candidateCount = pool.length;
+
+  const valid = filterDisplayCandidates(pool, audit);
+  audit.afterInvalidFilter = valid.length;
+
+  const scored = valid.map(scoreCandidate);
+  scored.sort(compareByScore);
+  audit.scoredCount = scored.length;
+
+  const selected = selectBestSixWithDiversity(
+    scored,
+    {
+      limit: options.bestSixLimit ?? BEST_SIX_LIMIT,
+      maxPerTeam: options.maxPerTeam ?? MAX_TEAM_IN_BEST_SIX,
+      maxPerGame: options.maxPerGame ?? MAX_GAME_IN_BEST_SIX,
+    },
+    audit
+  );
+  const ranked = rankBestSix(selected, leagueCode, { forDisplay: true });
+
+  audit.selectedBestSixCount = ranked.length;
+  audit.selectedBestSixTeams = [...new Set(ranked.map(getPickTeamKey))];
+  audit.resultsAdmissionCount = ranked.filter((pick) => pick.resultsAdmissionEligible).length;
+
+  return {
+    bestSix: ranked,
+    controlledBestSixDisplayAudit: audit,
   };
 }
 
@@ -471,6 +632,8 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
 
   const wnbaBest = selectControlledBestSix(candidates, "WNBA", options);
   const nbaBest = selectControlledBestSix(candidates, "NBA", options);
+  const wnbaDisplay = selectBestSixDisplay(candidates, "WNBA", options);
+  const nbaDisplay = selectBestSixDisplay(candidates, "NBA", options);
 
   const wnbaTop = selectTopTwoFromBestSix(wnbaBest.bestSix, "WNBA", {
     topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
@@ -501,6 +664,14 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     bestSixCountByLeague: {
       WNBA: wnbaBest.bestSix.length,
       NBA: nbaBest.bestSix.length,
+    },
+    bestSixDisplayCountByLeague: {
+      WNBA: wnbaDisplay.bestSix.length,
+      NBA: nbaDisplay.bestSix.length,
+    },
+    resultsAdmissionCountByLeague: {
+      WNBA: wnbaDisplay.controlledBestSixDisplayAudit.resultsAdmissionCount ?? 0,
+      NBA: nbaDisplay.controlledBestSixDisplayAudit.resultsAdmissionCount ?? 0,
     },
     hiddenDueToBestSixCap:
       wnbaBest.controlledBestSixAudit.hiddenDueToBestSixCap +
@@ -541,6 +712,8 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     },
     wnba: wnbaBest.controlledBestSixAudit,
     nba: nbaBest.controlledBestSixAudit,
+    wnbaDisplay: wnbaDisplay.controlledBestSixDisplayAudit,
+    nbaDisplay: nbaDisplay.controlledBestSixDisplayAudit,
     wnbaTop: wnbaTop.audit,
     nbaTop: nbaTop.audit,
     selectedCount: topProps.length,
@@ -561,6 +734,8 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   return {
     bestSixWNBA: wnbaBest.bestSix,
     bestSixNBA: nbaBest.bestSix,
+    bestSixDisplayWNBA: wnbaDisplay.bestSix,
+    bestSixDisplayNBA: nbaDisplay.bestSix,
     topWNBAProps,
     topNBAProps,
     topProps,
