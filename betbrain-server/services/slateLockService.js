@@ -3,7 +3,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { createBackup } from "./backupService.js";
-import { getTodayLocalDate, hasUnresolvedGradingProps, isFutureSlateDate } from "./slateScopeService.js";
+import {
+  getTodayLocalDate,
+  hasUnresolvedGradingProps,
+  isFutureSlateDate,
+  isQuarantinedSlateDate,
+  normalizeQuarantinedSlates,
+  QUARANTINE_REASONS,
+} from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,7 +60,11 @@ function ensureDirs() {
   }
 
   if (!fs.existsSync(REGISTRY_FILE)) {
-    writeJSON(REGISTRY_FILE, { slates: [], updatedAt: new Date().toISOString() });
+    writeJSON(REGISTRY_FILE, {
+      slates: [],
+      quarantinedSlates: [],
+      updatedAt: new Date().toISOString(),
+    });
   }
 }
 
@@ -61,9 +72,10 @@ ensureDirs();
 
 function getRegistry() {
   ensureDirs();
-  const raw = readJSON(REGISTRY_FILE, { slates: [] });
+  const raw = readJSON(REGISTRY_FILE, { slates: [], quarantinedSlates: [] });
   return {
     slates: Array.isArray(raw.slates) ? raw.slates : [],
+    quarantinedSlates: Array.isArray(raw.quarantinedSlates) ? raw.quarantinedSlates : [],
     updatedAt: raw.updatedAt || new Date().toISOString(),
     lastBlockedWrite: raw.lastBlockedWrite || lastBlockedWrite,
   };
@@ -83,6 +95,59 @@ function snapshotPath(slateDate) {
 
 function historyArchivePath(slateDate) {
   return path.join(HISTORY_ARCHIVE_DIR, `${slateDate}.json`);
+}
+
+export function getQuarantinedSlatesFromRegistry() {
+  return getRegistry().quarantinedSlates || [];
+}
+
+export function isSlateQuarantined(slateDate, registryEntries = getQuarantinedSlatesFromRegistry()) {
+  return isQuarantinedSlateDate(slateDate, registryEntries);
+}
+
+export function quarantineSlate(
+  slateDate,
+  reason = QUARANTINE_REASONS.INCOMPLETE_PROD_DATA
+) {
+  const date = String(slateDate || "");
+  if (!date) {
+    return { ok: false, message: "Missing slateDate" };
+  }
+
+  const registry = getRegistry();
+  registry.quarantinedSlates = registry.quarantinedSlates || [];
+  const now = new Date().toISOString();
+  const index = registry.quarantinedSlates.findIndex((entry) => entry.slateDate === date);
+
+  if (index >= 0) {
+    registry.quarantinedSlates[index] = {
+      ...registry.quarantinedSlates[index],
+      slateDate: date,
+      reason,
+      quarantinedAt: registry.quarantinedSlates[index].quarantinedAt || now,
+      updatedAt: now,
+    };
+  } else {
+    registry.quarantinedSlates.push({
+      slateDate: date,
+      reason,
+      quarantinedAt: now,
+    });
+  }
+
+  saveRegistry(registry);
+
+  return {
+    ok: true,
+    message: `Slate ${date} quarantined`,
+    slateDate: date,
+    reason,
+    entry: registry.quarantinedSlates.find((entry) => entry.slateDate === date),
+  };
+}
+
+export function getMergedQuarantinedSlateSummary(registryEntries = getQuarantinedSlatesFromRegistry()) {
+  return normalizeQuarantinedSlates(registryEntries);
 }
 
 export function getLockedSlatesRegistry() {

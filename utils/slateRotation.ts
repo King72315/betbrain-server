@@ -1,6 +1,63 @@
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
+export const QUARANTINE_REASONS = {
+  INCOMPLETE_PROD_DATA: "INCOMPLETE_PROD_DATA",
+} as const;
+
+/** Slates excluded from Lab, History, and win-rate rollups. */
+export const DEFAULT_QUARANTINED_SLATE_DATES = ["2026-06-24"];
+
+export const DEFAULT_QUARANTINE_REASON_BY_DATE: Record<string, string> = {
+  "2026-06-24": QUARANTINE_REASONS.INCOMPLETE_PROD_DATA,
+};
+
+export function normalizeQuarantinedSlates(quarantinedSlates: any[] = []) {
+  const dates = new Set<string>(DEFAULT_QUARANTINED_SLATE_DATES);
+  const reasons: Record<string, string> = { ...DEFAULT_QUARANTINE_REASON_BY_DATE };
+
+  for (const entry of quarantinedSlates || []) {
+    if (typeof entry === "string") {
+      dates.add(entry);
+      continue;
+    }
+    const slateDate = String(entry?.slateDate || "");
+    if (!slateDate) continue;
+    dates.add(slateDate);
+    if (entry.reason) {
+      reasons[slateDate] = String(entry.reason);
+    }
+  }
+
+  return {
+    dates: [...dates].sort(),
+    reasons,
+  };
+}
+
+export function getQuarantinedSlateDatesSet(quarantinedSlates: any[] = []) {
+  return new Set(normalizeQuarantinedSlates(quarantinedSlates).dates);
+}
+
+export function isQuarantinedSlateDate(
+  slateDate: string | null | undefined,
+  quarantinedSlates: any[] = []
+): boolean {
+  const value = String(slateDate || "");
+  if (!value) return false;
+  return getQuarantinedSlateDatesSet(quarantinedSlates).has(value);
+}
+
+export function filterOutQuarantinedReports(
+  reports: any[] = [],
+  quarantinedSlates: any[] = []
+): any[] {
+  const excluded = getQuarantinedSlateDatesSet(quarantinedSlates);
+  return (reports || []).filter(
+    (report) => !excluded.has(String(report?.slateDate || ""))
+  );
+}
+
 export const CT_TIMEZONE = "America/Chicago";
 
 export function getTodayLocalDate(now: Date = new Date()): string {
@@ -149,6 +206,8 @@ export type SlateRotation = {
   viewedSlateDate: string | null;
   viewingHistorical: boolean;
   quarantinedLegacySlateDates: string[];
+  quarantinedSlateDates: string[];
+  quarantinedSlateReasons: Record<string, string>;
   inferredCompletedSlateDates: string[];
 };
 
@@ -156,6 +215,7 @@ export type SlateRotationOptions = {
   lockedSlates?: any[];
   archives?: any[];
   trackedProps?: any[];
+  quarantinedSlates?: any[];
   today?: string;
   viewedSlateDate?: string | null;
 };
@@ -199,6 +259,10 @@ function getQuarantinedLegacySlateDates(reports: any[] = [], trackedProps: any[]
   return [...dates].sort();
 }
 
+function getExplicitQuarantinedSlateDates(quarantinedSlates: any[] = []) {
+  return normalizeQuarantinedSlates(quarantinedSlates).dates;
+}
+
 function isOfficialTrackingProp(prop: any = {}) {
   const trackingType = String(prop.trackingType || prop.recordType || "").toUpperCase();
   if (trackingType === "TEST") return false;
@@ -236,15 +300,18 @@ function isPropBlockingLabInference(prop: any = {}) {
 function inferCompletedReportsFromTrackedProps(
   trackedProps: any[] = [],
   reports: any[] = [],
-  today: string = getTodayLocalDate()
+  today: string = getTodayLocalDate(),
+  quarantinedSlates: any[] = []
 ) {
   const propsBySlate: Record<string, any[]> = {};
+  const quarantined = getQuarantinedSlateDatesSet(quarantinedSlates);
 
   for (const prop of trackedProps) {
     const slateDate = String(prop.slateDate || "");
     if (!slateDate) continue;
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (isFutureSlateDate(slateDate, today)) continue;
+    if (quarantined.has(slateDate)) continue;
     if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
     propsBySlate[slateDate].push(prop);
   }
@@ -317,10 +384,13 @@ export function computeSlateRotation(
     lockedSlates = [],
     archives = [],
     trackedProps = [],
+    quarantinedSlates = [],
     today = getTodayLocalDate(),
     viewedSlateDate = null,
   } = options;
 
+  const quarantinedSlateDates = getExplicitQuarantinedSlateDates(quarantinedSlates);
+  const quarantinedSet = getQuarantinedSlateDatesSet(quarantinedSlates);
   const archivedHistoryDates = getArchivedHistoryDates(archives);
   const activeResultsSlateDate = pickActiveResultsSlateDate(
     trackedProps,
@@ -329,17 +399,21 @@ export function computeSlateRotation(
     lockedSlates
   );
 
-  const validReports = sortReportsByDateDesc(filterValidDailyReports(reports, today));
+  const validReports = sortReportsByDateDesc(
+    filterOutQuarantinedReports(filterValidDailyReports(reports, today), quarantinedSlates)
+  );
   const inferredCompleted = inferCompletedReportsFromTrackedProps(
     trackedProps,
     reports,
-    today
+    today,
+    quarantinedSlates
   );
   const completed = mergeCompletedReports(validReports, inferredCompleted);
 
   const labCandidates = completed.filter((report) => {
     const slateDate = String(report.slateDate || "");
     if (!slateDate) return false;
+    if (quarantinedSet.has(slateDate)) return false;
     if (archivedHistoryDates.has(slateDate)) return false;
     if (activeResultsSlateDate && slateDate === activeResultsSlateDate) return false;
     return true;
@@ -357,7 +431,8 @@ export function computeSlateRotation(
     .filter(
       (entry) =>
         archivedHistoryDates.has(String(entry.slateDate || "")) &&
-        String(entry.slateDate || "") !== currentLabSlateDate
+        String(entry.slateDate || "") !== currentLabSlateDate &&
+        !quarantinedSet.has(String(entry.slateDate || ""))
     )
     .map((entry) => {
       const report = entry.report || {};
@@ -372,6 +447,7 @@ export function computeSlateRotation(
   for (const report of [...historyFromCompleted, ...historyFromArchives]) {
     const slateDate = String(report.slateDate || "");
     if (!slateDate || slateDate === currentLabSlateDate) continue;
+    if (quarantinedSet.has(slateDate)) continue;
     if (!historyByDate.has(slateDate)) historyByDate.set(slateDate, report);
   }
   const historySlates = sortReportsByDateDesc([...historyByDate.values()]);
@@ -413,6 +489,8 @@ export function computeSlateRotation(
       viewed && currentLabSlateDate && viewed !== currentLabSlateDate
     ),
     quarantinedLegacySlateDates: getQuarantinedLegacySlateDates(reports, trackedProps),
+    quarantinedSlateDates,
+    quarantinedSlateReasons: normalizeQuarantinedSlates(quarantinedSlates).reasons,
     inferredCompletedSlateDates: inferredCompleted.map((report) =>
       String(report.slateDate || "")
     ),

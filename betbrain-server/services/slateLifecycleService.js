@@ -8,6 +8,7 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
   isPastSlateDate,
+  isQuarantinedSlateDate,
   pickActiveResultsSlateDate,
 } from "./slateScopeService.js";
 import { getHistoryArchiveProps, isSlateLocked } from "./slateLockService.js";
@@ -32,6 +33,7 @@ export const TRACKED_PROP_LIFECYCLE = {
   LEGACY_COMPLETED_NEEDS_ARCHIVE: "LEGACY_COMPLETED_NEEDS_ARCHIVE",
   STALE_UNRESOLVED: "STALE_UNRESOLVED",
   QUARANTINED_LEGACY: "QUARANTINED_LEGACY",
+  QUARANTINED_EXCLUDED: "QUARANTINED_EXCLUDED",
   HOME_STAGED: "HOME_STAGED",
 };
 
@@ -58,6 +60,10 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
     return { state: null, slateDate: date, reason: "pre_cutoff" };
   }
 
+  if (isQuarantinedSlateDate(date, context.quarantinedSlates || [])) {
+    return { state: null, slateDate: date, reason: "quarantined_excluded" };
+  }
+
   const archiveEntry = (archives || []).find(
     (entry) => String(entry.slateDate || "") === date
   );
@@ -73,6 +79,7 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
     archives,
     lockedSlates,
     trackedProps,
+    quarantinedSlates: context.quarantinedSlates || [],
     today,
   });
   if (rotation.currentLabSlateDate === date) {
@@ -187,6 +194,7 @@ function collectStaleUnresolvedSlateDates(
     archives,
     lockedSlates,
     trackedProps,
+    quarantinedSlates: context.quarantinedSlates || [],
     today,
   });
   const historyDates = new Set(
@@ -240,6 +248,7 @@ function slateHasLabOrHistoryCoverage(slateDate, context = {}) {
     archives,
     lockedSlates,
     trackedProps,
+    quarantinedSlates: context.quarantinedSlates || [],
     today,
   });
   const hasArchive =
@@ -258,6 +267,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     reports = [],
     archives = [],
     lockedSlates = [],
+    quarantinedSlates = [],
     today = getTodayLocalDate(),
     activeResultsSlateDate = null,
     slateLifecycleMap = {},
@@ -272,6 +282,10 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
 
   if (!isOnOrAfterCleanDataCutoff(slateDate)) {
     return TRACKED_PROP_LIFECYCLE.QUARANTINED_LEGACY;
+  }
+
+  if (isQuarantinedSlateDate(slateDate, quarantinedSlates)) {
+    return TRACKED_PROP_LIFECYCLE.QUARANTINED_EXCLUDED;
   }
 
   if (rotation.currentLabSlateDate === slateDate) {
@@ -354,6 +368,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     reports = [],
     archives = [],
     lockedSlates = [],
+    quarantinedSlates = [],
     today = getTodayLocalDate(),
   } = context;
 
@@ -361,6 +376,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     archives,
     lockedSlates,
     trackedProps,
+    quarantinedSlates,
     today,
   });
   const slateLifecycleMap = buildSlateLifecycleMap({
@@ -368,6 +384,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     reports,
     archives,
     lockedSlates,
+    quarantinedSlates,
     today,
   });
   const activeResultsSlateDate = pickActiveResultsSlateDate(
@@ -387,6 +404,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     reports,
     archives,
     lockedSlates,
+    quarantinedSlates,
     today,
     activeResultsSlateDate,
     slateLifecycleMap,

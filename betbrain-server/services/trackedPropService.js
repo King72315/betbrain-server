@@ -19,6 +19,7 @@ import {
   getHistoryArchiveProps,
   getLockedSlatesRegistry,
   getLockedSnapshot,
+  getQuarantinedSlatesFromRegistry,
   isSlateLocked,
   lockSlate,
   recordBlockedWrite,
@@ -47,6 +48,7 @@ import {
 import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
+  getQuarantinedSlateDatesSet,
   getTodayLocalDate,
   isCompletedSlate,
   isFutureSlateDate,
@@ -2227,13 +2229,14 @@ export function replaceTrackedPropsForSlate(slateDate, nextSlateProps = []) {
   return merged;
 }
 
-/** Props eligible for Lab/History analytics — completed slates only, never active/future/pre-cutoff. */
+/** Props eligible for Lab/History analytics — completed slates only, never active/future/pre-cutoff/quarantined. */
 export function getAnalyticsScopeProps(
   trackedProps = getTrackedProps(),
   reports = [],
   archives = []
 ) {
   const today = getTodayLocalDate();
+  const quarantined = getQuarantinedSlateDatesSet(getQuarantinedSlatesFromRegistry());
   const completedDates = new Set(
     filterCompletedDailyReports(reports, today).map((report) =>
       String(report.slateDate)
@@ -2256,6 +2259,7 @@ export function getAnalyticsScopeProps(
 
   for (const slateDate of completedDates) {
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (quarantined.has(slateDate)) continue;
 
     const archive = archives.find((item) => String(item?.slateDate) === slateDate);
     if (archive?.props?.length) {

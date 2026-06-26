@@ -841,10 +841,11 @@ export default function PropLab() {
 
         {!loading && !report ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No completed Lab slate yet.</Text>
+            <Text style={styles.emptyTitle}>No current Lab slate.</Text>
             <Text style={styles.emptyText}>
-              Today's active slate remains in Results until every prop grades. Completed
-              slates appear here automatically.
+              June 24 was excluded due to incomplete prod data. Today's active slate
+              remains in Results until every prop grades. The next completed slate will
+              appear here automatically.
             </Text>
           </View>
         ) : null}

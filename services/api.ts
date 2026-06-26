@@ -571,6 +571,13 @@ export const fetchDailySlateReports = async () => {
       quarantinedLegacySlateDates: Array.isArray(data.quarantinedLegacySlateDates)
         ? data.quarantinedLegacySlateDates
         : [],
+      quarantinedSlateDates: Array.isArray(data.quarantinedSlateDates)
+        ? data.quarantinedSlateDates
+        : [],
+      quarantinedSlateReasons:
+        data.quarantinedSlateReasons && typeof data.quarantinedSlateReasons === "object"
+          ? data.quarantinedSlateReasons
+          : {},
       staleUnresolvedSlateDates: Array.isArray(data.staleUnresolvedSlateDates)
         ? data.staleUnresolvedSlateDates
         : [],
@@ -592,6 +599,8 @@ export const fetchDailySlateReports = async () => {
       historySlateDates: [],
       activeInProgressSlateDates: [],
       quarantinedLegacySlateDates: [],
+      quarantinedSlateDates: [],
+      quarantinedSlateReasons: {},
       staleUnresolvedSlateDates: [],
       lifecycleByDate: {},
       rotationDecisionDebug: null,

@@ -8,6 +8,7 @@ import {
   archiveSlate,
   getHistoryArchive,
   getLockedSnapshot,
+  getQuarantinedSlatesFromRegistry,
   isSlateLocked,
   mergeSnapshotPropsWithLiveGrades,
   promoteSlateToLab,
@@ -22,12 +23,14 @@ import {
   archiveTopPicksSnapshotToReportMetadata,
 } from "./topPicksSnapshotService.js";
 import {
+  filterOutQuarantinedReports,
   filterReportsOnOrAfterCutoff,
   filterValidDailyReports,
   getTodayLocalDate,
   hasUnresolvedGradingProps,
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
+  isQuarantinedSlateDate,
 } from "./slateScopeService.js";
 import {
   buildQualityGatePerformanceFromProps,
@@ -1225,12 +1228,46 @@ export function getRawDailySlateReports() {
 }
 
 export function getDailySlateReports() {
-  return filterValidDailyReports(getRawDailySlateReports());
+  const quarantinedSlates = getQuarantinedSlatesFromRegistry();
+  return filterOutQuarantinedReports(
+    filterValidDailyReports(getRawDailySlateReports()),
+    quarantinedSlates
+  );
+}
+
+export function removeDailySlateReport(slateDate) {
+  const date = String(slateDate || "");
+  if (!date) {
+    return { ok: false, message: "Missing slateDate", removed: false };
+  }
+
+  const reports = readJSON(REPORTS_FILE, []);
+  const nextReports = reports.filter((report) => String(report.slateDate || "") !== date);
+  const removed = nextReports.length !== reports.length;
+
+  if (removed) {
+    writeJSON(REPORTS_FILE, nextReports);
+  }
+
+  return {
+    ok: true,
+    message: removed
+      ? `Daily slate report removed for ${date}`
+      : `No daily slate report found for ${date}`,
+    slateDate: date,
+    removed,
+    reports: getDailySlateReports(),
+  };
 }
 
 export function getDailySlateReport(slateDate) {
+  const date = String(slateDate || "");
+  if (isQuarantinedSlateDate(date, getQuarantinedSlatesFromRegistry())) {
+    return null;
+  }
+
   const reports = getDailySlateReports();
-  return reports.find((report) => report.slateDate === slateDate) || null;
+  return reports.find((report) => report.slateDate === date) || null;
 }
 
 export function upsertDailySlateReport(report = {}) {

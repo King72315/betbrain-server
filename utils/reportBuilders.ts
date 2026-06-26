@@ -805,6 +805,8 @@ const EMPTY_SLATE_ROTATION: SlateRotation = {
   viewedSlateDate: null,
   viewingHistorical: false,
   quarantinedLegacySlateDates: [],
+  quarantinedSlateDates: [],
+  quarantinedSlateReasons: {},
   inferredCompletedSlateDates: [],
 };
 

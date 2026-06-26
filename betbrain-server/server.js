@@ -178,6 +178,7 @@ import {
   getHistoryArchive,
   getLastBlockedWrite,
   getLockedSlatesRegistry,
+  getQuarantinedSlatesFromRegistry,
   isSlateLocked,
   lockSlate,
 } from "./services/slateLockService.js";
@@ -212,6 +213,7 @@ import {
 import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622TestService.js";
 import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Service.js";
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
+import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
   isOfficialPick,
@@ -226,7 +228,18 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-matchup-lookup-v1";
+const SERVER_BUILD = "courteedge-quarantine-0624-v1";
+
+function getRotationRuntimeContext(partial = {}) {
+  return {
+    archives: partial.archives ?? getAllHistoryArchives(),
+    lockedSlates: partial.lockedSlates ?? getLockedSlatesRegistry().slates ?? [],
+    quarantinedSlates:
+      partial.quarantinedSlates ?? getQuarantinedSlatesFromRegistry(),
+    today: partial.today ?? getTodayLocalDate(),
+    ...partial,
+  };
+}
 
 const ENGINE_LOAD_FLAGS = {
   volumeProfileEngineLoaded: typeof buildVolumeProfile === "function",
@@ -2707,12 +2720,14 @@ app.get("/tracked-props", (req, res) => {
   const rawReports = getRawDailySlateReports();
   const archives = getAllHistoryArchives();
   const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const quarantinedSlates = getQuarantinedSlatesFromRegistry();
   const today = getTodayLocalDate();
 
   const classification = classifyTrackedPropsByLifecycle(allStored, {
     reports: rawReports,
     archives,
     lockedSlates,
+    quarantinedSlates,
     today,
   });
   classification.trackedPropsReturnedMode = includeLegacy
@@ -2860,7 +2875,7 @@ app.get("/daily-slate-reports", (req, res) => {
 
   const rotation = buildSlateRotationMetadata(
     rawReports,
-    { trackedProps, archives, lockedSlates, today },
+    getRotationRuntimeContext({ trackedProps, archives, lockedSlates, today }),
     viewedSlateDate
   );
 
@@ -2876,16 +2891,19 @@ app.get("/daily-slate-reports", (req, res) => {
     historySlateDates: rotation.historySlateDates,
     activeInProgressSlateDates: rotation.activeInProgressSlateDates,
     quarantinedLegacySlateDates: rotation.quarantinedLegacySlateDates,
+    quarantinedSlateDates: rotation.quarantinedSlateDates,
+    quarantinedSlateReasons: rotation.quarantinedSlateReasons,
     staleUnresolvedSlateDates: rotation.staleUnresolvedSlateDates,
     lifecycleByDate: rotation.lifecycleByDate,
     rotationDecisionDebug: rotation.rotationDecisionDebug,
-    slateLifecycle: buildSlateLifecycleMap({
-      trackedProps,
-      reports: rawReports,
-      archives,
-      lockedSlates,
-      today,
-    }),
+    slateLifecycle: buildSlateLifecycleMap(
+      getRotationRuntimeContext({
+        trackedProps,
+        reports: rawReports,
+        archives,
+        lockedSlates,
+      })
+    ),
   });
 });
 
@@ -3150,6 +3168,7 @@ app.get("/diagnostics", (req, res) => {
     reports: rawReports,
     archives,
     lockedSlates: registry.slates || [],
+    quarantinedSlates: getQuarantinedSlatesFromRegistry(),
     today: getTodayLocalDate(),
   });
   lifecycleClassification.trackedPropsReturnedMode = "active_results_only";
@@ -3168,14 +3187,15 @@ app.get("/diagnostics", (req, res) => {
     }
   );
 
-  const slateLifecycle = buildSlateLifecycleMap({
-    trackedProps: tracked,
-    reports: rawReports,
-    archives,
-    lockedSlates: registry.slates || [],
-    today: getTodayLocalDate(),
-    hasGeneratedBoard: Boolean(picksCache?.games?.length),
-  });
+  const slateLifecycle = buildSlateLifecycleMap(
+    getRotationRuntimeContext({
+      trackedProps: tracked,
+      reports: rawReports,
+      archives,
+      lockedSlates: registry.slates || [],
+      hasGeneratedBoard: Boolean(picksCache?.games?.length),
+    })
+  );
   const courtEdgeFlow = buildCourtEdgeFlowDiagnostics(
     tracked,
     rawReports,
@@ -3587,6 +3607,43 @@ app.post("/admin/repair-lab-history-0625", requireAdminSecret, (req, res) => {
   }
 });
 
+app.post("/admin/repair-quarantine-0624", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        quarantineDate: "2026-06-24",
+        archiveDate: "2026-06-21",
+        quarantineReason: "INCOMPLETE_PROD_DATA",
+      });
+    }
+
+    const result = repairQuarantine0624AndArchive0621({
+      dryRun,
+      backupReason: req.body?.backupReason || "pre-quarantine-0624-archive-0621-v1",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Quarantine 06/24 + archive 06/21 dry-run complete"
+        : "Quarantine 06/24 applied; 06/21 archived to History",
+      result,
+    });
+  } catch (error) {
+    console.log("REPAIR QUARANTINE 0624 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Quarantine 06/24 repair failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/repair-slate-rotation", requireAdminSecret, (req, res) => {
   try {
     const confirm = Boolean(req.body?.confirm);
@@ -3604,6 +3661,7 @@ app.post("/admin/repair-slate-rotation", requireAdminSecret, (req, res) => {
     const result = repairSlateRotation0624({
       dryRun,
       restorePath: req.body?.restorePath,
+      allowRestore0624: Boolean(req.body?.allowRestore0624),
       backupReason: req.body?.backupReason || "pre-slate-rotation-v1",
     });
 

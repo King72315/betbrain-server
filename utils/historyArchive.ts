@@ -5,6 +5,7 @@ import {
   getReportTotalOfficial,
   isCompletedSlate,
   isOnOrAfterCleanDataCutoff,
+  isQuarantinedSlateDate,
 } from "./slateRotation";
 
 export { CLEAN_DATA_CUTOFF, isOnOrAfterCleanDataCutoff };
@@ -239,6 +240,7 @@ function buildArchiveBackedEntries(
   for (const archive of archives) {
     const slateDate = String(archive?.slateDate || "");
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (isQuarantinedSlateDate(slateDate)) continue;
     if (!slateDate || slateDate === currentLabSlateDate) continue;
     if (coveredDates.has(slateDate)) continue;
 
@@ -266,6 +268,7 @@ function buildOfficialSlateEntries(
 
   for (const report of historySlates) {
     if (!isOnOrAfterCleanDataCutoff(report?.slateDate)) continue;
+    if (isQuarantinedSlateDate(report?.slateDate)) continue;
     if (!isCompletedSlate(report)) continue;
 
     const sectionA = report.sections?.A || report;

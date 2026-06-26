@@ -8,6 +8,7 @@ import {
   getAllHistoryArchives,
   getHistoryArchive,
   getLockedSlatesRegistry,
+  getQuarantinedSlatesFromRegistry,
 } from "./slateLockService.js";
 import {
   buildDailySlateReportsFromTrackedProps,
@@ -110,22 +111,28 @@ function mergeMissing0624Props(trackedProps = [], restorePath = "") {
 }
 
 function buildPostRepairMetadata() {
+  const quarantinedSlates = getQuarantinedSlatesFromRegistry?.() || [];
   return buildSlateRotationMetadata(getRawDailySlateReports(), {
     trackedProps: getTrackedProps(),
     archives: getAllHistoryArchives(),
     lockedSlates: getLockedSlatesRegistry().slates || [],
+    quarantinedSlates,
     today: getTodayLocalDate(),
   });
 }
 
 export function repairSlateRotation0624(options = {}) {
   const dryRun = Boolean(options.dryRun);
+  const allowRestore0624 =
+    Boolean(options.allowRestore0624) ||
+    process.env.ALLOW_0624_RESTORE === "true";
   const backupReason = String(options.backupReason || "pre-slate-rotation-v1");
   const restorePath = resolve0624RestorePath(options.restorePath);
 
   let trackedProps = getTrackedProps();
   const before0624 = countPropsForDate(trackedProps, TARGET_LAB_DATE);
   const restorePreview = preview0624Restore(trackedProps, restorePath);
+  restorePreview.allowRestore0624 = allowRestore0624;
 
   const archive621 = getHistoryArchive(LAB_ARCHIVE_DATE);
   const registry = getLockedSlatesRegistry();
@@ -141,16 +148,17 @@ export function repairSlateRotation0624(options = {}) {
       backupId: null,
       before0624,
       restorePreview,
-      wouldRebuild0624Report: true,
+      wouldRebuild0624Report: allowRestore0624,
       wouldArchive621,
       archive621Phase: archive621Phase || null,
+      restoreBlocked: !allowRestore0624,
       meta: buildPostRepairMetadata(),
     };
   }
 
   const backup = createBackup(backupReason);
 
-  if (before0624 === 0) {
+  if (allowRestore0624 && before0624 === 0) {
     const { merged, trackedProps: mergedProps, restorePath: usedPath } = mergeMissing0624Props(
       trackedProps,
       restorePath
@@ -158,15 +166,23 @@ export function repairSlateRotation0624(options = {}) {
     trackedProps = mergedProps;
     restorePreview.usedRestorePath = usedPath;
     restorePreview.merged = merged;
+  } else if (before0624 === 0) {
+    restorePreview.skippedRestore = true;
+    restorePreview.restoreBlocked = true;
+    restorePreview.restoreBlockedReason =
+      "06/24 restore disabled — set ALLOW_0624_RESTORE=true to override";
   } else {
     restorePreview.skippedRestore = true;
     restorePreview.existing0624Count = before0624;
   }
 
-  const rebuild = buildDailySlateReportsFromTrackedProps(trackedProps, {
-    slateDate: TARGET_LAB_DATE,
-    forceRebuild: true,
-  });
+  let rebuild = { skipped: true, reason: "restore_disabled" };
+  if (allowRestore0624) {
+    rebuild = buildDailySlateReportsFromTrackedProps(trackedProps, {
+      slateDate: TARGET_LAB_DATE,
+      forceRebuild: true,
+    });
+  }
 
   let archiveResult = null;
   if (wouldArchive621) {
@@ -182,7 +198,7 @@ export function repairSlateRotation0624(options = {}) {
     backupId: backup.backupId,
     before0624,
     restorePreview,
-    rebuildSummary: rebuild.summary?.slates?.[0] || rebuild.summary,
+    rebuildSummary: rebuild.summary?.slates?.[0] || rebuild.summary || rebuild,
     archive621: archiveResult || {
       skipped: true,
       reason: wouldArchive621 ? "unknown" : "already_archived_or_missing_bundle",

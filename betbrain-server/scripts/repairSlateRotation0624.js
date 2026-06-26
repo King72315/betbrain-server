@@ -2,7 +2,13 @@
  * Runtime repair: rebuild 06/24 Lab report, archive 06/21 to History.
  * Usage: node betbrain-server/scripts/repairSlateRotation0624.js
  *
+ * **DEPRECATED for prod:** 06/24 is quarantined (INCOMPLETE_PROD_DATA).
+ * Use repairQuarantine0624AndArchive0621.js instead.
+ *
+ * 06/24 restore/rebuild is gated behind ALLOW_0624_RESTORE=true (default off).
+ *
  * Optional env:
+ *   ALLOW_0624_RESTORE=true — enable 06/24 prop restore + report rebuild
  *   RESTORE_0624_PROPS_FROM=/path/to/tracked-props.json — override bundled 06/24 slice
  */
 import {
