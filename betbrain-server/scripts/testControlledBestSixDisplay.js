@@ -498,5 +498,61 @@ test("31 summary uses display pool for controlled total", () => {
   assert.strictEqual(summary.controlledBestSixTrack, 1);
 });
 
+test("32 acceptance: 15 candidates yield 6 display Best 6 with full brain", () => {
+  const makePoolPick = (i, overScore, boardOnly = i > 0) => ({
+    player: `Pool${i}`,
+    team: `T${i % 6}`,
+    opponent: "OPP",
+    gameId: `g${i % 5}`,
+    line: 10 + i * 0.5,
+    side: "Over",
+    pick: "Over",
+    league: "WNBA",
+    netEdge: 10 - i * 0.3,
+    confidence: 85 - i,
+    wnbaDataCard: boardOnly
+      ? {
+          bookLine: 10 + i * 0.5,
+          dataConfidenceScore: 55,
+          projection: { projection: 12 },
+          last5: { points: 10, minutes: 20, fga: 6 },
+          bookCount: 2,
+          marketQuality: 45,
+          dataMissingFlags: [],
+          roleTrend: "down",
+          minutesVolatility: "volatile",
+          dataMode: "WNBA_LIMITED_DATA",
+        }
+      : {
+          bookLine: 10 + i * 0.5,
+          dataConfidenceScore: 72,
+          projection: { projection: 18 },
+          last5: { points: 17, minutes: 30, fga: 12 },
+          bookCount: 5,
+          dataMissingFlags: [],
+        },
+    wnbaReader: {
+      decision: "TEST",
+      finalSide: "OVER",
+      readerConfidence: boardOnly ? 55 : 68,
+      margin: boardOnly ? 4 : 8,
+      overCase: { score: overScore },
+      underCase: { score: 20 },
+    },
+  });
+
+  const pool = Array.from({ length: 15 }, (_, i) => makePoolPick(i, 90 - i));
+  const display = selectBestSixDisplay(pool, "WNBA");
+  const results = selectControlledBestSix(pool, "WNBA");
+
+  assert.strictEqual(display.controlledBestSixDisplayAudit.candidateCount, 15);
+  assert.strictEqual(display.bestSix.length, BEST_SIX_LIMIT);
+  assert.ok(display.bestSix.every((p) => p.decisionIntelligence?.trueRisk));
+  assert.ok(display.bestSix.every((p) => p.sideRescue || p.decisionIntelligence));
+  assert.ok(display.bestSix.some((p) => p.resultsAdmissionEligible === false));
+  assert.ok(results.bestSix.every((p) => p.decisionIntelligence?.trackEligibility === "TRACK"));
+  assert.ok(display.bestSix.length > results.bestSix.length);
+});
+
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

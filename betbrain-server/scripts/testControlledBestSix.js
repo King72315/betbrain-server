@@ -15,6 +15,7 @@ import { scoreNbaTopProp } from "../engines/topProps/nbaTopPropScore.js";
 import {
   selectControlledBestSix,
   selectControlledBestSixCombined,
+  selectBestSixDisplay,
   selectTopTwoFromBestSix,
   BEST_SIX_LIMIT,
   CONTROLLED_BEST_SIX_VERSION,
@@ -484,8 +485,130 @@ function testExistingSlateResultsSnapshot() {
   runExistingSuite("testSlateResultsSnapshot.js");
 }
 
+function makeBoardOnlyWnbaPick(overrides = {}) {
+  return makeWnbaPick({
+    overScore: overrides.overScore ?? 70,
+    netEdge: overrides.netEdge ?? 6,
+    confidence: overrides.confidence ?? 72,
+    wnbaDataCard: {
+      bookLine: overrides.line ?? 14.5,
+      dataConfidenceScore: 55,
+      projection: { projection: 12 },
+      last5: { points: 10, minutes: 20, fga: 6 },
+      bookCount: 2,
+      marketQuality: 45,
+      dataMissingFlags: [],
+      roleTrend: "down",
+      minutesVolatility: "volatile",
+      dataMode: "WNBA_LIMITED_DATA",
+      ...overrides.wnbaDataCard,
+    },
+    wnbaReader: {
+      decision: "TEST",
+      finalSide: "OVER",
+      readerConfidence: 55,
+      margin: 4,
+      overCase: { score: overrides.overScore ?? 70 },
+      underCase: { score: 20 },
+      ...overrides.wnbaReader,
+    },
+    ...overrides,
+  });
+}
+
+function testDisplayBestSixFromFullAnalyzedBoard() {
+  const trackPick = makeWnbaPick({
+    player: "Track Star",
+    team: "T1",
+    overScore: 92,
+    line: 10.5,
+    netEdge: 10,
+    confidence: 85,
+  });
+  const boardPicks = Array.from({ length: 14 }, (_, i) =>
+    makeBoardOnlyWnbaPick({
+      player: `Board${i}`,
+      team: `Team${i % 6}`,
+      gameId: `game-${i % 5}`,
+      overScore: 88 - i,
+      line: 11 + i,
+      netEdge: 8 - i * 0.2,
+      confidence: 80 - i,
+    })
+  );
+  const pool = [trackPick, ...boardPicks];
+  const display = selectBestSixDisplay(pool, "WNBA");
+  const results = selectControlledBestSix(pool, "WNBA");
+
+  assert.strictEqual(display.controlledBestSixDisplayAudit.candidateCount, 15);
+  assert.strictEqual(display.bestSix.length, BEST_SIX_LIMIT);
+  assert.ok(results.bestSix.length <= display.bestSix.length);
+
+  for (const pick of display.bestSix) {
+    assert.ok(pick.decisionIntelligence, `missing DI on ${pick.player}`);
+    assert.ok(pick.decisionIntelligence.trueRisk, `missing Risk Truth on ${pick.player}`);
+    assert.ok(
+      pick.sideRescue || pick.decisionIntelligence.trackEligibility,
+      `missing Side Rescue / eligibility on ${pick.player}`
+    );
+    assert.strictEqual(pick.controlledBestSixDisplay, true);
+  }
+
+  const trackInDisplay = display.bestSix.filter(
+    (p) => p.decisionIntelligence?.trackEligibility === "TRACK"
+  ).length;
+  assert.ok(trackInDisplay >= 1);
+  assert.ok(results.bestSix.length <= trackInDisplay);
+  assert.ok(
+    display.bestSix.some((pick) => pick.resultsAdmissionEligible === false),
+    "display Best 6 should include non-TRACK picks"
+  );
+  assert.ok(
+    results.bestSix.every(
+      (pick) =>
+        pick.decisionIntelligence?.trackEligibility === "TRACK" &&
+        pick.decisionIntelligence?.bestSixEligibility === true
+    ),
+    "Results Best 6 must be TRACK-only"
+  );
+}
+
+function testDisplayDoesNotPreFilterBoardOnly() {
+  const strongBoard = makeWnbaPick({
+    player: "Strong Board",
+    team: "T1",
+    overScore: 95,
+    line: 10.5,
+    netEdge: 12,
+    confidence: 90,
+    wnbaDataCard: {
+      bookLine: 14.5,
+      dataConfidenceScore: 55,
+      projection: { projection: 12 },
+      last5: { points: 10, minutes: 20, fga: 6 },
+      bookCount: 2,
+      marketQuality: 45,
+      dataMissingFlags: [],
+      roleTrend: "down",
+      minutesVolatility: "volatile",
+    },
+    wnbaReader: {
+      decision: "TEST",
+      finalSide: "OVER",
+      readerConfidence: 55,
+      margin: 3,
+      overCase: { score: 55 },
+      underCase: { score: 20 },
+    },
+  });
+  const display = selectBestSixDisplay([strongBoard], "WNBA");
+  assert.strictEqual(display.bestSix.length, 1);
+  assert.notStrictEqual(display.bestSix[0].decisionIntelligence?.trackEligibility, "TRACK");
+  assert.strictEqual(display.bestSix[0].resultsAdmissionEligible, false);
+}
+
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-display-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-full-brain-v1");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],
@@ -517,6 +640,8 @@ function run() {
     ["27. sync path uses Best 6 not full pool", testSyncPathUsesBestSixNotFullPool],
     ["28. existing results tracking cohort", testExistingResultsTrackingCohort],
     ["29. existing slate results snapshot", testExistingSlateResultsSnapshot],
+    ["30. display Best 6 from full analyzed board (15 pool)", testDisplayBestSixFromFullAnalyzedBoard],
+    ["31. display does not pre-filter BOARD_ONLY", testDisplayDoesNotPreFilterBoardOnly],
   ];
 
   let passed = 0;

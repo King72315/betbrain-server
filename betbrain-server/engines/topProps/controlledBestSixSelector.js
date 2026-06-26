@@ -1,5 +1,6 @@
 /**
- * Controlled Best 6 selector — full pool → quality gate → rank → Best 6 → Top 2 from Best 6.
+ * Controlled Best 6 selector — full pool → analyze → rank → Best 6 → Top 2 from Best 6.
+ * Display pool ranks from the fully analyzed board; TRACK-only Results admission runs after selection.
  */
 import { CONFIG } from "../../config.js";
 import { scoreNbaTopProp } from "./nbaTopPropScore.js";
@@ -28,7 +29,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-display-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-full-brain-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -328,18 +329,6 @@ function passesBaseCandidateFilters(pick = {}, audit = {}) {
   return true;
 }
 
-function passesDisplayEligibility(pick = {}) {
-  const di = pick.decisionIntelligence || {};
-  const eligibility = String(
-    di.trackEligibility || pick.wnbaTrackingDecision || pick.trackingEligibility || ""
-  ).toUpperCase();
-  const sr = pick.sideRescue || {};
-
-  if (sr.action === "NO_BET") return false;
-  if (eligibility === "NO_BET") return false;
-  return true;
-}
-
 function passesResultsEligibility(pick = {}) {
   const di = pick.decisionIntelligence || {};
   const sr = pick.sideRescue || {};
@@ -425,19 +414,18 @@ function dedupeCandidate(pick = {}, exactSeen = new Map(), playerLineBest = new 
   return true;
 }
 
-function filterDisplayCandidates(candidates = [], audit = {}) {
+function filterAndAnalyzeCandidates(candidates = [], audit = {}) {
   const exactSeen = new Map();
   const playerLineBest = new Map();
   const valid = [];
-  let qualityPassed = 0;
+  let analyzedCount = 0;
 
   for (const rawPick of candidates) {
     if (!passesBaseCandidateFilters(rawPick, audit)) continue;
 
     let pick = rawPick;
-    const league = String(pick.league || "").toUpperCase();
 
-    if (league === "WNBA") {
+    if (String(pick.league || "").toUpperCase() === "WNBA") {
       const prepared = applyWnbaDecisionStack(pick);
       if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
@@ -448,24 +436,16 @@ function filterDisplayCandidates(candidates = [], audit = {}) {
         continue;
       }
       pick = prepared.pick;
-      if (!passesDisplayEligibility(pick)) {
-        audit.hiddenDueToQualityGate += 1;
-        audit.rejected.push({
-          reason: "display_ineligible",
-          eligibility: pick.decisionIntelligence?.trackEligibility,
-          pick: summarizePickForAudit(pick),
-        });
-        continue;
-      }
     }
 
-    qualityPassed += 1;
+    analyzedCount += 1;
 
     if (!dedupeCandidate(pick, exactSeen, playerLineBest, audit)) continue;
     valid.push(pick);
   }
 
-  audit.qualityPassedCount = qualityPassed;
+  audit.qualityPassedCount = analyzedCount;
+  audit.analyzedCount = analyzedCount;
   return valid;
 }
 
@@ -515,7 +495,7 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
   );
   audit.candidateCount = pool.length;
 
-  const valid = filterDisplayCandidates(pool, audit);
+  const valid = filterAndAnalyzeCandidates(pool, audit);
   audit.afterInvalidFilter = valid.length;
 
   const scored = valid.map(scoreCandidate);
