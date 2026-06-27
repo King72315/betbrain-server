@@ -487,6 +487,7 @@ export const fetchTrackedProps = async () => {
       ok: res.ok && (data.ok ?? false),
       props: Array.isArray(data.props) ? data.props : [],
       count: data.count || (Array.isArray(data.props) ? data.props.length : 0),
+      error: data.error || (!res.ok ? `HTTP ${res.status}` : undefined),
     };
   } catch (err) {
     console.log("FETCH TRACKED PROPS FAILED:", err);
@@ -495,6 +496,7 @@ export const fetchTrackedProps = async () => {
       ok: false,
       props: [],
       count: 0,
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 };

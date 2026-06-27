@@ -328,6 +328,24 @@ test("17 slate lifecycle map includes TRACKING_ACTIVE for today slate", () => {
   );
 });
 
+test("18 stale unresolved scan accepts quarantinedSlates without ReferenceError", () => {
+  assert.doesNotThrow(() =>
+    classifyTrackedPropsByLifecycle(
+      [
+        makeProp({ slateDate: "2026-06-20", status: "pending" }),
+        makeProp({ slateDate: TODAY, status: "pending" }),
+      ],
+      {
+        reports: [],
+        archives: [],
+        lockedSlates: [{ slateDate: TODAY, phase: "ACTIVE" }],
+        quarantinedSlates: [{ slateDate: "2026-06-14", reason: "legacy" }],
+        today: TODAY,
+      }
+    )
+  );
+});
+
 console.log("\nCourtEdge tracked-props lifecycle filter tests\n");
 console.log(`Results: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

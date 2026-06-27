@@ -189,12 +189,17 @@ function collectStaleUnresolvedSlateDates(
   today = getTodayLocalDate(),
   options = {}
 ) {
-  const { activeResultsSlateDate = null, lockedSlates = [], archives = [] } = options;
+  const {
+    activeResultsSlateDate = null,
+    lockedSlates = [],
+    archives = [],
+    quarantinedSlates = [],
+  } = options;
   const rotation = computeSlateRotation(reports, {
     archives,
     lockedSlates,
     trackedProps,
-    quarantinedSlates: context.quarantinedSlates || [],
+    quarantinedSlates,
     today,
   });
   const historyDates = new Set(
@@ -397,7 +402,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     trackedProps,
     reports,
     today,
-    { activeResultsSlateDate, lockedSlates, archives }
+    { activeResultsSlateDate, lockedSlates, archives, quarantinedSlates }
   );
 
   const lifecycleContext = {
