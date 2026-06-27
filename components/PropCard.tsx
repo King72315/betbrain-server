@@ -153,6 +153,11 @@ export default function PropCard({
       pick.sideRescueExplanation ??
       pick.sideRescue?.simpleExplanation ??
       "";
+    const flipLabels =
+      pick.displayFlipFirstLabels ??
+      pick.flipFirstLabels ??
+      pick.decisionDataIntelligence?.flipFirstLabels ??
+      null;
 
     return (
       <TouchableOpacity
@@ -193,6 +198,21 @@ export default function PropCard({
           <Metric label="Decision" value={trackDecision} />
           <Metric label="Data" value={dataIntegrityLabel} />
         </View>
+
+        {flipLabels ? (
+          <View style={styles.bestSixFlipRow}>
+            <Metric label="Usage" value={flipLabels.usage || "—"} />
+            <Metric label="Collision" value={flipLabels.collision || "—"} />
+            <Metric label="Market" value={flipLabels.market || "—"} />
+          </View>
+        ) : null}
+        {flipLabels ? (
+          <View style={styles.bestSixFlipRow}>
+            <Metric label="Availability" value={flipLabels.availability || "—"} />
+            <Metric label="Proj Q" value={flipLabels.projectionQuality || "—"} />
+            <Metric label="Flip" value={flipLabels.flipCheck || "—"} />
+          </View>
+        ) : null}
 
         {whyText ? (
           <View style={styles.bestSixWhyBox}>
@@ -1084,6 +1104,12 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
     marginBottom: 10,
+  },
+  bestSixFlipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
   },
   bestSixWhyBox: {
     backgroundColor: "#052e16",

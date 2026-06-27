@@ -40,6 +40,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../engines/decisionIntelligence/sideRescueEngineV1.js";
+import { runFlipFirstDecisionPipeline } from "../engines/decisionIntelligence/decisionDataIntelligenceV1.js";
 import {
   selectControlledBestSixCombined,
   CONTROLLED_BEST_SIX_VERSION,
@@ -622,8 +623,18 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
 
     let gatedPick = pick;
     if (isWnbaQualityGatePick(pick)) {
-      const gate = evaluateWnbaTrackingEligibility(pick, pick.wnbaDataCard, pick.wnbaReader);
-      gatedPick = applyDecisionIntelligenceToPick(pick, null, gate);
+      gatedPick = runFlipFirstDecisionPipeline(pick, {
+        dataCard: pick.wnbaDataCard,
+        reader: pick.wnbaReader,
+        originalSide: pick.initialSide,
+        slateCandidates: candidates,
+      });
+      const gate = evaluateWnbaTrackingEligibility(
+        gatedPick,
+        gatedPick.wnbaDataCard,
+        gatedPick.wnbaReader
+      );
+      gatedPick = applyDecisionIntelligenceToPick(gatedPick, null, gate);
       const di = gatedPick.decisionIntelligence || {};
       if (!gatedPick.sideRescue) {
         const sideRescue = evaluateSideRescue(gatedPick, {
@@ -1616,6 +1627,14 @@ function mapPickToTrackedFields(pick = {}) {
     flippedFromSide: pick.flippedFromSide ?? null,
     flippedFromSideLabel: pick.flippedFromSideLabel ?? null,
     sideRescueFlipped: pick.sideRescueFlipped ?? false,
+    decisionDataIntelligence: pick.decisionDataIntelligence ?? null,
+    decisionDataIntelligenceVersion:
+      pick.decisionDataIntelligenceVersion ??
+      pick.decisionDataIntelligence?.version ??
+      null,
+    flipFirstLabels: pick.flipFirstLabels ?? null,
+    flipFirstAction: pick.flipFirstAction ?? pick.flipFirstDecision?.action ?? null,
+    flipFirstFlipped: pick.flipFirstFlipped ?? false,
   };
 
   return {

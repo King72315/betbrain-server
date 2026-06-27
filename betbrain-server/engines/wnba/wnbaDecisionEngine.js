@@ -24,6 +24,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
+import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
@@ -462,8 +463,17 @@ export async function evaluateWnbaPropDecision(context = {}) {
 
   pick = finalizeWnbaPickTracking(pick, reader);
 
-  const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
   pick.initialSide = pickSide;
+  pick = runFlipFirstDecisionPipeline(pick, {
+    dataCard,
+    reader,
+    originalSide: pickSide,
+    teamCandidates: context.teamCandidates,
+    slateCandidates: context.slateCandidates,
+    impliedTeamTotal: pickGameContext?.impliedTeamTotal,
+  });
+
+  const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
   const decisionIntelligence = evaluatePropDecisionIntelligenceV1(pick, {
     dataCard,
     reader,

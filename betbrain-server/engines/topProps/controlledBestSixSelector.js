@@ -29,7 +29,8 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-top-display-v1";
+import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-flip-first-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -134,6 +135,9 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
   const playerLineBest = new Map();
   const valid = [];
   let qualityPassed = 0;
+  const wnbaSlate = (Array.isArray(candidates) ? candidates : []).filter(
+    (p) => String(p.league || "").toUpperCase() === "WNBA"
+  );
 
   for (const rawPick of candidates) {
     if (!passesBaseCandidateFilters(rawPick, audit)) continue;
@@ -141,7 +145,7 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
     let pick = rawPick;
 
     if (String(pick.league || "").toUpperCase() === "WNBA") {
-      const prepared = applyWnbaDecisionStack(pick);
+      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: wnbaSlate });
       if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
@@ -259,12 +263,24 @@ function rankBestSix(selected = [], league = "", options = {}) {
   });
 }
 
-function applyWnbaDecisionStack(pick = {}) {
+function applyWnbaDecisionStack(pick = {}, options = {}) {
   if (!isWnbaQualityGatePick(pick)) {
     return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
   }
 
   let enriched = pick;
+  const initialSide = normalizeSide(
+    enriched.initialSide || enriched.side || enriched.pick || enriched.wnbaReader?.finalSide
+  );
+  enriched.initialSide = initialSide;
+  enriched = runFlipFirstDecisionPipeline(enriched, {
+    dataCard: enriched.wnbaDataCard,
+    reader: enriched.wnbaReader,
+    originalSide: initialSide,
+    teamCandidates: options.teamCandidates,
+    slateCandidates: options.slateCandidates,
+  });
+
   const gate = evaluateWnbaTrackingEligibility(
     enriched,
     enriched.wnbaDataCard,
@@ -419,6 +435,9 @@ function filterAndAnalyzeCandidates(candidates = [], audit = {}) {
   const playerLineBest = new Map();
   const valid = [];
   let analyzedCount = 0;
+  const wnbaSlate = (Array.isArray(candidates) ? candidates : []).filter(
+    (p) => String(p.league || "").toUpperCase() === "WNBA"
+  );
 
   for (const rawPick of candidates) {
     if (!passesBaseCandidateFilters(rawPick, audit)) continue;
@@ -426,7 +445,7 @@ function filterAndAnalyzeCandidates(candidates = [], audit = {}) {
     let pick = rawPick;
 
     if (String(pick.league || "").toUpperCase() === "WNBA") {
-      const prepared = applyWnbaDecisionStack(pick);
+      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: wnbaSlate });
       if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({

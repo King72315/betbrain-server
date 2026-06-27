@@ -190,6 +190,12 @@ export function enrichBestSixForDisplay(
     displaySideRescueFlipped: Boolean(
       pick.sideRescueFlipped || pick.flippedFromSide || pick.sideRescue?.action === "FLIP_SIDE"
     ),
+    displayFlipFirstLabels:
+      pick.flipFirstLabels ??
+      pick.decisionDataIntelligence?.flipFirstLabels ??
+      null,
+    displayFlipFirstAction:
+      pick.flipFirstAction ?? pick.decisionDataIntelligence?.flipFirstDecision?.action ?? null,
   };
 }
 
@@ -544,6 +550,11 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     pick.sideRescueExplanation ??
     pick.sideRescue?.simpleExplanation ??
     "";
+  const flipLabels =
+    pick.displayFlipFirstLabels ??
+    pick.flipFirstLabels ??
+    pick.decisionDataIntelligence?.flipFirstLabels ??
+    null;
   const topBadge = pick.topPickLabel ? ` · ${pick.topPickLabel}` : "";
 
   return [
@@ -551,6 +562,9 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     `  Game: ${game}`,
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
     `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
+    flipLabels
+      ? `  Flip-First: Usage ${flipLabels.usage} | Collision ${flipLabels.collision} | Market ${flipLabels.market} | Avail ${flipLabels.availability} | Proj ${flipLabels.projectionQuality} | ${flipLabels.flipCheck}`
+      : null,
     why ? `  Why: ${why}` : null,
     resultsNote,
     sideRescueAction ? `  Side Rescue: ${sideRescueAction}` : null,

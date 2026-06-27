@@ -107,6 +107,7 @@ import {
   DECISION_INTELLIGENCE_VERSION,
 } from "./engines/decisionIntelligence/propDecisionIntelligenceV1.js";
 import { SIDE_RESCUE_VERSION } from "./engines/decisionIntelligence/sideRescueEngineV1.js";
+import { DECISION_DATA_INTELLIGENCE_VERSION } from "./engines/decisionIntelligence/decisionDataIntelligenceV1.js";
 import {
   auditWnbaDataIntegrity,
   DATA_INTEGRITY_VERSION,
@@ -228,7 +229,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-tracked-props-lifecycle-fix-v1";
+const SERVER_BUILD = "courteedge-flip-first-decision-intelligence-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -313,6 +314,13 @@ function cacheFresh() {
   if (
     picksCache.sideRescueVersion &&
     picksCache.sideRescueVersion !== SIDE_RESCUE_VERSION
+  ) {
+    return false;
+  }
+
+  if (
+    picksCache.decisionDataIntelligenceVersion &&
+    picksCache.decisionDataIntelligenceVersion !== DECISION_DATA_INTELLIGENCE_VERSION
   ) {
     return false;
   }
@@ -2382,6 +2390,7 @@ async function refreshAllPicks() {
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     sideRescueVersion: SIDE_RESCUE_VERSION,
+    decisionDataIntelligenceVersion: DECISION_DATA_INTELLIGENCE_VERSION,
     dataIntegrityVersion: DATA_INTEGRITY_VERSION,
     dataRecoveryVersion: DATA_RECOVERY_VERSION,
     topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
