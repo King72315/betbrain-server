@@ -262,7 +262,7 @@ Separate metrics were conflated in the UI:
 | **Best 6 X/6** | Date-scoped display pool (filled to 6) | Rendered card count |
 | **Board Track** | All analyzed candidates in date bucket | Decision TRACK on board |
 | **Results Track X/6** | `bestSixWNBA` Results pool, TRACK eligibility | Props admitted to Results cohort |
-| **Top Picks X/2** | `topWNBAProps` scoped to date + badge count on cards | Server top-2 from Results Best 6 |
+| **Top Picks X/2** | ~~Server top-2 from Results Best 6~~ **Fixed** — top 2 from display Best 6 ranking |
 
 A prop can show Decision **TRACK** on its card (Side Rescue / display brain) while `resultsAdmissionEligible === false` — e.g. DeWanna Bonner BOARD_ONLY rescue — so Board Track (2) ≠ Results Track (1) is expected when one TRACK-labeled card is not Results-admitted.
 
@@ -283,6 +283,27 @@ A prop can show Decision **TRACK** on its card (Side Rescue / display brain) whi
 node betbrain-server/scripts/testControlledBestSixDisplay.js   → 44 passed, 0 failed
 node betbrain-server/scripts/testSlateRotationLifecycle.js     → 24 passed, 0 failed
 ```
+
+---
+
+## Top Picks Display Pool Fix (2026-06-27)
+
+**Symptom:** Top Picks **1/2** on Home and Top tab when display Best 6 had 2+ ranked props.
+
+**Root cause:** `selectControlledBestSixCombined` selected top 2 from `wnbaBest.bestSix` (Results TRACK-only) instead of `wnbaDisplay.bestSix`.
+
+**Fix:** Server + client derive top 2 from display Best 6 via `selectTopTwoFromDisplayBestSix()`. Results Track admission unchanged.
+
+**Before → After (Tomorrow WNBA snapshot):**
+
+| | Before | After |
+|---|--------|-------|
+| Top Picks | 1/2 (Marina only) | **2/2** (Marina #1 + Kahleah Copper #2) |
+| Bonner (#3) | Not Top | Still not Top (display rank #3) |
+| Results Track | 1/6 | 1/6 (unchanged) |
+
+**SERVER_BUILD:** `courteedge-top-picks-display-v1`  
+**CONTROLLED_BEST_SIX_VERSION:** `controlled-best-six-top-display-v1`
 
 ---
 

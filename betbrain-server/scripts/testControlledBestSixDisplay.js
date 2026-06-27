@@ -29,6 +29,7 @@ const {
   buildHomeControlledBestSixReportText,
   resolveLeaguePicksPayload,
   resolveDateScopedDisplayPool,
+  selectTopTwoFromDisplayBestSix,
   isResultsPoolTrackProp,
   formatControlledBestSixPickLine,
   countCandidatesByEligibility,
@@ -184,7 +185,7 @@ test("09 buildWnbaControlledSummary counts board candidates", () => {
   assert.strictEqual(summary.track, 1);
   assert.strictEqual(summary.boardOnly, 1);
   assert.strictEqual(summary.noBet, 1);
-  assert.strictEqual(summary.topPicks, 1);
+  assert.strictEqual(summary.topPicks, 2);
   assert.strictEqual(summary.track + summary.boardOnly + summary.noBet, summary.boardCandidates);
 });
 
@@ -761,28 +762,40 @@ test("42 Results Track uses Results pool not display Decision TRACK", () => {
   assert.strictEqual(board.bestSixCards[1].resultsAdmissionEligible, false);
 });
 
-test("43 top picks count follows server top props badges on cards", () => {
+test("43 top picks count derives from display Best 6 ranks not Results pool", () => {
   const track1 = {
     ...tomorrowPick,
     player: "Marina Mabrey",
+    team: "CON",
     decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
   };
-  const track2 = {
+  const boardOnly2 = {
+    ...tomorrowPick,
+    player: "Kahleah Copper",
+    team: "PHX",
+    decisionIntelligence: { trackEligibility: "BOARD_ONLY", bestSixEligibility: true },
+  };
+  const track3 = {
     ...tomorrowPick,
     player: "DeWanna Bonner",
+    team: "IND",
     decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: false },
+    resultsAdmissionEligible: false,
   };
 
   const board = buildLeagueBestSixBoard({
     league: "WNBA",
     bestSix: [track1],
-    bestSixDisplay: [track1, track2],
+    bestSixDisplay: [track1, boardOnly2, track3],
     topProps: [{ ...track1, topPickRank: 1 }],
     dateView: "tomorrow",
   });
 
-  assert.strictEqual(board.summary.topPicks, 1);
-  assert.strictEqual(board.bestSixCards.filter((c) => c.topPickRank).length, 1);
+  assert.strictEqual(board.summary.topPicks, 2);
+  assert.strictEqual(board.bestSixCards.filter((c) => c.topPickRank).length, 2);
+  assert.strictEqual(board.bestSixCards[0].topPickLabel, "Top WNBA #1");
+  assert.strictEqual(board.bestSixCards[1].topPickLabel, "Top WNBA #2");
+  assert.strictEqual(board.bestSixCards[1].player, "Kahleah Copper");
 });
 
 test("44 home tomorrow board matches summary row count", () => {

@@ -72,6 +72,49 @@ export function getTopPickLimitForLeague(league = "WNBA") {
   return normalizeLeagueCode(league) === "NBA" ? NBA_TOP_PICK_LIMIT : WNBA_TOP_PICK_LIMIT;
 }
 
+function getPickTeamKey(pick = {}) {
+  const team = pick.teamKey || pick.team || pick.teamName || "";
+  return String(team).trim().toLowerCase();
+}
+
+/** Top 2 from display Best 6 ranking (not Results TRACK-only pool). Mirrors server selectTopTwoFromBestSix. */
+export function selectTopTwoFromDisplayBestSix(
+  displayBestSix = [],
+  league = "WNBA",
+  limit = null
+) {
+  const leagueCode = normalizeLeagueCode(league);
+  const resolvedLimit = Math.min(
+    Number(limit) || getTopPickLimitForLeague(leagueCode),
+    getTopPickLimitForLeague(leagueCode)
+  );
+  const selected = [];
+  const selectedTeamKeys = new Set();
+
+  for (const pick of displayBestSix) {
+    const di = pick.decisionIntelligence || {};
+    if (di.topPickEligibility === false || String(di.trueRisk).toUpperCase() === "HIGH") {
+      continue;
+    }
+    if (selected.length >= resolvedLimit) break;
+
+    const teamKey = getPickTeamKey(pick);
+    if (teamKey && selectedTeamKeys.has(teamKey)) continue;
+
+    selected.push(pick);
+    if (teamKey) selectedTeamKeys.add(teamKey);
+  }
+
+  return selected.map((pick, index) => {
+    const rank = index + 1;
+    return {
+      ...pick,
+      topPickRank: rank,
+      topPickLabel: `Top ${leagueCode} #${rank}`,
+    };
+  });
+}
+
 export function buildTopPickBadgeMap(topProps = [], league = "WNBA") {
   const leagueCode = normalizeLeagueCode(league);
   const map = new Map();
@@ -331,7 +374,6 @@ export function buildLeagueBestSixBoard({
   bestSixLimit = BEST_SIX_LIMIT,
 } = {}) {
   const leagueCode = normalizeLeagueCode(league);
-  const topPickBadgeMap = buildTopPickBadgeMap(topProps, leagueCode);
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
   const scopedPool =
     dateView === "full_board"
@@ -343,6 +385,12 @@ export function buildLeagueBestSixBoard({
           dateView,
           bestSixLimit
         );
+  const derivedTopProps = selectTopTwoFromDisplayBestSix(
+    scopedPool,
+    leagueCode,
+    getTopPickLimitForLeague(leagueCode)
+  );
+  const topPickBadgeMap = buildTopPickBadgeMap(derivedTopProps, leagueCode);
   const bestSixCards = prepareBestSixDisplayCards(scopedPool, topPickBadgeMap, leagueCode);
   const summary = buildLeagueControlledSummary({
     league: leagueCode,
@@ -383,7 +431,6 @@ export function buildLeagueControlledSummary({
   const leagueCode = normalizeLeagueCode(league);
   const resolvedBestSix = bestSix.length ? bestSix : bestSixWNBA || [];
   const resolvedDisplay = bestSixDisplay.length ? bestSixDisplay : bestSixDisplayWNBA || [];
-  const resolvedTopProps = topProps.length ? topProps : topWNBAProps || [];
   const resolvedGames = games.length ? games : wnbaGames || [];
   const topPickLimit = getTopPickLimitForLeague(leagueCode);
 
@@ -409,18 +456,16 @@ export function buildLeagueControlledSummary({
   const scopedCandidates = scopeCandidatesByDateView(candidates, dateView);
   const eligibilityCounts = countCandidatesByEligibility(scopedCandidates);
 
-  const scopedTopProps =
-    dateView === "full_board"
-      ? resolvedTopProps
-      : resolvedTopProps.filter((pick) => {
-          const bucket = resolveDayBucket(pick);
-          return dateView === "tomorrow" ? bucket === "TOMORROW" : bucket === "TODAY";
-        });
+  const derivedTopProps = selectTopTwoFromDisplayBestSix(
+    dateScopedDisplay,
+    leagueCode,
+    topPickLimit
+  );
   const badgeTopCount = Array.isArray(bestSixCards)
     ? bestSixCards.filter((card) => card.topPickRank).length
     : 0;
   const topPickCount = Math.min(
-    Math.max(scopedTopProps.length, badgeTopCount),
+    Math.max(derivedTopProps.length, badgeTopCount),
     topPickLimit
   );
 

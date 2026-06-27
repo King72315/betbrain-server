@@ -29,7 +29,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-display-fix-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-top-display-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -615,10 +615,10 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const wnbaDisplay = selectBestSixDisplay(candidates, "WNBA", options);
   const nbaDisplay = selectBestSixDisplay(candidates, "NBA", options);
 
-  const wnbaTop = selectTopTwoFromBestSix(wnbaBest.bestSix, "WNBA", {
+  const wnbaTop = selectTopTwoFromBestSix(wnbaDisplay.bestSix, "WNBA", {
     topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
   });
-  const nbaTop = selectTopTwoFromBestSix(nbaBest.bestSix, "NBA", {
+  const nbaTop = selectTopTwoFromBestSix(nbaDisplay.bestSix, "NBA", {
     topLimit: options.nbaTopLimit ?? CONFIG.NBA_TOP_PROP_LIMIT,
   });
 

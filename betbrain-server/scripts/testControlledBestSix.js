@@ -164,9 +164,9 @@ function testTopWnbaFromBestSixOnly() {
   ];
   const game = makeGame(picks.slice(0, 1), picks);
   const result = selectControlledBestSixCombined([game]);
-  const bestSixKeys = new Set(result.bestSixWNBA.map((p) => p.player));
+  const displayKeys = new Set(result.bestSixDisplayWNBA.map((p) => p.player));
   for (const top of result.topWNBAProps) {
-    assert.ok(bestSixKeys.has(top.player));
+    assert.ok(displayKeys.has(top.player));
   }
 }
 
@@ -177,9 +177,9 @@ function testTopNbaFromBestSixOnly() {
   ];
   const game = makeGame(picks, picks, { league: "NBA" });
   const result = selectControlledBestSixCombined([game]);
-  const bestSixKeys = new Set(result.bestSixNBA.map((p) => p.player));
+  const displayKeys = new Set(result.bestSixDisplayNBA.map((p) => p.player));
   for (const top of result.topNBAProps) {
-    assert.ok(bestSixKeys.has(top.player));
+    assert.ok(displayKeys.has(top.player));
   }
 }
 
@@ -608,7 +608,7 @@ function testDisplayDoesNotPreFilterBoardOnly() {
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-display-fix-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-top-display-v1");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],
