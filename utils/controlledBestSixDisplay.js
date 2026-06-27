@@ -6,6 +6,8 @@ export const BEST_SIX_LIMIT = 6;
 export const WNBA_TOP_PICK_LIMIT = 2;
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
+/** Home tab shows tomorrow slate only — no Today section. */
+export const HOME_DATE_VIEW = "tomorrow";
 
 export function resolveTrackEligibility(pick = {}) {
   return String(
@@ -240,9 +242,12 @@ export function buildWnbaControlledSummary({
           return dateView === "tomorrow" ? bucket === "TOMORROW" : bucket === "TODAY";
         }).length;
 
+  const scopedTotal =
+    dateView === "full_board" ? displayPool.length : dateScopedDisplay.length;
+
   return {
     controlledBestSix: displayResultsCount,
-    controlledBestSixTotal: displayPool.length,
+    controlledBestSixTotal: scopedTotal,
     controlledBestSixTrack: resultsTrackCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
     bestSixLimit,

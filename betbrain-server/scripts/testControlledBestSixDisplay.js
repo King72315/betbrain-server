@@ -16,6 +16,7 @@ const {
   resolveDayBucket,
   buildTopPickBadgeMap,
   enrichBestSixForDisplay,
+  HOME_DATE_VIEW,
   filterBestSixByDateView,
   prepareBestSixDisplayCards,
   assertContiguousBestSixRanks,
@@ -216,7 +217,7 @@ test("14 tomorrow summary scopes board candidates only", () => {
     ],
     dateView: "tomorrow",
   });
-  assert.strictEqual(summary.controlledBestSixTotal, 2);
+  assert.strictEqual(summary.controlledBestSixTotal, 1);
   assert.strictEqual(summary.boardCandidates, 1);
 });
 
@@ -581,14 +582,14 @@ test("33 prepareBestSixDisplayCards renumbers contiguously after server gaps", (
   assert.strictEqual(cards[0].serverBestSixRank, 2);
 });
 
-test("34 today view keeps full Best 6 count including tomorrow picks", () => {
+test("34 today view scopes controlled total to today picks only", () => {
   const summary = buildWnbaControlledSummary({
     bestSixDisplayWNBA: [todayPick, tomorrowPick],
     bestSixWNBA: [todayPick],
     wnbaGames: [],
     dateView: "today",
   });
-  assert.strictEqual(summary.controlledBestSixTotal, 2);
+  assert.strictEqual(summary.controlledBestSixTotal, 1);
   assert.strictEqual(summary.bestSixHiddenByDateView, 1);
   assert.strictEqual(summary.controlledBestSixTrack, 1);
 });
@@ -598,6 +599,23 @@ test("35 TRACK pick visible in prepared display cards", () => {
   assert.strictEqual(cards.length, 1);
   assert.strictEqual(cards[0].displayTrackEligibility, "TRACK");
   assert.strictEqual(cards[0].bestSixRank, 1);
+});
+
+test("36 HOME_DATE_VIEW is tomorrow for Home tab", () => {
+  assert.strictEqual(HOME_DATE_VIEW, "tomorrow");
+  const filtered = filterBestSixByDateView([todayPick, tomorrowPick], HOME_DATE_VIEW);
+  assert.strictEqual(filtered.length, 1);
+  assert.strictEqual(filtered[0].player, "Caitlin Clark");
+});
+
+test("37 prepareBestSixDisplayCards respects date filter before rank enrichment", () => {
+  const cards = prepareBestSixDisplayCards(
+    filterBestSixByDateView([todayPick, tomorrowPick], "tomorrow"),
+    new Map()
+  );
+  assert.strictEqual(cards.length, 1);
+  assert.strictEqual(cards[0].bestSixRank, 1);
+  assert.strictEqual(cards[0].player, "Caitlin Clark");
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);

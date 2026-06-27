@@ -87,7 +87,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 23 tests\n");
+console.log("\nSlate Rotation Lifecycle — 24 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
@@ -288,6 +288,21 @@ test("23 TEST-only today props do not admit Results slate", () => {
   const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
   assert.equal(rotation.activeResultsSlateDate, null);
   assert.deepEqual(rotation.activeInProgressSlateDates, []);
+});
+
+test("24 completed slate excluded from Lab when still active Results", () => {
+  const activeDate = "2026-06-25";
+  const tracked = [
+    makeProp(activeDate, "win"),
+    makeProp(activeDate, "loss", { player: "P2" }),
+  ];
+  const reports = [
+    makeInProgressReport(activeDate, 4),
+    makeCompletedReport(LAB_CANDIDATE_DATE),
+  ];
+  const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
+  assert.equal(rotation.activeResultsSlateDate, activeDate);
+  assert.equal(rotation.currentLabSlateDate, LAB_CANDIDATE_DATE);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

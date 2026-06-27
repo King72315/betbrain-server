@@ -404,8 +404,8 @@ export default function History() {
           <Text style={styles.title}>📚 History</Text>
           <Text style={styles.subtitle}>CourtEdge Archive Center</Text>
           <Text style={styles.motto}>
-            Older completed Lab slates (last {HISTORY_RETENTION_DAYS} days) and graded saved
-            picks — read-only. Current Lab slate stays in Prop Lab until replaced.
+            Archived Lab slates and graded saved picks — read-only. Entries stay until you
+            tap Clear History Display. Current Lab slate stays in Prop Lab until replaced.
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy History Report" />
           <TouchableOpacity
@@ -445,7 +445,7 @@ export default function History() {
               ? ` • Performance archive: ${summary.performanceSlates}/${summary.slates}`
               : ""}
             {entries.length > retainedEntries.length
-              ? ` • Hidden by ${HISTORY_RETENTION_DAYS}-day rule or clear: ${entries.length - retainedEntries.length}`
+              ? ` • Hidden by clear: ${entries.length - retainedEntries.length}`
               : ""}
           </Text>
         </View>
@@ -481,8 +481,8 @@ export default function History() {
             <Text style={styles.emptyTitle}>No archived entries visible.</Text>
             <Text style={styles.emptyText}>
               {rotation.historySlateDates.length > 0
-                ? `Archived slate dates on server: ${rotation.historySlateDates.join(", ")}. They may be hidden by the ${HISTORY_RETENTION_DAYS}-day display rule, filtered out, or cleared locally.`
-                : `Graded saved picks and older completed Lab slates appear here automatically within ${HISTORY_RETENTION_DAYS} days.`}{" "}
+                ? `Archived slate dates on server: ${rotation.historySlateDates.join(", ")}. They may be filtered out or cleared locally.`
+                : `Graded saved picks and rotated Lab slates appear here after the next slate completes grading.`}{" "}
               The current Lab slate
               {rotation.currentLabSlateDate
                 ? ` (${rotation.currentLabSlateDate})`

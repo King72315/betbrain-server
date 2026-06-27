@@ -2,7 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { HistoryEntry } from "./historyArchive";
 
-export const HISTORY_RETENTION_DAYS = 7;
+/** Auto-expiry disabled — History stays until user clears display locally. */
+export const HISTORY_RETENTION_DAYS = 0;
 export const HISTORY_CLEAR_STORAGE_KEY = "courtEdge_historyDisplayClear";
 
 export type HistoryDisplayClear = {
@@ -77,7 +78,7 @@ export function applyHistoryRetentionFilters(
       return false;
     }
 
-    if (!isWithinHistoryRetention(entry.slateDate, retentionDays)) {
+    if (retentionDays > 0 && !isWithinHistoryRetention(entry.slateDate, retentionDays)) {
       return false;
     }
 
