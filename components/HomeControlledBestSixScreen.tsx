@@ -78,6 +78,7 @@ function LeagueTomorrowSection({
               value={`${summary.topPicks}/${summary.topPickLimit}`}
             />
             <SummaryMetric label="Candidates" value={summary.boardCandidates} />
+            <SummaryMetric label="Board Track" value={summary.boardTrack ?? summary.track ?? 0} />
           </View>
         </View>
       ) : null}

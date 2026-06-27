@@ -135,8 +135,7 @@ export function enrichBestSixForDisplay(
         : ""),
     resultsAdmissionEligible:
       pick.resultsAdmissionEligible ??
-      (resolveTrackEligibility(pick) === "TRACK" &&
-        pick.decisionIntelligence?.bestSixEligibility === true),
+      isResultsPoolTrackProp(pick),
     displayRiskDebts: (di.riskDebts || []).map(formatRiskDebt),
     displayRiskRepairs: (di.riskRepairs || []).map(formatRiskRepair),
     displaySideRescueAction:
@@ -169,6 +168,79 @@ export function filterBestSixByDateView(bestSix = [], dateView = "today") {
   if (dateView === "full_board") return bestSix;
   const target = dateView === "tomorrow" ? "TOMORROW" : "TODAY";
   return bestSix.filter((pick) => resolveDayBucket(pick) === target);
+}
+
+function scoreCandidateForDisplay(pick = {}) {
+  return Number(
+    pick.confidence ??
+      pick.winProbability ??
+      pick.controlledBestSixScore ??
+      pick.score ??
+      0
+  );
+}
+
+function compareCandidatesForDisplay(a = {}, b = {}) {
+  const rankA = Number(
+    a.bestSixDisplayRank ?? a.controlledBestSixRank ?? a.bestSixRank ?? 999
+  );
+  const rankB = Number(
+    b.bestSixDisplayRank ?? b.controlledBestSixRank ?? b.bestSixRank ?? 999
+  );
+  if (rankA !== rankB) return rankA - rankB;
+  return scoreCandidateForDisplay(b) - scoreCandidateForDisplay(a);
+}
+
+/** True when prop is admitted to the Results TRACK cohort (not display Decision alone). */
+export function isResultsPoolTrackProp(pick = {}) {
+  if (pick.resultsAdmissionEligible === true) return true;
+  if (pick.resultsAdmissionEligible === false) return false;
+  const di = pick.decisionIntelligence || {};
+  return (
+    resolveTrackEligibility(pick) === "TRACK" && di.bestSixEligibility === true
+  );
+}
+
+/**
+ * Date-scoped Best 6 display: keep in-bucket slate picks, then fill to limit from
+ * analyzed board candidates for that day (fixes 4/6 when slate Best 6 spans Today+Tomorrow).
+ */
+export function resolveDateScopedDisplayPool(
+  displayPool = [],
+  games = [],
+  league = "WNBA",
+  dateView = "today",
+  bestSixLimit = BEST_SIX_LIMIT
+) {
+  if (dateView === "full_board") {
+    return displayPool.slice(0, bestSixLimit);
+  }
+
+  const inBucket = filterBestSixByDateView(displayPool, dateView);
+  if (inBucket.length >= bestSixLimit || !games?.length) {
+    return inBucket.slice(0, bestSixLimit);
+  }
+
+  const displayByKey = new Map(displayPool.map((pick) => [stablePickKey(pick), pick]));
+  const merged = [...inBucket];
+  const usedKeys = new Set(merged.map((pick) => stablePickKey(pick)));
+
+  const candidates = scopeCandidatesByDateView(
+    collectLeagueCandidatesFromGames(games, league),
+    dateView
+  )
+    .map((pick) => displayByKey.get(stablePickKey(pick)) || pick)
+    .sort(compareCandidatesForDisplay);
+
+  for (const pick of candidates) {
+    if (merged.length >= bestSixLimit) break;
+    const key = stablePickKey(pick);
+    if (usedKeys.has(key)) continue;
+    merged.push(pick);
+    usedKeys.add(key);
+  }
+
+  return merged.slice(0, bestSixLimit);
 }
 
 /**
@@ -263,8 +335,14 @@ export function buildLeagueBestSixBoard({
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
   const scopedPool =
     dateView === "full_board"
-      ? displayPool
-      : filterBestSixByDateView(displayPool, dateView);
+      ? displayPool.slice(0, bestSixLimit)
+      : resolveDateScopedDisplayPool(
+          displayPool,
+          games,
+          leagueCode,
+          dateView,
+          bestSixLimit
+        );
   const bestSixCards = prepareBestSixDisplayCards(scopedPool, topPickBadgeMap, leagueCode);
   const summary = buildLeagueControlledSummary({
     league: leagueCode,
@@ -274,6 +352,8 @@ export function buildLeagueBestSixBoard({
     games,
     dateView,
     bestSixLimit,
+    scopedDisplayPool: scopedPool,
+    bestSixCards,
   });
 
   return { league: leagueCode, bestSixCards, summary, topPickBadgeMap, displayPool, scopedPool };
@@ -297,6 +377,8 @@ export function buildLeagueControlledSummary({
   bestSixDisplayWNBA,
   topWNBAProps,
   wnbaGames,
+  scopedDisplayPool = null,
+  bestSixCards = null,
 } = {}) {
   const leagueCode = normalizeLeagueCode(league);
   const resolvedBestSix = bestSix.length ? bestSix : bestSixWNBA || [];
@@ -307,32 +389,42 @@ export function buildLeagueControlledSummary({
 
   const displayPool = resolveBestSixDisplayPool(resolvedDisplay, resolvedBestSix);
   const filteredResults = filterBestSixByDateView(resolvedBestSix, dateView);
-  const dateScopedDisplay = filterBestSixByDateView(displayPool, dateView);
+  const dateScopedDisplay =
+    scopedDisplayPool ??
+    (dateView === "full_board"
+      ? displayPool.slice(0, bestSixLimit)
+      : resolveDateScopedDisplayPool(
+          displayPool,
+          resolvedGames,
+          leagueCode,
+          dateView,
+          bestSixLimit
+        ));
   const resultsTrackCount = filteredResults.filter(
     (p) => resolveTrackEligibility(p) === "TRACK"
   ).length;
-  const displayResultsCount = displayPool.filter(
-    (p) =>
-      p.resultsAdmissionEligible === true ||
-      (p.resultsAdmissionEligible == null &&
-        resolveTrackEligibility(p) === "TRACK" &&
-        p.decisionIntelligence?.bestSixEligibility === true)
-  ).length;
+  const displayResultsCount = dateScopedDisplay.filter(isResultsPoolTrackProp).length;
 
   const candidates = collectLeagueCandidatesFromGames(resolvedGames, leagueCode);
   const scopedCandidates = scopeCandidatesByDateView(candidates, dateView);
   const eligibilityCounts = countCandidatesByEligibility(scopedCandidates);
 
-  const topPickCount =
+  const scopedTopProps =
     dateView === "full_board"
-      ? resolvedTopProps.length
+      ? resolvedTopProps
       : resolvedTopProps.filter((pick) => {
           const bucket = resolveDayBucket(pick);
           return dateView === "tomorrow" ? bucket === "TOMORROW" : bucket === "TODAY";
-        }).length;
+        });
+  const badgeTopCount = Array.isArray(bestSixCards)
+    ? bestSixCards.filter((card) => card.topPickRank).length
+    : 0;
+  const topPickCount = Math.min(
+    Math.max(scopedTopProps.length, badgeTopCount),
+    topPickLimit
+  );
 
-  const scopedTotal =
-    dateView === "full_board" ? displayPool.length : dateScopedDisplay.length;
+  const scopedTotal = dateScopedDisplay.length;
 
   return {
     league: leagueCode,
@@ -341,9 +433,10 @@ export function buildLeagueControlledSummary({
     controlledBestSixTrack: resultsTrackCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
     bestSixLimit,
-    topPicks: Math.min(topPickCount, topPickLimit),
+    topPicks: topPickCount,
     topPickLimit,
     boardCandidates: scopedCandidates.length,
+    boardTrack: eligibilityCounts.track,
     track: eligibilityCounts.track,
     boardOnly: eligibilityCounts.boardOnly,
     noBet: eligibilityCounts.noBet,
@@ -456,7 +549,7 @@ export function buildLeagueControlledBestSixReportText({
     `Results Track: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
-    `Track: ${track}`,
+    `Board Track: ${summary.boardTrack ?? track}`,
     `Board Only: ${boardOnly}`,
     `No Bet: ${noBet}`,
     shadowOnly ? `Shadow Only: ${shadowOnly}` : null,

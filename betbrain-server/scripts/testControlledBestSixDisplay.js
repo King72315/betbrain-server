@@ -28,6 +28,8 @@ const {
   buildLeagueBestSixBoard,
   buildHomeControlledBestSixReportText,
   resolveLeaguePicksPayload,
+  resolveDateScopedDisplayPool,
+  isResultsPoolTrackProp,
   formatControlledBestSixPickLine,
   countCandidatesByEligibility,
   resolveBestSixDisplayPool,
@@ -177,12 +179,12 @@ test("09 buildWnbaControlledSummary counts board candidates", () => {
     ],
     dateView: "today",
   });
-  assert.strictEqual(summary.controlledBestSixTotal, 1);
-  assert.strictEqual(summary.topPicks, 1);
+  assert.strictEqual(summary.controlledBestSixTotal, 3);
   assert.strictEqual(summary.boardCandidates, 3);
   assert.strictEqual(summary.track, 1);
   assert.strictEqual(summary.boardOnly, 1);
   assert.strictEqual(summary.noBet, 1);
+  assert.strictEqual(summary.topPicks, 1);
   assert.strictEqual(summary.track + summary.boardOnly + summary.noBet, summary.boardCandidates);
 });
 
@@ -674,6 +676,140 @@ test("40 home report includes both leagues", () => {
   assert.match(report, /CourtEdge Home — Tomorrow Controlled Best 6/);
   assert.match(report, /WNBA Props — Controlled Best 6/);
   assert.match(report, /NBA Props — Controlled Best 6/);
+});
+
+test("41 tomorrow display fills to 6 from board candidates", () => {
+  const makeTomorrowCandidate = (player, rank, eligibility = "BOARD_ONLY") => ({
+    player,
+    team: "TST",
+    line: 10,
+    side: "Over",
+    dayBucket: "TOMORROW",
+    confidence: 80 - rank,
+    controlledBestSixRank: rank,
+    decisionIntelligence: { trackEligibility: eligibility, trueRisk: "LOW" },
+  });
+
+  const slateDisplay = [1, 2, 3, 4].map((rank) =>
+    makeTomorrowCandidate(`Slate ${rank}`, rank, rank <= 2 ? "TRACK" : "BOARD_ONLY")
+  );
+  slateDisplay.push(
+    { ...todayPick, bestSixRank: 5 },
+    { ...todayPick, player: "Today Only", bestSixRank: 6 }
+  );
+
+  const games = [
+    {
+      league: "WNBA",
+      dayBucket: "TOMORROW",
+      allGeneratedCandidates: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((rank) =>
+        makeTomorrowCandidate(`Candidate ${rank}`, rank)
+      ),
+    },
+  ];
+
+  const board = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSix: slateDisplay.filter((p) => resolveTrackEligibility(p) === "TRACK").slice(0, 1),
+    bestSixDisplay: slateDisplay,
+    topProps: [{ ...slateDisplay[0], topPickRank: 1 }],
+    games,
+    dateView: "tomorrow",
+  });
+
+  assert.strictEqual(board.bestSixCards.length, 6);
+  assert.strictEqual(board.summary.controlledBestSixTotal, 6);
+  assert.strictEqual(board.bestSixCards[0].bestSixRank, 1);
+  assert.strictEqual(board.bestSixCards[5].bestSixRank, 6);
+});
+
+test("42 Results Track uses Results pool not display Decision TRACK", () => {
+  const displayTrackNotResults = {
+    ...tomorrowPick,
+    player: "DeWanna Bonner",
+    decisionIntelligence: {
+      trackEligibility: "TRACK",
+      bestSixEligibility: false,
+      simpleExplanation: "Side rescue demoted",
+    },
+    resultsAdmissionEligible: false,
+  };
+  const resultsTrack = {
+    ...tomorrowPick,
+    player: "Marina Mabrey",
+    decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
+    resultsAdmissionEligible: true,
+  };
+
+  const board = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSix: [resultsTrack],
+    bestSixDisplay: [resultsTrack, displayTrackNotResults],
+    topProps: [{ ...resultsTrack, topPickRank: 1 }],
+    games: [
+      {
+        league: "WNBA",
+        dayBucket: "TOMORROW",
+        allGeneratedCandidates: [resultsTrack, displayTrackNotResults],
+      },
+    ],
+    dateView: "tomorrow",
+  });
+
+  assert.strictEqual(board.summary.controlledBestSixTrack, 1);
+  assert.strictEqual(isResultsPoolTrackProp(displayTrackNotResults), false);
+  assert.strictEqual(board.bestSixCards[1].resultsAdmissionEligible, false);
+});
+
+test("43 top picks count follows server top props badges on cards", () => {
+  const track1 = {
+    ...tomorrowPick,
+    player: "Marina Mabrey",
+    decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
+  };
+  const track2 = {
+    ...tomorrowPick,
+    player: "DeWanna Bonner",
+    decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: false },
+  };
+
+  const board = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSix: [track1],
+    bestSixDisplay: [track1, track2],
+    topProps: [{ ...track1, topPickRank: 1 }],
+    dateView: "tomorrow",
+  });
+
+  assert.strictEqual(board.summary.topPicks, 1);
+  assert.strictEqual(board.bestSixCards.filter((c) => c.topPickRank).length, 1);
+});
+
+test("44 home tomorrow board matches summary row count", () => {
+  const games = [
+    {
+      league: "WNBA",
+      dayBucket: "TOMORROW",
+      allGeneratedCandidates: Array.from({ length: 11 }, (_, i) => ({
+        ...tomorrowPick,
+        player: `P${i + 1}`,
+        confidence: 90 - i,
+        dayBucket: "TOMORROW",
+      })),
+    },
+  ];
+  const display = games[0].allGeneratedCandidates.slice(0, 4);
+
+  const board = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSix: display.filter((_, i) => i === 0),
+    bestSixDisplay: display,
+    games,
+    dateView: HOME_DATE_VIEW,
+  });
+
+  assert.strictEqual(board.summary.controlledBestSixTotal, board.bestSixCards.length);
+  assert.strictEqual(board.bestSixCards.length, 6);
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);

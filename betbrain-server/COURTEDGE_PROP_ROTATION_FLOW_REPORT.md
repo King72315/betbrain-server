@@ -247,6 +247,45 @@ node betbrain-server/scripts/testControlledBestSixDisplay.js   → 40 passed, 0 
 
 ---
 
+## Home Tomorrow WNBA Count Bug Fix (2026-06-27)
+
+**Symptom (Tomorrow Home WNBA):** Controlled Best 6 showed **4/6** rows despite 11 board candidates; Top Picks **1/2** while two cards showed Decision TRACK; summary **Track: 2** vs **Results Track: 1/6**.
+
+### Root cause
+
+Same class of bug as `d66331c`: `buildLeagueBestSixBoard` applied `filterBestSixByDateView` to the slate-level `bestSixDisplayWNBA` pool. The server selects six picks across Today+Tomorrow; Tomorrow-only filtering dropped non-TOMORROW slots → four rows.
+
+Separate metrics were conflated in the UI:
+
+| Metric | Source | Meaning |
+|--------|--------|---------|
+| **Best 6 X/6** | Date-scoped display pool (filled to 6) | Rendered card count |
+| **Board Track** | All analyzed candidates in date bucket | Decision TRACK on board |
+| **Results Track X/6** | `bestSixWNBA` Results pool, TRACK eligibility | Props admitted to Results cohort |
+| **Top Picks X/2** | `topWNBAProps` scoped to date + badge count on cards | Server top-2 from Results Best 6 |
+
+A prop can show Decision **TRACK** on its card (Side Rescue / display brain) while `resultsAdmissionEligible === false` — e.g. DeWanna Bonner BOARD_ONLY rescue — so Board Track (2) ≠ Results Track (1) is expected when one TRACK-labeled card is not Results-admitted.
+
+### Fix
+
+| File | Change |
+|------|--------|
+| `utils/controlledBestSixDisplay.js` | `resolveDateScopedDisplayPool` — keep in-bucket slate picks, fill to 6 from date-scoped `allGeneratedCandidates`; `isResultsPoolTrackProp`; summary uses `scopedDisplayPool`/`bestSixCards` for reconciled totals; `boardTrack` field; report labels **Board Track** vs **Results Track** |
+| `components/HomeControlledBestSixScreen.tsx` | Summary row: **Board Track** metric |
+| `components/LeagueControlledBestSixScreen.tsx` | Same **Board Track** label on explore |
+| `betbrain-server/scripts/testControlledBestSixDisplay.js` | Tests 41–44 (tomorrow fill, Results vs display TRACK, top picks, home row count); test 09 updated for fill behavior |
+
+**SERVER_BUILD:** unchanged (`courteedge-best-six-display-fix-v1`) — client-only.
+
+### Test results (this fix)
+
+```
+node betbrain-server/scripts/testControlledBestSixDisplay.js   → 44 passed, 0 failed
+node betbrain-server/scripts/testSlateRotationLifecycle.js     → 24 passed, 0 failed
+```
+
+---
+
 ## Controlled Best 6 / TRACK Separation
 
 Preserved:
