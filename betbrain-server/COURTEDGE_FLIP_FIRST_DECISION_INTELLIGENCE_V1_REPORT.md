@@ -148,3 +148,11 @@ Includes regression runs:
 **Wired:** volume profile, role change, opportunity scores, market snapshots, availability gate, fair line, projection gap, same-team slate context, book count, line movement interpretation.
 
 **Not wired (v2 candidates):** play-by-play rotation, shot-location profile, other prop markets as role signals (REB/AST/3PM/PRA), fantasy WNBA usage feed, full team implied total when game context missing.
+
+## Post-deploy fix (2026-06-27) — Results pending empty
+
+**Root cause:** TRACK-admitted Best 6 props were stored with `trackingType: TEST` and `excludedFromOfficialRecord: true` (reader v1 demotion), so `isOfficialResultsProp` excluded them from `/tracked-props` active filter → `activeResultsSlateDate: null` → Results tab empty despite TRACK cohort on `/picks`.
+
+**Fix:** `isTrackAdmittedResultsProp()` + `resolveResultsTrackingRecordType()` in `trackedPropService.js` — TRACK eligibility promotes to OFFICIAL Results record; plain TEST without TRACK unchanged.
+
+**SERVER_BUILD:** `courteedge-results-track-admission-fix-v1`

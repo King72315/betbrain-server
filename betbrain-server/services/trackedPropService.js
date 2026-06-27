@@ -394,6 +394,7 @@ export function labelPreV1ShadowProps(props = [], metadata = {}) {
 
 export function isOfficialResultsProp(pick = {}) {
   if (isPreV1ShadowProp(pick)) return false;
+  if (isTrackAdmittedResultsProp(pick)) return true;
   if (isTestTrackingPick(pick)) return false;
   if (pick.excludedFromOfficialRecord === true) return false;
   return true;
@@ -499,6 +500,33 @@ function getPickDecision(pick = {}) {
   return String(
     pick.trackingType || pick.recordType || pick.finalDecision || ""
   ).toUpperCase();
+}
+
+/** TRACK-admitted Best 6 props count as official Results record regardless of reader TEST demotion. */
+export function isTrackAdmittedResultsProp(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const eligibility = String(
+    pick.trackingEligibility ||
+      di.trackEligibility ||
+      pick.wnbaTrackingDecision ||
+      ""
+  ).toUpperCase();
+  if (eligibility !== "TRACK") return false;
+  const sideRescueAction = String(
+    pick.sideRescueAction || pick.sideRescue?.action || ""
+  ).toUpperCase();
+  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
+    return false;
+  }
+  if (pick.homeStaged === true) return false;
+  return true;
+}
+
+function resolveResultsTrackingRecordType(pick = {}) {
+  if (isTrackAdmittedResultsProp(pick)) {
+    return "OFFICIAL";
+  }
+  return getPickDecision(pick);
 }
 
 function hasRequiredTrackingFields(pick = {}) {
@@ -739,10 +767,13 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     exactSeen.set(dupeKey, gatedPick);
     playerLineBest.set(plKey, gatedPick);
 
+    const recordType = resolveResultsTrackingRecordType(gatedPick);
+    auditEntry.decision = recordType;
+
     const normalizedPick = {
       ...gatedPick,
-      trackingType: decision,
-      recordType: decision,
+      trackingType: recordType,
+      recordType,
       trackingAdmissionSource:
         options.sourcePool === "CONTROLLED_BEST_SIX"
           ? "CONTROLLED_BEST_SIX"
@@ -751,15 +782,17 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       controlledBestSixApplied: options.sourcePool === "CONTROLLED_BEST_SIX",
       sourcePool: options.sourcePool || gatedPick.sourcePool || null,
     };
-    if (decision === "TEST") {
+    if (recordType === "TEST") {
       normalizedPick.excludedFromOfficialRecord = true;
+    } else {
+      normalizedPick.excludedFromOfficialRecord = false;
     }
 
     stableSeen.set(stableKey, normalizedPick);
     cohort.push(normalizedPick);
     audit.eligibleCount += 1;
     bumpSlateCount(audit.eligibleTrackingCandidatesBySlate, slateDate);
-    if (decision === "TEST") audit.testCount += 1;
+    if (recordType === "TEST") audit.testCount += 1;
     else audit.officialCount += 1;
 
     auditEntry.eligibleForResultsTracking = true;

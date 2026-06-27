@@ -229,7 +229,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-flip-first-decision-intelligence-v1";
+const SERVER_BUILD = "courteedge-results-track-admission-fix-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

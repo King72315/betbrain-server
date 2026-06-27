@@ -346,6 +346,28 @@ test("18 stale unresolved scan accepts quarantinedSlates without ReferenceError"
   );
 });
 
+test("19 TRACK reader-demoted TEST props appear in active results", () => {
+  const props = [
+    makeProp({
+      slateDate: TODAY,
+      trackingType: "TEST",
+      excludedFromOfficialRecord: true,
+      trackingEligibility: "TRACK",
+      decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
+      controlledBestSixApplied: true,
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
+    }),
+  ];
+  const result = classifyTrackedPropsByLifecycle(props, {
+    reports: [],
+    archives: [],
+    lockedSlates: [],
+    today: TODAY,
+  });
+  assert.equal(result.activeResultsTrackedCount, 1);
+  assert.equal(result.activeResultsSlateDate, TODAY);
+});
+
 console.log("\nCourtEdge tracked-props lifecycle filter tests\n");
 console.log(`Results: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

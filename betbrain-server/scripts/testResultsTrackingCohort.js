@@ -250,6 +250,25 @@ function testStableKeyExistsForCohort() {
   assert.ok(getStableTrackedPropKey(cohort[0]).length > 0);
 }
 
+function testTrackAdmittedReaderDemotedPromotedToOfficial() {
+  const candidates = [
+    makePick({
+      player: "Natisha Hiedeman",
+      trackingType: "TEST",
+      readerDecision: "OFFICIAL",
+      trackingEligibility: "TRACK",
+      decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
+      controlledBestSixApplied: true,
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
+    }),
+  ];
+  const { cohort } = buildResultsTrackingCohort(candidates);
+  assert.strictEqual(cohort.length, 1);
+  assert.strictEqual(cohort[0].trackingType, "OFFICIAL");
+  assert.strictEqual(cohort[0].excludedFromOfficialRecord, false);
+  assert.ok(isOfficialResultsProp(cohort[0]));
+}
+
 const tests = [
   ["1 controlled Best 6 cap limits cohort", testTopPropsLimitDoesNotReduceCohort],
   ["2 top pick references do not inflate cohort logic", testTopPickReferencesDoNotIncreaseCount],
@@ -264,6 +283,7 @@ const tests = [
   ["11 board cap smaller than controlled cohort", testBoardCapSmallerThanCohort],
   ["12 opposite-side conflict excluded", testOppositeSideConflictExcluded],
   ["stable key exists", testStableKeyExistsForCohort],
+  ["13 TRACK reader-demoted stored as OFFICIAL", testTrackAdmittedReaderDemotedPromotedToOfficial],
 ];
 
 let passed = 0;
