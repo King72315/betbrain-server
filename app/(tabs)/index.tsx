@@ -1,5 +1,5 @@
-import WnbaControlledBestSixScreen from "../../components/WnbaControlledBestSixScreen";
+import HomeControlledBestSixScreen from "../../components/HomeControlledBestSixScreen";
 
 export default function HomeScreen() {
-  return <WnbaControlledBestSixScreen variant="home" />;
+  return <HomeControlledBestSixScreen />;
 }

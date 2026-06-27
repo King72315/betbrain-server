@@ -3,7 +3,50 @@
 **Branch:** `betbrain-v2-rebuild`  
 **Date:** 2026-06-26  
 **SERVER_BUILD (unchanged):** `courteedge-best-six-display-fix-v1`  
-**Commit:** _(see git log after push)_
+**Latest commit:** _(see git log — fa212a1 rotation pass, then league-split pass)_
+
+---
+
+## Update: NBA + WNBA Separation (post fa212a1)
+
+### How leagues were separated before
+
+| Era | Home | NBA | WNBA |
+|-----|------|-----|------|
+| **Original (07f7a9d)** | Nav hub with separate **NBA Props** (`/nba`) and **WNBA Props** (`/wnba`) buttons | Full game board + Top props by day bucket (Today/Tomorrow) | Hidden explore route |
+| **WNBA v2 (92e364a–fa212a1)** | WNBA-only Tomorrow Best 6 | Old board unchanged on `/nba` | Controlled Best 6 on explore |
+| **Now** | **Dual-league Tomorrow Best 6** (WNBA + NBA sections) | Controlled Best 6 explore (`/nba`) | Controlled Best 6 explore (`/wnba`, `/explore`) |
+
+Server already ran **parallel paths** via `selectControlledBestSixCombined`:
+- `bestSixWNBA` / `bestSixDisplayWNBA` / `topWNBAProps`
+- `bestSixNBA` / `bestSixDisplayNBA` / `topNBAProps`
+- Shared slate rotation (date-based, not league-split) — both leagues on same slate date rotate together in Results/Lab/History
+
+### Before / After UX
+
+**Before (fa212a1):** Home showed WNBA Tomorrow Best 6 only; NBA still used legacy game-board screen without Controlled Best 6 display pool.
+
+**After:** Home shows **two stacked sections** — WNBA Tomorrow Best 6 (pink) and NBA Tomorrow Best 6 (blue). Top tab already had separate NBA/WNBA blocks. `/nba` and `/wnba` routes use identical Controlled Best 6 explore screens with league-specific theming. Same rotation: Tomorrow Home → Results → Lab → History (user reset only).
+
+### League-split files (this pass)
+
+| File | Change |
+|------|--------|
+| `utils/controlledBestSixDisplay.js` | League-agnostic helpers: `buildLeagueBestSixBoard`, `resolveLeaguePicksPayload`, `buildLeagueControlledSummary`, `buildHomeControlledBestSixReportText` |
+| `components/LeagueControlledBestSixScreen.tsx` | **New** — single-league explore/home screen |
+| `components/HomeControlledBestSixScreen.tsx` | **New** — dual-league Tomorrow Home |
+| `components/leagueBestSixTheme.ts` | **New** — NBA blue / WNBA pink themes |
+| `app/(tabs)/index.tsx` | Uses `HomeControlledBestSixScreen` |
+| `app/(tabs)/nba.tsx` | Controlled Best 6 explore (NBA) |
+| `app/(tabs)/wnba.tsx` | Controlled Best 6 explore (WNBA) |
+| `utils/reportBuilders.ts` | `buildLeagueControlledBestSixReport` |
+| `betbrain-server/scripts/testControlledBestSixDisplay.js` | +tests 38–40 (NBA + home report) |
+
+### Gaps
+
+- **Rotation is slate-date scoped, not per-league:** When one league's 6 grade before the other on the same date, Lab promotion waits for full slate completion (existing server behavior).
+- **NBA decision intelligence:** Uses same `propDecisionIntelligenceV1` pipeline as WNBA via controlled selector; WNBA-specific gate fields (`wnbaTrackingDecision`) fall back gracefully for NBA.
+- **No SERVER_BUILD bump:** Client-only + shared util changes; server payloads already exposed NBA display fields.
 
 ---
 
@@ -182,7 +225,7 @@ flowchart TD
 | **Prod runtime repair** | If prod JSON still has stale reports / wrong archive phases, run repair scripts with `ADMIN_SECRET` (see `COURTEDGE_SLATE_ROTATION_FIX_REPORT.md`) |
 | **`/refresh-picks` on schedule** | Tomorrow props appear on Home only after refresh generates them |
 | **Scout / Full Board** | Hidden on Home; still on explore route (`/explore`, `/wnba`) |
-| **NBA Best 6 on Home** | Home is WNBA-only Controlled Best 6 (matches existing explore focus) |
+| **NBA Best 6 on Home** | ~~Home is WNBA-only~~ **Fixed** — dual WNBA + NBA Tomorrow sections |
 | **Saved picks in History** | User-saved picks still appear alongside archived Lab slates |
 
 ---
@@ -191,7 +234,7 @@ flowchart TD
 
 ```
 node betbrain-server/scripts/testSlateRotationLifecycle.js     → 24 passed, 0 failed
-node betbrain-server/scripts/testControlledBestSixDisplay.js   → 37 passed, 0 failed
+node betbrain-server/scripts/testControlledBestSixDisplay.js   → 40 passed, 0 failed
 ```
 
 ---

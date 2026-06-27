@@ -25,6 +25,9 @@ const {
   formatDateViewLabel,
   stablePickKey,
   buildWnbaControlledBestSixReportText,
+  buildLeagueBestSixBoard,
+  buildHomeControlledBestSixReportText,
+  resolveLeaguePicksPayload,
   formatControlledBestSixPickLine,
   countCandidatesByEligibility,
   resolveBestSixDisplayPool,
@@ -611,11 +614,66 @@ test("36 HOME_DATE_VIEW is tomorrow for Home tab", () => {
 test("37 prepareBestSixDisplayCards respects date filter before rank enrichment", () => {
   const cards = prepareBestSixDisplayCards(
     filterBestSixByDateView([todayPick, tomorrowPick], "tomorrow"),
-    new Map()
+    new Map(),
+    "WNBA"
   );
   assert.strictEqual(cards.length, 1);
   assert.strictEqual(cards[0].bestSixRank, 1);
   assert.strictEqual(cards[0].player, "Caitlin Clark");
+});
+
+test("38 buildLeagueBestSixBoard supports NBA league labels", () => {
+  const nbaPick = {
+    ...tomorrowPick,
+    league: "NBA",
+    player: "Nikola Jokic",
+    decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW" },
+  };
+  const board = buildLeagueBestSixBoard({
+    league: "NBA",
+    bestSixDisplay: [nbaPick],
+    topProps: [{ ...nbaPick, topPickRank: 1 }],
+    dateView: "tomorrow",
+  });
+  assert.strictEqual(board.league, "NBA");
+  assert.strictEqual(board.bestSixCards.length, 1);
+  assert.strictEqual(board.bestSixCards[0].bestSixLabel, "Best NBA #1");
+  assert.strictEqual(board.bestSixCards[0].topPickLabel, "Top NBA #1");
+});
+
+test("39 resolveLeaguePicksPayload maps NBA fields from refresh payload", () => {
+  const payload = resolveLeaguePicksPayload(
+    {
+      nbaGames: [{ league: "NBA", game: "DEN @ LAL" }],
+      bestSixNBA: [{ player: "Jokic", league: "NBA" }],
+      bestSixDisplayNBA: [{ player: "Jokic", league: "NBA", dayBucket: "TOMORROW" }],
+      topNBAProps: [{ player: "Jokic", league: "NBA", topPickRank: 1 }],
+    },
+    "NBA"
+  );
+  assert.strictEqual(payload.league, "NBA");
+  assert.strictEqual(payload.games.length, 1);
+  assert.strictEqual(payload.bestSix.length, 1);
+  assert.strictEqual(payload.topProps.length, 1);
+});
+
+test("40 home report includes both leagues", () => {
+  const report = buildHomeControlledBestSixReportText({
+    dateView: HOME_DATE_VIEW,
+    wnba: {
+      bestSixCards: [],
+      summary: { bestSixLimit: 6, topPickLimit: 2 },
+      games: [],
+    },
+    nba: {
+      bestSixCards: [],
+      summary: { bestSixLimit: 6, topPickLimit: 2 },
+      games: [],
+    },
+  });
+  assert.match(report, /CourtEdge Home — Tomorrow Controlled Best 6/);
+  assert.match(report, /WNBA Props — Controlled Best 6/);
+  assert.match(report, /NBA Props — Controlled Best 6/);
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);

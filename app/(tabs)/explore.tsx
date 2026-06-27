@@ -1,5 +1,5 @@
-import WnbaControlledBestSixScreen from "../../components/WnbaControlledBestSixScreen";
+import LeagueControlledBestSixScreen from "../../components/LeagueControlledBestSixScreen";
 
 export default function ExploreScreen() {
-  return <WnbaControlledBestSixScreen variant="explore" />;
+  return <LeagueControlledBestSixScreen league="WNBA" variant="explore" />;
 }

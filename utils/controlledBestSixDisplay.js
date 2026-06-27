@@ -1,9 +1,11 @@
 /**
- * CourtEdge WNBA Controlled Best 6 display helpers (shared UI + node tests).
+ * CourtEdge Controlled Best 6 display helpers — NBA + WNBA (shared UI + node tests).
  */
 
 export const BEST_SIX_LIMIT = 6;
 export const WNBA_TOP_PICK_LIMIT = 2;
+export const NBA_TOP_PICK_LIMIT = 2;
+export const SUPPORTED_LEAGUES = ["NBA", "WNBA"];
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
 /** Home tab shows tomorrow slate only — no Today section. */
@@ -61,15 +63,25 @@ export function resolveDayBucket(item = {}) {
   return "LATER";
 }
 
-export function buildTopPickBadgeMap(topWNBAProps = []) {
+export function normalizeLeagueCode(league = "WNBA") {
+  const value = String(league || "WNBA").toUpperCase();
+  return value === "NBA" ? "NBA" : "WNBA";
+}
+
+export function getTopPickLimitForLeague(league = "WNBA") {
+  return normalizeLeagueCode(league) === "NBA" ? NBA_TOP_PICK_LIMIT : WNBA_TOP_PICK_LIMIT;
+}
+
+export function buildTopPickBadgeMap(topProps = [], league = "WNBA") {
+  const leagueCode = normalizeLeagueCode(league);
   const map = new Map();
-  for (const pick of topWNBAProps) {
+  for (const pick of topProps) {
     const key = stablePickKey(pick);
     const rank = pick.topPickRank || pick.leagueRank || pick.topPropRank;
     if (!key || !rank) continue;
     map.set(key, {
       topPickRank: rank,
-      topPickLabel: pick.topPickLabel || `Top WNBA #${rank}`,
+      topPickLabel: pick.topPickLabel || `Top ${leagueCode} #${rank}`,
     });
   }
   return map;
@@ -84,7 +96,13 @@ export function stablePickKey(pick = {}) {
   ].join("|");
 }
 
-export function enrichBestSixForDisplay(pick = {}, topPickBadgeMap = new Map(), index = 0) {
+export function enrichBestSixForDisplay(
+  pick = {},
+  topPickBadgeMap = new Map(),
+  index = 0,
+  league = "WNBA"
+) {
+  const leagueCode = normalizeLeagueCode(pick.league || league);
   const key = stablePickKey(pick);
   const topMeta = topPickBadgeMap.get(key);
   const serverRank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
@@ -96,10 +114,10 @@ export function enrichBestSixForDisplay(pick = {}, topPickBadgeMap = new Map(), 
     bestSixRank: rank,
     controlledBestSixRank: rank,
     serverBestSixRank: serverRank,
-    bestSixLabel: `Best WNBA #${rank}`,
+    bestSixLabel: `Best ${leagueCode} #${rank}`,
     topPickRank: topMeta?.topPickRank ?? pick.topPickRank ?? null,
     topPickLabel: topMeta?.topPickLabel ?? pick.topPickLabel ?? null,
-    league: pick.league || "WNBA",
+    league: leagueCode,
     displayTrackEligibility: resolveTrackEligibility(pick),
     displayTrueRisk: resolveTrueRisk(pick),
     displayWhy:
@@ -159,10 +177,11 @@ export function filterBestSixByDateView(bestSix = [], dateView = "today") {
  */
 export function prepareBestSixDisplayCards(
   displayPool = [],
-  topPickBadgeMap = new Map()
+  topPickBadgeMap = new Map(),
+  league = "WNBA"
 ) {
   return displayPool.map((pick, index) =>
-    enrichBestSixForDisplay(pick, topPickBadgeMap, index)
+    enrichBestSixForDisplay(pick, topPickBadgeMap, index, league)
   );
 }
 
@@ -182,7 +201,8 @@ export function assertContiguousBestSixRanks(cards = []) {
   return { ok: true, count: cards.length };
 }
 
-export function collectWnbaCandidatesFromGames(games = []) {
+export function collectLeagueCandidatesFromGames(games = [], league = "WNBA") {
+  const leagueCode = normalizeLeagueCode(league);
   const candidates = [];
   for (const game of games) {
     const pool = game.allGeneratedCandidates?.length
@@ -191,7 +211,7 @@ export function collectWnbaCandidatesFromGames(games = []) {
     for (const pick of pool) {
       candidates.push({
         ...pick,
-        league: pick.league || game.league || "WNBA",
+        league: pick.league || game.league || leagueCode,
         game: pick.game || game.game,
         gameId: pick.gameId || game.gameId,
         dateLabel: pick.dateLabel || game.dateLabel,
@@ -202,22 +222,91 @@ export function collectWnbaCandidatesFromGames(games = []) {
   return candidates;
 }
 
+/** @deprecated use collectLeagueCandidatesFromGames */
+export function collectWnbaCandidatesFromGames(games = []) {
+  return collectLeagueCandidatesFromGames(games, "WNBA");
+}
+
+export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
+  const leagueCode = normalizeLeagueCode(league);
+  const isWNBA = leagueCode === "WNBA";
+  const games = isWNBA
+    ? data.wnbaGames?.length
+      ? data.wnbaGames
+      : (data.games || []).filter((game) => String(game.league || "").toUpperCase() === "WNBA")
+    : data.nbaGames?.length
+      ? data.nbaGames
+      : (data.games || []).filter((game) => String(game.league || "").toUpperCase() === "NBA");
+
+  return {
+    league: leagueCode,
+    games,
+    bestSix: isWNBA ? data.bestSixWNBA || [] : data.bestSixNBA || [],
+    bestSixDisplay: isWNBA
+      ? data.bestSixDisplayWNBA || []
+      : data.bestSixDisplayNBA || [],
+    topProps: isWNBA ? data.topWNBAProps || [] : data.topNBAProps || [],
+  };
+}
+
+export function buildLeagueBestSixBoard({
+  league = "WNBA",
+  bestSix = [],
+  bestSixDisplay = [],
+  topProps = [],
+  games = [],
+  dateView = "today",
+  bestSixLimit = BEST_SIX_LIMIT,
+} = {}) {
+  const leagueCode = normalizeLeagueCode(league);
+  const topPickBadgeMap = buildTopPickBadgeMap(topProps, leagueCode);
+  const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
+  const scopedPool =
+    dateView === "full_board"
+      ? displayPool
+      : filterBestSixByDateView(displayPool, dateView);
+  const bestSixCards = prepareBestSixDisplayCards(scopedPool, topPickBadgeMap, leagueCode);
+  const summary = buildLeagueControlledSummary({
+    league: leagueCode,
+    bestSix,
+    bestSixDisplay,
+    topProps,
+    games,
+    dateView,
+    bestSixLimit,
+  });
+
+  return { league: leagueCode, bestSixCards, summary, topPickBadgeMap, displayPool, scopedPool };
+}
+
 export function scopeCandidatesByDateView(candidates = [], dateView = "today") {
   if (dateView === "full_board") return candidates;
   const target = dateView === "tomorrow" ? "TOMORROW" : "TODAY";
   return candidates.filter((pick) => resolveDayBucket(pick) === target);
 }
 
-export function buildWnbaControlledSummary({
-  bestSixWNBA = [],
-  bestSixDisplayWNBA = [],
-  topWNBAProps = [],
-  wnbaGames = [],
+export function buildLeagueControlledSummary({
+  league = "WNBA",
+  bestSix = [],
+  bestSixDisplay = [],
+  topProps = [],
+  games = [],
   dateView = "today",
   bestSixLimit = BEST_SIX_LIMIT,
+  bestSixWNBA,
+  bestSixDisplayWNBA,
+  topWNBAProps,
+  wnbaGames,
 } = {}) {
-  const displayPool = resolveBestSixDisplayPool(bestSixDisplayWNBA, bestSixWNBA);
-  const filteredResults = filterBestSixByDateView(bestSixWNBA, dateView);
+  const leagueCode = normalizeLeagueCode(league);
+  const resolvedBestSix = bestSix.length ? bestSix : bestSixWNBA || [];
+  const resolvedDisplay = bestSixDisplay.length ? bestSixDisplay : bestSixDisplayWNBA || [];
+  const resolvedTopProps = topProps.length ? topProps : topWNBAProps || [];
+  const resolvedGames = games.length ? games : wnbaGames || [];
+  const topPickLimit = getTopPickLimitForLeague(leagueCode);
+
+  const displayPool = resolveBestSixDisplayPool(resolvedDisplay, resolvedBestSix);
+  const filteredResults = filterBestSixByDateView(resolvedBestSix, dateView);
   const dateScopedDisplay = filterBestSixByDateView(displayPool, dateView);
   const resultsTrackCount = filteredResults.filter(
     (p) => resolveTrackEligibility(p) === "TRACK"
@@ -230,14 +319,14 @@ export function buildWnbaControlledSummary({
         p.decisionIntelligence?.bestSixEligibility === true)
   ).length;
 
-  const candidates = collectWnbaCandidatesFromGames(wnbaGames);
+  const candidates = collectLeagueCandidatesFromGames(resolvedGames, leagueCode);
   const scopedCandidates = scopeCandidatesByDateView(candidates, dateView);
   const eligibilityCounts = countCandidatesByEligibility(scopedCandidates);
 
   const topPickCount =
     dateView === "full_board"
-      ? topWNBAProps.length
-      : topWNBAProps.filter((pick) => {
+      ? resolvedTopProps.length
+      : resolvedTopProps.filter((pick) => {
           const bucket = resolveDayBucket(pick);
           return dateView === "tomorrow" ? bucket === "TOMORROW" : bucket === "TODAY";
         }).length;
@@ -246,13 +335,14 @@ export function buildWnbaControlledSummary({
     dateView === "full_board" ? displayPool.length : dateScopedDisplay.length;
 
   return {
+    league: leagueCode,
     controlledBestSix: displayResultsCount,
     controlledBestSixTotal: scopedTotal,
     controlledBestSixTrack: resultsTrackCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
     bestSixLimit,
-    topPicks: Math.min(topPickCount, WNBA_TOP_PICK_LIMIT),
-    topPickLimit: WNBA_TOP_PICK_LIMIT,
+    topPicks: Math.min(topPickCount, topPickLimit),
+    topPickLimit,
     boardCandidates: scopedCandidates.length,
     track: eligibilityCounts.track,
     boardOnly: eligibilityCounts.boardOnly,
@@ -261,6 +351,11 @@ export function buildWnbaControlledSummary({
     other: eligibilityCounts.other,
     dateView,
   };
+}
+
+/** @deprecated use buildLeagueControlledSummary */
+export function buildWnbaControlledSummary(input = {}) {
+  return buildLeagueControlledSummary({ league: "WNBA", ...input });
 }
 
 export function shouldShowScoutMode(dateView = "today", showFullBoard = false) {
@@ -278,7 +373,8 @@ function formatReportValue(value) {
   return String(value);
 }
 
-export function formatControlledBestSixPickLine(pick = {}, index = 0) {
+export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "WNBA") {
+  const leagueCode = normalizeLeagueCode(pick.league || league);
   const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
   const side = pick.side || pick.pick || "—";
   const line = pick.line ?? pick.sportsbookLine;
@@ -313,7 +409,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
   const topBadge = pick.topPickLabel ? ` · ${pick.topPickLabel}` : "";
 
   return [
-    `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (WNBA)`,
+    `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (${leagueCode})`,
     `  Game: ${game}`,
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
     `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
@@ -326,7 +422,8 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0) {
     .join("\n");
 }
 
-export function buildWnbaControlledBestSixReportText({
+export function buildLeagueControlledBestSixReportText({
+  league = "WNBA",
   bestSixCards = [],
   summary = {},
   lastUpdated = null,
@@ -335,9 +432,10 @@ export function buildWnbaControlledBestSixReportText({
   includeFullBoard = false,
   games = [],
 } = {}) {
+  const leagueCode = normalizeLeagueCode(league);
   const viewLabel = formatDateViewLabel(dateView);
   const bestSixLimit = summary.bestSixLimit ?? BEST_SIX_LIMIT;
-  const topPickLimit = summary.topPickLimit ?? WNBA_TOP_PICK_LIMIT;
+  const topPickLimit = summary.topPickLimit ?? getTopPickLimitForLeague(leagueCode);
   const controlledTotal = summary.controlledBestSixTotal ?? bestSixCards.length;
   const topPicks = summary.topPicks ?? 0;
   const boardCandidates = summary.boardCandidates ?? 0;
@@ -349,7 +447,7 @@ export function buildWnbaControlledBestSixReportText({
   const resultsTrack = summary.controlledBestSixTrack ?? summary.controlledBestSix ?? 0;
 
   const lines = [
-    "WNBA Props — Controlled Best 6",
+    `${leagueCode} Props — Controlled Best 6`,
     `View: ${viewLabel}`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
@@ -367,7 +465,7 @@ export function buildWnbaControlledBestSixReportText({
     "--- Controlled Best 6 ---",
     bestSixCards.length
       ? bestSixCards
-          .map((pick, index) => formatControlledBestSixPickLine(pick, index))
+          .map((pick, index) => formatControlledBestSixPickLine(pick, index, leagueCode))
           .join("\n\n")
       : `No Controlled Best 6 props for ${viewLabel}.`,
   ];
@@ -385,4 +483,37 @@ export function buildWnbaControlledBestSixReportText({
   }
 
   return lines.filter((line) => line !== null).join("\n");
+}
+
+/** @deprecated use buildLeagueControlledBestSixReportText */
+export function buildWnbaControlledBestSixReportText(input = {}) {
+  return buildLeagueControlledBestSixReportText({ league: "WNBA", ...input });
+}
+
+export function buildHomeControlledBestSixReportText({
+  wnba = {},
+  nba = {},
+  lastUpdated = null,
+  loading = false,
+  dateView = HOME_DATE_VIEW,
+} = {}) {
+  const sections = SUPPORTED_LEAGUES.map((league) => {
+    const payload = league === "WNBA" ? wnba : nba;
+    return buildLeagueControlledBestSixReportText({
+      league,
+      dateView,
+      lastUpdated: league === "WNBA" ? lastUpdated : null,
+      loading: league === "WNBA" ? loading : false,
+      ...payload,
+    });
+  });
+
+  return [
+    "CourtEdge Home — Tomorrow Controlled Best 6",
+    lastUpdated ? `Last updated: ${lastUpdated}` : null,
+    "",
+    sections.join("\n\n---\n\n"),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
