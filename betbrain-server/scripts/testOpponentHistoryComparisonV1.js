@@ -1,5 +1,5 @@
 /**
- * Opponent History Comparison v1 tests (17 cases).
+ * Opponent History Comparison v1 tests (18 cases).
  * Usage: node betbrain-server/scripts/testOpponentHistoryComparisonV1.js
  */
 import assert from "assert";
@@ -331,6 +331,32 @@ tests.push({
       "utf8"
     );
     assert.ok(!mod.includes("clear-tracked-props"));
+  },
+});
+
+tests.push({
+  name: "18 Best Six re-pipeline preserves matchupGames from data card",
+  fn() {
+    const matchup = [game(12), game(7)];
+    const pick = makePick({
+      side: "Over",
+      pick: "Over",
+      last5: [game(16), game(15), game(14), game(17), game(16)],
+      wnbaDataCard: {
+        ...baseCard(),
+        matchupGames: matchup,
+      },
+    });
+    const enriched = runFlipFirstDecisionPipeline(pick, {
+      dataCard: pick.wnbaDataCard,
+      reader: pick.wnbaReader,
+      originalSide: "OVER",
+    });
+    assert.strictEqual(
+      enriched.opponentHistoryComparison?.opponentHistory?.gamesFound,
+      2
+    );
+    assert.notStrictEqual(enriched.opponentHistoryLabel, "No history");
   },
 });
 

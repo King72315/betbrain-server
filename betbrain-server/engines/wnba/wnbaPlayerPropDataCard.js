@@ -309,6 +309,8 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   const effectiveSeasonFTA = num(
     recoveredContext?.playerState?.seasonFTA ?? seasonFTA
   );
+  const effectiveMatchupGames =
+    recoveredContext?.matchupGames || matchupGames || [];
   const effectiveLast5Points = effectiveLast5.map((g) => num(g.points));
   const dataIntegrityDisplay = summarizeDataIntegrityForDisplay(dataIntegrity);
   const dataRecoveryDisplay = dataRecovery
@@ -354,6 +356,16 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       ftPath: effectiveRecentFTA >= 2,
       games: effectiveLast5.length,
     },
+    matchupGames: effectiveMatchupGames.map((game) => ({
+      date: game.date || null,
+      opponent: game.opponent || game.opponentTeamId || "",
+      points: num(game.points),
+      minutes: num(game.minutes),
+      fga: num(game.fga),
+      fta: num(game.fta),
+      threePa: num(game.threePa ?? game.fg3a),
+    })),
+    matchupAverage: num(playerState.matchupAverage) || null,
     scoringTrend,
     usageShotTrend: volumeProfile.volumeStability || opportunity.shotVolumeStability?.label || "unknown",
     roleTrend,

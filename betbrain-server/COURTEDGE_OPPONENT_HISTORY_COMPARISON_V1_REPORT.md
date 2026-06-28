@@ -128,4 +128,70 @@ Best 6 cards also show `Opp Hist` in flip-first metric row.
 
 ## Deploy note
 
-After push, Render `/health` should report `serverBuild: "courteedge-opponent-history-comparison-v1"`. Re-run `evaluateOpponentHistorySixProps.js` on Render (with Ball key) for populated before/after stats on pending slates.
+After push, Render `/health` should report `serverBuild: "courteedge-opponent-history-matchup-fix-v1"`. Run `POST /refresh-picks` (or wait for cache refresh) so Best 6 picks re-evaluate with persisted matchup context.
+
+---
+
+## Matchup lookup root cause (2026-06-28 prod audit)
+
+### Summary
+
+**Not** a Ball API outage, missing API key, or Azura-style wrong player ID on these six props. Prod `/debug/data-integrity` and local Ball probes both resolve IDs and return H2H games where the player actually played. All six tracked props showed `matchupGames: 0` because **Best Six / tracking re-ran flip-first DI without passing matchup context**, wiping opponent history computed on the first WNBA v2 pass.
+
+**Build fix:** `courteedge-opponent-history-matchup-fix-v1`
+
+### Failing step in lookup chain
+
+```
+refresh-picks
+  → fetchLast3VsOpponent (Ball games-first) ✓ returns games locally/prod debug
+  → evaluateWnbaPropDecision → runFlipFirstDecisionPipeline(last5, matchupGames) ✓
+  → selectControlledBestSix → applyWnbaDecisionStack
+      → runFlipFirstDecisionPipeline WITHOUT last5/matchupGames ✗  ← BUG
+  → opponentHistoryComparison resolves empty → NO_HISTORY overwrites prior result
+  → tracked-props persisted with opponentHistoryLabel: "No history"
+```
+
+Same wipe happens in `trackedPropService` when re-gating WNBA picks for Results cohort.
+
+`opponentHistoryComparisonV1.resolveOpponentHistoryGames()` only saw empty `pick.matchupGames` because:
+- Pick object never stored `matchupGames` after v2 engine
+- `wnbaDataCard` did not include `matchupGames` (used for integrity audit only)
+
+### Per-prop evidence (prod slate 2026-06-28, Ball key live)
+
+| Player | Team vs Opp | Ball playerId | Games query | H2H stat rows | Classification | True gap? |
+|---|---|---|---|---|---|---|
+| Jessica Shepard | DAL vs MIN | 574 | 19 team games, 3 matched | **2** | PLAYER_H2H_EXISTS | No — pipeline bug |
+| Azzi Fudd | DAL vs MIN | 67109 | same | **2** | PLAYER_H2H_EXISTS | No — pipeline bug |
+| Veronica Burton | GSV vs NYL | 659 | 20 team games, 2 matched | **1** | PLAYER_H2H_EXISTS | No — pipeline bug |
+| Leonie Fiebich | NYL vs GSV | 712 | 20 team games, 2 matched | **0** | PLAYER_DID_NOT_PLAY_IN_MATCHUP | **Yes** — team met GSV twice; no stat row |
+| Kamilla Cardoso | CHI vs LVA | 726 | 19 team games, 1 matched | **0** | PLAYER_DID_NOT_PLAY_IN_MATCHUP | **Yes** — CHI@LVA game exists; she DNP |
+| Sydney Taylor | CHI vs LVA | 67033 | same game id 24894 | **0** | PLAYER_DID_NOT_PLAY_IN_MATCHUP | **Yes** — same; no stat row |
+
+Stable ID overrides (Azura 525, Sydney 67033) are correct for Sydney. No wrong-ID pattern like legacy `42`.
+
+### Fix applied
+
+| File | Change |
+|---|---|
+| `decisionDataIntelligenceV1.js` | `resolveMatchupPipelineContext()` — auto-fill last5/matchupGames from pick + card on re-pipeline |
+| `opponentHistoryComparisonV1.js` | Read `wnbaDataCard.matchupGames` in `resolveOpponentHistoryGames` |
+| `wnbaPlayerPropDataCard.js` | Persist `matchupGames` + `matchupAverage` on data card |
+| `wnbaDecisionEngine.js` | Store `pick.last5` / `pick.matchupGames` after first DI pass |
+| `server.js` | `SERVER_BUILD` → `courteedge-opponent-history-matchup-fix-v1` |
+| `testOpponentHistoryComparisonV1.js` | Case 18 — Best Six re-pipeline preserves card matchup |
+| `evaluateOpponentHistorySixProps.js` | Correct prod team/opponent slugs |
+
+### Expected labels after fix + refresh (local Ball eval)
+
+| Player | Opp games | Label |
+|---|---|---|
+| Jessica Shepard | 2 | Small sample, 2 games used |
+| Azzi Fudd | 2 | Small sample, 2 games used |
+| Veronica Burton | 1 | Small sample, 1 game used |
+| Leonie Fiebich | 0 | No history (true DNP) |
+| Kamilla Cardoso | 0 | No history (true DNP) |
+| Sydney Taylor | 0 | No history (true DNP) |
+
+Three props should show opponent-history context after deploy + pick refresh; three correctly remain neutral.

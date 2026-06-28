@@ -22,12 +22,12 @@ import { readWnbaProp } from "../engines/wnba/wnbaReaderEngine.js";
 import { evaluateWnbaTrackingEligibility } from "../engines/wnba/wnbaResultsQualityGate.js";
 
 const SIX_PROPS = [
-  { player: "Jessica Shepard", side: "Over", line: 13.5, team: "minnesotalynx", opponent: "indianafever" },
-  { player: "Azzi Fudd", side: "Over", line: 14.5, team: "indianafever", opponent: "connecticutsun" },
-  { player: "Veronica Burton", side: "Under", line: 11.5, team: "indianafever", opponent: "connecticutsun" },
-  { player: "Leonie Fiebich", side: "Over", line: 10.5, team: "newyorkliberty", opponent: "seattlestorm" },
-  { player: "Kamilla Cardoso", side: "Over", line: 12.5, team: "dallaswings", opponent: "phoenixmercury" },
-  { player: "Sydney Taylor", side: "Over", line: 14.5, team: "phoenixmercury", opponent: "dallaswings" },
+  { player: "Jessica Shepard", side: "Over", line: 13.5, team: "dallaswings", opponent: "minnesotalynx" },
+  { player: "Azzi Fudd", side: "Over", line: 14.5, team: "dallaswings", opponent: "minnesotalynx" },
+  { player: "Veronica Burton", side: "Under", line: 11.5, team: "goldenstatevalkyries", opponent: "newyorkliberty" },
+  { player: "Leonie Fiebich", side: "Over", line: 10.5, team: "newyorkliberty", opponent: "goldenstatevalkyries" },
+  { player: "Kamilla Cardoso", side: "Over", line: 12.5, team: "chicagosky", opponent: "lasvegasaces" },
+  { player: "Sydney Taylor", side: "Over", line: 14.5, team: "chicagosky", opponent: "lasvegasaces" },
 ];
 
 function baseCard(entry, last5, matchupGames) {

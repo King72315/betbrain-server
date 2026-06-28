@@ -229,7 +229,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-opponent-history-comparison-v1";
+const SERVER_BUILD = "courteedge-opponent-history-matchup-fix-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

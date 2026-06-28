@@ -303,12 +303,46 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
   };
 }
 
+export function resolveMatchupPipelineContext(pick = {}) {
+  const card = pick.wnbaDataCard || {};
+  const recovery = card.dataRecovery || {};
+  let last5 = Array.isArray(pick.last5) ? pick.last5 : [];
+  if (!last5.length) {
+    const recoveredLast5 = recovery.last5 || recovery.context?.last5;
+    if (Array.isArray(recoveredLast5) && recoveredLast5.length) {
+      last5 = recoveredLast5;
+    } else {
+      const pointsList = card.last5?.pointsList || [];
+      if (pointsList.length) {
+        last5 = pointsList.map((points) => ({ points }));
+      }
+    }
+  }
+
+  let matchupGames = Array.isArray(pick.matchupGames) ? pick.matchupGames : [];
+  if (!matchupGames.length && Array.isArray(card.matchupGames) && card.matchupGames.length) {
+    matchupGames = card.matchupGames;
+  }
+  if (!matchupGames.length) {
+    const probeGames =
+      recovery.context?.matchupProbe?.matchupGames ||
+      recovery.matchupProbe?.matchupGames ||
+      card.dataIntegrity?.meta?.probe?.matchupGames;
+    if (Array.isArray(probeGames) && probeGames.length) {
+      matchupGames = probeGames;
+    }
+  }
+
+  return { last5, matchupGames };
+}
+
 export function runFlipFirstDecisionPipeline(pick = {}, options = {}) {
   const dataCard = options.dataCard || pick.wnbaDataCard;
   const reader = options.reader || pick.wnbaReader;
   const originalSide = normalizeSide(
     options.originalSide || pick.initialSide || reader?.finalSide || pick.side
   );
+  const resolvedContext = resolveMatchupPipelineContext(pick);
 
   let enriched = {
     ...pick,
@@ -322,8 +356,8 @@ export function runFlipFirstDecisionPipeline(pick = {}, options = {}) {
     teamCandidates: options.teamCandidates,
     slateCandidates: options.slateCandidates,
     impliedTeamTotal: options.impliedTeamTotal,
-    last5: options.last5,
-    matchupGames: options.matchupGames,
+    last5: options.last5 ?? resolvedContext.last5,
+    matchupGames: options.matchupGames ?? resolvedContext.matchupGames,
   });
 
   const fd = enriched.decisionDataIntelligence?.flipFirstDecision;

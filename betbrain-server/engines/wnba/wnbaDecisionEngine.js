@@ -474,6 +474,8 @@ export async function evaluateWnbaPropDecision(context = {}) {
     last5,
     matchupGames,
   });
+  pick.last5 = last5;
+  pick.matchupGames = matchupGames;
 
   const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
   const decisionIntelligence = evaluatePropDecisionIntelligenceV1(pick, {

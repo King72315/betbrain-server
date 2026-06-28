@@ -110,6 +110,10 @@ export function resolveOpponentHistoryGames(pick = {}, options = {}) {
     return options.matchupGames.slice(0, MAX_OPPONENT_GAMES).map(normalizeGame);
   }
   const card = options.dataCard || pick.wnbaDataCard || {};
+  const cardMatchup = card.matchupGames;
+  if (Array.isArray(cardMatchup) && cardMatchup.length) {
+    return cardMatchup.slice(0, MAX_OPPONENT_GAMES).map(normalizeGame);
+  }
   const recovery = card.dataRecovery || {};
   const probeGames =
     recovery.context?.matchupProbe?.matchupGames ||
