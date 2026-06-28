@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const SNAPSHOT_FILE = path.join(__dirname, "..", "top-picks-snapshots.json");
 const BEST_SIX_SNAPSHOT_FILE = path.join(__dirname, "..", "best-six-snapshots.json");
-export const TOP_PICKS_SOURCE_POOL = "CONTROLLED_BEST_SIX";
+export const TOP_PICKS_SOURCE_POOL = "CONTROLLED_BEST_SIX_DISPLAY";
 
 function readJSON(file, fallback = {}) {
   try {

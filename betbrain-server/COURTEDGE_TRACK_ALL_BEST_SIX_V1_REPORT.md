@@ -68,7 +68,11 @@ BOARD_ONLY and NO_BET props appeared on Home cards (with warning labels) but wer
 | 9 | No runtime JSON committed | PASS |
 | 10 | No clear-tracked-props | PASS |
 
-## Test runs
+## Top Picks follow-up (courteedge-top-picks-from-display-best-six-v1)
+
+**Problem:** After track-all-best-six, Results held all 6 display props but Top tab still filtered by `topPickEligibility` / TRACK — skipping BOARD_ONLY Best #1/#2 and showing fewer than 2 picks.
+
+**Fix:** `selectTopTwoFromBestSix` and `selectTopTwoFromDisplayBestSix` now take Best Six ranks #1–#2 (team diversity on slot 2 only). `TOP_PICKS_SOURCE_POOL` → `CONTROLLED_BEST_SIX_DISPLAY`.
 
 - `testResultsTrackingCohort.js` — 17/17
 - `testControlledBestSix.js` — 31/31

@@ -218,6 +218,24 @@ function testNoDifferentTeamCandidate() {
   assert.strictEqual(audit.noDifferentTeamCandidate, true);
 }
 
+function testTopTwoIncludesBoardOnlyDisplayRanks() {
+  const display = [
+    {
+      ...makeWnbaPick({ player: "Track Star", team: "T1", overScore: 92 }),
+      decisionIntelligence: { trackEligibility: "TRACK", topPickEligibility: false },
+    },
+    {
+      ...makeWnbaPick({ player: "Board Star", team: "T2", overScore: 88 }),
+      decisionIntelligence: { trackEligibility: "BOARD_ONLY", topPickEligibility: false },
+    },
+  ];
+  const { topProps } = selectTopTwoFromBestSix(display, "WNBA");
+  assert.strictEqual(topProps.length, 2);
+  assert.strictEqual(topProps[0].player, "Track Star");
+  assert.strictEqual(topProps[1].player, "Board Star");
+  assert.strictEqual(topProps[1].topPickLabel, "Top WNBA #2");
+}
+
 function testUsesFullCandidatePool() {
   const full = Array.from({ length: 8 }, (_, i) =>
     makeWnbaPick({
@@ -621,6 +639,7 @@ function run() {
     ["7. Top 2 WNBA different teams", testTopWnbaDifferentTeams],
     ["8. Top 2 NBA different teams", testTopNbaDifferentTeams],
     ["9. no different team returns one", testNoDifferentTeamCandidate],
+    ["9b. Top 2 includes BOARD_ONLY display ranks", testTopTwoIncludesBoardOnlyDisplayRanks],
     ["10. uses full candidate pool", testUsesFullCandidatePool],
     ["11. quality gate blocks trash", testQualityGateBlocksTrash],
     ["12. excludes invalid candidates", testExcludesInvalidCandidates],

@@ -555,16 +555,6 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
   const selectedTeamKeys = new Set();
 
   for (const pick of bestSix) {
-    const di = pick.decisionIntelligence || {};
-    if (di.topPickEligibility === false || String(di.trueRisk).toUpperCase() === "HIGH") {
-      audit.hidden.push({
-        reason: "top_pick_decision_intelligence",
-        trueRisk: di.trueRisk,
-        pick: summarizePickForAudit(pick),
-      });
-      continue;
-    }
-
     if (selected.length >= limit) {
       audit.hiddenDueToLeagueLimit += 1;
       audit.hidden.push({
@@ -576,7 +566,7 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
     }
 
     const teamKey = getPickTeamKey(pick);
-    if (selectedTeamKeys.has(teamKey)) {
+    if (teamKey && selectedTeamKeys.has(teamKey)) {
       audit.hiddenDueToSameTeam += 1;
       audit.hidden.push({
         reason: "hidden_due_to_same_team",
@@ -587,7 +577,7 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
     }
 
     selected.push(pick);
-    selectedTeamKeys.add(teamKey);
+    if (teamKey) selectedTeamKeys.add(teamKey);
   }
 
   if (limit >= 2 && selected.length === 1 && bestSix.length > 1) {
@@ -610,6 +600,7 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       topPickLabel: buildTopPickLabel(leagueCode, rank),
       selectedTeamKey: getPickTeamKey(pick),
       selectedFromBestSix: true,
+      selectedFromDisplayBestSix: true,
       isTopPickReference: true,
       referenceOnly: true,
     };
@@ -647,7 +638,7 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
 
   const controlledBestSixAudit = {
     version: CONTROLLED_BEST_SIX_VERSION,
-    topPropsSource: "CONTROLLED_BEST_SIX",
+    topPropsSource: "CONTROLLED_BEST_SIX_DISPLAY",
     candidateCount: candidates.length,
     candidateCountByLeague: {
       WNBA: wnbaBest.controlledBestSixAudit.candidateCount,
@@ -748,7 +739,7 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     selectedNBA: topNBAProps.length,
     selectedWNBA: topWNBAProps.length,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
-    topPropsSource: "CONTROLLED_BEST_SIX",
+    topPropsSource: "CONTROLLED_BEST_SIX_DISPLAY",
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     noBetCount:
       wnbaBest.controlledBestSixAudit.hiddenNoBet +

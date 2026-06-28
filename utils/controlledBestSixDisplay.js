@@ -77,7 +77,7 @@ function getPickTeamKey(pick = {}) {
   return String(team).trim().toLowerCase();
 }
 
-/** Top 2 from display Best 6 ranking (not Results TRACK-only pool). Mirrors server selectTopTwoFromBestSix. */
+/** Top 2 from display Best 6 rank order (Best #1 + #2). Team diversity on slot 2 only. */
 export function selectTopTwoFromDisplayBestSix(
   displayBestSix = [],
   league = "WNBA",
@@ -92,10 +92,6 @@ export function selectTopTwoFromDisplayBestSix(
   const selectedTeamKeys = new Set();
 
   for (const pick of displayBestSix) {
-    const di = pick.decisionIntelligence || {};
-    if (di.topPickEligibility === false || String(di.trueRisk).toUpperCase() === "HIGH") {
-      continue;
-    }
     if (selected.length >= resolvedLimit) break;
 
     const teamKey = getPickTeamKey(pick);

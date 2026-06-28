@@ -392,7 +392,7 @@ test("15 Top Picks only from Best 6", () => {
   assert.ok(selection.topProps.length <= 2);
   for (const top of selection.topProps) {
     assert.ok(
-      selection.bestSixWNBA.some(
+      selection.bestSixDisplayWNBA.some(
         (b) => b.player === top.player && String(b.line) === String(top.line)
       )
     );

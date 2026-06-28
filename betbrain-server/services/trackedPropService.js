@@ -1084,7 +1084,7 @@ export function buildTrackingCohortDiagnostics(
       controlledSelection.controlledBestSixAudit?.hiddenDueToBestSixCap ?? 0,
     blockedByQualityGate: audit.qualityGateBlockedCount,
     noBetCount: audit.noBetCount,
-    topPropsSource: "CONTROLLED_BEST_SIX",
+    topPropsSource: "CONTROLLED_BEST_SIX_DISPLAY",
     topWNBAPropsSelectedFromBestSix: true,
     topNBAPropsSelectedFromBestSix: true,
     bestSixCountByLeague: controlledSelection.controlledBestSixAudit?.bestSixCountByLeague || {},

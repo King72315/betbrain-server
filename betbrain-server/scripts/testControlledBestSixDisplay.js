@@ -772,20 +772,28 @@ test("43 top picks count derives from display Best 6 ranks not Results pool", ()
     ...tomorrowPick,
     player: "Marina Mabrey",
     team: "CON",
-    decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
+    decisionIntelligence: {
+      trackEligibility: "TRACK",
+      bestSixEligibility: true,
+      topPickEligibility: false,
+    },
   };
   const boardOnly2 = {
     ...tomorrowPick,
     player: "Kahleah Copper",
     team: "PHX",
-    decisionIntelligence: { trackEligibility: "BOARD_ONLY", bestSixEligibility: true },
+    decisionIntelligence: {
+      trackEligibility: "BOARD_ONLY",
+      bestSixEligibility: true,
+      topPickEligibility: false,
+    },
   };
   const track3 = {
     ...tomorrowPick,
     player: "DeWanna Bonner",
     team: "IND",
     decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: false },
-    resultsAdmissionEligible: false,
+    resultsAdmissionEligible: true,
   };
 
   const board = buildLeagueBestSixBoard({
