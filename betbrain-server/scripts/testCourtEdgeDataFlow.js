@@ -144,13 +144,13 @@ function buildManyWnbaCandidates(count = 8) {
 console.log("\nCourtEdge Data Flow — 50 acceptance tests\n");
 
 test("01 buildControlledTrackingCohort exports version constant", () => {
-  assert.equal(CONTROLLED_TRACKING_COHORT_VERSION, "controlled-tracking-cohort-v1");
+  assert.equal(CONTROLLED_TRACKING_COHORT_VERSION, "controlled-tracking-cohort-v2-track-all-best-six");
 });
 
 test("02 admission path is CONTROLLED_BEST_SIX not board-capped", () => {
   const game = makeGame(buildManyWnbaCandidates(8).slice(0, 3), buildManyWnbaCandidates(8));
   const bundle = buildControlledTrackingCohort({ gameCards: [game] });
-  assert.equal(bundle.audit.admissionPath, "CONTROLLED_BEST_SIX");
+  assert.equal(bundle.audit.admissionPath, "CONTROLLED_BEST_SIX_DISPLAY");
   assert.equal(bundle.audit.collectAllGeneratedPropsBypass, false);
 });
 
@@ -214,10 +214,10 @@ test("10 controlled selection version matches selector", () => {
   assert.equal(bundle.controlledBestSixVersion, CONTROLLED_BEST_SIX_VERSION);
 });
 
-test("11 source pool is CONTROLLED_BEST_SIX", () => {
+test("11 source pool is CONTROLLED_BEST_SIX_DISPLAY", () => {
   const game = makeGame(buildManyWnbaCandidates(6).slice(0, 3), buildManyWnbaCandidates(6));
   const bundle = buildControlledTrackingCohort({ gameCards: [game] });
-  assert.equal(bundle.topPropsSource, "CONTROLLED_BEST_SIX");
+  assert.equal(bundle.topPropsSource, "CONTROLLED_BEST_SIX_DISPLAY");
 });
 
 test("12 preFiltered controlledSelection passthrough works", () => {
@@ -227,7 +227,7 @@ test("12 preFiltered controlledSelection passthrough works", () => {
     { gameCards: [game] },
     { controlledSelection: selection }
   );
-  assert.equal(bundle.bestSixWNBA.length, selection.bestSixWNBA.length);
+  assert.equal(bundle.bestSixWNBA.length, selection.bestSixDisplayWNBA.length);
 });
 
 test("13 NO_BET picks excluded from tracking cohort", () => {
@@ -422,8 +422,12 @@ test("31 tracking cohort count <= Best 6 total", () => {
   );
 });
 
-test("32 TEST picks get excludedFromOfficialRecord in cohort", () => {
-  const pick = makePick({ trackingType: "TEST" });
+test("32 TEST picks get excludedFromOfficialRecord in legacy cohort", () => {
+  const pick = makePick({
+    trackingType: "TEST",
+    league: "NBA",
+    engineHandled: "NBA",
+  });
   const { cohort } = buildResultsTrackingCohort([pick]);
   assert.equal(cohort[0]?.excludedFromOfficialRecord, true);
 });
@@ -446,12 +450,12 @@ test("34 controlledBestSixApplied on tracked cohort picks", () => {
   );
 });
 
-test("35 trackingAdmissionSource CONTROLLED_BEST_SIX", () => {
+test("35 trackingAdmissionSource CONTROLLED_BEST_SIX_DISPLAY", () => {
   const game = makeGame(buildManyWnbaCandidates(6).slice(0, 3), buildManyWnbaCandidates(6));
   const bundle = buildControlledTrackingCohort({ gameCards: [game] });
   assert.ok(
     bundle.trackingCohort.every(
-      (p) => p.trackingAdmissionSource === "CONTROLLED_BEST_SIX"
+      (p) => p.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY"
     )
   );
 });
@@ -560,8 +564,8 @@ test("49 tracking cohort audit inputCount matches Best 6", () => {
 });
 
 test("50 SERVER build marker constant documented in cohort version", () => {
-  assert.equal(CONTROLLED_TRACKING_COHORT_VERSION, "controlled-tracking-cohort-v1");
-  assert.equal(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-flip-first-v1");
+  assert.equal(CONTROLLED_TRACKING_COHORT_VERSION, "controlled-tracking-cohort-v2-track-all-best-six");
+  assert.equal(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed\n`);

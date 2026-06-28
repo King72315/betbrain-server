@@ -387,7 +387,7 @@ test("18 Dearica retro dearicaStyleCases populated", () => {
 });
 
 test("19 controlled best six version side-rescue-v1", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-flip-first-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
 });
 
 test("20 BOARD_ONLY rescue excluded from Best 6", () => {

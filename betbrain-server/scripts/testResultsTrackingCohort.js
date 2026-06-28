@@ -5,10 +5,12 @@
 import assert from "assert";
 import {
   buildResultsTrackingCohort,
+  buildControlledTrackingCohort,
   buildTrackingCohortDiagnostics,
   collectAllGeneratedCandidatesFromGames,
   collectAllGeneratedProps,
   getStableTrackedPropKey,
+  isBestSixDisplayResultsProp,
   isOfficialResultsProp,
   isTestTrackingPick,
   TRACKING_COHORT_VERSION,
@@ -76,9 +78,13 @@ function testTopPropsLimitDoesNotReduceCohort() {
   ];
   const game = makeGame(candidates.slice(0, 3), candidates);
   const selection = selectControlledBestSixCombined([game]);
-  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const bestSixCohort = [
+    ...(selection.bestSixDisplayWNBA || selection.bestSixWNBA || []),
+    ...(selection.bestSixDisplayNBA || selection.bestSixNBA || []),
+  ];
   const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
-    sourcePool: "CONTROLLED_BEST_SIX",
+    sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    trackAllBestSixDisplay: true,
   });
 
   assert.ok(selection.topProps.length <= 4, "top props capped");
@@ -224,9 +230,13 @@ function testBoardCapSmallerThanCohort() {
   const game = makeGame(candidates.slice(0, 4), candidates);
   const boardProps = collectAllGeneratedProps([game]);
   const selection = selectControlledBestSixCombined([game]);
-  const bestSixCohort = [...selection.bestSixWNBA, ...selection.bestSixNBA];
+  const bestSixCohort = [
+    ...(selection.bestSixDisplayWNBA || selection.bestSixWNBA || []),
+    ...(selection.bestSixDisplayNBA || selection.bestSixNBA || []),
+  ];
   const { cohort } = buildResultsTrackingCohort(bestSixCohort, {
-    sourcePool: "CONTROLLED_BEST_SIX",
+    sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    trackAllBestSixDisplay: true,
   });
   assert.ok(boardProps.length <= 4);
   assert.ok(cohort.length <= BEST_SIX_LIMIT);
@@ -259,14 +269,87 @@ function testTrackAdmittedReaderDemotedPromotedToOfficial() {
       trackingEligibility: "TRACK",
       decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
       controlledBestSixApplied: true,
-      trackingAdmissionSource: "CONTROLLED_BEST_SIX",
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX_DISPLAY",
     }),
   ];
-  const { cohort } = buildResultsTrackingCohort(candidates);
+  const { cohort } = buildResultsTrackingCohort(candidates, {
+    sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    trackAllBestSixDisplay: true,
+  });
   assert.strictEqual(cohort.length, 1);
   assert.strictEqual(cohort[0].trackingType, "OFFICIAL");
   assert.strictEqual(cohort[0].excludedFromOfficialRecord, false);
   assert.ok(isOfficialResultsProp(cohort[0]));
+}
+
+function testBoardOnlyDisplayBestSixTracked() {
+  const candidates = [
+    makePick({
+      player: "Board Only Star",
+      trackingType: "TEST",
+      trackingEligibility: "BOARD_ONLY",
+      decisionIntelligence: { trackEligibility: "BOARD_ONLY", bestSixEligibility: true },
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      resultsAdmissionEligible: true,
+      resultsDecisionLabel: "BOARD_ONLY",
+    }),
+  ];
+  const { cohort } = buildResultsTrackingCohort(candidates, {
+    sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    trackAllBestSixDisplay: true,
+  });
+  assert.strictEqual(cohort.length, 1);
+  assert.strictEqual(cohort[0].resultsDecisionLabel, "BOARD_ONLY");
+  assert.ok(isBestSixDisplayResultsProp(cohort[0]));
+  assert.ok(isOfficialResultsProp(cohort[0]));
+}
+
+function testNoBetEligibilityDisplayBestSixTracked() {
+  const candidates = [
+    makePick({
+      player: "No Bet Label",
+      trackingType: "TEST",
+      trackingEligibility: "NO_BET",
+      decisionIntelligence: { trackEligibility: "NO_BET", bestSixEligibility: true },
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      resultsAdmissionEligible: true,
+      resultsDecisionLabel: "NO_BET",
+    }),
+  ];
+  const { cohort } = buildResultsTrackingCohort(candidates, {
+    sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    trackAllBestSixDisplay: true,
+  });
+  assert.strictEqual(cohort.length, 1);
+  assert.strictEqual(cohort[0].resultsDecisionLabel, "NO_BET");
+  assert.ok(isOfficialResultsProp(cohort[0]));
+}
+
+function testControlledCohortUsesDisplayBestSix() {
+  const candidates = Array.from({ length: 8 }, (_, i) =>
+    makePick({
+      player: `Player ${i + 1}`,
+      team: `Team${i + 1}`,
+      pickScore: 90 - i,
+      trackingType: "TEST",
+    })
+  );
+  const game = makeGame(candidates.slice(0, 4), candidates);
+  const selection = selectControlledBestSixCombined([game]);
+  const displayCohort = [
+    ...(selection.bestSixDisplayWNBA || []),
+    ...(selection.bestSixDisplayNBA || []),
+  ];
+  const bundle = buildControlledTrackingCohort({ gameCards: [game] });
+  assert.ok(displayCohort.length >= bundle.trackingCohort.length);
+  assert.ok(
+    bundle.trackingCohort.length >= selection.bestSixWNBA.length,
+    "display cohort should track at least as many as TRACK-gated Results pool"
+  );
 }
 
 const tests = [
@@ -284,6 +367,9 @@ const tests = [
   ["12 opposite-side conflict excluded", testOppositeSideConflictExcluded],
   ["stable key exists", testStableKeyExistsForCohort],
   ["13 TRACK reader-demoted stored as OFFICIAL", testTrackAdmittedReaderDemotedPromotedToOfficial],
+  ["14 BOARD_ONLY display Best 6 tracked", testBoardOnlyDisplayBestSixTracked],
+  ["15 NO_BET eligibility display Best 6 tracked", testNoBetEligibilityDisplayBestSixTracked],
+  ["16 controlled cohort uses display Best 6", testControlledCohortUsesDisplayBestSix],
 ];
 
 let passed = 0;

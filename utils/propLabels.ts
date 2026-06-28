@@ -36,6 +36,20 @@ export function getPropDisplayLabels(prop: any = {}): PropDisplayLabel {
     badges.unshift(`Top #${prop.topPickRank}`);
   }
 
+  const decisionLabel = String(
+    prop.resultsDecisionLabel ||
+      prop.decisionIntelligence?.trackEligibility ||
+      prop.trackingEligibility ||
+      ""
+  ).toUpperCase();
+  if (decisionLabel === "TRACK") {
+    badges.push("Track");
+  } else if (decisionLabel === "BOARD_ONLY") {
+    badges.push("Board Only");
+  } else if (decisionLabel === "NO_BET") {
+    badges.push("No Bet");
+  }
+
   if (prop.noPlay) {
     badges.push("No Play");
   } else if (String(prop.trackingType || prop.recordType || "").toUpperCase() === "TEST") {

@@ -486,7 +486,7 @@ export function collectAllGeneratedProps(gameCards = []) {
 }
 
 export const TRACKING_COHORT_VERSION =
-  "results-tracking-cohort-v2-controlled-best-six";
+  "results-tracking-cohort-v3-track-all-best-six";
 export { QUALITY_GATE_VERSION };
 
 function normalizeTrackingSide(side = "") {
@@ -502,8 +502,47 @@ function getPickDecision(pick = {}) {
   ).toUpperCase();
 }
 
+function resolveDisplayResultsDecisionLabel(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const sr = pick.sideRescue || {};
+  let label = String(
+    pick.resultsDecisionLabel ||
+      pick.trackingEligibility ||
+      di.trackEligibility ||
+      pick.wnbaTrackingDecision ||
+      ""
+  ).toUpperCase();
+  const sideRescueAction = String(
+    pick.sideRescueAction || sr.action || ""
+  ).toUpperCase();
+  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
+    label = sideRescueAction;
+  }
+  return label;
+}
+
+/** Controlled Best 6 display cohort — TRACK, BOARD_ONLY, and NO_BET all admit to Results. */
+export function isBestSixDisplayResultsProp(pick = {}) {
+  if (pick.homeStaged === true) return false;
+  if (isPreV1ShadowProp(pick)) return false;
+
+  const fromDisplay =
+    pick.controlledBestSixDisplay === true ||
+    pick.controlledBestSixDisplayTracked === true ||
+    pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY";
+
+  if (!fromDisplay) return false;
+
+  const label = resolveDisplayResultsDecisionLabel(pick);
+  if (!label) return true;
+  if (label === "SHADOW_ONLY") return false;
+  return ["TRACK", "BOARD_ONLY", "NO_BET"].includes(label);
+}
+
 /** TRACK-admitted Best 6 props count as official Results record regardless of reader TEST demotion. */
 export function isTrackAdmittedResultsProp(pick = {}) {
+  if (isBestSixDisplayResultsProp(pick)) return true;
+
   const di = pick.decisionIntelligence || {};
   const eligibility = String(
     pick.trackingEligibility ||
@@ -523,7 +562,7 @@ export function isTrackAdmittedResultsProp(pick = {}) {
 }
 
 function resolveResultsTrackingRecordType(pick = {}) {
-  if (isTrackAdmittedResultsProp(pick)) {
+  if (isBestSixDisplayResultsProp(pick) || isTrackAdmittedResultsProp(pick)) {
     return "OFFICIAL";
   }
   return getPickDecision(pick);
@@ -708,6 +747,7 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     }
 
     if (
+      !options.trackAllBestSixDisplay &&
       isWnbaQualityGatePick(gatedPick) &&
       gatedPick.trackingEligibility &&
       gatedPick.trackingEligibility !== "TRACK"
@@ -770,16 +810,26 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     const recordType = resolveResultsTrackingRecordType(gatedPick);
     auditEntry.decision = recordType;
 
+    const isDisplayCohort =
+      options.trackAllBestSixDisplay === true ||
+      options.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY";
     const normalizedPick = {
       ...gatedPick,
       trackingType: recordType,
       recordType,
-      trackingAdmissionSource:
-        options.sourcePool === "CONTROLLED_BEST_SIX"
+      resultsDecisionLabel:
+        gatedPick.resultsDecisionLabel ||
+        resolveDisplayResultsDecisionLabel(gatedPick) ||
+        null,
+      trackingAdmissionSource: isDisplayCohort
+        ? "CONTROLLED_BEST_SIX_DISPLAY"
+        : options.sourcePool === "CONTROLLED_BEST_SIX"
           ? "CONTROLLED_BEST_SIX"
           : gatedPick.trackingAdmissionSource || "LEGACY_QUALITY_GATE",
       controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
-      controlledBestSixApplied: options.sourcePool === "CONTROLLED_BEST_SIX",
+      controlledBestSixApplied:
+        isDisplayCohort || options.sourcePool === "CONTROLLED_BEST_SIX",
+      controlledBestSixDisplayTracked: isDisplayCohort,
       sourcePool: options.sourcePool || gatedPick.sourcePool || null,
     };
     if (recordType === "TEST") {
@@ -808,10 +858,11 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
   return { cohort, audit };
 }
 
-export const CONTROLLED_TRACKING_COHORT_VERSION = "controlled-tracking-cohort-v1";
+export const CONTROLLED_TRACKING_COHORT_VERSION =
+  "controlled-tracking-cohort-v2-track-all-best-six";
 
 /**
- * Shared tracking admission: full pool → Controlled Best 6 → Results cohort.
+ * Shared tracking admission: full pool → Controlled Best 6 display → Results cohort.
  * Used by refreshAllPicks, syncTrackedFromCache, /picks, /top-props.
  * Never admits via collectAllGeneratedProps (board-capped display picks).
  */
@@ -819,7 +870,7 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const gameCards = input.gameCards || [];
   const slateDate = input.slateDate || options.slateDate || getTodayLocalDate();
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
-  const sourcePool = options.sourcePool || "CONTROLLED_BEST_SIX";
+  const sourcePool = options.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY";
   const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
 
   const fullGeneratedCandidates =
@@ -831,14 +882,19 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     options.controlledSelection ||
     selectControlledBestSixCombined(gameCards, options.selectorOptions || {});
 
-  const bestSixWNBA = selection.bestSixWNBA || [];
-  const bestSixNBA = selection.bestSixNBA || [];
-  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
+  const bestSixDisplayWNBA =
+    selection.bestSixDisplayWNBA || selection.bestSixWNBA || [];
+  const bestSixDisplayNBA =
+    selection.bestSixDisplayNBA || selection.bestSixNBA || [];
+  const bestSixWNBA = bestSixDisplayWNBA;
+  const bestSixNBA = bestSixDisplayNBA;
+  const bestSixCohort = [...bestSixDisplayWNBA, ...bestSixDisplayNBA];
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
     buildResultsTrackingCohort(bestSixCohort, {
       todayLocalDate,
       sourcePool,
+      trackAllBestSixDisplay: true,
     });
 
   const bestSixSnapshot = {
@@ -870,7 +926,7 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     trackingCohortCount: trackingCohort.length,
     controlledBestSixAudit: selection.controlledBestSixAudit || null,
     trackingCohortAudit,
-    admissionPath: "CONTROLLED_BEST_SIX",
+    admissionPath: "CONTROLLED_BEST_SIX_DISPLAY",
     collectAllGeneratedPropsBypass: false,
   };
 
@@ -915,7 +971,7 @@ export function buildTrackingCohortDiagnostics(
   const allCandidates = collectAllGeneratedCandidatesFromGames(gameCards);
   const cohortBundle = buildControlledTrackingCohort(
     { gameCards, fullGeneratedCandidates: allCandidates },
-    { todayLocalDate, sourcePool: "CONTROLLED_BEST_SIX" }
+    { todayLocalDate, sourcePool: "CONTROLLED_BEST_SIX_DISPLAY" }
   );
   const controlledSelection = cohortBundle.controlledSelection;
   const cohort = cohortBundle.trackingCohort;

@@ -279,7 +279,7 @@ export default function LeagueControlledBestSixScreen({
                 value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
               />
               <SummaryMetric
-                label="Results Track"
+                label="Results Tracked"
                 value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
               />
               <SummaryMetric
@@ -300,8 +300,8 @@ export default function LeagueControlledBestSixScreen({
               {isHome ? `Tomorrow — ${league} Best 6` : "Controlled Best 6"}
             </Text>
             <Text style={styles.sectionSubtext}>
-              Top {summary.bestSixLimit} board ranks · TRACK-only → Results (
-              {summary.controlledBestSixTrack ?? summary.controlledBestSix} admitted)
+              Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
+              {summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
             </Text>
             {bestSixCards.map((pick, index) => (
               <PropCard

@@ -240,9 +240,10 @@ function compareCandidatesForDisplay(a = {}, b = {}) {
   return scoreCandidateForDisplay(b) - scoreCandidateForDisplay(a);
 }
 
-/** True when prop is admitted to the Results TRACK cohort (not display Decision alone). */
+/** True when prop is in the Results tracked cohort (all Controlled Best 6 display members). */
 export function isResultsPoolTrackProp(pick = {}) {
   if (pick.resultsAdmissionEligible === true) return true;
+  if (pick.controlledBestSixDisplayTracked === true) return true;
   if (pick.resultsAdmissionEligible === false) return false;
   const di = pick.decisionIntelligence || {};
   return (
@@ -453,10 +454,8 @@ export function buildLeagueControlledSummary({
           dateView,
           bestSixLimit
         ));
-  const resultsTrackCount = filteredResults.filter(
-    (p) => resolveTrackEligibility(p) === "TRACK"
-  ).length;
-  const displayResultsCount = dateScopedDisplay.filter(isResultsPoolTrackProp).length;
+  const scopedTotal = dateScopedDisplay.length;
+  const resultsTrackedCount = scopedTotal;
 
   const candidates = collectLeagueCandidatesFromGames(resolvedGames, leagueCode);
   const scopedCandidates = scopeCandidatesByDateView(candidates, dateView);
@@ -475,13 +474,12 @@ export function buildLeagueControlledSummary({
     topPickLimit
   );
 
-  const scopedTotal = dateScopedDisplay.length;
-
   return {
     league: leagueCode,
-    controlledBestSix: displayResultsCount,
+    controlledBestSix: resultsTrackedCount,
     controlledBestSixTotal: scopedTotal,
-    controlledBestSixTrack: resultsTrackCount,
+    controlledBestSixTrack: resultsTrackedCount,
+    resultsTrackedCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
     bestSixLimit,
     topPicks: topPickCount,
@@ -605,7 +603,7 @@ export function buildLeagueControlledBestSixReportText({
     "",
     "--- Summary ---",
     `Controlled Best 6: ${controlledTotal}/${bestSixLimit}`,
-    `Results Track: ${resultsTrack}/${bestSixLimit}`,
+    `Results Tracked: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
     `Board Track: ${summary.boardTrack ?? track}`,

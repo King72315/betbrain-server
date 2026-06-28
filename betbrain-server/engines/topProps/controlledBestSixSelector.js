@@ -1,6 +1,6 @@
 /**
  * Controlled Best 6 selector — full pool → analyze → rank → Best 6 → Top 2 from Best 6.
- * Display pool ranks from the fully analyzed board; TRACK-only Results admission runs after selection.
+ * Display pool ranks from the fully analyzed board; all 6 display props admit to Results (TRACK / BOARD_ONLY / NO_BET).
  */
 import { CONFIG } from "../../config.js";
 import { scoreNbaTopProp } from "./nbaTopPropScore.js";
@@ -30,7 +30,7 @@ import {
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-flip-first-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-track-all-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -356,33 +356,30 @@ function passesResultsEligibility(pick = {}) {
 
 export function annotateResultsAdmission(pick = {}) {
   const di = pick.decisionIntelligence || {};
-  const eligibility = String(
+  const sr = pick.sideRescue || {};
+  let eligibility = String(
     di.trackEligibility || pick.wnbaTrackingDecision || pick.trackingEligibility || "BOARD_ONLY"
   ).toUpperCase();
-  const eligible = eligibility === "TRACK" && di.bestSixEligibility === true;
-  let resultsAdmissionReason = "";
-
-  if (!eligible) {
-    if (eligibility !== "TRACK") {
-      resultsAdmissionReason =
-        di.simpleExplanation ||
-        pick.wnbaTrackingReason ||
-        `${eligibility} — not admitted to Results`;
-    } else {
-      const demotions = (di.demotionReasons || []).filter(Boolean);
-      resultsAdmissionReason =
-        demotions.join("; ") ||
-        di.simpleExplanation ||
-        pick.wnbaTrackingReason ||
-        "TRACK blocked from Results admission";
-    }
+  if (sr.action === "BOARD_ONLY" || sr.action === "NO_BET") {
+    eligibility = sr.action;
   }
+
+  const resultsDecisionLabel = eligibility;
+  const resultsTrackingWarning =
+    eligibility !== "TRACK"
+      ? di.simpleExplanation ||
+        pick.wnbaTrackingReason ||
+        `${eligibility} — tracked for learning`
+      : "";
 
   return {
     ...pick,
-    resultsAdmissionEligible: eligible,
-    resultsAdmissionReason: resultsAdmissionReason,
-    displayResultsReason: resultsAdmissionReason,
+    resultsAdmissionEligible: true,
+    resultsDecisionLabel,
+    resultsTrackingWarning,
+    resultsAdmissionReason: resultsTrackingWarning,
+    displayResultsReason: resultsTrackingWarning,
+    controlledBestSixDisplayTracked: true,
   };
 }
 

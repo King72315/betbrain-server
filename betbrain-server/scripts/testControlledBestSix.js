@@ -560,8 +560,8 @@ function testDisplayBestSixFromFullAnalyzedBoard() {
   assert.ok(trackInDisplay >= 1);
   assert.ok(results.bestSix.length <= trackInDisplay);
   assert.ok(
-    display.bestSix.some((pick) => pick.resultsAdmissionEligible === false),
-    "display Best 6 should include non-TRACK picks"
+    display.bestSix.every((pick) => pick.resultsAdmissionEligible === true),
+    "display Best 6 should all admit to Results"
   );
   assert.ok(
     results.bestSix.every(
@@ -604,11 +604,12 @@ function testDisplayDoesNotPreFilterBoardOnly() {
   const display = selectBestSixDisplay([strongBoard], "WNBA");
   assert.strictEqual(display.bestSix.length, 1);
   assert.notStrictEqual(display.bestSix[0].decisionIntelligence?.trackEligibility, "TRACK");
-  assert.strictEqual(display.bestSix[0].resultsAdmissionEligible, false);
+  assert.strictEqual(display.bestSix[0].resultsAdmissionEligible, true);
+  assert.ok(display.bestSix[0].resultsDecisionLabel);
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-flip-first-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],

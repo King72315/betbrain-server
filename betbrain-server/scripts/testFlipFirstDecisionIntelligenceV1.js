@@ -244,7 +244,7 @@ tests.push({
     });
     const result = selectBestSixDisplay([boardOnly], "WNBA");
     assert.ok(Array.isArray(result.bestSix));
-    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-flip-first-v1");
+    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
   },
 });
 

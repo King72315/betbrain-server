@@ -55,7 +55,7 @@ function LeagueTomorrowSection({
           {league} — Tomorrow
         </Text>
         <Text style={styles.leagueSubtext}>
-          Controlled Best 6 · Top 2 on Top tab · TRACK-only → Results
+          Controlled Best 6 · Top 2 on Top tab · All 6 → Results
         </Text>
       </View>
 
@@ -70,7 +70,7 @@ function LeagueTomorrowSection({
               value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
             />
             <SummaryMetric
-              label="Results Track"
+              label="Results Tracked"
               value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
             />
             <SummaryMetric

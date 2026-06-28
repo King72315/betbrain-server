@@ -493,7 +493,7 @@ test("30 display Best 6 can exceed TRACK-only Results Best 6", () => {
   const results = selectControlledBestSix(pool, "WNBA");
   assert.ok(display.bestSix.length >= results.bestSix.length);
   assert.ok(
-    display.bestSix.some((pick) => pick.resultsAdmissionEligible === false)
+    display.bestSix.every((pick) => pick.resultsAdmissionEligible === true)
   );
   assert.ok(results.bestSix.every((pick) => pick.resultsAdmissionEligible !== false));
 });
@@ -506,7 +506,7 @@ test("31 summary uses display pool for controlled total", () => {
     dateView: "full_board",
   });
   assert.strictEqual(summary.controlledBestSixTotal, 2);
-  assert.strictEqual(summary.controlledBestSixTrack, 1);
+  assert.strictEqual(summary.controlledBestSixTrack, 2);
 });
 
 test("32 acceptance: 15 candidates yield 6 display Best 6 with full brain", () => {
@@ -560,7 +560,7 @@ test("32 acceptance: 15 candidates yield 6 display Best 6 with full brain", () =
   assert.strictEqual(display.bestSix.length, BEST_SIX_LIMIT);
   assert.ok(display.bestSix.every((p) => p.decisionIntelligence?.trueRisk));
   assert.ok(display.bestSix.every((p) => p.sideRescue || p.decisionIntelligence));
-  assert.ok(display.bestSix.some((p) => p.resultsAdmissionEligible === false));
+  assert.ok(display.bestSix.every((p) => p.resultsAdmissionEligible === true));
   assert.ok(results.bestSix.every((p) => p.decisionIntelligence?.trackEligibility === "TRACK"));
   assert.ok(display.bestSix.length > results.bestSix.length);
 });
@@ -724,22 +724,26 @@ test("41 tomorrow display fills to 6 from board candidates", () => {
   assert.strictEqual(board.bestSixCards[5].bestSixRank, 6);
 });
 
-test("42 Results Track uses Results pool not display Decision TRACK", () => {
+test("42 Results Tracked counts all display Best 6 members", () => {
   const displayTrackNotResults = {
     ...tomorrowPick,
     player: "DeWanna Bonner",
     decisionIntelligence: {
-      trackEligibility: "TRACK",
+      trackEligibility: "BOARD_ONLY",
       bestSixEligibility: false,
       simpleExplanation: "Side rescue demoted",
     },
-    resultsAdmissionEligible: false,
+    resultsAdmissionEligible: true,
+    resultsDecisionLabel: "BOARD_ONLY",
+    controlledBestSixDisplayTracked: true,
   };
   const resultsTrack = {
     ...tomorrowPick,
     player: "Marina Mabrey",
     decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true },
     resultsAdmissionEligible: true,
+    resultsDecisionLabel: "TRACK",
+    controlledBestSixDisplayTracked: true,
   };
 
   const board = buildLeagueBestSixBoard({
@@ -757,9 +761,10 @@ test("42 Results Track uses Results pool not display Decision TRACK", () => {
     dateView: "tomorrow",
   });
 
-  assert.strictEqual(board.summary.controlledBestSixTrack, 1);
-  assert.strictEqual(isResultsPoolTrackProp(displayTrackNotResults), false);
-  assert.strictEqual(board.bestSixCards[1].resultsAdmissionEligible, false);
+  assert.strictEqual(board.summary.controlledBestSixTrack, 2);
+  assert.strictEqual(isResultsPoolTrackProp(displayTrackNotResults), true);
+  assert.strictEqual(board.bestSixCards[1].resultsAdmissionEligible, true);
+  assert.strictEqual(board.bestSixCards[1].resultsDecisionLabel, "BOARD_ONLY");
 });
 
 test("43 top picks count derives from display Best 6 ranks not Results pool", () => {
