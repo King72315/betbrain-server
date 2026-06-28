@@ -69,8 +69,7 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
   const availability = card.injuryAvailability || pick.availabilityGate || {};
   const availabilityDataMissing =
     pick.availabilityDataMissing === true ||
-    availability.availabilityDataMissing === true ||
-    (availability.level === "UNKNOWN" && availability.availabilityDataMissing !== false);
+    availability.availabilityDataMissing === true;
   const defenseProxyUsed =
     pick.defenseProxyUsed === true ||
     card.opponentDefense?.proxyUsed === true ||

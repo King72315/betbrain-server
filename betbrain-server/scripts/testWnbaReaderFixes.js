@@ -8,7 +8,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { interpretLineMovement } from "../engines/marketIntelligenceEngine.js";
 import { readWnbaProp, mapReaderToTracking } from "../engines/wnba/wnbaReaderEngine.js";
-import { evaluateWnbaAvailability } from "../services/wnbaAvailabilityService.js";
+import {
+  buildWnbaAvailabilityEvaluation,
+  evaluateWnbaAvailability,
+} from "../services/wnbaAvailabilityService.js";
 import { buildTopPicksReview } from "../services/topPicksSnapshotService.js";
 import { countDuplicateStableKeys } from "../services/slateLockService.js";
 import { isCourteEdgeWnbaV2Enabled, WNBA_ENGINE_HANDLED } from "../engines/wnba/wnbaDecisionEngine.js";
@@ -132,18 +135,42 @@ function testUnderLineRiseAgainst() {
   console.log("✓ 7 Under line rise marked movedAgainstPickSide");
 }
 
-async function testUnknownAvailabilityMissingData() {
-  const avail = await evaluateWnbaAvailability({
+async function testAvailabilityFeedVsActive() {
+  const feedFailed = buildWnbaAvailabilityEvaluation({
+    feed: { feedFetchOk: false, httpStatus: 503, rowCount: 0, errorReason: "http_503" },
+    playerName: "Test Player",
+    league: "WNBA",
+  });
+  assert.strictEqual(feedFailed.statusLevel, "UNKNOWN");
+  assert.strictEqual(feedFailed.availabilityDataMissing, true);
+  assert.strictEqual(feedFailed.availabilityRisk, true);
+  assert.strictEqual(feedFailed.availabilitySourceStatus, "SOURCE_UNAVAILABLE");
+  assert.ok(feedFailed.dangerPressure > 0);
+  assert.strictEqual(feedFailed.blocksOfficial, false);
+
+  const feedOkNotListed = buildWnbaAvailabilityEvaluation({
+    feed: { feedFetchOk: true, httpStatus: 200, rowCount: 0, rows: [] },
+    playerName: "Active Player Not Listed",
+    league: "WNBA",
+  });
+  assert.strictEqual(feedOkNotListed.statusLevel, "ACTIVE");
+  assert.strictEqual(feedOkNotListed.availabilityDataMissing, false);
+  assert.strictEqual(feedOkNotListed.availabilityRisk, false);
+  assert.strictEqual(feedOkNotListed.availabilitySourceStatus, "OK");
+  assert.strictEqual(feedOkNotListed.availabilityMessage, "Active — not on injury report");
+
+  const live = await evaluateWnbaAvailability({
     playerName: "No Feed Player XYZ",
     league: "WNBA",
   });
-  assert.strictEqual(avail.statusLevel, "UNKNOWN");
-  assert.strictEqual(avail.availabilityDataMissing, true);
-  assert.strictEqual(avail.availabilityRisk, true);
-  assert.strictEqual(avail.availabilitySourceStatus, "SOURCE_UNAVAILABLE");
-  assert.ok(avail.dangerPressure > 0);
-  assert.strictEqual(avail.blocksOfficial, false);
-  console.log("✓ 8 unknown availability = missing data + uncertainty risk");
+  if (live.feedFetchOk) {
+    assert.strictEqual(live.statusLevel, "ACTIVE");
+    assert.strictEqual(live.availabilityDataMissing, false);
+  } else {
+    assert.strictEqual(live.availabilityDataMissing, true);
+    assert.strictEqual(live.availabilitySourceStatus, "SOURCE_UNAVAILABLE");
+  }
+  console.log("✓ 8 feed fail = missing; feed OK + not listed = ACTIVE");
 }
 
 function testReaderOfficialDemotedFlag() {
@@ -321,7 +348,7 @@ async function main() {
   testOverLineRiseSupport();
   testUnderLineDropSupport();
   testUnderLineRiseAgainst();
-  await testUnknownAvailabilityMissingData();
+  await testAvailabilityFeedVsActive();
   testReaderOfficialDemotedFlag();
   testOfficialDemotionReasonStored();
   testTestCalibrationSplitHelpers();

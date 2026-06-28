@@ -54,6 +54,8 @@ function testAvailabilityMapping() {
   assert.strictEqual(classifyWnbaInjuryStatus("Doubtful").level, "LIMITED");
   assert.strictEqual(classifyWnbaInjuryStatus("Limited").level, "LIMITED");
   assert.strictEqual(classifyWnbaInjuryStatus("Questionable").level, "QUESTIONABLE");
+  assert.strictEqual(classifyWnbaInjuryStatus("Day-To-Day").level, "QUESTIONABLE");
+  assert.strictEqual(classifyWnbaInjuryStatus("day to day").level, "QUESTIONABLE");
   assert.strictEqual(classifyWnbaInjuryStatus("Active").level, "ACTIVE");
 }
 
