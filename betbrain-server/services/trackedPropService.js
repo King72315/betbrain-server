@@ -1722,6 +1722,12 @@ function mapPickToTrackedFields(pick = {}) {
       pick.decisionDataIntelligence?.version ??
       null,
     flipFirstLabels: pick.flipFirstLabels ?? null,
+    opponentHistoryComparison: pick.opponentHistoryComparison ?? null,
+    opponentHistoryComparisonVersion:
+      pick.opponentHistoryComparisonVersion ??
+      pick.opponentHistoryComparison?.version ??
+      null,
+    opponentHistoryLabel: pick.opponentHistoryLabel ?? null,
     flipFirstAction: pick.flipFirstAction ?? pick.flipFirstDecision?.action ?? null,
     flipFirstFlipped: pick.flipFirstFlipped ?? false,
   };

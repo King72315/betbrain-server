@@ -50,6 +50,7 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
     ddi.sameTeamCollision,
     ddi.marketIntelligence,
     ddi.availabilityImpact,
+    ddi.opponentHistoryComparison,
     ddi.projectionQuality,
   ];
   for (const mod of modules) {
@@ -70,6 +71,22 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
       problems.push({ code: "SAME_TEAM_COLLISION", reason: mod.reasons?.[0] || "Same-team collision." });
     }
   }
+
+  const ohc = ddi.opponentHistoryComparison?.comparison || {};
+  const oppHist = ddi.opponentHistoryComparison?.opponentHistory || {};
+  if (
+    !oppHist.noHistory &&
+    ohc.agreement === "CONTRADICTS_RECENT" &&
+    (ohc.weight || 0) >= 0.55 &&
+    ohc.flipSignal &&
+    ohc.flipSignal !== "NONE"
+  ) {
+    problems.push({
+      code: "OPPONENT_HISTORY_CONTRADICTS",
+      reason: ohc.reasons?.[0] || "Opponent history contradicts recent form.",
+    });
+  }
+
   return problems;
 }
 
@@ -94,13 +111,19 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
     ["usageShare", ddi.usageShare],
     ["marketIntelligence", ddi.marketIntelligence],
     ["availabilityImpact", ddi.availabilityImpact],
+    ["opponentHistoryComparison", ddi.opponentHistoryComparison],
     ["projectionQuality", ddi.projectionQuality],
   ];
-  for (const [, mod] of modules) {
+  for (const [key, mod] of modules) {
     if (!mod) continue;
-    if (impactSupportsSide(mod.sideImpact, side)) score += 8;
-    if (impactAgainstSide(mod.sideImpact, side)) score -= 10;
-    if (mod.score != null) score += Math.round((num(mod.score) - 50) * 0.15);
+    const weight =
+      key === "opponentHistoryComparison"
+        ? mod.comparison?.weight || (mod.opponentHistory?.noHistory ? 0 : 0.55)
+        : 1;
+    if (weight <= 0) continue;
+    if (impactSupportsSide(mod.sideImpact, side)) score += Math.round(8 * weight);
+    if (impactAgainstSide(mod.sideImpact, side)) score -= Math.round(10 * weight);
+    if (mod.score != null) score += Math.round((num(mod.score) - 50) * 0.15 * weight);
   }
 
   if (side === "OVER") {

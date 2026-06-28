@@ -6,6 +6,10 @@ import { evaluateUsageShareIntelligence } from "./usageShareIntelligenceV1.js";
 import { evaluateSameTeamUsageCollision } from "./sameTeamUsageCollisionV1.js";
 import { evaluateMarketMovementIntelligence } from "./marketMovementIntelligenceV1.js";
 import { evaluateAvailabilityImpact } from "./availabilityImpactV1.js";
+import {
+  evaluateOpponentHistoryComparison,
+  buildOpponentHistoryCompactLabel,
+} from "./opponentHistoryComparisonV1.js";
 import { evaluateFlipFirstSideSelection } from "./flipFirstSideSelectionV1.js";
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 
@@ -134,6 +138,23 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     reasons.push("Same-team collision pressure.");
   }
 
+  const ohc = ddi.opponentHistoryComparison?.comparison || {};
+  if (ohc.agreement === "NO_HISTORY" || ddi.opponentHistoryComparison?.opponentHistory?.noHistory) {
+    // Neutral — no penalty for missing opponent history.
+  } else if (ohc.confidenceImpact === "BOOST") {
+    confidenceAdjustment += Math.round(4 * (ohc.weight || 1));
+    reasons.push("Opponent history agrees with recent form.");
+  } else if (ohc.confidenceImpact === "REDUCE") {
+    confidenceAdjustment -= Math.round(4 * (ohc.weight || 0.55));
+    reasons.push("Opponent history contradicts recent form.");
+  }
+  if (ohc.riskImpact === "RAISE") {
+    riskAdjustment = riskAdjustment === "ELEVATE" ? "ELEVATE" : "MONITOR";
+    reasons.push("Opponent history raises risk.");
+  } else if (ohc.riskImpact === "LOWER") {
+    reasons.push("Opponent history lowers risk.");
+  }
+
   if (flipDecision.action === "BOTH_SIDES_WEAK") {
     decisionAdjustment = "PASS";
     bestSixImpact = "BOARD_OR_NO_BET";
@@ -184,6 +205,15 @@ export function evaluateDecisionDataIntelligence(pick = {}, options = {}) {
     side: evalSide,
   });
 
+  const opponentHistoryComparison = evaluateOpponentHistoryComparison(pick, {
+    dataCard,
+    reader,
+    side: evalSide,
+    line: pick.line,
+    last5: options.last5 || pick.last5,
+    matchupGames: options.matchupGames || pick.matchupGames,
+  });
+
   const projectionQuality = evaluateProjectionQuality(pick, {
     dataCard,
     reader,
@@ -200,6 +230,7 @@ export function evaluateDecisionDataIntelligence(pick = {}, options = {}) {
     sameTeamCollision,
     marketIntelligence,
     availabilityImpact,
+    opponentHistoryComparison,
     projectionQuality,
   };
 
@@ -224,11 +255,15 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     options.decisionDataIntelligence ||
     evaluateDecisionDataIntelligence(pick, options);
 
+  const labels = buildFlipFirstCompactLabels(ddi);
   return {
     ...pick,
     decisionDataIntelligence: ddi,
     decisionDataIntelligenceVersion: DECISION_DATA_INTELLIGENCE_VERSION,
-    flipFirstLabels: buildFlipFirstCompactLabels(ddi),
+    flipFirstLabels: labels,
+    opponentHistoryComparison: ddi.opponentHistoryComparison,
+    opponentHistoryComparisonVersion: ddi.opponentHistoryComparison?.version,
+    opponentHistoryLabel: labels.opponentHistory,
   };
 }
 
@@ -253,6 +288,9 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
       : "CONFIRMED";
   const projectionStatus = ddi.projectionQuality?.status || "MIXED";
   const flipCheck = ddi.flipFirstDecision?.action || "KEPT_ORIGINAL";
+  const opponentHistory = buildOpponentHistoryCompactLabel(
+    ddi.opponentHistoryComparison || {}
+  );
 
   return {
     usage: usageStatus,
@@ -260,6 +298,7 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
     market: marketStatus,
     availability: availabilityStatus,
     projectionQuality: projectionStatus,
+    opponentHistory,
     flipCheck,
   };
 }
@@ -283,6 +322,8 @@ export function runFlipFirstDecisionPipeline(pick = {}, options = {}) {
     teamCandidates: options.teamCandidates,
     slateCandidates: options.slateCandidates,
     impliedTeamTotal: options.impliedTeamTotal,
+    last5: options.last5,
+    matchupGames: options.matchupGames,
   });
 
   const fd = enriched.decisionDataIntelligence?.flipFirstDecision;

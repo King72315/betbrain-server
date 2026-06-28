@@ -320,6 +320,25 @@ function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
     }
   }
 
+  const ohc = candidate.opponentHistoryComparison || {};
+  const cmp = ohc.comparison || {};
+  const oppHist = ohc.opponentHistory || {};
+  if (
+    !oppHist.noHistory &&
+    cmp.agreement === "CONTRADICTS_RECENT" &&
+    (cmp.weight || 0) >= 0.55
+  ) {
+    debts.push(
+      debtItem({
+        code: "OPPONENT_HISTORY_CONTRADICTS",
+        severity: cmp.weight >= 1 ? "MEDIUM" : "LOW",
+        reason: "Opponent history contradicts recent form.",
+        side: metrics.side,
+        repairable: true,
+      })
+    );
+  }
+
   const unique = [];
   const seen = new Set();
   for (const item of debts) {
@@ -484,6 +503,19 @@ function collectWnbaRiskRepairs(candidate = {}, metrics = {}, gate = {}) {
         code: "STRONG_OPPORTUNITY_SCORE",
         reason: "Opportunity score is strong.",
         strength: "MODERATE",
+      })
+    );
+  }
+
+  const ohc = candidate.opponentHistoryComparison || {};
+  const cmp = ohc.comparison || {};
+  const oppHist = ohc.opponentHistory || {};
+  if (!oppHist.noHistory && cmp.agreement === "AGREES_WITH_RECENT" && (cmp.weight || 0) >= 0.55) {
+    repairs.push(
+      repairItem({
+        code: "OPPONENT_HISTORY_AGREES",
+        reason: "Opponent history agrees with recent form.",
+        strength: cmp.weight >= 1 ? "STRONG" : "MODERATE",
       })
     );
   }

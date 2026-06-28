@@ -708,7 +708,8 @@ export async function fetchLast3VsOpponent(
     });
 
     if (probe.matchupGames?.length) {
-      const matches = probe.matchupGames.slice(0, 3);
+      const maxGames = options.maxGames || 3;
+      const matches = probe.matchupGames.slice(0, maxGames);
       console.log(
         "🔥 LAST3 VS OPP RESULT (games-first):",
         league,

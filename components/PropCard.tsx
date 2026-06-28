@@ -96,6 +96,11 @@ export default function PropCard({
   const volumeDangerGates = pick.volumeDangerGates || {};
   const availabilityGate = pick.availabilityGate || {};
   const defenseResult = pick.defenseResult || {};
+  const opponentHistoryLabel =
+    pick.opponentHistoryLabel ??
+    pick.flipFirstLabels?.opponentHistory ??
+    pick.decisionDataIntelligence?.flipFirstLabels?.opponentHistory ??
+    null;
   const openingLine =
     pick.openingLine ?? marketIntelligence.openingLine;
   const currentLine =
@@ -209,9 +214,20 @@ export default function PropCard({
         {flipLabels ? (
           <View style={styles.bestSixFlipRow}>
             <Metric label="Availability" value={flipLabels.availability || "—"} />
+            <Metric label="Opp Hist" value={flipLabels.opponentHistory || "—"} />
             <Metric label="Proj Q" value={flipLabels.projectionQuality || "—"} />
+          </View>
+        ) : null}
+        {flipLabels ? (
+          <View style={styles.bestSixFlipRow}>
             <Metric label="Flip" value={flipLabels.flipCheck || "—"} />
           </View>
+        ) : null}
+
+        {opponentHistoryLabel ? (
+          <Text style={styles.bestSixOppHistLine}>
+            Opponent History: {opponentHistoryLabel}
+          </Text>
         ) : null}
 
         {whyText ? (
@@ -641,6 +657,11 @@ export default function PropCard({
         <Text style={styles.ledgerMeta}>
           Availability: {formatAvailabilitySummary(availabilityGate, league)}
         </Text>
+        {opponentHistoryLabel ? (
+          <Text style={styles.ledgerMeta}>
+            Opponent History: {opponentHistoryLabel}
+          </Text>
+        ) : null}
         {wnbaV2 && dataIntegrity ? (
           <View style={styles.previewBox}>
             <Text style={styles.ledgerMeta}>
@@ -1130,6 +1151,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 17,
+  },
+  bestSixOppHistLine: {
+    color: "#a5b4fc",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
   },
   bestSixResultsBox: {
     backgroundColor: "#422006",

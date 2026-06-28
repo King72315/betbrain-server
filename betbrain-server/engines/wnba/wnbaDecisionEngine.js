@@ -471,6 +471,8 @@ export async function evaluateWnbaPropDecision(context = {}) {
     teamCandidates: context.teamCandidates,
     slateCandidates: context.slateCandidates,
     impliedTeamTotal: pickGameContext?.impliedTeamTotal,
+    last5,
+    matchupGames,
   });
 
   const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
