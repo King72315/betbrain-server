@@ -230,7 +230,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-lab-slate-rotation-v1";
+const SERVER_BUILD = "courteedge-lab-slate-rotation-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
