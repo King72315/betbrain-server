@@ -1,3 +1,5 @@
+import { resolveWnbaGraduatedDataMode } from "./wnbaGraduatedDataModeV1.js";
+
 function num(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -24,7 +26,40 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
     pick.projection ?? card.projection?.projection ?? pick.expectedPoints
   );
   const projectionGap = side === "OVER" ? projection - line : line - projection;
-  const dataMode = String(pick.dataMode || card.dataMode || "").toUpperCase();
+  const availability = card.injuryAvailability || pick.availabilityGate || {};
+  const availabilityDataMissing =
+    pick.availabilityDataMissing === true ||
+    availability.availabilityDataMissing === true;
+  const defenseProxyUsed =
+    pick.defenseProxyUsed === true ||
+    card.opponentDefense?.proxyUsed === true ||
+    String(card.opponentDefense?.label || "").toLowerCase() === "neutral";
+  const missingFlags = (card.dataMissingFlags || pick.dataMissingFlags || []).filter(
+    (f) => f?.missing
+  );
+  const league = String(pick.league || card.league || "").toUpperCase();
+  const dataMode =
+    league === "WNBA"
+      ? resolveWnbaGraduatedDataMode({
+          league,
+          dataMissingFlags: card.dataMissingFlags || pick.dataMissingFlags || [],
+          dataAvailabilityFlags: card.dataAvailabilityFlags || pick.dataAvailabilityFlags,
+          playerId: card.playerId || pick.playerId || "",
+          last5Count: num(card.last5?.games ?? card.last5?.pointsList?.length),
+          seasonPoints: num(card.season?.points ?? pick.seasonAverage),
+          recentMinutes: num(pick.recentMinutes ?? card.last5?.minutes ?? pick.minutesAverage),
+          seasonMinutes: num(card.season?.minutes ?? pick.seasonMinutes),
+          recentFGA: num(pick.recentFGA ?? card.last5?.fga ?? pick.fgaAverage),
+          seasonFGA: num(card.season?.fga ?? pick.seasonFGA),
+          bookCount: num(pick.bookCount ?? card.bookCount),
+          projection: num(pick.projection ?? card.projection?.projection ?? pick.expectedPoints),
+          availabilityDataMissing,
+          defenseMissing: defenseProxyUsed,
+          matchupMissing:
+            num(card.matchupAverage ?? pick.matchupAverage) <= 0 &&
+            !(card.matchupGames || pick.matchupGames || []).length,
+        })
+      : String(pick.dataMode || card.dataMode || "NBA_FULL_DATA").toUpperCase();
   const minutes = num(
     pick.recentMinutes ?? card.last5?.minutes ?? pick.minutesAverage
   );
@@ -66,17 +101,6 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
   const recent = num(card.last5?.points ?? pick.last5Average);
   const ptsPerFGA = num(card.last5?.ptsPerFGA);
   const seasonPtsPerFGA = num(card.season?.ptsPerFGA);
-  const availability = card.injuryAvailability || pick.availabilityGate || {};
-  const availabilityDataMissing =
-    pick.availabilityDataMissing === true ||
-    availability.availabilityDataMissing === true;
-  const defenseProxyUsed =
-    pick.defenseProxyUsed === true ||
-    card.opponentDefense?.proxyUsed === true ||
-    String(card.opponentDefense?.label || "").toLowerCase() === "neutral";
-  const missingFlags = (card.dataMissingFlags || pick.dataMissingFlags || []).filter(
-    (f) => f?.missing
-  );
 
   return {
     side,

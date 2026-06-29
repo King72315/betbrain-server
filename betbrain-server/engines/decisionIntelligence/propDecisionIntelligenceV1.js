@@ -13,6 +13,12 @@ import {
   isWnbaQualityGatePick,
   resolveQualityGateInputs,
 } from "../wnba/wnbaGateInputs.js";
+import {
+  collectWnbaDataCoverageDebts,
+  hasMaterialDataCoverageGaps,
+  pickPrimaryDebtExplanation,
+  sortRiskDebtsForDisplay,
+} from "../wnba/wnbaGraduatedDataModeV1.js";
 
 export const DECISION_INTELLIGENCE_VERSION = "courtedge-decision-intelligence-v1";
 
@@ -100,21 +106,9 @@ function riskLabelFromTrueRisk(trueRisk = "") {
 }
 
 function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
-  const debts = [];
+  const debts = [...collectWnbaDataCoverageDebts(candidate, metrics)];
   const side = metrics.side;
   const dangerStack = gate.dangerGateStack || [];
-
-  if (metrics.dataMode === "WNBA_LIMITED_DATA") {
-    debts.push(
-      debtItem({
-        code: "WNBA_LIMITED_DATA",
-        severity: "MEDIUM",
-        reason: "WNBA sample size is limited; stronger proof required.",
-        side: "BOTH",
-        repairable: true,
-      })
-    );
-  }
 
   for (const key of dangerStack) {
     const mapped = DANGER_DEBT_MAP[key];
@@ -583,7 +577,7 @@ function isRepairableProfile(riskDebts = [], riskRepairs = []) {
 }
 
 function isCleanLowRiskProfile(metrics = {}, riskDebts = [], gate = {}) {
-  if (metrics.dataMode === "WNBA_LIMITED_DATA") return false;
+  if (hasMaterialDataCoverageGaps(riskDebts)) return false;
   if (metrics.volatility === "unstable" || metrics.volatility === "volatile") return false;
   if (hasKillDebt(riskDebts)) return false;
   if (countHighDebts(riskDebts) > 0) return false;
@@ -619,7 +613,6 @@ function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepair
     trueRisk = "LOW";
   } else if (gate.trackingEligibility === "TRACK") {
     if (
-      metrics.dataMode === "WNBA_LIMITED_DATA" ||
       metrics.volatility === "unstable" ||
       metrics.volatility === "volatile" ||
       countHighDebts(riskDebts) >= 1
@@ -693,8 +686,8 @@ function resolveEligibility(trueRisk = "", gate = {}, riskDebts = [], riskRepair
 function buildWhatWouldMakeItBetter(riskDebts = [], metrics = {}, gate = {}) {
   const tips = [];
   for (const debt of riskDebts) {
-    if (debt.code === "WNBA_LIMITED_DATA") {
-      tips.push("Need stronger multi-book edge and stable volume to overcome limited data.");
+    if (String(debt.code || "").startsWith("MISSING_")) {
+      tips.push(`Need ${debt.reason || debt.code.replace(/_/g, " ").toLowerCase()}.`);
     }
     if (debt.code === "UNSTABLE_MINUTES" || debt.code === "VOLATILE_MINUTES") {
       tips.push("Need stable minutes trend over last 5 games.");
@@ -730,11 +723,13 @@ function buildSimpleExplanation({
   gate = {},
 }) {
   const sideLabel = side === "OVER" ? "Over" : side === "UNDER" ? "Under" : "prop";
-  const mainDebt = riskDebts[0]?.code?.replace(/_/g, " ").toLowerCase() || "minor concerns";
+  const mainDebt = pickPrimaryDebtExplanation(riskDebts);
   const mainRepair = riskRepairs[0]?.code?.replace(/_/g, " ").toLowerCase() || "supporting evidence";
 
   if (trackEligibility === "NO_BET") {
-    return `NO_BET — ${gate.wnbaTrackingReason || mainDebt}. Not eligible for Results or Top Picks.`;
+    const reason =
+      mainDebt !== "minor concerns" ? mainDebt : gate.wnbaTrackingReason || mainDebt;
+    return `NO_BET — ${reason}. Not eligible for Results or Top Picks.`;
   }
   if (trackEligibility === "BOARD_ONLY") {
     return `BOARD_ONLY — ${sideLabel} has ${mainDebt}. ${gate.wnbaTrackingReason || "Not enough evidence to track."}`;

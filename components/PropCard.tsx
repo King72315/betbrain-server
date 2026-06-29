@@ -1054,6 +1054,7 @@ function getActual(pick: any) {
 
 function formatDataMode(mode: string) {
   if (mode === "NBA_FULL_DATA") return "NBA Full Data";
+  if (mode === "WNBA_FULL_DATA" || mode === "WNBA_FULL") return "WNBA Full Data";
   if (mode === "WNBA_LIMITED_DATA") return "WNBA Limited Data";
   return mode;
 }

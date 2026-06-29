@@ -148,7 +148,7 @@ test("01 Low Risk requires clean profile", () => {
   assert.strictEqual(di.trueRisk, "LOW");
 });
 
-test("02 WNBA_LIMITED_DATA unstable minutes cannot be Low", () => {
+test("02 unstable minutes cannot be Low regardless of data mode", () => {
   const pick = live0625Pick("Natisha Hiedeman", "OVER", 15.5, {
     minutesVolatility: "unstable",
     projection: { projection: 19.5, expectedMinutes: 28, expectedFGA: 11 },
@@ -159,7 +159,7 @@ test("02 WNBA_LIMITED_DATA unstable minutes cannot be Low", () => {
   assert.notStrictEqual(di.trueRisk, "LOW");
 });
 
-test("03 WNBA_LIMITED_DATA volatile minutes cannot be Low", () => {
+test("03 volatile minutes cannot be Low regardless of data mode", () => {
   const pick = live0625Pick("Jessica Shepard", "OVER", 12.5, {
     minutesVolatility: "volatile",
     projection: { projection: 17, expectedMinutes: 26, expectedFGA: 10 },
@@ -211,7 +211,7 @@ test("07 volatile WNBA Under demoted unless elite", () => {
   assert.notStrictEqual(di.trackEligibility, "TRACK");
 });
 
-test("08 elite Over TRACK but Medium with limited data", () => {
+test("08 elite Over TRACK stays Medium on thin gap not blanket limited data", () => {
   const pick = live0625Pick("Azzi Fudd", "OVER", 13.5, {
     minutesVolatility: "stable",
     projection: { projection: 18, expectedMinutes: 28, expectedFGA: 10 },
@@ -470,6 +470,42 @@ test("25 06/25 named examples match expectations", () => {
     if (c.notTrack) assert.notStrictEqual(di.trackEligibility, "TRACK", c.name);
     if (c.notLow) assert.notStrictEqual(di.trueRisk, "LOW", c.name);
   }
+});
+
+test("26 graduated complete-data WNBA can earn LOW", () => {
+  const pick = makeWnbaPick({
+    wnbaDataCard: baseCard({
+      dataMode: "WNBA_FULL_DATA",
+      minutesVolatility: "stable",
+      projection: { projection: 18, expectedMinutes: 28, expectedFGA: 11 },
+      last5: { points: 17, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 5, fairLineQuality: 70 },
+    }),
+    side: "Over",
+    netEdge: 9,
+  });
+  const di = evaluateDi(pick);
+  assert.strictEqual(di.trueRisk, "LOW");
+  assert.ok(!di.riskDebts.some((d) => d.code === "WNBA_LIMITED_DATA"));
+});
+
+test("27 incomplete WNBA explanation cites specific missing debt", () => {
+  const pick = makeWnbaPick({
+    wnbaDataCard: baseCard({
+      last5: { points: 10, minutes: 24, fga: 9, ptsPerFGA: 1.05, games: 1 },
+      projection: { projection: 18, expectedMinutes: 28, expectedFGA: 11 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 5, fairLineQuality: 70 },
+      dataMissingFlags: [
+        { key: "last5", missing: true, note: "Only 1 recent games" },
+      ],
+    }),
+    side: "Over",
+    netEdge: 9,
+  });
+  const di = evaluateDi(pick);
+  assert.ok(di.riskDebts.some((d) => d.code === "MISSING_LAST5"));
+  assert.ok(!di.simpleExplanation.toLowerCase().includes("wnba limited data"));
+  assert.ok(di.simpleExplanation.toLowerCase().includes("recent games"));
 });
 
 let passed = 0;

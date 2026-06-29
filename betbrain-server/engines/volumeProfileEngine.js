@@ -1,3 +1,8 @@
+import {
+  isWnbaLimitedDataMode,
+  resolveWnbaGraduatedDataMode,
+} from "./wnba/wnbaGraduatedDataModeV1.js";
+
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -101,7 +106,23 @@ export function buildVolumeProfile({
   const volumeStability = deriveVolumeStability(opportunity, roleChange);
   const efficiencyWarning = deriveEfficiencyWarning(playerState, opportunity);
 
-  const wnbaLimitedData = league === "WNBA";
+  const dataMode =
+    league === "WNBA"
+      ? resolveWnbaGraduatedDataMode({
+          league,
+          dataAvailabilityFlags: playerState.dataAvailabilityFlags,
+          playerId: playerState.playerId || "",
+          last5Count: num(playerState.last5Count) || num(opportunity.last5Count),
+          seasonPoints: num(playerState.seasonPoints),
+          recentMinutes,
+          seasonMinutes,
+          recentFGA,
+          seasonFGA,
+          bookCount: num(playerState.bookCount),
+          projection: num(playerState.sportsProjection ?? opportunity.projection),
+        })
+      : "NBA_FULL_DATA";
+  const wnbaLimitedData = isWnbaLimitedDataMode(dataMode);
 
   return {
     recentMinutes,
@@ -117,7 +138,7 @@ export function buildVolumeProfile({
     volatility,
     efficiencyWarning,
     wnbaLimitedData,
-    dataMode: wnbaLimitedData ? "WNBA_LIMITED_DATA" : "NBA_FULL_DATA",
+    dataMode,
     minutesDelta: num(roleChange.expectedMinutesDelta),
     fgaDelta: num(roleChange.expectedFGADelta),
     ftaDelta: num(roleChange.expectedFTADelta),

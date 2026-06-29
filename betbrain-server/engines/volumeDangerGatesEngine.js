@@ -103,13 +103,6 @@ export function evaluateVolumeDangerGates({
     resistanceScore += pickSide === "OVER" ? 8 : 3;
   }
 
-  if (wnbaLimitedData) {
-    gates.push("wnba_limited_data");
-    dangerReasons.push("WNBA limited-data caution");
-    dangerPressure += 0.06;
-    resistanceScore += 3;
-  }
-
   if (
     pickSide === "OVER" &&
     minutesDelta <= -4 &&

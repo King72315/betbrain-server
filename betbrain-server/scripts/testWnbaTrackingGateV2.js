@@ -247,11 +247,17 @@ test("09 multiple danger gates prevent Low Risk", () => {
   assert.notStrictEqual(risked.riskLabel, "Low Risk");
 });
 
-test("10 limited-data Under cannot be Low Risk unless clean", () => {
+test("10 incomplete-data Under cannot be Low Risk", () => {
   const pick = makeWnbaPick({
     side: "Under",
     riskLabel: "Low Risk",
     wnbaDataCard: baseCard({
+      playerId: "",
+      last5: { points: 10, minutes: 24, fga: 9, ptsPerFGA: 1.05, games: 1 },
+      dataMissingFlags: [
+        { key: "playerId", missing: true, note: "No stable BallDontLie player id" },
+        { key: "last5", missing: true, note: "Only 1 recent games" },
+      ],
       projection: { projection: 8, expectedMinutes: 24, expectedFGA: 9 },
       fairLine: { fairLineSide: "UNDER", fairLineEdge: 4.5, fairLineQuality: 65 },
     }),
@@ -400,7 +406,10 @@ test("15 Top Picks only from Best 6", () => {
 });
 
 test("16 risk label ceiling saved on gate apply", () => {
-  const pick = makeWnbaPick({ riskLabel: "Low Risk", dataMode: "WNBA_LIMITED_DATA" });
+  const pick = makeWnbaPick({
+    riskLabel: "Low Risk",
+    wnbaDataCard: baseCard({ minutesVolatility: "volatile" }),
+  });
   const gate = evaluateWnbaTrackingGateV2(pick);
   const risked = applyWnbaRiskCeiling(pick, gate);
   assert.ok(risked.riskAfterCeiling);
@@ -499,16 +508,18 @@ test("25 live 06/25 Natisha Hiedeman O15.5 TRACK not Low", () => {
   assertRiskNotLow(pick, gate);
 });
 
-test("26 live 06/25 Azzi Fudd O13.5 TRACK not Low", () => {
+test("26 live 06/25 Azzi Fudd O13.5 TRACK clean complete data can be Low", () => {
   const pick = live0625Pick("Azzi Fudd", "OVER", 13.5, {
     minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
     projection: { projection: 18, expectedMinutes: 28, expectedFGA: 10 },
     last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
     fairLine: { fairLineSide: "OVER", fairLineEdge: 4.5, fairLineQuality: 65 },
   }, { netEdge: 8 });
   const gate = evaluateWnbaTrackingGateV2(pick);
   assert.strictEqual(gate.wnbaTrackingDecision, "TRACK");
-  assertRiskNotLow(pick, gate);
+  const risked = applyWnbaRiskCeiling(pick, gate);
+  assert.strictEqual(risked.riskLabel, "Low Risk");
 });
 
 test("27 live 06/25 Jessica Shepard O12.5 not Low Risk", () => {

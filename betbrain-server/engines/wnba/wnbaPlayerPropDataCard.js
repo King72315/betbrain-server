@@ -14,6 +14,7 @@ import {
 } from "./wnbaDataRecoveryV1.js";
 import { resolveStableWnbaPlayerId } from "./wnbaPlayerIdResolver.js";
 import { evaluateWnbaAvailability } from "../../services/wnbaAvailabilityService.js";
+import { resolveWnbaGraduatedDataMode } from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -319,7 +320,7 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
 
   return {
     version: "wnba-data-card-v2",
-    dataMode: playerState.dataMode || "",
+    dataMode: resolveWnbaGraduatedDataMode({ league: "WNBA", dataMissingFlags }),
     playerId: effectivePlayerId,
     player: playerName,
     team,

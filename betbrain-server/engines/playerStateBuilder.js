@@ -4,6 +4,7 @@ import {
   getSeasonMinutes,
   getSeasonPoints,
 } from "../services/sportsDataService.js";
+import { resolveWnbaGraduatedDataMode } from "./wnba/wnbaGraduatedDataModeV1.js";
 
 function num(value) {
   const n = Number(value);
@@ -205,9 +206,6 @@ export function buildPlayerState({
     ? Number(avg(matchupGames.map((g) => g.points)).toFixed(1))
     : null;
 
-  const dataMode =
-    league === "WNBA" ? "WNBA_LIMITED_DATA" : "NBA_FULL_DATA";
-
   const dataAvailabilityFlags = buildDataAvailabilityFlags({
     league,
     last5,
@@ -218,6 +216,23 @@ export function buildPlayerState({
     sportsProjection,
     bookCount: num(prop.bookCount),
   });
+
+  const dataMode =
+    league === "WNBA"
+      ? resolveWnbaGraduatedDataMode({
+          league,
+          dataAvailabilityFlags,
+          playerId,
+          last5Count: last5.length,
+          seasonPoints,
+          recentMinutes,
+          seasonMinutes,
+          recentFGA,
+          seasonFGA,
+          bookCount: num(prop.bookCount),
+          projection: num(sportsProjection),
+        })
+      : "NBA_FULL_DATA";
 
   const dataAvailability = computeDataAvailability(dataAvailabilityFlags);
   const sourceConfidence = computeSourceConfidence(
