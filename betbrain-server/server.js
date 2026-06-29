@@ -216,6 +216,7 @@ import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Servi
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
 import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
 import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
+import { promoteLabSlate0628Archive0621 } from "./services/promoteLabSlate0628Archive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
   isOfficialPick,
@@ -230,7 +231,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-lab-slate-rotation-v2";
+const SERVER_BUILD = "courteedge-promote-lab-0628-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3698,6 +3699,46 @@ app.post("/admin/repair-slate-rotation", requireAdminSecret, (req, res) => {
   }
 });
 
+app.post("/admin/promote-lab-0628-archive-0621", requireAdminSecret, async (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        archiveDate: "2026-06-21",
+        targetLabDate: "2026-06-28",
+        description:
+          "Merge 06/28 Best 6 props if missing, grade, build Lab report, archive 06/21 to History.",
+      });
+    }
+
+    const result = await promoteLabSlate0628Archive0621({
+      dryRun,
+      skipResolve: Boolean(req.body?.skipResolve),
+      restorePath: req.body?.restorePath,
+      backupReason: req.body?.backupReason || "pre-promote-lab-0628-archive-0621-v1",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Promote Lab 06/28 + archive 06/21 dry-run complete"
+        : "Promote Lab 06/28 + archive 06/21 applied",
+      result,
+    });
+  } catch (error) {
+    console.log("PROMOTE LAB 0628 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Promote Lab 06/28 repair failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/repair-lab-slate-rotation", requireAdminSecret, (req, res) => {
   try {
     const confirm = Boolean(req.body?.confirm);
@@ -3987,6 +4028,25 @@ if (process.env.RUN_AUDIT === "1") {
         console.log("STARTUP RESLATE 0622 V1:", JSON.stringify(reslateResult));
       } catch (error) {
         console.log("STARTUP RESLATE 0622 V1 ERROR:", error.message);
+      }
+    }
+
+    if (process.env.COURTEDGE_PROMOTE_LAB_0628_V1 === "true") {
+      try {
+        const promoteResult = await promoteLabSlate0628Archive0621({
+          source: "startup_promote_lab_0628_v1",
+        });
+        console.log(
+          "STARTUP PROMOTE LAB 0628 V1:",
+          JSON.stringify({
+            backupId: promoteResult.backupId,
+            after0628: promoteResult.after0628,
+            archive621: promoteResult.archive621,
+            meta: promoteResult.meta,
+          })
+        );
+      } catch (error) {
+        console.log("STARTUP PROMOTE LAB 0628 V1 ERROR:", error.message);
       }
     }
 
