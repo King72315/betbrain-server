@@ -2,7 +2,44 @@
 
 **Branch:** `betbrain-v2-rebuild`  
 **Date:** 2026-06-28  
-**SERVER_BUILD:** `courteedge-lab-slate-rotation-v1`
+**SERVER_BUILD:** `courteedge-archive-lab-0621-v1`
+
+---
+
+## Update: Archive stuck Lab 06/21 without replacement (2026-06-28)
+
+### Problem
+
+Prod Lab remained pinned to `currentLabSlateDate: "2026-06-21"` with a LAB-phase archive bundle. The 06/28 promotion path was not desired for this repair.
+
+### Fix
+
+| Area | Change |
+|------|--------|
+| `archiveLabSlate0621Service.js` | Targeted repair — archives 06/21 when it is current Lab; no 06/28 merge |
+| `scripts/archiveLabSlate0621.js` | Render-shell runner (backup + `archiveSlate`) |
+| `server.js` | `POST /admin/archive-lab-slate-0621` (`dryRun` + `confirm`) |
+| `testSlateRotationLifecycle.js` | Test 27: archive-without-replacement → empty Lab |
+
+### Prod repair
+
+```bash
+# Dry run
+curl -X POST "$API/admin/archive-lab-slate-0621" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+
+# Apply (creates backup first)
+curl -X POST "$API/admin/archive-lab-slate-0621" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
+Or on Render shell: `node scripts/archiveLabSlate0621.js` (add `--dry-run` first).
+
+Does **not** call `/clear-tracked-props` or `promoteLabSlate0628Archive0621`.
 
 ---
 

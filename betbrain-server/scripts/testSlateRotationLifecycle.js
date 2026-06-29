@@ -88,7 +88,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 26 tests\n");
+console.log("\nSlate Rotation Lifecycle — 27 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
@@ -326,6 +326,22 @@ test("26 archived bundles are not stale Lab candidates", () => {
   const rotation = computeSlateRotation(reports, { archives, today: TODAY });
   const stale = getStaleLabArchiveCandidates(rotation, archives);
   assert.deepEqual(stale, []);
+});
+
+test("27 archive 06/21 without replacement leaves empty Lab", () => {
+  const reports = [makeCompletedReport("2026-06-21")];
+  const archives = [makeArchive("2026-06-21", "LAB")];
+  const before = computeSlateRotation(reports, { archives, today: TODAY });
+  assert.equal(before.currentLabSlateDate, "2026-06-21");
+
+  const archivedArchives = archives.map((entry) =>
+    entry.slateDate === "2026-06-21"
+      ? { ...entry, phase: "ARCHIVED" }
+      : entry
+  );
+  const after = computeSlateRotation(reports, { archives: archivedArchives, today: TODAY });
+  assert.equal(after.currentLabSlateDate, null);
+  assert.ok(after.historySlateDates.includes("2026-06-21"));
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

@@ -216,6 +216,7 @@ import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Servi
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
 import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
 import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
+import { archiveLabSlate0621 } from "./services/archiveLabSlate0621Service.js";
 import { promoteLabSlate0628Archive0621 } from "./services/promoteLabSlate0628Archive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
@@ -231,7 +232,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-promote-lab-0628-v1";
+const SERVER_BUILD = "courteedge-archive-lab-0621-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3734,6 +3735,45 @@ app.post("/admin/promote-lab-0628-archive-0621", requireAdminSecret, async (req,
     res.status(500).json({
       ok: false,
       message: "Promote Lab 06/28 repair failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/archive-lab-slate-0621", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Archive requires confirm: true or dryRun: true",
+        targetArchiveDate: "2026-06-21",
+        description:
+          "Archive stuck 2026-06-21 from Lab without promoting a replacement slate. Preserves tracked props.",
+      });
+    }
+
+    const result = archiveLabSlate0621({
+      dryRun,
+      backupReason: req.body?.backupReason || "pre-archive-lab-slate-0621-v1",
+    });
+
+    res.json({
+      ok: result.ok,
+      message: dryRun
+        ? "Archive Lab 06/21 dry-run complete"
+        : result.ok
+          ? "Archive Lab 06/21 applied"
+          : result.message,
+      result,
+    });
+  } catch (error) {
+    console.log("ARCHIVE LAB SLATE 0621 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Archive Lab 06/21 failed",
       error: error.message,
     });
   }
