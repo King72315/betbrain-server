@@ -41,6 +41,12 @@ Or on Render shell: `node scripts/archiveLabSlate0621.js` (add `--dry-run` first
 
 Does **not** call `/clear-tracked-props` or `promoteLabSlate0628Archive0621`.
 
+**Commits:** `42f17c0` (service + endpoint), `07b430e` (Render startup hook `COURTEDGE_ARCHIVE_LAB_0621_V1`).
+
+**Prod before (2026-06-29):** `serverBuild=courteedge-promote-lab-0628-v1`, `currentLabSlateDate=2026-06-21`, `historySlateDates=[]`. `ADMIN_SECRET` not configured on Render (admin endpoint returns 503).
+
+**Prod apply:** Render shell `node scripts/archiveLabSlate0621.js` (or set `COURTEDGE_ARCHIVE_LAB_0621_V1=true` in Render env and redeploy). Startup hook added in `07b430e` via `render.yaml` for automatic one-time run on next blueprint sync/deploy.
+
 ---
 
 ## Update: Lab shows only current slate (2026-06-28)
