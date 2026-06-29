@@ -6,7 +6,9 @@ import { buildEngineReportCardBundle } from "./engineReportCardService.js";
 import { getSlateDateCT, getTrackedProps, getTrackedPropsForSlate } from "./trackedPropService.js";
 import {
   archiveSlate,
+  getAllHistoryArchives,
   getHistoryArchive,
+  getLockedSlatesRegistry,
   getLockedSnapshot,
   getQuarantinedSlatesFromRegistry,
   isSlateLocked,
@@ -23,6 +25,7 @@ import {
   archiveTopPicksSnapshotToReportMetadata,
 } from "./topPicksSnapshotService.js";
 import {
+  computeSlateRotation,
   filterOutQuarantinedReports,
   filterReportsOnOrAfterCutoff,
   filterValidDailyReports,
@@ -902,21 +905,79 @@ function buildTierLabBuckets(props = []) {
   return buckets;
 }
 
-function rotateOlderLabArchives(reports = []) {
-  const finals = filterReportsOnOrAfterCutoff(reports)
-    .filter((report) => String(report.reportStatus || report.status) === "final")
-    .sort((a, b) => String(b.slateDate).localeCompare(String(a.slateDate)));
+/** Slate dates with LAB-phase archives that should move to History. */
+export function getStaleLabArchiveCandidates(rotation = {}, archives = []) {
+  const keepLabDate = rotation.currentLabSlateDate;
+  const candidates = new Set();
 
-  if (finals.length < 2) return;
-
-  for (let i = 1; i < finals.length; i += 1) {
-    const older = finals[i];
-    const existing = getHistoryArchive(older.slateDate);
-    if (!existing?.props?.length) continue;
-    if (existing.phase === "ARCHIVED") continue;
-    archiveSlate(older.slateDate, { report: older });
-    clearActiveTopPicksSnapshot(older.slateDate);
+  for (const archive of archives) {
+    const slateDate = String(archive?.slateDate || "");
+    if (!slateDate || slateDate === keepLabDate) continue;
+    if (!archive?.props?.length) continue;
+    if (String(archive.phase || "").toUpperCase() === "ARCHIVED") continue;
+    candidates.add(slateDate);
   }
+
+  return [...candidates].sort();
+}
+
+/** Archive LAB-phase bundles superseded by the current Lab slate (rotation-aware). */
+export function rotateStaleLabArchives(options = {}) {
+  const trackedProps = options.trackedProps ?? getTrackedProps();
+  const reports = options.reports ?? getRawDailySlateReports();
+  const archives = options.archives ?? getAllHistoryArchives();
+  const lockedSlates =
+    options.lockedSlates ?? getLockedSlatesRegistry().slates ?? [];
+  const quarantinedSlates =
+    options.quarantinedSlates ?? getQuarantinedSlatesFromRegistry();
+  const today = options.today ?? getTodayLocalDate();
+
+  const rotation = computeSlateRotation(reports, {
+    lockedSlates,
+    archives,
+    trackedProps,
+    quarantinedSlates,
+    today,
+  });
+
+  const keepLabDate = rotation.currentLabSlateDate;
+  const archived = [];
+  const skipped = [];
+
+  for (const slateDate of getStaleLabArchiveCandidates(rotation, archives)) {
+    const existing = getHistoryArchive(slateDate);
+    if (!existing?.props?.length) {
+      skipped.push({ slateDate, reason: "no_archive_props" });
+      continue;
+    }
+    if (String(existing.phase || "").toUpperCase() === "ARCHIVED") {
+      skipped.push({ slateDate, reason: "already_archived" });
+      continue;
+    }
+
+    const report =
+      reports.find((item) => String(item.slateDate || "") === slateDate) ||
+      existing.report ||
+      null;
+    const result = archiveSlate(slateDate, { report });
+    if (result.ok) {
+      clearActiveTopPicksSnapshot(slateDate);
+      archived.push({ slateDate, message: result.message });
+    } else {
+      skipped.push({ slateDate, reason: result.message || "archive_failed" });
+    }
+  }
+
+  return {
+    currentLabSlateDate: keepLabDate,
+    historySlateDates: rotation.historySlateDates,
+    archived,
+    skipped,
+  };
+}
+
+function rotateOlderLabArchives(reports = []) {
+  rotateStaleLabArchives({ reports });
 }
 
 function getLedgerForLearning(prop = {}) {

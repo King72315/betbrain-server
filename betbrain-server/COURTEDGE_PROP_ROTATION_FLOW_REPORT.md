@@ -1,9 +1,60 @@
 # CourtEdge Prop Rotation Flow Report
 
 **Branch:** `betbrain-v2-rebuild`  
-**Date:** 2026-06-26  
-**SERVER_BUILD (unchanged):** `courteedge-best-six-display-fix-v1`  
-**Latest commit:** _(see git log — fa212a1 rotation pass, then league-split pass)_
+**Date:** 2026-06-28  
+**SERVER_BUILD:** `courteedge-lab-slate-rotation-v1`
+
+---
+
+## Update: Lab shows only current slate (2026-06-28)
+
+### Root cause
+
+1. **Client:** `prop-lab.tsx` rendered a slate picker from **all** `validCompletedReports`, so older finals (06/21, 06/24, 06/27) stayed selectable in Lab even after rotation classified them as History.
+2. **Server:** `rotateOlderLabArchives` archived by “second-newest final report” only; it ignored `computeSlateRotation` and failed when registry entries were missing. LAB-phase archives could remain visible to Lab prop loading.
+
+### Fix
+
+| Area | Change |
+|------|--------|
+| `app/(tabs)/prop-lab.tsx` | Lab binds to `currentLabSlateDate` only; no multi-slate picker; props load from non-ARCHIVED archive for current Lab slate |
+| `dailySlateReportService.js` | `getStaleLabArchiveCandidates` + `rotateStaleLabArchives` (rotation-aware); called on every report build |
+| `slateLockService.js` | `archiveSlate` works when archive exists but registry entry is missing |
+| `repairLabSlateRotationService.js` | Safe prod repair — archives stale LAB bundles, optional rebuild; **does not** clear tracked props |
+| `server.js` | `POST /admin/repair-lab-slate-rotation` |
+
+### Prod repair (if old LAB slates still visible)
+
+```bash
+# Dry run
+curl -X POST "$API/admin/repair-lab-slate-rotation" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+
+# Apply (creates backup first)
+curl -X POST "$API/admin/repair-lab-slate-rotation" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
+Then refresh Prop Lab in the app (pull-to-refresh runs resolve + report build).
+
+### Before / After Lab behavior
+
+| Before | After |
+|--------|-------|
+| Picker listed every completed daily report | Single chip: current Lab slate only |
+| Selecting 06/21 loaded archived props in Lab | Lab props/reports only for `currentLabSlateDate` |
+| Stale LAB-phase archives could persist | Build + repair archive them to History (`phase: ARCHIVED`) |
+
+Today's data is preserved: repair only changes archive `phase` and registry metadata; tracked props, snapshots, and reports are not deleted.
+
+---
+
+**Prior update date:** 2026-06-26  
+**Prior SERVER_BUILD:** `courteedge-best-six-display-fix-v1`  
 
 ---
 

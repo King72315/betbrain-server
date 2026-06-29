@@ -615,14 +615,28 @@ export function archiveSlate(slateDate, options = {}) {
   if (!date) return { ok: false, message: "Missing slateDate" };
 
   const registry = getRegistry();
-  const index = registry.slates.findIndex((s) => s.slateDate === date);
-
-  if (index < 0) {
-    return { ok: false, message: `Slate ${date} is not in registry` };
-  }
-
+  let index = registry.slates.findIndex((s) => s.slateDate === date);
   const now = new Date().toISOString();
   const existingArchive = getHistoryArchive(date) || {};
+
+  if (index < 0) {
+    if (!existingArchive?.props?.length && !options.props?.length) {
+      return { ok: false, message: `Slate ${date} is not in registry and has no archive` };
+    }
+
+    registry.slates.push({
+      slateDate: date,
+      phase: SLATE_PHASE.ARCHIVED,
+      propCount:
+        existingArchive.propCount ||
+        existingArchive.props?.length ||
+        options.props?.length ||
+        0,
+      historyArchiveFile: `history-archive/${date}.json`,
+      archivedAt: now,
+    });
+    index = registry.slates.length - 1;
+  }
 
   writeJSON(historyArchivePath(date), {
     ...existingArchive,

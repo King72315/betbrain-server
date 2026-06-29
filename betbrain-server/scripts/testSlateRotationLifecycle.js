@@ -10,6 +10,7 @@ import {
   isCompletedSlate,
   pickActiveResultsSlateDate,
 } from "../services/slateScopeService.js";
+import { getStaleLabArchiveCandidates } from "../services/dailySlateReportService.js";
 
 const TODAY = "2026-06-25";
 
@@ -87,7 +88,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 24 tests\n");
+console.log("\nSlate Rotation Lifecycle — 26 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
@@ -303,6 +304,28 @@ test("24 completed slate excluded from Lab when still active Results", () => {
   const rotation = computeSlateRotation(reports, { trackedProps: tracked, today: TODAY });
   assert.equal(rotation.activeResultsSlateDate, activeDate);
   assert.equal(rotation.currentLabSlateDate, LAB_CANDIDATE_DATE);
+});
+
+test("25 stale LAB archive candidates exclude current Lab slate", () => {
+  const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
+  const archives = [
+    makeArchive("2026-06-21", "LAB"),
+    makeArchive(LAB_CANDIDATE_DATE, "LAB"),
+  ];
+  const rotation = computeSlateRotation(reports, { archives, today: TODAY });
+  const stale = getStaleLabArchiveCandidates(rotation, archives);
+  assert.deepEqual(stale, ["2026-06-21"]);
+});
+
+test("26 archived bundles are not stale Lab candidates", () => {
+  const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
+  const archives = [
+    makeArchive("2026-06-21", "ARCHIVED"),
+    makeArchive(LAB_CANDIDATE_DATE, "LAB"),
+  ];
+  const rotation = computeSlateRotation(reports, { archives, today: TODAY });
+  const stale = getStaleLabArchiveCandidates(rotation, archives);
+  assert.deepEqual(stale, []);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

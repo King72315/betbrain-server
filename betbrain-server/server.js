@@ -215,6 +215,7 @@ import { classifyTestBoardProps, reslate0622Test } from "./services/reslate0622T
 import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Service.js";
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
 import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
+import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
   isOfficialPick,
@@ -229,7 +230,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-graduated-data-risk-v1";
+const SERVER_BUILD = "courteedge-lab-slate-rotation-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3692,6 +3693,43 @@ app.post("/admin/repair-slate-rotation", requireAdminSecret, (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Slate rotation repair failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/repair-lab-slate-rotation", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        description:
+          "Archives stale LAB bundles so only computeSlateRotation currentLabSlateDate remains in Lab. Preserves tracked props.",
+      });
+    }
+
+    const result = repairLabSlateRotation({
+      dryRun,
+      rebuildReports: req.body?.rebuildReports !== false,
+      backupReason: req.body?.backupReason || "pre-lab-slate-rotation-repair-v1",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Lab slate rotation repair dry-run complete"
+        : "Lab slate rotation repair applied",
+      result,
+    });
+  } catch (error) {
+    console.log("REPAIR LAB SLATE ROTATION ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab slate rotation repair failed",
       error: error.message,
     });
   }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   RefreshControl,
@@ -517,7 +517,6 @@ export default function PropLab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
-  const [selectedSlateDate, setSelectedSlateDate] = useState<string | null>(null);
   const [rotationMeta, setRotationMeta] = useState<{
     currentLabSlateDate: string | null;
     viewingHistorical: boolean;
@@ -540,16 +539,20 @@ export default function PropLab() {
   }, [reports, archives, rotationMeta]);
   const currentLabSlateDate =
     rotationMeta.currentLabSlateDate ?? slateRotation.currentLabSlateDate;
-  const viewedSlateDate = selectedSlateDate || currentLabSlateDate;
-  const isViewingHistoricalReport = Boolean(
-    viewedSlateDate &&
-      currentLabSlateDate &&
-      viewedSlateDate !== currentLabSlateDate
-  );
+  const viewedSlateDate = currentLabSlateDate;
+  const isViewingHistoricalReport = false;
   const validCompletedReports = useMemo(
     () => filterCompletedDailyReports(reports),
     [reports]
   );
+  const currentLabReport = useMemo(() => {
+    if (!currentLabSlateDate) return null;
+    return (
+      validCompletedReports.find(
+        (report) => String(report.slateDate) === currentLabSlateDate
+      ) || null
+    );
+  }, [currentLabSlateDate, validCompletedReports]);
   const historySlateCount =
     rotationMeta.historySlateDates.length || slateRotation.historySlates.length;
   const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
@@ -568,7 +571,7 @@ export default function PropLab() {
     );
   };
 
-  const loadReports = async (targetSlateDate?: string | null) => {
+  const loadReports = async () => {
     const list = await fetchDailySlateReports();
     const rawReports = list.reports || [];
     const validReports = filterValidDailyReports(rawReports);
@@ -579,20 +582,15 @@ export default function PropLab() {
       historySlateDates: list.historySlateDates || [],
     });
 
-    const labDate = list.currentLabSlateDate || computeSlateRotation(validReports, { archives }).currentLabSlateDate;
-    const slateToLoad = targetSlateDate || selectedSlateDate || labDate;
+    const labDate =
+      list.currentLabSlateDate ||
+      computeSlateRotation(validReports, { archives }).currentLabSlateDate;
 
-    if (slateToLoad) {
-      await loadReportForSlate(slateToLoad, validReports);
+    if (labDate) {
+      await loadReportForSlate(labDate, validReports);
     } else {
       setReport(null);
     }
-  };
-
-  const handleSelectSlate = async (slateDate: string) => {
-    setSelectedSlateDate(slateDate);
-    const validReports = filterValidDailyReports(reports);
-    await loadReportForSlate(slateDate, validReports);
   };
 
   const loadData = async () => {
@@ -650,13 +648,6 @@ export default function PropLab() {
     }, [])
   );
 
-  useEffect(() => {
-    if (!currentLabSlateDate) return;
-    if (!selectedSlateDate || selectedSlateDate === currentLabSlateDate) {
-      setSelectedSlateDate(currentLabSlateDate);
-    }
-  }, [currentLabSlateDate, selectedSlateDate]);
-
   const sectionA = report?.sections?.A;
   const sectionB = report?.sections?.B;
   const sectionC = report?.sections?.C;
@@ -681,13 +672,15 @@ export default function PropLab() {
   const leagueSplit = report?.leagueSplit || report?.sections?.L;
 
   const slateTrackedProps = useMemo(() => {
-    if (!viewedSlateDate) return [];
+    if (!currentLabSlateDate) return [];
     const archive = archives.find(
-      (item) => String(item.slateDate) === viewedSlateDate
+      (item) =>
+        String(item.slateDate) === currentLabSlateDate &&
+        String(item.phase || "").toUpperCase() !== "ARCHIVED"
     );
     if (archive?.props?.length) return archive.props;
     return [];
-  }, [viewedSlateDate, archives]);
+  }, [currentLabSlateDate, archives]);
 
   const labTrackingSummary = useMemo(
     () => computeLabSlateTrackingSummary(slateTrackedProps, sectionA),
@@ -785,8 +778,8 @@ export default function PropLab() {
             breakdowns. Active grading stays in Results until the slate is fully graded.
           </Text>
           <MetricRow
-            label="Reports Available"
-            value={String(validCompletedReports.length)}
+            label="Current Lab Slate"
+            value={currentLabSlateDate ? formatSlateLabel(currentLabSlateDate) : "—"}
           />
           <MetricRow
             label="History Slates"
@@ -795,34 +788,14 @@ export default function PropLab() {
           <CopyReportButton getReportText={getReportText} slateDate={viewedSlateDate} />
         </View>
 
-        {validCompletedReports.length > 1 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.slatePicker}
-            contentContainerStyle={styles.slatePickerContent}
-          >
-            {validCompletedReports.map((item) => {
-              const slateDate = String(item.slateDate);
-              const isActive = slateDate === viewedSlateDate;
-              return (
-                <TouchableOpacity
-                  key={slateDate}
-                  style={[styles.slateChip, isActive && styles.slateChipActive]}
-                  onPress={() => handleSelectSlate(slateDate)}
-                >
-                  <Text
-                    style={[
-                      styles.slateChipText,
-                      isActive && styles.slateChipTextActive,
-                    ]}
-                  >
-                    {formatSlateLabel(slateDate)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+        {currentLabSlateDate && currentLabReport ? (
+          <View style={styles.slatePicker}>
+            <View style={[styles.slateChip, styles.slateChipActive]}>
+              <Text style={[styles.slateChipText, styles.slateChipTextActive]}>
+                {formatSlateLabel(currentLabSlateDate)}
+              </Text>
+            </View>
+          </View>
         ) : null}
 
         <View style={styles.actionRow}>
@@ -845,7 +818,7 @@ export default function PropLab() {
             <Text style={styles.emptyText}>
               June 24 was excluded due to incomplete prod data. Today's active slate
               remains in Results until every prop grades. The next completed slate will
-              appear here automatically.
+              appear here automatically. Older completed slates are in History.
             </Text>
           </View>
         ) : null}
