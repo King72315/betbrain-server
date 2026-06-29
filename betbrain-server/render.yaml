@@ -19,3 +19,5 @@ services:
         sync: false
       - key: ADMIN_SECRET
         sync: false
+      - key: COURTEDGE_ARCHIVE_LAB_0621_V1
+        value: "true"

@@ -4071,6 +4071,26 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
+    if (process.env.COURTEDGE_ARCHIVE_LAB_0621_V1 === "true") {
+      try {
+        const archiveResult = archiveLabSlate0621({
+          backupReason: "startup-archive-lab-slate-0621-v1",
+        });
+        console.log(
+          "STARTUP ARCHIVE LAB 0621 V1:",
+          JSON.stringify({
+            ok: archiveResult.ok,
+            backupId: archiveResult.backupId,
+            archive621: archiveResult.archive621,
+            meta: archiveResult.meta,
+            message: archiveResult.message,
+          })
+        );
+      } catch (error) {
+        console.log("STARTUP ARCHIVE LAB 0621 V1 ERROR:", error.message);
+      }
+    }
+
     if (process.env.COURTEDGE_PROMOTE_LAB_0628_V1 === "true") {
       try {
         const promoteResult = await promoteLabSlate0628Archive0621({
