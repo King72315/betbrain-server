@@ -84,16 +84,25 @@ function LeagueTomorrowSection({
       ) : null}
 
       {!loading && !loadError && bestSixCards.length > 0 ? (
-        bestSixCards.map((pick, index) => (
-          <PropCard
-            key={`home-${league}-${pick.player}-${pick.line}-${index}`}
-            pick={pick}
-            index={index}
-            onSave={() => onSavePick(pick, league)}
-            showSaveHint
-            variant="bestSix"
-          />
-        ))
+        <View style={styles.bestSixSection}>
+          <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
+            Tomorrow — {league} Best 6
+          </Text>
+          <Text style={styles.sectionSubtext}>
+            Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
+            {summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
+          </Text>
+          {bestSixCards.map((pick, index) => (
+            <PropCard
+              key={`home-${league}-${pick.player}-${pick.line}-${index}`}
+              pick={pick}
+              index={index}
+              onSave={() => onSavePick(pick, league)}
+              showSaveHint
+              variant="bestSix"
+            />
+          ))}
+        </View>
       ) : null}
 
       {!loading && !loadError && bestSixCards.length === 0 ? (
@@ -109,6 +118,7 @@ function LeagueTomorrowSection({
 }
 
 export default function HomeControlledBestSixScreen() {
+  const [activeLeague, setActiveLeague] = useState<SupportedLeague>("NBA");
   const [picksData, setPicksData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -181,6 +191,7 @@ export default function HomeControlledBestSixScreen() {
   }, [picksData, bestSixLimit]);
 
   const todayLabel = useMemo(() => formatSlateMessageDate(getTodayLocalDate()), []);
+  const activeTheme = LEAGUE_THEME[activeLeague];
 
   const handleSavePick = async (pick: any, league: SupportedLeague) => {
     const saved = await savePick({
@@ -246,17 +257,46 @@ export default function HomeControlledBestSixScreen() {
           <CopyReportButton getReportText={getReportText} />
         </View>
 
+        <View style={styles.leagueTabRow}>
+          {SUPPORTED_LEAGUES.map((league) => {
+            const theme = LEAGUE_THEME[league as SupportedLeague];
+            const isActive = activeLeague === league;
+            return (
+              <TouchableOpacity
+                key={league}
+                onPress={() => setActiveLeague(league as SupportedLeague)}
+                style={[
+                  styles.leagueTabButton,
+                  isActive && {
+                    borderColor: theme.activeFilterBorder,
+                    backgroundColor: theme.activeFilterBg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.leagueTabText,
+                    isActive && { color: theme.activeFilterText },
+                  ]}
+                >
+                  {league}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <View style={styles.homeTomorrowBanner}>
-          <Text style={styles.homeTomorrowTitle}>Tomorrow</Text>
+          <Text style={styles.homeTomorrowTitle}>Tomorrow — {activeLeague}</Text>
           <Text style={styles.homeTomorrowSubtext}>
-            Separate WNBA + NBA Controlled Best 6 · No Today section · Same rotation flow for
-            both leagues
+            Controlled Best 6 for {activeLeague} · Top 2 on Top tab · Rollover → Results → Lab →
+            History
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={runRefresh}
-          style={styles.refreshButton}
+          style={[styles.refreshButton, { backgroundColor: activeTheme.refreshBg }]}
           disabled={refreshing || loading}
         >
           <Text style={styles.refreshText}>
@@ -270,16 +310,14 @@ export default function HomeControlledBestSixScreen() {
 
         <LoadErrorBanner message={loadError} />
 
-        {SUPPORTED_LEAGUES.map((league) => (
-          <LeagueTomorrowSection
-            key={league}
-            league={league as SupportedLeague}
-            board={boards[league as SupportedLeague]}
-            loading={loading}
-            loadError={loadError}
-            onSavePick={handleSavePick}
-          />
-        ))}
+        <LeagueTomorrowSection
+          key={activeLeague}
+          league={activeLeague}
+          board={boards[activeLeague]}
+          loading={loading}
+          loadError={loadError}
+          onSavePick={handleSavePick}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -312,6 +350,16 @@ const styles = StyleSheet.create({
   dateLine: { color: "#fbbf24", fontSize: 14, fontWeight: "800", marginTop: 10 },
   lastUpdated: { color: "#64748b", fontSize: 12, fontWeight: "700", marginTop: 12 },
   versionLine: { color: "#64748b", fontSize: 11, fontWeight: "700", marginTop: 4 },
+  leagueTabRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  leagueTabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  leagueTabText: { color: "#94a3b8", textAlign: "center", fontWeight: "900", fontSize: 14 },
   homeTomorrowBanner: {
     backgroundColor: "#052e16",
     borderRadius: 16,
@@ -329,7 +377,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   refreshButton: {
-    backgroundColor: "#15803d",
     paddingVertical: 14,
     borderRadius: 16,
     marginBottom: 20,
@@ -366,6 +413,9 @@ const styles = StyleSheet.create({
   },
   metricLabel: { color: "#64748b", fontSize: 11, fontWeight: "900", marginBottom: 4 },
   metricValue: { color: "#f8fafc", fontSize: 16, fontWeight: "900" },
+  bestSixSection: { marginBottom: 18 },
+  sectionTitle: { fontSize: 21, fontWeight: "900", marginBottom: 4 },
+  sectionSubtext: { color: "#94a3b8", fontSize: 13, fontWeight: "700", marginBottom: 12 },
   emptyCard: {
     backgroundColor: "#111827",
     padding: 18,

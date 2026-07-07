@@ -6,6 +6,16 @@
 
 ---
 
+## Update: Home tab NBA / WNBA switcher (2026-07-06)
+
+| Area | Change |
+|------|--------|
+| `components/HomeControlledBestSixScreen.tsx` | Home tab now uses NBA \| WNBA segmented tabs instead of stacked sections; single `fetchSavedPicks` / `refreshSavedPicks` still loads both leagues; copy report unchanged (both leagues) |
+
+Rotation flow unchanged — Tomorrow-only view, Top 2 → Top tab, all 6 → Results.
+
+---
+
 ## Update: Archive stuck Lab 06/21 without replacement (2026-06-28)
 
 ### Problem
