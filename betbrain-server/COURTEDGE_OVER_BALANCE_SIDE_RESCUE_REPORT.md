@@ -69,6 +69,7 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 | Prod still **5O/1U** at 04:45Z | **Stale deploy + cached picks** on Render; v1 server fix never reached prod `/picks` | Bump `SERVER_BUILD` + `controlledBestSixVersion`; redeploy + `/refresh-picks` |
 | Home tomorrow still Over-heavy after v1 | **Client bug** — `buildLeagueBestSixBoard` / `resolveDateScopedDisplayPool` re-filled Best 6 from board candidates **without** side balance | `applyDisplaySideBalance` runs after date scoping on Home tomorrow view |
 | Side balance stopped at **4O/2U** | `minMinority=2` treats 2 Unders as satisfied (max 4 Overs allowed) | Raised to `minMinority=3` → targets **3O/3U** when viable Unders within margin |
+| **Early return skipped balance** | `resolveDateScopedDisplayPool` returned 6 picks without swap when bucket already full | Always run `applyDisplaySideBalance` even when in-bucket count = 6 |
 | **"78 vs 0"** keep reasons | Reader `underCase` negative → audit score clamped to 0 even when evidence exists | `side-rescue-v1.2`: `auditOppositeDisplayScore` + `formatKeepOriginalReason` uses projection/evidence floor |
 | Summary **Board Track: 0** | Old label counted only natural TRACK; promoted TRACK cards looked like "board track" bucket | Split `boardOnly` / `shadowOnly` / `highRisk`; UI label → **Natural Track** |
 | Side-balance swap threshold too tight | Trigger at `limit-1` (5/6) + single swap | Multi-iteration swap at `limit-2`, margin **24**, up to 3 minority picks |
@@ -109,7 +110,7 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 | View | Before (prod paste) | After v2 |
 |------|---------------------|----------|
 | Server `full_board` Best 6 | 5O / 1U | **3O / 3U** |
-| Home **tomorrow** display | 5O / 1U (client re-fill, no balance) | **3O / 3U** |
+| Home **tomorrow** display | 5O / 1U (client re-fill, no balance) | **3O / 3U** (trust-inspect); **4O / 2U** on stale prod cache (only 2 viable Unders in pool) |
 | Side rescue keep reason | `82 vs 0` on CHECK_UNDER Overs | Evidence-based opposite score (non-zero when review ran) |
 | Summary buckets | Board Only 10, Shadow 2, Board Track 0 | Board Only / Shadow / Natural Track reconciled to six-trackable model |
 

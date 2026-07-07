@@ -408,34 +408,48 @@ export function resolveDateScopedDisplayPool(
   bestSixLimit = BEST_SIX_LIMIT
 ) {
   if (dateView === "full_board") {
-    return displayPool.slice(0, bestSixLimit);
+    return applyDisplaySideBalance(
+      displayPool.slice(0, bestSixLimit),
+      collectLeagueCandidatesFromGames(games, league),
+      { limit: bestSixLimit }
+    );
   }
 
   const inBucket = filterBestSixByDateView(displayPool, dateView);
-  if (inBucket.length >= bestSixLimit || !games?.length) {
-    return inBucket.slice(0, bestSixLimit);
+  const candidates = scopeCandidatesByDateView(
+    collectLeagueCandidatesFromGames(games, league),
+    dateView
+  );
+
+  if (!games?.length) {
+    return applyDisplaySideBalance(inBucket.slice(0, bestSixLimit), candidates, {
+      limit: bestSixLimit,
+    });
   }
 
   const displayByKey = new Map(displayPool.map((pick) => [stablePickKey(pick), pick]));
   const merged = [...inBucket];
   const usedKeys = new Set(merged.map((pick) => stablePickKey(pick)));
 
-  const candidates = scopeCandidatesByDateView(
-    collectLeagueCandidatesFromGames(games, league),
-    dateView
-  )
+  if (merged.length < bestSixLimit) {
+    const rankedCandidates = candidates
+      .map((pick) => displayByKey.get(stablePickKey(pick)) || pick)
+      .sort(compareCandidatesForDisplay);
+
+    for (const pick of rankedCandidates) {
+      if (merged.length >= bestSixLimit) break;
+      const key = stablePickKey(pick);
+      if (usedKeys.has(key)) continue;
+      merged.push(pick);
+      usedKeys.add(key);
+    }
+  }
+
+  const rankedCandidates = candidates
     .map((pick) => displayByKey.get(stablePickKey(pick)) || pick)
     .sort(compareCandidatesForDisplay);
 
-  for (const pick of candidates) {
-    if (merged.length >= bestSixLimit) break;
-    const key = stablePickKey(pick);
-    if (usedKeys.has(key)) continue;
-    merged.push(pick);
-    usedKeys.add(key);
-  }
-
-  return applyDisplaySideBalance(merged.slice(0, bestSixLimit), candidates, {
+  return applyDisplaySideBalance(merged.slice(0, bestSixLimit), rankedCandidates, {
     limit: bestSixLimit,
   });
 }
@@ -531,7 +545,11 @@ export function buildLeagueBestSixBoard({
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
   const scopedPool =
     dateView === "full_board"
-      ? displayPool.slice(0, bestSixLimit)
+      ? applyDisplaySideBalance(
+          displayPool.slice(0, bestSixLimit),
+          collectLeagueCandidatesFromGames(games, leagueCode),
+          { limit: bestSixLimit }
+        )
       : resolveDateScopedDisplayPool(
           displayPool,
           games,
@@ -591,23 +609,21 @@ export function buildLeagueControlledSummary({
   const displayPool = resolveBestSixDisplayPool(resolvedDisplay, resolvedBestSix);
   const filteredResults = filterBestSixByDateView(resolvedBestSix, dateView);
   const dateScopedDisplay = (() => {
-    const scoped =
-      scopedDisplayPool ??
-      (dateView === "full_board"
-        ? displayPool.slice(0, bestSixLimit)
-        : resolveDateScopedDisplayPool(
-            displayPool,
-            resolvedGames,
-            leagueCode,
-            dateView,
-            bestSixLimit
-          ));
+    if (scopedDisplayPool) return scopedDisplayPool;
     if (dateView === "full_board") {
-      return applyDisplaySideBalance(scoped, collectLeagueCandidatesFromGames(resolvedGames, leagueCode), {
-        limit: bestSixLimit,
-      });
+      return applyDisplaySideBalance(
+        displayPool.slice(0, bestSixLimit),
+        collectLeagueCandidatesFromGames(resolvedGames, leagueCode),
+        { limit: bestSixLimit }
+      );
     }
-    return scoped;
+    return resolveDateScopedDisplayPool(
+      displayPool,
+      resolvedGames,
+      leagueCode,
+      dateView,
+      bestSixLimit
+    );
   })();
   const scopedTotal = dateScopedDisplay.length;
   const resultsTrackedCount = scopedTotal;
