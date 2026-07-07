@@ -28,7 +28,8 @@ export function evaluateSameTeamUsageCollision(pick = {}, options = {}) {
   const teammates = (options.teamCandidates || options.slateCandidates || []).filter((c) => {
     if (cleanTeam(c.team || c.teamKey) !== teamKey) return false;
     if (String(c.player || "").toLowerCase() === String(pick.player || "").toLowerCase()) return false;
-    return normalizeSide(c.side || c.pick) === "OVER";
+    const cSide = normalizeSide(c.side || c.pick || c.currentEngineSide);
+    return cSide === "OVER";
   });
 
   const reasons = [];
@@ -97,7 +98,7 @@ export function evaluateSameTeamUsageCollision(pick = {}, options = {}) {
     sideImpact = "UNDER";
     reasons.push("Collision pressure — weaker Over should review Under.");
   } else if (collisionScore >= 30) {
-    recommendation = "KEEP_OVER";
+    recommendation = "REVIEW_UNDER";
     sideImpact = "NEUTRAL";
     reasons.push("Collision warning — monitor combined scoring demand.");
   }

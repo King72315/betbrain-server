@@ -25,6 +25,7 @@ import {
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
+import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
@@ -464,6 +465,7 @@ export async function evaluateWnbaPropDecision(context = {}) {
   pick = finalizeWnbaPickTracking(pick, reader);
 
   pick.initialSide = pickSide;
+  pick = syncWnbaDataModeOnPick(pick, dataCard, reader);
   pick = runFlipFirstDecisionPipeline(pick, {
     dataCard,
     reader,

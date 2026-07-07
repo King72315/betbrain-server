@@ -273,6 +273,34 @@ tests.push({
 });
 
 tests.push({
+  name: "10b thin gap triggers CHECK_UNDER review without auto-flip",
+  fn() {
+    const pick = makeWnbaPick({
+      side: "Over",
+      line: 14.5,
+      wnbaDataCard: baseCard({
+        bookLine: 14.5,
+        dataMode: "WNBA_FULL_DATA",
+        minutesVolatility: "stable",
+        projection: { projection: 17.8, expectedMinutes: 30, expectedFGA: 12 },
+        last5: { points: 17, minutes: 30, fga: 12, games: 5 },
+        fairLine: { fairLineSide: "OVER", fairLineEdge: 2.5, fairLineQuality: 60 },
+      }),
+      volumeDangerGates: { gates: ["thinGap"] },
+    });
+    const fd = evaluateFlipFirstSideSelection(pick, {
+      decisionDataIntelligence: evaluateDecisionDataIntelligence(pick, { originalSide: "OVER" }),
+      reader: pick.wnbaReader,
+      dataCard: pick.wnbaDataCard,
+      originalSide: "OVER",
+    });
+    assert.strictEqual(fd.oppositeSideChecked, true);
+    assert.strictEqual(fd.flipRecommended, false);
+    assert.strictEqual(fd.action, "CHECK_UNDER");
+  },
+});
+
+tests.push({
   name: "11 controlled best six regression",
   fn() {
     runScript("testControlledBestSix.js");

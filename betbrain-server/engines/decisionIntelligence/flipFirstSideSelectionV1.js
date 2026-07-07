@@ -2,6 +2,7 @@
  * Flip-First Side Selection v1 — evaluate opposite side before downgrade/block.
  */
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
+import { resolveWnbaGapFloors } from "../wnba/wnbaGraduatedDataModeV1.js";
 
 export const FLIP_FIRST_VERSION = "flip-first-side-selection-v1";
 
@@ -69,6 +70,11 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
     }
     if (mod.detected && mod.recommendation === "FLIP_TO_UNDER" && originalSide === "OVER") {
       problems.push({ code: "SAME_TEAM_COLLISION", reason: mod.reasons?.[0] || "Same-team collision." });
+    } else if (mod.detected && mod.collisionScore >= 30 && originalSide === "OVER") {
+      problems.push({
+        code: "SAME_TEAM_COLLISION_WARNING",
+        reason: mod.reasons?.[0] || "Same-team usage collision warning.",
+      });
     }
   }
 
@@ -87,6 +93,54 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
     });
   }
 
+  return problems;
+}
+
+function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "") {
+  const problems = [];
+  const { gapFloor } = resolveWnbaGapFloors({ ...metrics, side: originalSide });
+  if (metrics.projectionGap > 0 && metrics.projectionGap < gapFloor) {
+    problems.push({
+      code: "THIN_GAP",
+      reason: `Projection gap ${metrics.projectionGap.toFixed(1)} below ${gapFloor} floor — opposite-side review.`,
+    });
+  }
+
+  const dangerGates = pick.volumeDangerGates?.gates || [];
+  if (originalSide === "OVER" && dangerGates.includes("efficiency_only_scoring")) {
+    problems.push({
+      code: "EFFICIENCY_ONLY",
+      reason: "Efficiency-only scoring risk on Over.",
+    });
+  }
+  if (
+    originalSide === "OVER" &&
+    (dangerGates.includes("unstable_minutes") ||
+      metrics.volatility === "unstable" ||
+      metrics.volatility === "volatile")
+  ) {
+    problems.push({
+      code: "UNSTABLE_MINUTES",
+      reason: "Unstable or volatile minutes profile.",
+    });
+  }
+  if (
+    originalSide === "OVER" &&
+    metrics.fga > 0 &&
+    metrics.fga < 7 &&
+    metrics.minutes < 20
+  ) {
+    problems.push({
+      code: "LOW_VOLUME_OVER_TRAP",
+      reason: "Low volume over trap — review Under.",
+    });
+  }
+  if (pick.wnbaTrackingReason === "DANGER_STACK_INSUFFICIENT_EDGE") {
+    problems.push({
+      code: "DANGER_STACK_INSUFFICIENT_EDGE",
+      reason: "Danger stack with insufficient edge.",
+    });
+  }
   return problems;
 }
 
@@ -171,7 +225,10 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   );
   const oppositeSide = originalSide === "OVER" ? "UNDER" : "OVER";
 
-  const originalProblems = collectOriginalProblems(ddi, originalSide);
+  const originalProblems = [
+    ...collectOriginalProblems(ddi, originalSide),
+    ...collectMetricsGateProblems(pick, metrics, originalSide),
+  ];
   const originalScored = scoreSideFromModules(originalSide, ddi, reader, metrics);
   const oppositeScored = scoreSideFromModules(oppositeSide, ddi, reader, metrics);
 
@@ -229,6 +286,8 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   let action = "KEPT_ORIGINAL";
   if (flipRecommended) action = finalSide === "OVER" ? "FLIPPED_TO_OVER" : "FLIPPED_TO_UNDER";
   else if (originalScored.score < 42 && oppositeScored.score < 42) action = "BOTH_SIDES_WEAK";
+  else if (originalProblems.length > 0)
+    action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
   else action = "KEPT_ORIGINAL";
 
   if (!flipRecommended) reasons.push(...noFlipReasons);

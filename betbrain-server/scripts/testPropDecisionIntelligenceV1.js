@@ -211,16 +211,17 @@ test("07 volatile WNBA Under demoted unless elite", () => {
   assert.notStrictEqual(di.trackEligibility, "TRACK");
 });
 
-test("08 elite Over TRACK stays Medium on thin gap not blanket limited data", () => {
+test("08 elite Over TRACK with FULL_DATA stable can earn LOW", () => {
   const pick = live0625Pick("Azzi Fudd", "OVER", 13.5, {
     minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
     projection: { projection: 18, expectedMinutes: 28, expectedFGA: 10 },
     last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
     fairLine: { fairLineSide: "OVER", fairLineEdge: 4.5, fairLineQuality: 65 },
   }, { netEdge: 8 });
   const di = evaluateDi(pick);
   assert.strictEqual(di.trackEligibility, "TRACK");
-  assert.strictEqual(di.trueRisk, "MEDIUM");
+  assert.strictEqual(di.trueRisk, "LOW");
 });
 
 test("09 High Risk cannot be Top Pick", () => {
@@ -506,6 +507,44 @@ test("27 incomplete WNBA explanation cites specific missing debt", () => {
   assert.ok(di.riskDebts.some((d) => d.code === "MISSING_LAST5"));
   assert.ok(!di.simpleExplanation.toLowerCase().includes("wnba limited data"));
   assert.ok(di.simpleExplanation.toLowerCase().includes("recent games"));
+});
+
+test("28 NO_BET Under explanation skips low volume over trap", () => {
+  const pick = makeWnbaPick({
+    side: "Under",
+    wnbaDataCard: baseCard({
+      minutesVolatility: "stable",
+      projection: { projection: 6, expectedMinutes: 18, expectedFGA: 4 },
+      last5: { points: 7, minutes: 18, fga: 4, ptsPerFGA: 1.0, games: 5 },
+      fairLine: { fairLineSide: "UNDER", fairLineEdge: -3.5, fairLineQuality: 70 },
+    }),
+    netEdge: 8,
+    controlledBestSixDisplay: true,
+  });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  const di = evaluatePropDecisionIntelligenceV1(pick, { gate });
+  if (di.trackEligibility === "NO_BET") {
+    assert.ok(!di.simpleExplanation.toLowerCase().includes("low volume over trap"));
+    assert.ok(di.simpleExplanation.includes("learning pool"));
+  }
+});
+
+test("29 applyDecisionIntelligence syncs dataMode from card", () => {
+  const pick = makeWnbaPick({
+    dataMode: "WNBA_LIMITED_DATA",
+    wnbaDataCard: baseCard({
+      dataMode: "WNBA_FULL_DATA",
+      minutesVolatility: "stable",
+      projection: { projection: 18, expectedMinutes: 28, expectedFGA: 11 },
+      last5: { points: 17, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 5, fairLineQuality: 70 },
+    }),
+    side: "Over",
+    netEdge: 9,
+  });
+  const enriched = applyDecisionIntelligenceToPick(pick, null, evaluateWnbaTrackingGateV2(pick));
+  assert.strictEqual(enriched.dataMode, "WNBA_FULL_DATA");
+  assert.strictEqual(enriched.wnbaTrackingDecision, enriched.trackingEligibility);
 });
 
 let passed = 0;

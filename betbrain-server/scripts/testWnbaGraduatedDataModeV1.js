@@ -7,8 +7,10 @@ import {
   resolveWnbaGraduatedDataMode,
   collectWnbaDataCoverageDebts,
   pickPrimaryDebtExplanation,
+  resolveWnbaGapFloors,
   WNBA_GRADUATED_DATA_MODE_VERSION,
 } from "../engines/wnba/wnbaGraduatedDataModeV1.js";
+import { syncWnbaDataModeOnPick } from "../engines/wnba/wnbaGateInputs.js";
 
 function test(name, fn) {
   try {
@@ -62,6 +64,65 @@ test("missing last5 → WNBA_LIMITED_DATA + MISSING_LAST5 debt", () => {
 
 test("NBA league returns NBA_FULL_DATA", () => {
   assert.strictEqual(resolveWnbaGraduatedDataMode({ league: "NBA" }), "NBA_FULL_DATA");
+});
+
+test("FULL_DATA stable Over gap floor is 3.5", () => {
+  const floors = resolveWnbaGapFloors({
+    side: "OVER",
+    dataMode: "WNBA_FULL_DATA",
+    volatility: "stable",
+  });
+  assert.strictEqual(floors.gapFloor, 3.5);
+  assert.strictEqual(floors.reasonCode, "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR");
+});
+
+test("LIMITED_DATA Over gap floor stays 4.0", () => {
+  const floors = resolveWnbaGapFloors({
+    side: "OVER",
+    dataMode: "WNBA_LIMITED_DATA",
+    volatility: "stable",
+  });
+  assert.strictEqual(floors.gapFloor, 4);
+});
+
+test("UNDER explanation skips Over-only debts", () => {
+  const debts = [
+    { code: "LOW_VOLUME_OVER_TRAP", severity: "KILL", reason: "low volume over trap flagged by danger gate." },
+    { code: "THIN_EDGE", severity: "HIGH", reason: "Projection edge (3.2) is thin for WNBA UNDER." },
+  ];
+  const text = pickPrimaryDebtExplanation(debts, { side: "UNDER" });
+  assert.ok(!text.includes("low volume over trap"));
+  assert.ok(text.includes("thin"));
+});
+
+test("syncWnbaDataModeOnPick propagates card FULL to pick", () => {
+  const synced = syncWnbaDataModeOnPick(
+    {
+      dataMode: "WNBA_LIMITED_DATA",
+      playerState: { dataMode: "WNBA_LIMITED_DATA" },
+      volumeProfile: { dataMode: "WNBA_LIMITED_DATA", wnbaLimitedData: true },
+    },
+    {
+      dataMode: "WNBA_FULL_DATA",
+      dataMissingFlags: [],
+      dataAvailabilityFlags: {
+        hasLast5: true,
+        hasSeasonStats: true,
+        hasSeasonMinutes: true,
+        hasSeasonFGA: true,
+        hasMarketData: true,
+        league: "WNBA",
+      },
+      playerId: "67109",
+      last5: { games: 5, points: 15, minutes: 28, fga: 10 },
+      season: { points: 13, minutes: 28, fga: 10 },
+      bookCount: 4,
+      projection: { projection: 17 },
+    }
+  );
+  assert.strictEqual(synced.dataMode, "WNBA_FULL_DATA");
+  assert.strictEqual(synced.playerState.dataMode, "WNBA_FULL_DATA");
+  assert.strictEqual(synced.volumeProfile.wnbaLimitedData, false);
 });
 
 if (process.exitCode) {

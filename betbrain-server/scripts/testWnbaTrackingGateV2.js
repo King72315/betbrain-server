@@ -684,6 +684,19 @@ test("40 low volume over trap blocks TRACK and High risk ceiling", () => {
   );
 });
 
+test("41 FULL_DATA stable Over gap 3.6 passes side gate floor", () => {
+  const pick = live0625Pick("Azzi Fudd", "OVER", 14.5, {
+    minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
+    projection: { projection: 18.1, expectedMinutes: 28, expectedFGA: 10 },
+    last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 3.6, fairLineQuality: 65 },
+  }, { netEdge: 8 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.ok(!gate.trackingWarnings.includes("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
+  assert.ok(gate.sideGatePassed !== false || gate.wnbaTrackingDecision === "TRACK");
+});
+
 let passed = 0;
 let failed = 0;
 

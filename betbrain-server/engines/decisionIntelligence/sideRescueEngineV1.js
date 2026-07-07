@@ -333,7 +333,19 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   const boardOnlyReasons = [];
   const noBetReasons = [];
 
-  if (bothChaotic && originalRiskAdjusted < 30) {
+  if (gate.trackingEligibility === "NO_BET" || triggerDebts.some((d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP")) {
+    action = "NO_BET";
+    finalSide = null;
+    noBetReasons.push(
+      gate.wnbaTrackingReason ||
+        triggerDebts.find((d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP")?.reason ||
+        "Kill-level risk debt blocks play."
+    );
+  } else if (gate.trackingEligibility === "BOARD_ONLY") {
+    action = "BOARD_ONLY";
+    finalSide = originalSide;
+    boardOnlyReasons.push(gate.wnbaTrackingReason || "Gate demoted to board only.");
+  } else if (bothChaotic && originalRiskAdjusted < 30) {
     action = "NO_BET"; finalSide = null;
     noBetReasons.push("Both sides unreliable with low confidence data.");
   } else if (flipEligible) {
@@ -384,6 +396,33 @@ export function evaluateSideRescue(candidate = {}, options = {}) {
 export function applySideRescueEligibilityOverlay(pick = {}, sideRescue = null) {
   const sr = sideRescue || pick.sideRescue;
   if (!sr) return pick;
+
+  const gateDecision = String(
+    pick.wnbaTrackingDecision || pick.trackingEligibility || ""
+  ).toUpperCase();
+  const diEligibility = String(
+    pick.decisionIntelligence?.trackEligibility || ""
+  ).toUpperCase();
+  const hasKillDebt = (pick.decisionIntelligence?.riskDebts || []).some(
+    (d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP"
+  );
+
+  if (gateDecision === "NO_BET" || diEligibility === "NO_BET" || hasKillDebt) {
+    return {
+      ...pick,
+      trackingEligibility: "NO_BET",
+      wnbaTrackingDecision: "NO_BET",
+      wnbaTrackingReason:
+        pick.wnbaTrackingReason ||
+        sr.noBetReasons?.[0] ||
+        pick.decisionIntelligence?.gateReason ||
+        "GATE_NO_BET_PRESERVED",
+      bestSixEligibility: false,
+      topPickEligibility: false,
+      noPlay: true,
+    };
+  }
+
   if (sr.action === "BOARD_ONLY") {
     return { ...pick, trackingEligibility: "BOARD_ONLY", wnbaTrackingDecision: "BOARD_ONLY",
       wnbaTrackingReason: sr.boardOnlyReasons?.[0] || "SIDE_RESCUE_BOARD_ONLY", bestSixEligibility: false, topPickEligibility: false };

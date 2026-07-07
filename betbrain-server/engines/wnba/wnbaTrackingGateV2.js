@@ -3,6 +3,7 @@
  * Board shows all candidates; Results only tracks TRACK survivors through Best 6.
  */
 import { resolveQualityGateInputs, isWnbaQualityGatePick } from "./wnbaGateInputs.js";
+import { resolveWnbaGapFloors } from "./wnbaGraduatedDataModeV1.js";
 
 export const WNBA_TRACKING_GATE_VERSION = "wnba-tracking-gate-v2-live";
 export const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.5;
@@ -257,15 +258,19 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
   const volatileMinutes = hasMinutesVolatility(metrics);
 
   if (side === "UNDER") {
-    if (metrics.projectionGap < WNBA_LIMITED_UNDER_GAP_FLOOR) {
-      boardOnlyReasons.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+    const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
+    if (metrics.projectionGap < gapFloor) {
+      boardOnlyReasons.push(reasonCode);
       sideGatePassed = false;
     }
   }
 
-  if (side === "OVER" && metrics.projectionGap < WNBA_LIMITED_OVER_GAP_FLOOR && !elite) {
-    boardOnlyReasons.push("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
-    sideGatePassed = false;
+  if (side === "OVER") {
+    const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
+    if (metrics.projectionGap < gapFloor && !elite) {
+      boardOnlyReasons.push(reasonCode);
+      sideGatePassed = false;
+    }
   }
 
   if (limited && side === "UNDER") {

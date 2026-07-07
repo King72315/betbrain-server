@@ -29,6 +29,7 @@ import {
   evaluateSideRescue,
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
+import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
 export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-track-all-v1";
 export const BEST_SIX_LIMIT = 6;
@@ -145,7 +146,7 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
     let pick = rawPick;
 
     if (String(pick.league || "").toUpperCase() === "WNBA") {
-      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: wnbaSlate });
+      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: candidates });
       if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
@@ -268,7 +269,7 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
     return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
   }
 
-  let enriched = pick;
+  let enriched = syncWnbaDataModeOnPick(pick, pick.wnbaDataCard, pick.wnbaReader);
   const initialSide = normalizeSide(
     enriched.initialSide || enriched.side || enriched.pick || enriched.wnbaReader?.finalSide
   );
@@ -278,7 +279,8 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
     reader: enriched.wnbaReader,
     originalSide: initialSide,
     teamCandidates: options.teamCandidates,
-    slateCandidates: options.slateCandidates,
+    slateCandidates: options.slateCandidates || options.teamCandidates,
+    impliedTeamTotal: options.impliedTeamTotal,
   });
 
   const gate = evaluateWnbaTrackingEligibility(
@@ -369,7 +371,7 @@ export function annotateResultsAdmission(pick = {}) {
     eligibility !== "TRACK"
       ? di.simpleExplanation ||
         pick.wnbaTrackingReason ||
-        `${eligibility} — tracked for learning`
+        `${eligibility} — in Results learning pool`
       : "";
 
   return {
@@ -442,7 +444,7 @@ function filterAndAnalyzeCandidates(candidates = [], audit = {}) {
     let pick = rawPick;
 
     if (String(pick.league || "").toUpperCase() === "WNBA") {
-      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: wnbaSlate });
+      const prepared = applyWnbaDecisionStack(pick, { slateCandidates: candidates });
       if (!prepared.pick) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({

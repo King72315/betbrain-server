@@ -18,7 +18,9 @@ import {
   hasMaterialDataCoverageGaps,
   pickPrimaryDebtExplanation,
   sortRiskDebtsForDisplay,
+  resolveWnbaGapFloors,
 } from "../wnba/wnbaGraduatedDataModeV1.js";
+import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 
 export const DECISION_INTELLIGENCE_VERSION = "courtedge-decision-intelligence-v1";
 
@@ -175,7 +177,7 @@ function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
     }
   }
 
-  const gapFloor = side === "UNDER" ? 3.5 : 4.0;
+  const gapFloor = resolveWnbaGapFloors({ ...metrics, side }).gapFloor;
   if (metrics.projectionGap > 0 && metrics.projectionGap < gapFloor) {
     const exists = debts.some((d) => d.code === "THIN_EDGE");
     if (!exists) {
@@ -524,8 +526,8 @@ function collectWnbaRiskRepairs(candidate = {}, metrics = {}, gate = {}) {
   return unique;
 }
 
-function gapFloorForSide(side = "") {
-  return side === "UNDER" ? 3.5 : 4.0;
+function gapFloorForSide(side = "", metrics = {}) {
+  return resolveWnbaGapFloors({ side: side || metrics.side, ...metrics }).gapFloor;
 }
 
 function computeScores(riskDebts = [], riskRepairs = [], gate = {}) {
@@ -582,7 +584,7 @@ function isCleanLowRiskProfile(metrics = {}, riskDebts = [], gate = {}) {
   if (hasKillDebt(riskDebts)) return false;
   if (countHighDebts(riskDebts) > 0) return false;
   if ((gate.dangerGateCount ?? 0) > 1) return false;
-  if (metrics.projectionGap < gapFloorForSide(metrics.side) + 1) return false;
+  if (metrics.projectionGap < gapFloorForSide(metrics.side, metrics) + 1) return false;
   if (
     metrics.fairLineSide !== metrics.side ||
     Math.abs(metrics.fairLineEdge) < 3.5 ||
@@ -721,15 +723,22 @@ function buildSimpleExplanation({
   riskDebts = [],
   riskRepairs = [],
   gate = {},
+  resultsLearningPool = false,
 }) {
   const sideLabel = side === "OVER" ? "Over" : side === "UNDER" ? "Under" : "prop";
-  const mainDebt = pickPrimaryDebtExplanation(riskDebts);
+  const mainDebt = pickPrimaryDebtExplanation(riskDebts, {
+    side,
+    gateReason: gate.wnbaTrackingReason || gate.gateReason,
+  });
   const mainRepair = riskRepairs[0]?.code?.replace(/_/g, " ").toLowerCase() || "supporting evidence";
 
   if (trackEligibility === "NO_BET") {
     const reason =
       mainDebt !== "minor concerns" ? mainDebt : gate.wnbaTrackingReason || mainDebt;
-    return `NO_BET — ${reason}. Not eligible for Results or Top Picks.`;
+    const tail = resultsLearningPool
+      ? "Tracked in Results learning pool with NO_BET label (not a Top Pick)."
+      : "Not eligible for Top Picks.";
+    return `NO_BET — ${reason}. ${tail}`;
   }
   if (trackEligibility === "BOARD_ONLY") {
     return `BOARD_ONLY — ${sideLabel} has ${mainDebt}. ${gate.wnbaTrackingReason || "Not enough evidence to track."}`;
@@ -769,6 +778,8 @@ function evaluateWnbaDecisionIntelligence(candidate = {}, options = {}) {
     riskDebts,
     riskRepairs,
     gate,
+    resultsLearningPool: candidate.resultsAdmissionEligible === true ||
+      candidate.controlledBestSixDisplay === true,
   });
   const whatWouldMakeItBetter = buildWhatWouldMakeItBetter(riskDebts, metrics, gate);
 
@@ -862,13 +873,17 @@ export function evaluatePropDecisionIntelligenceV1(candidate = {}, options = {})
 }
 
 export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate = null) {
+  const dataCard = pick.wnbaDataCard;
+  const reader = pick.wnbaReader;
+  let synced = syncWnbaDataModeOnPick(pick, dataCard, reader);
+
   const di =
     decision ||
-    evaluatePropDecisionIntelligenceV1(pick, {
-      gate: gate || pick.decisionIntelligence?.gate,
+    evaluatePropDecisionIntelligenceV1(synced, {
+      gate: gate || synced.decisionIntelligence?.gate,
     });
 
-  let enriched = pick;
+  let enriched = synced;
   if (gate) {
     enriched = applyWnbaTrackingGateV2ToPick(enriched, gate);
     enriched = applyWnbaRiskCeiling(enriched, {
@@ -917,6 +932,8 @@ export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate
       repairable: di.repairable,
     },
     trackingEligibility: di.trackEligibility,
+    wnbaTrackingDecision: di.trackEligibility || di.gateDecision || enriched.wnbaTrackingDecision,
+    wnbaTrackingReason: di.gateReason || enriched.wnbaTrackingReason,
     trueRisk: di.trueRisk,
     riskLabel: di.riskAfterDecision,
     riskAfterCeiling: di.riskAfterDecision,

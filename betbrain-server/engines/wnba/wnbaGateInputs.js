@@ -1,4 +1,8 @@
-import { resolveWnbaGraduatedDataMode } from "./wnbaGraduatedDataModeV1.js";
+import {
+  isWnbaFullDataMode,
+  isWnbaLimitedDataMode,
+  resolveWnbaGraduatedDataMode,
+} from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -108,6 +112,7 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
     projection,
     projectionGap,
     dataMode,
+    minutesVolatility: volatility,
     minutes,
     fga,
     bookCount,
@@ -131,5 +136,49 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
     missingFlags,
     card,
     reader: rd,
+  };
+}
+
+/** Propagate graduated dataMode from card/gate inputs onto pick surfaces. */
+export function syncWnbaDataModeOnPick(pick = {}, dataCard = null, reader = null) {
+  const card = dataCard || pick.wnbaDataCard || {};
+  const rd = reader || pick.wnbaReader;
+  let { dataMode } = resolveQualityGateInputs(pick, card, rd);
+  if (isWnbaFullDataMode(card.dataMode) && !isWnbaFullDataMode(dataMode)) {
+    const coreMissing = (card.dataMissingFlags || []).some(
+      (f) =>
+        f?.missing &&
+        ["playerId", "seasonStats", "last5", "minutes", "fga", "market"].includes(f.key)
+    );
+    if (!coreMissing) dataMode = "WNBA_FULL_DATA";
+  }
+  const limited = isWnbaLimitedDataMode(dataMode);
+
+  const playerState = pick.playerState
+    ? {
+        ...pick.playerState,
+        dataMode,
+        dataAvailabilityFlags:
+          card.dataAvailabilityFlags || pick.playerState.dataAvailabilityFlags,
+      }
+    : pick.playerState;
+
+  const volumeProfile = pick.volumeProfile
+    ? { ...pick.volumeProfile, dataMode, wnbaLimitedData: limited }
+    : pick.volumeProfile;
+
+  const wnbaDataCard =
+    card && Object.keys(card).length
+      ? card.dataMode === dataMode
+        ? card
+        : { ...card, dataMode }
+      : pick.wnbaDataCard;
+
+  return {
+    ...pick,
+    dataMode,
+    playerState,
+    volumeProfile,
+    wnbaDataCard,
   };
 }
