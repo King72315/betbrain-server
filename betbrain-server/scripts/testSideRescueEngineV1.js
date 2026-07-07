@@ -138,7 +138,7 @@ function test(name, fn) {
 }
 
 test("01 SIDE_RESCUE_VERSION constant", () => {
-  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1.1");
+  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1.2");
 });
 
 test("02 clean profile does not trigger rescue", () => {
@@ -388,7 +388,7 @@ test("18 Dearica retro dearicaStyleCases populated", () => {
 });
 
 test("19 controlled best six version side-rescue-v1", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v2");
 });
 
 test("20 BOARD_ONLY rescue excluded from Best 6", () => {

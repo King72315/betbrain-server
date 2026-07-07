@@ -37,12 +37,13 @@ import {
   applySlateCollisionAdjustments,
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v2";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
 export const MAX_GAME_IN_BEST_SIX = 3;
-const SIDE_BALANCE_SWAP_MARGIN = 12;
+const SIDE_BALANCE_SWAP_MARGIN = 24;
+const SIDE_BALANCE_MINORITY = 3;
 
 function clean(value = "") {
   return String(value)
@@ -321,48 +322,62 @@ function selectBestSixWithDiversity(sorted = [], options = {}, audit = {}) {
 
 function applySideBalancePreference(sorted = [], selected = [], options = {}, audit = {}) {
   const limit = Number(options.limit ?? BEST_SIX_LIMIT);
+  const minMinority = Number(options.minMinority ?? SIDE_BALANCE_MINORITY);
+  const margin = Number(options.swapMargin ?? SIDE_BALANCE_SWAP_MARGIN);
   if (selected.length < 3 || selected.length < limit) return selected;
 
-  const sideCounts = { OVER: 0, UNDER: 0 };
-  for (const pick of selected) {
-    const side = normalizeSide(pick.side || pick.pick);
-    if (side === "OVER" || side === "UNDER") sideCounts[side] += 1;
-  }
+  let result = [...selected];
+  const swaps = [];
 
-  const dominantSide =
-    sideCounts.OVER >= limit - 1 ? "OVER" : sideCounts.UNDER >= limit - 1 ? "UNDER" : null;
-  if (!dominantSide) return selected;
-
-  const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
-  const selectedSet = new Set(selected);
-  let weakestIdx = 0;
-  let weakestScore = computeSafetyScore(selected[0]);
-  for (let i = 1; i < selected.length; i += 1) {
-    const score = computeSafetyScore(selected[i]);
-    if (score < weakestScore) {
-      weakestScore = score;
-      weakestIdx = i;
+  for (let attempt = 0; attempt < limit; attempt += 1) {
+    const sideCounts = { OVER: 0, UNDER: 0 };
+    for (const pick of result) {
+      const side = normalizeSide(pick.side || pick.pick);
+      if (side === "OVER" || side === "UNDER") sideCounts[side] += 1;
     }
+
+    const dominantSide =
+      sideCounts.OVER >= limit - minMinority
+        ? "OVER"
+        : sideCounts.UNDER >= limit - minMinority
+          ? "UNDER"
+          : null;
+    if (!dominantSide) break;
+
+    const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
+    if (sideCounts[minoritySide] >= minMinority) break;
+
+    const selectedSet = new Set(result);
+    let weakestIdx = -1;
+    let weakestScore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < result.length; i += 1) {
+      if (normalizeSide(result[i].side || result[i].pick) !== dominantSide) continue;
+      const score = computeSafetyScore(result[i]);
+      if (score < weakestScore) {
+        weakestScore = score;
+        weakestIdx = i;
+      }
+    }
+    if (weakestIdx < 0) break;
+
+    const alternative = sorted.find((pick) => {
+      if (selectedSet.has(pick)) return false;
+      if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
+      return computeSafetyScore(pick) >= weakestScore - margin;
+    });
+    if (!alternative) break;
+
+    swaps.push({
+      replaced: summarizePickForAudit(result[weakestIdx]),
+      with: summarizePickForAudit(alternative),
+      dominantSide,
+      minoritySide,
+    });
+    result[weakestIdx] = alternative;
   }
 
-  const alternative = sorted.find((pick) => {
-    if (selectedSet.has(pick)) return false;
-    if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
-    const altScore = computeSafetyScore(pick);
-    return altScore >= weakestScore - SIDE_BALANCE_SWAP_MARGIN;
-  });
-
-  if (!alternative) return selected;
-
-  const next = [...selected];
-  next[weakestIdx] = alternative;
-  audit.sideBalanceSwap = {
-    replaced: summarizePickForAudit(selected[weakestIdx]),
-    with: summarizePickForAudit(alternative),
-    dominantSide,
-    minoritySide,
-  };
-  return next;
+  if (swaps.length) audit.sideBalanceSwaps = swaps;
+  return result;
 }
 
 function rankBestSix(selected = [], league = "", options = {}) {

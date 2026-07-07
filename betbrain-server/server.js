@@ -232,7 +232,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-over-balance-side-rescue-v1";
+const SERVER_BUILD = "courteedge-over-balance-side-rescue-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

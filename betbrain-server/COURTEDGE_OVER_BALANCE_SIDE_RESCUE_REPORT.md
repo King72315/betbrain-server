@@ -2,9 +2,9 @@
 
 **Date:** 2026-07-07  
 **Branch:** `betbrain-v2-rebuild`  
-**SERVER_BUILD:** `courteedge-over-balance-side-rescue-v1`  
-**Selector:** `controlled-best-six-over-balance-v1`  
-**Side Rescue:** `side-rescue-v1.1`
+**SERVER_BUILD:** `courteedge-over-balance-side-rescue-v2`  
+**Selector:** `controlled-best-six-over-balance-v2`  
+**Side Rescue:** `side-rescue-v1.2`
 
 ## Executive summary
 
@@ -59,8 +59,19 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 | `propDecisionIntelligenceV1.js` | Promotion flags: original gate only (no `SIDE_RESCUE_*` stack) |
 | `slateSameTeamCollisionV1.js` | Stronger 3+ Over cluster penalties |
 | `decisionDataIntelligenceV1.js` | Propagate `flipFirstAction` / `flipFirstDecision` on pipeline |
-| `utils/controlledBestSixDisplay.js` | `boardTrack` = natural TRACK; separate `boardHighRisk` |
-| `server.js` | `SERVER_BUILD` → `courteedge-over-balance-side-rescue-v1` |
+| `utils/controlledBestSixDisplay.js` | `boardTrack` = natural TRACK; separate `boardHighRisk`; **client-side `applyDisplaySideBalance`** after tomorrow date scoping; summary labels "Natural Track (board)" |
+| `server.js` | `SERVER_BUILD` → `courteedge-over-balance-side-rescue-v2` |
+
+### v2 follow-up (post-d0e9970 prod paste still 5O/1U)
+
+| Issue | Root cause | Fix |
+|-------|------------|-----|
+| Prod still **5O/1U** at 04:45Z | **Stale deploy + cached picks** on Render; v1 server fix never reached prod `/picks` | Bump `SERVER_BUILD` + `controlledBestSixVersion`; redeploy + `/refresh-picks` |
+| Home tomorrow still Over-heavy after v1 | **Client bug** — `buildLeagueBestSixBoard` / `resolveDateScopedDisplayPool` re-filled Best 6 from board candidates **without** side balance | `applyDisplaySideBalance` runs after date scoping on Home tomorrow view |
+| Side balance stopped at **4O/2U** | `minMinority=2` treats 2 Unders as satisfied (max 4 Overs allowed) | Raised to `minMinority=3` → targets **3O/3U** when viable Unders within margin |
+| **"78 vs 0"** keep reasons | Reader `underCase` negative → audit score clamped to 0 even when evidence exists | `side-rescue-v1.2`: `auditOppositeDisplayScore` + `formatKeepOriginalReason` uses projection/evidence floor |
+| Summary **Board Track: 0** | Old label counted only natural TRACK; promoted TRACK cards looked like "board track" bucket | Split `boardOnly` / `shadowOnly` / `highRisk`; UI label → **Natural Track** |
+| Side-balance swap threshold too tight | Trigger at `limit-1` (5/6) + single swap | Multi-iteration swap at `limit-2`, margin **24**, up to 3 minority picks |
 
 ---
 
@@ -93,7 +104,14 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 | Summary `boardTrack` | Natural TRACK count (not TRACK + high-risk) |
 | Display cards | TRACK with `prior gate: BOARD_ONLY` only (no SIDE_RESCUE contradiction) |
 
-**Note:** Bueckers / Johnson Overs remain when Under projection does not beat floors — correct (Under edge negative). Collision weaker teammate Overs (Fudd/Stewart pattern) receive heavier slate penalties.
+### v2 fixed engine — same Jul 7 slate
+
+| View | Before (prod paste) | After v2 |
+|------|---------------------|----------|
+| Server `full_board` Best 6 | 5O / 1U | **3O / 3U** |
+| Home **tomorrow** display | 5O / 1U (client re-fill, no balance) | **3O / 3U** |
+| Side rescue keep reason | `82 vs 0` on CHECK_UNDER Overs | Evidence-based opposite score (non-zero when review ran) |
+| Summary buckets | Board Only 10, Shadow 2, Board Track 0 | Board Only / Shadow / Natural Track reconciled to six-trackable model |
 
 ---
 
@@ -101,7 +119,7 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 
 | Suite | Result |
 |-------|--------|
-| `testOverBalanceSideRescueV1.js` | **7/7** |
+| `testOverBalanceSideRescueV1.js` | **9/9** (incl. tomorrow >=2 Unders, <=4 Overs) |
 | `testSideRescueEngineV1.js` | **30/30** |
 | `testControlledBestSix.js` | **33/33** |
 | `testControlledBestSixDisplay.js` | **44/44** |
@@ -112,4 +130,4 @@ Fixes preserve: 6 trackable TRACK Best 6, safest Top 2, Home tabs, track-all-6, 
 
 ## Deploy
 
-Push `betbrain-v2-rebuild` and redeploy. Refresh `/picks` after deploy (`controlledBestSixVersion` + `SERVER_BUILD` changed).
+Push `betbrain-v2-rebuild` and redeploy. After deploy call `POST /refresh-picks` (or wait for cron). Verify `/picks` returns `serverBuild: courteedge-over-balance-side-rescue-v2`, `sideRescue.version: side-rescue-v1.2`, and Home tomorrow Best 6 is **3O/3U** on Jul 7 slate.

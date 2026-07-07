@@ -15,7 +15,7 @@ import {
 import { collectAllGeneratedCandidates } from "../engines/topProps/topPropSelector.js";
 import { readWnbaProp } from "../engines/wnba/wnbaReaderEngine.js";
 import { promoteBestSixCohortPick } from "../engines/decisionIntelligence/propDecisionIntelligenceV1.js";
-import { buildLeagueControlledSummary } from "../../utils/controlledBestSixDisplay.js";
+import { buildLeagueControlledSummary, buildLeagueBestSixBoard, resolveLeaguePicksPayload } from "../../utils/controlledBestSixDisplay.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..", "..");
@@ -119,7 +119,7 @@ test("03 promotion does not duplicate SIDE_RESCUE_BOARD_ONLY flag", () => {
 });
 
 test("04 controlled selector version bumped", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v2");
 });
 
 test("05 Jul 7 trust-inspect slate exposes flip-first on best six", () => {
@@ -141,9 +141,6 @@ test("06 Jul 7 slate is not all overs when unders are viable", () => {
 
 test("07 summary boardTrack counts natural TRACK only", () => {
   const raw = JSON.parse(readFileSync(path.join(ROOT, ".tmp-trust-inspect-wnba.json"), "utf8"));
-  const candidates = collectAllGeneratedCandidates(raw.games || []).filter(
-    (p) => String(p.league).toUpperCase() === "WNBA"
-  );
   const summary = buildLeagueControlledSummary({
     league: "WNBA",
     games: raw.games,
@@ -152,7 +149,38 @@ test("07 summary boardTrack counts natural TRACK only", () => {
   });
   assert.ok(summary.boardTrack <= summary.boardCandidates);
   assert.ok(summary.highRisk >= 0);
-  assert.notStrictEqual(summary.boardTrack, summary.boardTrack + summary.highRisk);
+});
+
+test("08 keep reason uses audit opposite score when evidence exists", () => {
+  const pick = makePick({
+    wnbaDataCard: baseCard({
+      player: "Audit Over",
+      bookLine: 18.5,
+      projection: { projection: 22, expectedMinutes: 28, expectedFGA: 11 },
+      last5: { points: 20, minutes: 28, fga: 11, fta: 3, ptsPerFGA: 1.05, games: 5 },
+      season: { points: 12, minutes: 26, fga: 9, fta: 3, ptsPerFGA: 1.05 },
+    }),
+  });
+  const sr = evaluateSideRescue(pick, { originalSide: "OVER", flipFirstDecision: { action: "CHECK_UNDER" } });
+  assert.ok(sr.triggered);
+  const keep = (sr.keepReasons || [])[0] || "";
+  assert.ok(!keep.includes("vs 0)"), `expected non-zero audit opposite in keep reason, got: ${keep}`);
+});
+
+test("09 tomorrow view balances unders in display board", () => {
+  const raw = JSON.parse(readFileSync(path.join(ROOT, ".tmp-trust-inspect-wnba.json"), "utf8"));
+  const result = selectControlledBestSixCombined(raw.games || []);
+  const payload = resolveLeaguePicksPayload(
+    { ...raw, bestSixDisplayWNBA: result.bestSixDisplayWNBA, bestSixWNBA: result.bestSixWNBA },
+    "WNBA"
+  );
+  const board = buildLeagueBestSixBoard({ ...payload, dateView: "tomorrow" });
+  const unders = board.bestSixCards.filter((p) =>
+    String(p.side || "").toUpperCase().startsWith("U")
+  );
+  assert.ok(unders.length >= 2, `tomorrow Best 6 should include >=2 Unders, got ${unders.length}`);
+  const overs = board.bestSixCards.length - unders.length;
+  assert.ok(overs <= 4, `tomorrow Best 6 should not exceed 4 Overs, got ${overs}`);
 });
 
 console.log(`\nOver-balance side-rescue: ${passed}/${passed} passed`);

@@ -6,6 +6,8 @@ export const BEST_SIX_LIMIT = 6;
 export const WNBA_TOP_PICK_LIMIT = 2;
 export const NBA_TOP_PICK_LIMIT = 2;
 export const SUPPORTED_LEAGUES = ["NBA", "WNBA"];
+export const DISPLAY_SIDE_BALANCE_MINORITY = 3;
+export const DISPLAY_SIDE_BALANCE_SWAP_MARGIN = 24;
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
 /** Home tab shows tomorrow slate only — no Today section. */
@@ -23,6 +25,8 @@ export function resolveTrackEligibility(pick = {}) {
 export function countCandidatesByEligibility(candidates = []) {
   const counts = {
     track: 0,
+    boardOnly: 0,
+    shadowOnly: 0,
     highRisk: 0,
     noBet: 0,
     other: 0,
@@ -32,12 +36,103 @@ export function countCandidatesByEligibility(candidates = []) {
     const eligibility = resolveTrackEligibility(pick);
     if (eligibility === "TRACK") counts.track += 1;
     else if (eligibility === "NO_BET") counts.noBet += 1;
-    else if (eligibility === "BOARD_ONLY" || eligibility === "SHADOW_ONLY") {
+    else if (eligibility === "BOARD_ONLY") {
+      counts.boardOnly += 1;
+      counts.highRisk += 1;
+    } else if (eligibility === "SHADOW_ONLY") {
+      counts.shadowOnly += 1;
       counts.highRisk += 1;
     } else counts.other += 1;
   }
 
   return counts;
+}
+
+function normalizePickSide(side = "") {
+  const raw = String(side || "").toUpperCase();
+  if (raw === "OVER" || raw === "O" || raw.startsWith("OVER")) return "OVER";
+  if (raw === "UNDER" || raw === "U" || raw.startsWith("UNDER")) return "UNDER";
+  return "";
+}
+
+export function stablePickKey(pick = {}) {
+  return [
+    String(pick.player || "").toLowerCase(),
+    String(pick.team || "").toLowerCase(),
+    String(pick.line ?? ""),
+    String(pick.side || pick.pick || "").toLowerCase(),
+  ].join("|");
+}
+
+export function displayPickRankScore(pick = {}) {
+  return Number(
+    pick.topPickSafetyScore ??
+      pick.pickScore ??
+      pick.bestPropScore ??
+      pick.confidence ??
+      pick.winProbability ??
+      0
+  );
+}
+
+export function applyDisplaySideBalance(selected = [], candidatePool = [], options = {}) {
+  const limit = Number(options.limit ?? BEST_SIX_LIMIT);
+  const minMinority = Number(options.minMinority ?? DISPLAY_SIDE_BALANCE_MINORITY);
+  const margin = Number(options.swapMargin ?? DISPLAY_SIDE_BALANCE_SWAP_MARGIN);
+  if (!Array.isArray(selected) || selected.length < 3) return selected;
+
+  const sortedPool = [...(candidatePool || [])].sort(
+    (a, b) => displayPickRankScore(b) - displayPickRankScore(a)
+  );
+  let result = [...selected];
+  const swaps = [];
+
+  for (let attempt = 0; attempt < limit; attempt += 1) {
+    const sideCounts = { OVER: 0, UNDER: 0 };
+    for (const pick of result) {
+      const side = normalizePickSide(pick.side || pick.pick);
+      if (side) sideCounts[side] += 1;
+    }
+
+    const dominantSide =
+      sideCounts.OVER >= limit - minMinority
+        ? "OVER"
+        : sideCounts.UNDER >= limit - minMinority
+          ? "UNDER"
+          : null;
+    if (!dominantSide) break;
+
+    const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
+    if (sideCounts[minoritySide] >= minMinority) break;
+
+    const selectedKeys = new Set(result.map((pick) => stablePickKey(pick)));
+    let weakestIdx = 0;
+    let weakestScore = displayPickRankScore(result[0]);
+    for (let i = 1; i < result.length; i += 1) {
+      const score = displayPickRankScore(result[i]);
+      if (normalizePickSide(result[i].side || result[i].pick) === dominantSide && score <= weakestScore) {
+        weakestScore = score;
+        weakestIdx = i;
+      }
+    }
+
+    const alternative = sortedPool.find((pick) => {
+      if (selectedKeys.has(stablePickKey(pick))) return false;
+      if (normalizePickSide(pick.side || pick.pick) !== minoritySide) return false;
+      return displayPickRankScore(pick) >= weakestScore - margin;
+    });
+    if (!alternative) break;
+
+    swaps.push({
+      replaced: result[weakestIdx]?.player,
+      with: alternative.player,
+      dominantSide,
+      minoritySide,
+    });
+    result[weakestIdx] = alternative;
+  }
+
+  return swaps.length ? result : selected;
 }
 
 export function resolveBestSixDisplayPool(
@@ -194,15 +289,6 @@ export function buildTopPickBadgeMap(topProps = [], league = "WNBA") {
   return map;
 }
 
-export function stablePickKey(pick = {}) {
-  return [
-    String(pick.player || "").toLowerCase(),
-    String(pick.team || "").toLowerCase(),
-    String(pick.line ?? ""),
-    String(pick.side || pick.pick || "").toLowerCase(),
-  ].join("|");
-}
-
 export function enrichBestSixForDisplay(
   pick = {},
   topPickBadgeMap = new Map(),
@@ -349,7 +435,9 @@ export function resolveDateScopedDisplayPool(
     usedKeys.add(key);
   }
 
-  return merged.slice(0, bestSixLimit);
+  return applyDisplaySideBalance(merged.slice(0, bestSixLimit), candidates, {
+    limit: bestSixLimit,
+  });
 }
 
 /**
@@ -502,17 +590,25 @@ export function buildLeagueControlledSummary({
 
   const displayPool = resolveBestSixDisplayPool(resolvedDisplay, resolvedBestSix);
   const filteredResults = filterBestSixByDateView(resolvedBestSix, dateView);
-  const dateScopedDisplay =
-    scopedDisplayPool ??
-    (dateView === "full_board"
-      ? displayPool.slice(0, bestSixLimit)
-      : resolveDateScopedDisplayPool(
-          displayPool,
-          resolvedGames,
-          leagueCode,
-          dateView,
-          bestSixLimit
-        ));
+  const dateScopedDisplay = (() => {
+    const scoped =
+      scopedDisplayPool ??
+      (dateView === "full_board"
+        ? displayPool.slice(0, bestSixLimit)
+        : resolveDateScopedDisplayPool(
+            displayPool,
+            resolvedGames,
+            leagueCode,
+            dateView,
+            bestSixLimit
+          ));
+    if (dateView === "full_board") {
+      return applyDisplaySideBalance(scoped, collectLeagueCandidatesFromGames(resolvedGames, leagueCode), {
+        limit: bestSixLimit,
+      });
+    }
+    return scoped;
+  })();
   const scopedTotal = dateScopedDisplay.length;
   const resultsTrackedCount = scopedTotal;
 
@@ -546,6 +642,8 @@ export function buildLeagueControlledSummary({
     boardCandidates: scopedCandidates.length,
     boardTrack: eligibilityCounts.track,
     boardHighRisk: eligibilityCounts.highRisk,
+    boardOnly: eligibilityCounts.boardOnly,
+    boardShadow: eligibilityCounts.shadowOnly,
     track: eligibilityCounts.track,
     highRisk: eligibilityCounts.highRisk,
     noBet: eligibilityCounts.noBet,
@@ -664,8 +762,7 @@ export function buildLeagueControlledBestSixReportText({
     `Results Tracked: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
-    `Board Track: ${summary.boardTrack ?? track}`,
-    `Natural Track: ${track}`,
+    `Natural Track (board): ${summary.boardTrack ?? track}`,
     `High Risk (board): ${highRisk || 0}`,
     `No Bet: ${noBet}`,
     other ? `Other: ${other}` : null,

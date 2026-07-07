@@ -8,7 +8,7 @@ import {
 } from "./propDecisionIntelligenceV1.js";
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 
-export const SIDE_RESCUE_VERSION = "side-rescue-v1.1";
+export const SIDE_RESCUE_VERSION = "side-rescue-v1.2";
 
 const EXPANDING_ROLE = new Set(["up", "expanding", "rising"]);
 const CONTRACTING_ROLE = new Set(["down", "contracting", "declining"]);
@@ -271,6 +271,53 @@ function scoreSide(side = "", reader = {}, metrics = {}, evidence = []) {
   return clamp(Math.round(score), 0, 100);
 }
 
+function auditOppositeDisplayScore(
+  oppositeSideScore = 0,
+  oppositeRiskAdjusted = 0,
+  oppositeEvidence = []
+) {
+  const independent = oppositeEvidence.filter((e) => !String(e.code || "").startsWith("READER_CASE"));
+  const evidenceFloor = independent.length
+    ? Math.min(36, independent.length * 8 + (independent.length >= 2 ? 6 : 0))
+    : 0;
+  return clamp(
+    Math.round(Math.max(oppositeRiskAdjusted, oppositeSideScore, evidenceFloor)),
+    0,
+    100
+  );
+}
+
+function formatKeepOriginalReason({
+  originalSide = "",
+  originalRiskAdjusted = 0,
+  oppositeRiskAdjusted = 0,
+  oppositeSideScore = 0,
+  oppositeEvidence = [],
+  metrics = {},
+}) {
+  const oppositeAudit = auditOppositeDisplayScore(
+    oppositeSideScore,
+    oppositeRiskAdjusted,
+    oppositeEvidence
+  );
+  const edge = projectionEdgeForSide(
+    originalSide === "OVER" ? "UNDER" : "OVER",
+    metrics
+  );
+  const evidenceCodes = oppositeEvidence
+    .filter((e) => !String(e.code || "").startsWith("READER_CASE"))
+    .slice(0, 2)
+    .map((e) => e.code)
+    .join(", ");
+  let reason = `Original ${originalSide} stronger after adjustment (${originalRiskAdjusted} vs ${oppositeAudit}).`;
+  if (oppositeAudit <= 8 && edge < 1.5) {
+    reason += ` Opposite lacks projection support (gap ${edge.toFixed(1)}).`;
+  } else if (evidenceCodes) {
+    reason += ` Opposite signals: ${evidenceCodes}.`;
+  }
+  return reason;
+}
+
 function buildSimpleExplanation({ action = "", originalSide = "", finalSide = "", keepReasons = [], flipReasons = [], boardOnlyReasons = [], noBetReasons = [] }) {
   const orig = sideLabel(originalSide);
   const fin = sideLabel(finalSide);
@@ -387,7 +434,16 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
     flipReasons.push(`${independentEvidence.length} independent evidence: ${independentEvidence.slice(0, 2).map((e) => e.code).join(", ")}.`);
     if (flipCheckOpposite) flipReasons.push("Flip-first CHECK_OPPOSITE review supported rescue.");
   } else if (originalRiskAdjusted >= 55 && originalRiskAdjusted > oppositeRiskAdjusted + 5) {
-    keepReasons.push(`Original ${originalSide} stronger after adjustment (${originalRiskAdjusted} vs ${oppositeRiskAdjusted}).`);
+    keepReasons.push(
+      formatKeepOriginalReason({
+        originalSide,
+        originalRiskAdjusted,
+        oppositeRiskAdjusted,
+        oppositeSideScore,
+        oppositeEvidence,
+        metrics,
+      })
+    );
   } else if (
     gate.trackingEligibility === "BOARD_ONLY" ||
     originalRiskAdjusted < 50 ||
@@ -411,7 +467,11 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   return {
     version: SIDE_RESCUE_VERSION, league: "WNBA", triggered: true, originalSide, finalSide, action,
     originalSideScore, oppositeSideScore, originalRiskAdjustedScore: originalRiskAdjusted,
-    oppositeRiskAdjustedScore: oppositeRiskAdjusted,
+    oppositeRiskAdjustedScore: auditOppositeDisplayScore(
+      oppositeSideScore,
+      oppositeRiskAdjusted,
+      oppositeEvidence
+    ),
     rescueScore: clamp(Math.round(oppositeRiskAdjusted - originalRiskAdjusted + independentEvidence.length * 5), 0, 100),
     flipConfidence: action === "FLIP_SIDE" ? clamp(Math.round((oppositeRiskAdjusted - originalRiskAdjusted) * 2 + independentEvidence.length * 8), 0, 100) : 0,
     flipMarginRequired: flipMargin, flipScoreFloor,
