@@ -1,6 +1,6 @@
 /**
  * Controlled Best 6 selector — full pool → analyze → rank → Best 6 → Top 2 from Best 6.
- * Display pool ranks from the fully analyzed board; all 6 display props admit to Results (TRACK / BOARD_ONLY / NO_BET).
+ * Display pool ranks by safety score; all 6 display props are TRACK-admitted for Results learning.
  */
 import { CONFIG } from "../../config.js";
 import { scoreNbaTopProp } from "./nbaTopPropScore.js";
@@ -23,6 +23,7 @@ import {
 import {
   applyDecisionIntelligenceToPick,
   DECISION_INTELLIGENCE_VERSION,
+  promoteBestSixCohortPick,
 } from "../decisionIntelligence/propDecisionIntelligenceV1.js";
 import {
   applySideRescueToPick,
@@ -36,7 +37,7 @@ import {
   applySlateCollisionAdjustments,
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-track-all-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-six-trackable-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -125,6 +126,41 @@ function compareByScore(a = {}, b = {}) {
     Number(b.confidence || 0) - Number(a.confidence || 0) ||
     Number(b.netEdge || 0) - Number(a.netEdge || 0)
   );
+}
+
+function trueRiskRank(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const raw = String(di.trueRisk || pick.trueRisk || "MEDIUM").toUpperCase();
+  if (raw === "LOW") return 3;
+  if (raw === "HIGH") return 1;
+  return 2;
+}
+
+function gateQualityRank(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const el = String(
+    di.trackEligibility || pick.trackingEligibility || pick.wnbaTrackingDecision || "TRACK"
+  ).toUpperCase();
+  if (el === "TRACK") return 4;
+  if (el === "BOARD_ONLY") return 3;
+  if (el === "SHADOW_ONLY") return 2;
+  if (el === "NO_BET") return 1;
+  return 2;
+}
+
+export function computeSafetyScore(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const score = num(pick.bestPropScore ?? pick.pickScore, 0);
+  const confidence = num(pick.confidence ?? pick.winProbability, 50);
+  const dangerPenalty = num(di.dangerGateCount ?? pick.dangerGateCount, 0) * 6;
+  const riskBonus = trueRiskRank(pick) * 15;
+  const gateBonus = gateQualityRank(pick) * 10;
+  const repairBonus = num(di.repairScore, 0) * 0.1;
+  return score + confidence * 0.4 + riskBonus + gateBonus + repairBonus - dangerPenalty;
+}
+
+function compareBySafetyScore(a = {}, b = {}) {
+  return computeSafetyScore(b) - computeSafetyScore(a) || compareByScore(a, b);
 }
 
 function createControlledBestSixAudit(league = "") {
@@ -384,30 +420,22 @@ function passesResultsEligibility(pick = {}) {
 }
 
 export function annotateResultsAdmission(pick = {}) {
-  const di = pick.decisionIntelligence || {};
-  const sr = pick.sideRescue || {};
-  let eligibility = String(
-    di.trackEligibility || pick.wnbaTrackingDecision || pick.trackingEligibility || "BOARD_ONLY"
-  ).toUpperCase();
-  if (sr.action === "BOARD_ONLY" || sr.action === "NO_BET") {
-    eligibility = sr.action;
-  }
-
-  const resultsDecisionLabel = eligibility;
-  const resultsTrackingWarning =
-    eligibility !== "TRACK"
+  const promoted = promoteBestSixCohortPick(pick);
+  const di = promoted.decisionIntelligence || {};
+  const qualityNote =
+    promoted.bestSixQualityFlags?.length > 0
       ? di.simpleExplanation ||
         pick.wnbaTrackingReason ||
-        `${eligibility} — in Results learning pool`
+        `Prior gate: ${promoted.bestSixQualityFlags.join(", ")}`
       : "";
 
   return {
-    ...pick,
+    ...promoted,
     resultsAdmissionEligible: true,
-    resultsDecisionLabel,
-    resultsTrackingWarning,
-    resultsAdmissionReason: resultsTrackingWarning,
-    displayResultsReason: resultsTrackingWarning,
+    resultsDecisionLabel: "TRACK",
+    resultsTrackingWarning: qualityNote,
+    resultsAdmissionReason: qualityNote,
+    displayResultsReason: qualityNote,
     controlledBestSixDisplayTracked: true,
   };
 }
@@ -550,7 +578,7 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
     leagueCode === "WNBA" ? applySlateCollisionLayer(valid, audit) : valid;
 
   const scored = collisionAdjusted.map(scoreCandidate);
-  scored.sort(compareByScore);
+  scored.sort(compareBySafetyScore);
   audit.scoredCount = scored.length;
 
   const selected = selectBestSixWithDiversity(
@@ -563,6 +591,7 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
     audit
   );
   const ranked = rankBestSix(selected, leagueCode, { forDisplay: true });
+  audit.safetyScoreOrdered = true;
 
   audit.selectedBestSixCount = ranked.length;
   audit.selectedBestSixTeams = [...new Set(ranked.map(getPickTeamKey))];

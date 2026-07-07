@@ -23,19 +23,18 @@ export function resolveTrackEligibility(pick = {}) {
 export function countCandidatesByEligibility(candidates = []) {
   const counts = {
     track: 0,
-    boardOnly: 0,
+    highRisk: 0,
     noBet: 0,
-    shadowOnly: 0,
     other: 0,
   };
 
   for (const pick of candidates) {
     const eligibility = resolveTrackEligibility(pick);
     if (eligibility === "TRACK") counts.track += 1;
-    else if (eligibility === "BOARD_ONLY") counts.boardOnly += 1;
     else if (eligibility === "NO_BET") counts.noBet += 1;
-    else if (eligibility === "SHADOW_ONLY") counts.shadowOnly += 1;
-    else counts.other += 1;
+    else if (eligibility === "BOARD_ONLY" || eligibility === "SHADOW_ONLY") {
+      counts.highRisk += 1;
+    } else counts.other += 1;
   }
 
   return counts;
@@ -147,6 +146,12 @@ export function enrichBestSixForDisplay(
   const serverRank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
   const rank = index + 1;
   const di = pick.decisionIntelligence || {};
+  const qualityNote =
+    pick.displayResultsReason ||
+    pick.resultsAdmissionReason ||
+    di.simpleExplanation ||
+    pick.wnbaTrackingReason ||
+    "";
 
   return {
     ...pick,
@@ -157,24 +162,14 @@ export function enrichBestSixForDisplay(
     topPickRank: topMeta?.topPickRank ?? pick.topPickRank ?? null,
     topPickLabel: topMeta?.topPickLabel ?? pick.topPickLabel ?? null,
     league: leagueCode,
-    displayTrackEligibility: resolveTrackEligibility(pick),
+    displayTrackEligibility: "TRACK",
     displayTrueRisk: resolveTrueRisk(pick),
-    displayWhy:
-      pick.displayResultsReason ||
-      pick.resultsAdmissionReason ||
-      di.simpleExplanation ||
-      pick.decisionIntelligence?.simpleExplanation ||
-      pick.wnbaTrackingReason ||
-      "",
-    displayResultsReason:
-      pick.displayResultsReason ||
-      pick.resultsAdmissionReason ||
-      (resolveTrackEligibility(pick) !== "TRACK" || pick.resultsAdmissionEligible === false
-        ? di.simpleExplanation || pick.wnbaTrackingReason || ""
-        : ""),
+    displayWhy: qualityNote,
+    displayResultsReason: qualityNote,
     resultsAdmissionEligible:
       pick.resultsAdmissionEligible ??
       isResultsPoolTrackProp(pick),
+    resultsDecisionLabel: "TRACK",
     displayRiskDebts: (di.riskDebts || []).map(formatRiskDebt),
     displayRiskRepairs: (di.riskRepairs || []).map(formatRiskRepair),
     displaySideRescueAction:
@@ -240,11 +235,10 @@ function compareCandidatesForDisplay(a = {}, b = {}) {
 export function isResultsPoolTrackProp(pick = {}) {
   if (pick.resultsAdmissionEligible === true) return true;
   if (pick.controlledBestSixDisplayTracked === true) return true;
+  if (pick.controlledBestSixDisplay === true) return true;
   if (pick.resultsAdmissionEligible === false) return false;
   const di = pick.decisionIntelligence || {};
-  return (
-    resolveTrackEligibility(pick) === "TRACK" && di.bestSixEligibility === true
-  );
+  return resolveTrackEligibility(pick) === "TRACK" || di.bestSixEligibility === true;
 }
 
 /**
@@ -481,11 +475,10 @@ export function buildLeagueControlledSummary({
     topPicks: topPickCount,
     topPickLimit,
     boardCandidates: scopedCandidates.length,
-    boardTrack: eligibilityCounts.track,
+    boardTrack: eligibilityCounts.track + eligibilityCounts.highRisk,
     track: eligibilityCounts.track,
-    boardOnly: eligibilityCounts.boardOnly,
+    highRisk: eligibilityCounts.highRisk,
     noBet: eligibilityCounts.noBet,
-    shadowOnly: eligibilityCounts.shadowOnly,
     other: eligibilityCounts.other,
     dateView,
   };
@@ -586,9 +579,8 @@ export function buildLeagueControlledBestSixReportText({
   const topPicks = summary.topPicks ?? 0;
   const boardCandidates = summary.boardCandidates ?? 0;
   const track = summary.track ?? 0;
-  const boardOnly = summary.boardOnly ?? 0;
+  const highRisk = summary.highRisk ?? 0;
   const noBet = summary.noBet ?? 0;
-  const shadowOnly = summary.shadowOnly ?? 0;
   const other = summary.other ?? 0;
   const resultsTrack = summary.controlledBestSixTrack ?? summary.controlledBestSix ?? 0;
 
@@ -602,10 +594,10 @@ export function buildLeagueControlledBestSixReportText({
     `Results Tracked: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
-    `Board Track: ${summary.boardTrack ?? track}`,
-    `Board Only: ${boardOnly}`,
+    `Board Track: ${summary.boardTrack ?? track + highRisk}`,
+    `Natural Track: ${track}`,
+    highRisk ? `High Risk (board): ${highRisk}` : null,
     `No Bet: ${noBet}`,
-    shadowOnly ? `Shadow Only: ${shadowOnly}` : null,
     other ? `Other: ${other}` : null,
     "",
     "--- Controlled Best 6 ---",

@@ -503,6 +503,12 @@ function getPickDecision(pick = {}) {
 }
 
 function resolveDisplayResultsDecisionLabel(pick = {}) {
+  const fromDisplay =
+    pick.controlledBestSixDisplay === true ||
+    pick.controlledBestSixDisplayTracked === true ||
+    pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY";
+  if (fromDisplay) return "TRACK";
+
   const di = pick.decisionIntelligence || {};
   const sr = pick.sideRescue || {};
   let label = String(
@@ -515,13 +521,13 @@ function resolveDisplayResultsDecisionLabel(pick = {}) {
   const sideRescueAction = String(
     pick.sideRescueAction || sr.action || ""
   ).toUpperCase();
-  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
+  if (sideRescueAction === "NO_BET") {
     label = sideRescueAction;
   }
   return label;
 }
 
-/** Controlled Best 6 display cohort — TRACK, BOARD_ONLY, and NO_BET all admit to Results. */
+/** Controlled Best 6 display cohort — all members are TRACK-admitted for Results learning. */
 export function isBestSixDisplayResultsProp(pick = {}) {
   if (pick.homeStaged === true) return false;
   if (isPreV1ShadowProp(pick)) return false;
@@ -531,12 +537,7 @@ export function isBestSixDisplayResultsProp(pick = {}) {
     pick.controlledBestSixDisplayTracked === true ||
     pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY";
 
-  if (!fromDisplay) return false;
-
-  const label = resolveDisplayResultsDecisionLabel(pick);
-  if (!label) return true;
-  if (label === "SHADOW_ONLY") return false;
-  return ["TRACK", "BOARD_ONLY", "NO_BET"].includes(label);
+  return fromDisplay;
 }
 
 /** TRACK-admitted Best 6 props count as official Results record regardless of reader TEST demotion. */
@@ -554,7 +555,7 @@ export function isTrackAdmittedResultsProp(pick = {}) {
   const sideRescueAction = String(
     pick.sideRescueAction || pick.sideRescue?.action || ""
   ).toUpperCase();
-  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
+  if (sideRescueAction === "NO_BET") {
     return false;
   }
   if (pick.homeStaged === true) return false;

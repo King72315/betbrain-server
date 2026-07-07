@@ -232,7 +232,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-trust-accuracy-engine-v2";
+const SERVER_BUILD = "courteedge-six-trackable-best-six-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

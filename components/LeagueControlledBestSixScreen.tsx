@@ -288,7 +288,7 @@ export default function LeagueControlledBestSixScreen({
               />
               <SummaryMetric label="Board Candidates" value={summary.boardCandidates} />
               <SummaryMetric label="Board Track" value={summary.boardTrack ?? summary.track ?? 0} />
-              <SummaryMetric label="Board Only" value={summary.boardOnly} />
+              <SummaryMetric label="High Risk" value={summary.highRisk ?? 0} />
               <SummaryMetric label="No Bet" value={summary.noBet} />
             </View>
           </View>
@@ -382,7 +382,7 @@ export default function LeagueControlledBestSixScreen({
                                 Candidates: {game.allCandidateCount ?? pool.length}
                               </Text>
                               <Text style={styles.gameMeta}>Track: {counts.track}</Text>
-                              <Text style={styles.gameMeta}>Board Only: {counts.boardOnly}</Text>
+                              <Text style={styles.gameMeta}>High Risk: {counts.highRisk}</Text>
                             </>
                           );
                         })()}

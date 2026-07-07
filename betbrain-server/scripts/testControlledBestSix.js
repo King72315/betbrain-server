@@ -580,19 +580,15 @@ function testDisplayBestSixFromFullAnalyzedBoard() {
   const trackInDisplay = display.bestSix.filter(
     (p) => p.decisionIntelligence?.trackEligibility === "TRACK"
   ).length;
-  assert.ok(trackInDisplay >= 1);
+  assert.strictEqual(trackInDisplay, display.bestSix.length);
   assert.ok(results.bestSix.length <= trackInDisplay);
   assert.ok(
     display.bestSix.every((pick) => pick.resultsAdmissionEligible === true),
     "display Best 6 should all admit to Results"
   );
   assert.ok(
-    results.bestSix.every(
-      (pick) =>
-        pick.decisionIntelligence?.trackEligibility === "TRACK" &&
-        pick.decisionIntelligence?.bestSixEligibility === true
-    ),
-    "Results Best 6 must be TRACK-only"
+    display.bestSix.every((pick) => pick.resultsDecisionLabel === "TRACK"),
+    "display Best 6 should all show TRACK decision label"
   );
 }
 
@@ -626,13 +622,14 @@ function testDisplayDoesNotPreFilterBoardOnly() {
   });
   const display = selectBestSixDisplay([strongBoard], "WNBA");
   assert.strictEqual(display.bestSix.length, 1);
-  assert.notStrictEqual(display.bestSix[0].decisionIntelligence?.trackEligibility, "TRACK");
+  assert.strictEqual(display.bestSix[0].decisionIntelligence?.trackEligibility, "TRACK");
   assert.strictEqual(display.bestSix[0].resultsAdmissionEligible, true);
-  assert.ok(display.bestSix[0].resultsDecisionLabel);
+  assert.strictEqual(display.bestSix[0].resultsDecisionLabel, "TRACK");
+  assert.ok(display.bestSix[0].decisionIntelligence?.bestSixPromoted);
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-six-trackable-v1");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],
@@ -644,7 +641,7 @@ function run() {
     ["7. Top 2 WNBA different teams", testTopWnbaDifferentTeams],
     ["8. Top 2 NBA different teams", testTopNbaDifferentTeams],
     ["9. no different team returns one", testNoDifferentTeamCandidate],
-    ["9b. Top 2 includes BOARD_ONLY display ranks", testTopTwoIncludesBoardOnlyDisplayRanks],
+    ["9b. Top 2 includes promoted display ranks", testTopTwoIncludesBoardOnlyDisplayRanks],
     ["10. uses full candidate pool", testUsesFullCandidatePool],
     ["11. quality gate blocks trash", testQualityGateBlocksTrash],
     ["12. excludes invalid candidates", testExcludesInvalidCandidates],
@@ -666,7 +663,7 @@ function run() {
     ["28. existing results tracking cohort", testExistingResultsTrackingCohort],
     ["29. existing slate results snapshot", testExistingSlateResultsSnapshot],
     ["30. display Best 6 from full analyzed board (15 pool)", testDisplayBestSixFromFullAnalyzedBoard],
-    ["31. display does not pre-filter BOARD_ONLY", testDisplayDoesNotPreFilterBoardOnly],
+    ["31. display promotes former BOARD_ONLY to TRACK", testDisplayDoesNotPreFilterBoardOnly],
   ];
 
   let passed = 0;

@@ -436,6 +436,15 @@ Re-evaluated from `.tmp-prod-picks-0707.json` through full decision stack.
 
 ---
 
+## Six-trackable Best 6 — `courteedge-six-trackable-best-six-v1`
+
+See **`COURTEDGE_SIX_TRACKABLE_BEST_SIX_REPORT.md`** for full before/after Jul 7 slate (Bueckers, Johnson, Malonga, Copper, Ayayi, Astier) and deploy notes.
+
+**Jul 7 WNBA before:** 3 TRACK / 2 BOARD_ONLY / 1 NO_BET label on Home.  
+**After:** 6/6 TRACK (promoted slots keep HIGH/MEDIUM true risk + audit reasons).
+
+---
+
 ## Engine v2 — `courteedge-trust-accuracy-engine-v2`
 
 **Builds on:** `ac2aadb` (trust-accuracy-fixes-v1)  

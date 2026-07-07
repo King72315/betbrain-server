@@ -183,10 +183,10 @@ test("09 buildWnbaControlledSummary counts board candidates", () => {
   assert.strictEqual(summary.controlledBestSixTotal, 3);
   assert.strictEqual(summary.boardCandidates, 3);
   assert.strictEqual(summary.track, 1);
-  assert.strictEqual(summary.boardOnly, 1);
+  assert.strictEqual(summary.highRisk, 1);
   assert.strictEqual(summary.noBet, 1);
   assert.strictEqual(summary.topPicks, 2);
-  assert.strictEqual(summary.track + summary.boardOnly + summary.noBet, summary.boardCandidates);
+  assert.strictEqual(summary.track + summary.highRisk + summary.noBet, summary.boardCandidates);
 });
 
 test("10 summary uses Board Candidates label not Playable", () => {
@@ -234,7 +234,7 @@ test("15 enrichBestSixForDisplay falls back to wnbaTrackingReason", () => {
     0
   );
   assert.strictEqual(enriched.displayWhy, "Gate blocked");
-  assert.strictEqual(enriched.displayTrackEligibility, "NO_BET");
+  assert.strictEqual(enriched.displayTrackEligibility, "TRACK");
 });
 
 function makeDearicaHambyFixture() {
@@ -314,7 +314,7 @@ test("19 default report summary uses Controlled Best 6 X/6", () => {
       topPicks: 1,
       topPickLimit: 2,
       boardCandidates: 3,
-      boardOnly: 1,
+      highRisk: 1,
       noBet: 1,
     },
     dateView: "today",
@@ -336,7 +336,7 @@ test("20 compact pick line excludes score ledger", () => {
   assert.ok(!line.includes("Hidden ledger"));
 });
 
-test("21 Dearica Hamby BOARD_ONLY excluded from Best 6 selector", () => {
+test("21 Dearica Hamby enters display Best 6 as promoted TRACK", () => {
   const dearica = makeDearicaHambyFixture();
   const gate = evaluateWnbaTrackingGateV2(dearica);
   const di = evaluatePropDecisionIntelligenceV1(dearica, { gate });
@@ -349,8 +349,11 @@ test("21 Dearica Hamby BOARD_ONLY excluded from Best 6 selector", () => {
     }),
     evaluateWnbaTrackingGateV2(todayPick)
   );
-  const { bestSix } = selectControlledBestSix([enrichedDearica, trackPick], "WNBA");
-  assert.ok(!bestSix.some((pick) => pick.player === "Dearica Hamby"));
+  const { bestSix } = selectBestSixDisplay([enrichedDearica, trackPick], "WNBA");
+  assert.ok(bestSix.some((pick) => pick.player === "Dearica Hamby"));
+  const dearicaDisplay = bestSix.find((pick) => pick.player === "Dearica Hamby");
+  assert.strictEqual(dearicaDisplay.resultsDecisionLabel, "TRACK");
+  assert.strictEqual(dearicaDisplay.decisionIntelligence.trackEligibility, "TRACK");
 });
 
 test("22 scout-expanded report still omits game board dump", () => {
@@ -431,7 +434,7 @@ test("27 acceptance: default report structure has summary then controlled list o
   assert.ok(!report.includes("Top Props:"));
 });
 
-test("28 count reconciliation includes shadow-only bucket", () => {
+test("28 count reconciliation maps board/shadow to highRisk", () => {
   const candidates = [
     todayPick,
     {
@@ -452,11 +455,10 @@ test("28 count reconciliation includes shadow-only bucket", () => {
   ];
   const counts = countCandidatesByEligibility(candidates);
   assert.strictEqual(counts.track, 1);
-  assert.strictEqual(counts.shadowOnly, 1);
-  assert.strictEqual(counts.boardOnly, 1);
+  assert.strictEqual(counts.highRisk, 2);
   assert.strictEqual(counts.noBet, 1);
   assert.strictEqual(
-    counts.track + counts.shadowOnly + counts.boardOnly + counts.noBet + counts.other,
+    counts.track + counts.highRisk + counts.noBet + counts.other,
     candidates.length
   );
 });
@@ -764,7 +766,8 @@ test("42 Results Tracked counts all display Best 6 members", () => {
   assert.strictEqual(board.summary.controlledBestSixTrack, 2);
   assert.strictEqual(isResultsPoolTrackProp(displayTrackNotResults), true);
   assert.strictEqual(board.bestSixCards[1].resultsAdmissionEligible, true);
-  assert.strictEqual(board.bestSixCards[1].resultsDecisionLabel, "BOARD_ONLY");
+  assert.strictEqual(board.bestSixCards[1].resultsDecisionLabel, "TRACK");
+  assert.strictEqual(board.bestSixCards[1].displayTrackEligibility, "TRACK");
 });
 
 test("43 top picks count derives from display Best 6 ranks not Results pool", () => {

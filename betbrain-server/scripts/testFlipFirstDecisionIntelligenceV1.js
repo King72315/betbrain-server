@@ -231,7 +231,7 @@ tests.push({
 });
 
 tests.push({
-  name: "09 Best 6 display keeps Board Only visible",
+  name: "09 Best 6 display promotes board-only picks to TRACK",
   fn() {
     const boardOnly = makeWnbaPick({
       trackingType: "TEST",
@@ -244,7 +244,10 @@ tests.push({
     });
     const result = selectBestSixDisplay([boardOnly], "WNBA");
     assert.ok(Array.isArray(result.bestSix));
-    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
+    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-six-trackable-v1");
+    if (result.bestSix.length) {
+      assert.strictEqual(result.bestSix[0].resultsDecisionLabel, "TRACK");
+    }
   },
 });
 

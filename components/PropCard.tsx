@@ -130,10 +130,7 @@ export default function PropCard({
 
   if (variant === "bestSix") {
     const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
-    const trackDecision =
-      pick.displayTrackEligibility ||
-      wnbaTrackingDecision ||
-      "TRACK";
+    const trackDecision = "TRACK";
     const displayTrueRisk =
       pick.displayTrueRisk || trueRisk || pick.riskAfterCeiling || "—";
     const whyText =

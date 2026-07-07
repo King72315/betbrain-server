@@ -44,8 +44,6 @@ export function getPropDisplayLabels(prop: any = {}): PropDisplayLabel {
   ).toUpperCase();
   if (decisionLabel === "TRACK") {
     badges.push("Track");
-  } else if (decisionLabel === "BOARD_ONLY") {
-    badges.push("Board Only");
   } else if (decisionLabel === "NO_BET") {
     badges.push("No Bet");
   }

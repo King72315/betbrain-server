@@ -284,17 +284,17 @@ function testTrackAdmittedReaderDemotedPromotedToOfficial() {
   assert.ok(isOfficialResultsProp(cohort[0]));
 }
 
-function testBoardOnlyDisplayBestSixTracked() {
+function testPromotedDisplayBestSixTracked() {
   const candidates = [
     makePick({
-      player: "Board Only Star",
+      player: "Former Board Star",
       trackingType: "TEST",
       trackingEligibility: "BOARD_ONLY",
       decisionIntelligence: { trackEligibility: "BOARD_ONLY", bestSixEligibility: true },
       controlledBestSixDisplay: true,
       controlledBestSixDisplayTracked: true,
       resultsAdmissionEligible: true,
-      resultsDecisionLabel: "BOARD_ONLY",
+      resultsDecisionLabel: "TRACK",
     }),
   ];
   const { cohort } = buildResultsTrackingCohort(candidates, {
@@ -302,7 +302,7 @@ function testBoardOnlyDisplayBestSixTracked() {
     trackAllBestSixDisplay: true,
   });
   assert.strictEqual(cohort.length, 1);
-  assert.strictEqual(cohort[0].resultsDecisionLabel, "BOARD_ONLY");
+  assert.strictEqual(cohort[0].resultsDecisionLabel, "TRACK");
   assert.ok(isBestSixDisplayResultsProp(cohort[0]));
   assert.ok(isOfficialResultsProp(cohort[0]));
 }
@@ -367,7 +367,7 @@ const tests = [
   ["12 opposite-side conflict excluded", testOppositeSideConflictExcluded],
   ["stable key exists", testStableKeyExistsForCohort],
   ["13 TRACK reader-demoted stored as OFFICIAL", testTrackAdmittedReaderDemotedPromotedToOfficial],
-  ["14 BOARD_ONLY display Best 6 tracked", testBoardOnlyDisplayBestSixTracked],
+  ["14 promoted display Best 6 tracked as TRACK", testPromotedDisplayBestSixTracked],
   ["15 NO_BET eligibility display Best 6 tracked", testNoBetEligibilityDisplayBestSixTracked],
   ["16 controlled cohort uses display Best 6", testControlledCohortUsesDisplayBestSix],
 ];

@@ -752,6 +752,66 @@ function buildSimpleExplanation({
   return `TRACK — Strong ${sideLabel} profile with ${mainRepair}. True risk stays ${trueRisk} because ${mainDebt}.`;
 }
 
+export function promoteBestSixCohortPick(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const sr = pick.sideRescue || {};
+  const originalEligibility = String(
+    di.trackEligibility || pick.trackingEligibility || pick.wnbaTrackingDecision || "TRACK"
+  ).toUpperCase();
+  const sideRescueAction = String(sr.action || pick.sideRescueAction || "").toUpperCase();
+
+  const qualityFlags = [];
+  if (originalEligibility !== "TRACK") qualityFlags.push(originalEligibility);
+  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
+    qualityFlags.push(`SIDE_RESCUE_${sideRescueAction}`);
+  }
+
+  let trueRisk = String(di.trueRisk || "MEDIUM").toUpperCase();
+  if (
+    originalEligibility === "NO_BET" ||
+    sideRescueAction === "NO_BET" ||
+    originalEligibility === "SHADOW_ONLY"
+  ) {
+    trueRisk = "HIGH";
+  } else if (
+    (originalEligibility === "BOARD_ONLY" || sideRescueAction === "BOARD_ONLY") &&
+    trueRisk === "LOW"
+  ) {
+    trueRisk = "MEDIUM";
+  }
+
+  const gateReason = di.gateReason || pick.wnbaTrackingReason || "";
+  const simpleExplanation =
+    qualityFlags.length > 0
+      ? `TRACK — Safest available pick; prior gate: ${qualityFlags.join(", ")}.${gateReason ? ` ${gateReason}.` : ""} True risk ${trueRisk}.`
+      : di.simpleExplanation || `TRACK — True risk ${trueRisk}.`;
+
+  const updatedDi = {
+    ...di,
+    trackEligibility: "TRACK",
+    bestSixEligibility: true,
+    trueRisk,
+    originalGateEligibility: originalEligibility,
+    bestSixPromoted: qualityFlags.length > 0,
+    promotionReasons: qualityFlags,
+    simpleExplanation,
+    riskAfterDecision: riskLabelFromTrueRisk(trueRisk),
+  };
+
+  return {
+    ...pick,
+    decisionIntelligence: updatedDi,
+    trackingEligibility: "TRACK",
+    wnbaTrackingDecision: "TRACK",
+    riskLabel: riskLabelFromTrueRisk(trueRisk),
+    resultsDecisionLabel: "TRACK",
+    resultsAdmissionEligible: true,
+    controlledBestSixDisplayTracked: true,
+    displayTrackEligibility: "TRACK",
+    bestSixQualityFlags: qualityFlags,
+  };
+}
+
 function evaluateWnbaDecisionIntelligence(candidate = {}, options = {}) {
   const dataCard = options.dataCard || candidate.wnbaDataCard;
   const reader = options.reader || candidate.wnbaReader;
