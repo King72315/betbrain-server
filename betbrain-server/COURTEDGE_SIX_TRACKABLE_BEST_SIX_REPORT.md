@@ -78,3 +78,18 @@ All passing:
 ## Deploy
 
 Push branch `betbrain-v2-rebuild` and redeploy server. Refresh `/picks` after deploy to bust cache (`controlledBestSixVersion` change).
+
+---
+
+## Top Picks safest-v1 — `courteedge-top-picks-safest-v1`
+
+Top 2 (Top tab + Home badges) now selected by **safety score** across all 6 Best 6 props — not raw Best #1/#2 rank. Team diversity on slot 2 preserved.
+
+### Jul 7 WNBA example
+
+| | Rank-order Top 2 (before) | Safety-score Top 2 (after) |
+|---|---------------------------|----------------------------|
+| Top #1 | Paige Bueckers (Best #1) | **Flau'jae Johnson** (Best #2) |
+| Top #2 | Flau'jae Johnson (Best #2) | **Paige Bueckers** (Best #1) |
+
+Same two players, but **order flips** — Johnson edges Bueckers on safety (200.4 vs 200.0; identical pickScore, Johnson's gate/debt profile scores marginally higher). Ayayi (Best #5) is 3rd-safest; Malonga skipped for Top 2 (same team as Johnson). HIGH-risk promoted slots (Malonga, Copper, Astier) stay out of Top 2.

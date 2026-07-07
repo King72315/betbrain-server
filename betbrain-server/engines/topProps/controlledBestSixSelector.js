@@ -156,7 +156,35 @@ export function computeSafetyScore(pick = {}) {
   const riskBonus = trueRiskRank(pick) * 15;
   const gateBonus = gateQualityRank(pick) * 10;
   const repairBonus = num(di.repairScore, 0) * 0.1;
-  return score + confidence * 0.4 + riskBonus + gateBonus + repairBonus - dangerPenalty;
+  const debtPenalty = (Array.isArray(di.riskDebts) ? di.riskDebts.length : 0) * 4;
+  const killPenalty = (Array.isArray(di.killReasons) ? di.killReasons.length : 0) * 20;
+  const stabilityBonus =
+    num(
+      pick.minutesStabilityScore ??
+        di.minutesStabilityScore ??
+        pick.volumeStabilityScore ??
+        di.volumeStabilityScore,
+      0
+    ) * 0.15;
+  const promotedPenalty =
+    (pick.bestSixQualityFlags?.length || di.promotionReasons?.length || 0) * 8 +
+    (di.bestSixPromoted ? 8 : 0);
+  return (
+    score +
+    confidence * 0.4 +
+    riskBonus +
+    gateBonus +
+    repairBonus +
+    stabilityBonus -
+    dangerPenalty -
+    debtPenalty -
+    killPenalty -
+    promotedPenalty
+  );
+}
+
+export function compareSafetyScore(a = {}, b = {}) {
+  return compareBySafetyScore(a, b);
 }
 
 function compareBySafetyScore(a = {}, b = {}) {
@@ -612,18 +640,21 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
     hiddenDueToLeagueLimit: 0,
     noDifferentTeamCandidate: false,
     selectedTopTeams: [],
+    topPickSelectionMode: "SAFETY_SCORE",
     hidden: [],
   };
 
+  const sorted = [...bestSix].sort(compareBySafetyScore);
   const selected = [];
   const selectedTeamKeys = new Set();
 
-  for (const pick of bestSix) {
+  for (const pick of sorted) {
     if (selected.length >= limit) {
       audit.hiddenDueToLeagueLimit += 1;
       audit.hidden.push({
         reason: "hidden_due_to_league_limit",
         limit,
+        safetyScore: computeSafetyScore(pick),
         pick: summarizePickForAudit(pick),
       });
       continue;
@@ -635,6 +666,7 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       audit.hidden.push({
         reason: "hidden_due_to_same_team",
         teamKey,
+        safetyScore: computeSafetyScore(pick),
         pick: summarizePickForAudit(pick),
       });
       continue;
@@ -656,21 +688,30 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
 
   const ranked = selected.map((pick, index) => {
     const rank = index + 1;
+    const safetyScore = computeSafetyScore(pick);
     return {
       ...pick,
       rank,
       topPropRank: rank,
       leagueRank: rank,
+      topPickRank: rank,
+      topPickSafetyScore: safetyScore,
       topPickLabel: buildTopPickLabel(leagueCode, rank),
       selectedTeamKey: getPickTeamKey(pick),
       selectedFromBestSix: true,
       selectedFromDisplayBestSix: true,
+      selectedBySafetyScore: true,
       isTopPickReference: true,
       referenceOnly: true,
     };
   });
 
   audit.selectedTopTeams = [...selectedTeamKeys];
+  audit.selectedTopPickSafetyScores = ranked.map((pick) => ({
+    player: pick.player,
+    safetyScore: pick.topPickSafetyScore,
+    bestSixRank: pick.bestSixRank || pick.controlledBestSixRank,
+  }));
 
   return {
     topProps: ranked,

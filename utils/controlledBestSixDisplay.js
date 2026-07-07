@@ -76,7 +76,73 @@ function getPickTeamKey(pick = {}) {
   return String(team).trim().toLowerCase();
 }
 
-/** Top 2 from display Best 6 rank order (Best #1 + #2). Team diversity on slot 2 only. */
+function num(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function trueRiskRank(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const raw = String(di.trueRisk || pick.trueRisk || "MEDIUM").toUpperCase();
+  if (raw === "LOW") return 3;
+  if (raw === "HIGH") return 1;
+  return 2;
+}
+
+function gateQualityRank(pick = {}) {
+  const eligibility = resolveTrackEligibility(pick);
+  if (eligibility === "TRACK") return 4;
+  if (eligibility === "BOARD_ONLY") return 3;
+  if (eligibility === "SHADOW_ONLY") return 2;
+  if (eligibility === "NO_BET") return 1;
+  return 2;
+}
+
+/** Keep in sync with controlledBestSixSelector.computeSafetyScore */
+export function computeSafetyScore(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const score = num(pick.bestPropScore ?? pick.pickScore ?? pick.controlledBestSixScore, 0);
+  const confidence = num(pick.confidence ?? pick.winProbability, 50);
+  const dangerPenalty = num(di.dangerGateCount ?? pick.dangerGateCount, 0) * 6;
+  const riskBonus = trueRiskRank(pick) * 15;
+  const gateBonus = gateQualityRank(pick) * 10;
+  const repairBonus = num(di.repairScore, 0) * 0.1;
+  const debtPenalty = (Array.isArray(di.riskDebts) ? di.riskDebts.length : 0) * 4;
+  const killPenalty = (Array.isArray(di.killReasons) ? di.killReasons.length : 0) * 20;
+  const stabilityBonus =
+    num(
+      pick.minutesStabilityScore ??
+        di.minutesStabilityScore ??
+        pick.volumeStabilityScore ??
+        di.volumeStabilityScore,
+      0
+    ) * 0.15;
+  const promotedPenalty =
+    (pick.bestSixQualityFlags?.length || di.promotionReasons?.length || 0) * 8 +
+    (di.bestSixPromoted ? 8 : 0);
+  return (
+    score +
+    confidence * 0.4 +
+    riskBonus +
+    gateBonus +
+    repairBonus +
+    stabilityBonus -
+    dangerPenalty -
+    debtPenalty -
+    killPenalty -
+    promotedPenalty
+  );
+}
+
+function compareBySafetyScore(a = {}, b = {}) {
+  return (
+    computeSafetyScore(b) - computeSafetyScore(a) ||
+    num(b.confidence ?? b.winProbability) - num(a.confidence ?? a.winProbability) ||
+    num(b.bestPropScore ?? b.pickScore) - num(a.bestPropScore ?? a.pickScore)
+  );
+}
+
+/** Top 2 safest from display Best 6 — team diversity on slot 2+. */
 export function selectTopTwoFromDisplayBestSix(
   displayBestSix = [],
   league = "WNBA",
@@ -87,10 +153,11 @@ export function selectTopTwoFromDisplayBestSix(
     Number(limit) || getTopPickLimitForLeague(leagueCode),
     getTopPickLimitForLeague(leagueCode)
   );
+  const sorted = [...displayBestSix].sort(compareBySafetyScore);
   const selected = [];
   const selectedTeamKeys = new Set();
 
-  for (const pick of displayBestSix) {
+  for (const pick of sorted) {
     if (selected.length >= resolvedLimit) break;
 
     const teamKey = getPickTeamKey(pick);
@@ -105,7 +172,9 @@ export function selectTopTwoFromDisplayBestSix(
     return {
       ...pick,
       topPickRank: rank,
+      topPickSafetyScore: computeSafetyScore(pick),
       topPickLabel: `Top ${leagueCode} #${rank}`,
+      selectedBySafetyScore: true,
     };
   });
 }

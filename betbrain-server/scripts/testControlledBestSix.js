@@ -223,7 +223,41 @@ function testNoDifferentTeamCandidate() {
   assert.strictEqual(audit.noDifferentTeamCandidate, true);
 }
 
-function testTopTwoIncludesBoardOnlyDisplayRanks() {
+function testTopTwoPicksSafestNotDisplayRank() {
+  const display = [
+    {
+      ...makeWnbaPick({ player: "Best Rank", team: "T1", overScore: 92, confidence: 90 }),
+      bestSixRank: 1,
+      controlledBestSixRank: 1,
+      decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW", riskDebts: [] },
+    },
+    {
+      ...makeWnbaPick({ player: "Weak Rank Two", team: "T2", overScore: 70, confidence: 55 }),
+      bestSixRank: 2,
+      controlledBestSixRank: 2,
+      decisionIntelligence: {
+        trackEligibility: "TRACK",
+        trueRisk: "HIGH",
+        riskDebts: [{ code: "THIN_EDGE" }, { code: "VOLATILE_MINUTES" }],
+        dangerGateCount: 3,
+        bestSixPromoted: true,
+      },
+    },
+    {
+      ...makeWnbaPick({ player: "Safer Rank Three", team: "T3", overScore: 85, confidence: 82 }),
+      bestSixRank: 3,
+      controlledBestSixRank: 3,
+      decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "MEDIUM", riskDebts: [] },
+    },
+  ];
+  const { topProps } = selectTopTwoFromBestSix(display, "WNBA");
+  assert.strictEqual(topProps.length, 2);
+  assert.strictEqual(topProps[0].player, "Best Rank");
+  assert.strictEqual(topProps[1].player, "Safer Rank Three");
+  assert.notStrictEqual(topProps[1].player, "Weak Rank Two");
+}
+
+function testTopTwoIncludesPromotedDisplayRanks() {
   const display = [
     {
       ...makeWnbaPick({ player: "Track Star", team: "T1", overScore: 92 }),
@@ -641,7 +675,8 @@ function run() {
     ["7. Top 2 WNBA different teams", testTopWnbaDifferentTeams],
     ["8. Top 2 NBA different teams", testTopNbaDifferentTeams],
     ["9. no different team returns one", testNoDifferentTeamCandidate],
-    ["9b. Top 2 includes promoted display ranks", testTopTwoIncludesBoardOnlyDisplayRanks],
+    ["9b. Top 2 picks safest two by safety score", testTopTwoPicksSafestNotDisplayRank],
+    ["9c. Top 2 includes promoted display picks", testTopTwoIncludesPromotedDisplayRanks],
     ["10. uses full candidate pool", testUsesFullCandidatePool],
     ["11. quality gate blocks trash", testQualityGateBlocksTrash],
     ["12. excludes invalid candidates", testExcludesInvalidCandidates],
