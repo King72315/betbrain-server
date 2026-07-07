@@ -8,7 +8,7 @@ import {
 } from "./propDecisionIntelligenceV1.js";
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 
-export const SIDE_RESCUE_VERSION = "side-rescue-v1";
+export const SIDE_RESCUE_VERSION = "side-rescue-v1.1";
 
 const EXPANDING_ROLE = new Set(["up", "expanding", "rising"]);
 const CONTRACTING_ROLE = new Set(["down", "contracting", "declining"]);
@@ -38,7 +38,20 @@ function sideLabel(side = "") {
 }
 
 function normalizeReaderScore(score = 0) {
-  return clamp(Math.round(num(score) * 4.5), 0, 100);
+  return clamp(Math.round(Math.max(0, num(score)) * 4.5), 0, 100);
+}
+
+function projectionEdgeForSide(side = "", metrics = {}) {
+  return side === "OVER"
+    ? num(metrics.projection) - num(metrics.line)
+    : num(metrics.line) - num(metrics.projection);
+}
+
+function flipFirstCheckOppositeAction(flipFirst = {}, originalSide = "") {
+  const action = String(flipFirst?.action || "").toUpperCase();
+  if (originalSide === "OVER" && action === "CHECK_UNDER") return true;
+  if (originalSide === "UNDER" && action === "CHECK_OVER") return true;
+  return false;
 }
 
 function hasFtaCollapse(metrics = {}, card = {}) {
@@ -238,10 +251,12 @@ function hasMajorContradiction(oppositeSide = "", metrics = {}) {
 
 function scoreSide(side = "", reader = {}, metrics = {}, evidence = []) {
   const readerCase = side === "OVER" ? reader.overCase : reader.underCase;
-  let score = normalizeReaderScore(readerCase?.score);
-  const edge = side === "OVER" ? metrics.projection - metrics.line : metrics.line - metrics.projection;
+  const rawReaderScore = num(readerCase?.score);
+  let score = normalizeReaderScore(rawReaderScore);
+  const edge = projectionEdgeForSide(side, metrics);
   if (edge >= 4) score += 8;
   else if (edge >= 2.5) score += 4;
+  else if (edge >= 1.5 && rawReaderScore < 6) score += 6;
   else if (edge <= 1) score -= 10;
 
   const boosts = {
@@ -274,23 +289,39 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   const metrics = resolveQualityGateInputs(candidate, dataCard, reader);
   metrics.card = dataCard;
   metrics.fta = num(dataCard.last5?.fta ?? candidate.recentFTA);
+  const flipFirst =
+    options.flipFirstDecision ||
+    candidate.flipFirstDecision ||
+    candidate.decisionDataIntelligence?.flipFirstDecision ||
+    {};
 
   const originalSide = normalizeSide(options.originalSide || candidate.initialSide || metrics.side || reader.finalSide);
   const oppositeSide = originalSide === "OVER" ? "UNDER" : "OVER";
   const triggerDebts = collectTriggerDebts(di.riskDebts || [], originalSide, metrics, gate);
   const underFragility = originalSide === "UNDER" ? detectUnderFragility(metrics, gate, triggerDebts) : { fragile: false, count: 0, factors: [] };
+  const flipCheckOpposite = flipFirstCheckOppositeAction(flipFirst, originalSide);
   const triggerReasons = triggerDebts.map((d) => d.code);
   if (underFragility.fragile) triggerReasons.push("UNDER_FRAGILITY_STACK");
-  const triggered = triggerDebts.length > 0 || underFragility.fragile;
+  if (flipCheckOpposite) triggerReasons.push("FLIP_FIRST_CHECK_OPPOSITE");
+  let triggered = triggerDebts.length > 0 || underFragility.fragile || flipCheckOpposite;
+
+  const oppositeEvidencePreview = buildOppositeEvidence(oppositeSide, metrics, reader, dataCard);
+  const baselineOriginalScore = scoreSide(originalSide, reader, metrics, []);
+  const baselineOppositeScore = scoreSide(
+    oppositeSide,
+    reader,
+    metrics,
+    oppositeEvidencePreview
+  );
 
   if (!triggered) {
     return {
       version: SIDE_RESCUE_VERSION, league: "WNBA", triggered: false, originalSide, finalSide: originalSide,
-      action: "KEEP_ORIGINAL", originalSideScore: scoreSide(originalSide, reader, metrics, []),
-      oppositeSideScore: scoreSide(oppositeSide, reader, metrics, []),
-      originalRiskAdjustedScore: scoreSide(originalSide, reader, metrics, []), oppositeRiskAdjustedScore: 0,
+      action: "KEEP_ORIGINAL", originalSideScore: baselineOriginalScore,
+      oppositeSideScore: baselineOppositeScore,
+      originalRiskAdjustedScore: baselineOriginalScore, oppositeRiskAdjustedScore: baselineOppositeScore,
       rescueScore: 0, flipConfidence: 0, triggerReasons: [], originalSideWeaknesses: [],
-      oppositeSideEvidence: [], keepReasons: ["No meaningful risk debt challenging original side."],
+      oppositeSideEvidence: oppositeEvidencePreview, keepReasons: ["No meaningful risk debt challenging original side."],
       flipReasons: [], boardOnlyReasons: [], noBetReasons: [], riskDebtThatTriggeredReview: [],
       underFragility, simpleExplanation: buildSimpleExplanation({ action: "KEEP_ORIGINAL", originalSide, finalSide: originalSide }),
     };
@@ -317,11 +348,17 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   oppositeRiskAdjusted = clamp(Math.round(oppositeRiskAdjusted), 0, 100);
 
   const thinEdge = triggerDebts.some((d) => d.code === "THIN_EDGE");
-  const flipMargin = thinEdge ? FLIP_MARGIN_THIN_EDGE : FLIP_MARGIN_DEFAULT;
+  const flipMargin = thinEdge
+    ? FLIP_MARGIN_THIN_EDGE
+    : flipCheckOpposite
+      ? Math.max(5, FLIP_MARGIN_DEFAULT - 3)
+      : FLIP_MARGIN_DEFAULT;
+  const flipScoreFloor = flipCheckOpposite ? Math.max(50, FLIP_SCORE_FLOOR - 8) : FLIP_SCORE_FLOOR;
+  const minOppositeEvidence = flipCheckOpposite ? 1 : MIN_OPPOSITE_EVIDENCE;
   const independentEvidence = oppositeEvidence.filter((e) => !e.code.startsWith("READER_CASE"));
-  const flipEligible = oppositeRiskAdjusted >= FLIP_SCORE_FLOOR &&
+  const flipEligible = oppositeRiskAdjusted >= flipScoreFloor &&
     oppositeRiskAdjusted - originalRiskAdjusted >= flipMargin &&
-    oppositeKills.length === 0 && independentEvidence.length >= MIN_OPPOSITE_EVIDENCE &&
+    oppositeKills.length === 0 && independentEvidence.length >= minOppositeEvidence &&
     !hasMajorContradiction(oppositeSide, metrics);
   const bothChaotic = originalRiskAdjusted < 35 && oppositeRiskAdjusted < 45 &&
     (metrics.dataConfidence < 45 || metrics.availabilityDataMissing);
@@ -341,10 +378,6 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
         triggerDebts.find((d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP")?.reason ||
         "Kill-level risk debt blocks play."
     );
-  } else if (gate.trackingEligibility === "BOARD_ONLY") {
-    action = "BOARD_ONLY";
-    finalSide = originalSide;
-    boardOnlyReasons.push(gate.wnbaTrackingReason || "Gate demoted to board only.");
   } else if (bothChaotic && originalRiskAdjusted < 30) {
     action = "NO_BET"; finalSide = null;
     noBetReasons.push("Both sides unreliable with low confidence data.");
@@ -352,13 +385,22 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
     action = "FLIP_SIDE"; finalSide = oppositeSide;
     flipReasons.push(`Opposite ${oppositeSide} ${oppositeRiskAdjusted} vs original adjusted ${originalRiskAdjusted}.`);
     flipReasons.push(`${independentEvidence.length} independent evidence: ${independentEvidence.slice(0, 2).map((e) => e.code).join(", ")}.`);
+    if (flipCheckOpposite) flipReasons.push("Flip-first CHECK_OPPOSITE review supported rescue.");
   } else if (originalRiskAdjusted >= 55 && originalRiskAdjusted > oppositeRiskAdjusted + 5) {
     keepReasons.push(`Original ${originalSide} stronger after adjustment (${originalRiskAdjusted} vs ${oppositeRiskAdjusted}).`);
-  } else if (originalRiskAdjusted < 50 || underFragility.fragile || triggerDebts.some((d) => d.severity === "KILL" || d.severity === "HIGH")) {
+  } else if (
+    gate.trackingEligibility === "BOARD_ONLY" ||
+    originalRiskAdjusted < 50 ||
+    underFragility.fragile ||
+    triggerDebts.some((d) => d.severity === "KILL" || d.severity === "HIGH")
+  ) {
     action = "BOARD_ONLY"; finalSide = originalSide;
+    if (gate.trackingEligibility === "BOARD_ONLY") {
+      boardOnlyReasons.push(gate.wnbaTrackingReason || "Gate demoted to board only.");
+    }
     if (oppositeKills.length) boardOnlyReasons.push(`Opposite blocked: ${oppositeKills.join(", ")}.`);
-    else if (independentEvidence.length < MIN_OPPOSITE_EVIDENCE) boardOnlyReasons.push("Opposite lacks independent evidence.");
-    else if (oppositeRiskAdjusted < FLIP_SCORE_FLOOR) boardOnlyReasons.push(`Opposite score ${oppositeRiskAdjusted} below floor ${FLIP_SCORE_FLOOR}.`);
+    else if (independentEvidence.length < minOppositeEvidence) boardOnlyReasons.push("Opposite lacks independent evidence.");
+    else if (oppositeRiskAdjusted < flipScoreFloor) boardOnlyReasons.push(`Opposite score ${oppositeRiskAdjusted} below floor ${flipScoreFloor}.`);
     else if (oppositeRiskAdjusted - originalRiskAdjusted < flipMargin) boardOnlyReasons.push(`Margin ${oppositeRiskAdjusted - originalRiskAdjusted} below ${flipMargin}.`);
     else if (hasMajorContradiction(oppositeSide, metrics)) boardOnlyReasons.push("Projection/fair-line contradict opposite.");
     else boardOnlyReasons.push("Original fragile; opposite did not earn flip.");
@@ -372,7 +414,7 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
     oppositeRiskAdjustedScore: oppositeRiskAdjusted,
     rescueScore: clamp(Math.round(oppositeRiskAdjusted - originalRiskAdjusted + independentEvidence.length * 5), 0, 100),
     flipConfidence: action === "FLIP_SIDE" ? clamp(Math.round((oppositeRiskAdjusted - originalRiskAdjusted) * 2 + independentEvidence.length * 8), 0, 100) : 0,
-    flipMarginRequired: flipMargin, flipScoreFloor: FLIP_SCORE_FLOOR,
+    flipMarginRequired: flipMargin, flipScoreFloor,
     triggerReasons: [...new Set(triggerReasons)], originalSideWeaknesses, oppositeSideEvidence: oppositeEvidence,
     oppositeKillDebts: oppositeKills, keepReasons, flipReasons, boardOnlyReasons, noBetReasons,
     riskDebtThatTriggeredReview: triggerDebts, underFragility,

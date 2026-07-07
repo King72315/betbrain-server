@@ -154,7 +154,8 @@ function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "", 
 
 function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
   const readerCase = side === "OVER" ? reader.overCase : reader.underCase;
-  let score = clamp(Math.round(num(readerCase?.score) * 4.5), 0, 100);
+  const rawReaderScore = num(readerCase?.score);
+  let score = clamp(Math.round(Math.max(0, rawReaderScore) * 4.5), 0, 100);
   const reasons = [];
 
   const edge = side === "OVER" ? metrics.projection - metrics.line : metrics.line - metrics.projection;
@@ -163,6 +164,10 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
     reasons.push(`Projection gap ${edge.toFixed(1)} supports ${side}.`);
   } else if (edge >= 2.5) {
     score += 5;
+    reasons.push(`Projection gap ${edge.toFixed(1)} supports ${side}.`);
+  } else if (edge >= 1.5 && rawReaderScore < 6) {
+    score += 6;
+    reasons.push(`Moderate ${side} edge despite weak reader case.`);
   } else if (edge <= 1) {
     score -= 12;
     reasons.push(`Thin ${side} gap.`);

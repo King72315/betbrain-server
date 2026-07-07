@@ -138,7 +138,7 @@ function test(name, fn) {
 }
 
 test("01 SIDE_RESCUE_VERSION constant", () => {
-  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1");
+  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1.1");
 });
 
 test("02 clean profile does not trigger rescue", () => {
@@ -194,8 +194,9 @@ test("06 Dearica Hamby U15.5 BOARD_ONLY not flip", () => {
     fairLine: { fairLineSide: "UNDER", fairLineEdge: 4, fairLineQuality: 60 },
   }, { netEdge: 6 });
   const { sideRescue } = evaluatePipeline(pick);
-  assert.strictEqual(sideRescue.action, "BOARD_ONLY");
+  assert.strictEqual(sideRescue.action, "KEEP_ORIGINAL");
   assert.strictEqual(sideRescue.finalSide, "UNDER");
+  assert.ok(sideRescue.originalRiskAdjustedScore > sideRescue.oppositeRiskAdjustedScore + 5);
 });
 
 test("07 applySideRescueToPick sets BOARD_ONLY eligibility", () => {
@@ -383,11 +384,11 @@ test("18 Dearica retro dearicaStyleCases populated", () => {
   );
   const dearica = retro.dearicaStyleCases.find((c) => c.player === "Dearica Hamby");
   assert.ok(dearica);
-  assert.strictEqual(dearica.action, "BOARD_ONLY");
+  assert.strictEqual(dearica.action, "KEEP_ORIGINAL");
 });
 
 test("19 controlled best six version side-rescue-v1", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-track-all-v1");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v1");
 });
 
 test("20 BOARD_ONLY rescue excluded from Best 6", () => {

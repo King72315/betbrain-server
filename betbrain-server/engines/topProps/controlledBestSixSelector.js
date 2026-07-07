@@ -37,11 +37,12 @@ import {
   applySlateCollisionAdjustments,
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-six-trackable-v1";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
 export const MAX_GAME_IN_BEST_SIX = 3;
+const SIDE_BALANCE_SWAP_MARGIN = 12;
 
 function clean(value = "") {
   return String(value)
@@ -315,7 +316,53 @@ function selectBestSixWithDiversity(sorted = [], options = {}, audit = {}) {
     if (gameKey) gameCounts.set(gameKey, gameCount + 1);
   }
 
-  return selected;
+  return applySideBalancePreference(sorted, selected, { limit }, audit);
+}
+
+function applySideBalancePreference(sorted = [], selected = [], options = {}, audit = {}) {
+  const limit = Number(options.limit ?? BEST_SIX_LIMIT);
+  if (selected.length < 3 || selected.length < limit) return selected;
+
+  const sideCounts = { OVER: 0, UNDER: 0 };
+  for (const pick of selected) {
+    const side = normalizeSide(pick.side || pick.pick);
+    if (side === "OVER" || side === "UNDER") sideCounts[side] += 1;
+  }
+
+  const dominantSide =
+    sideCounts.OVER >= limit - 1 ? "OVER" : sideCounts.UNDER >= limit - 1 ? "UNDER" : null;
+  if (!dominantSide) return selected;
+
+  const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
+  const selectedSet = new Set(selected);
+  let weakestIdx = 0;
+  let weakestScore = computeSafetyScore(selected[0]);
+  for (let i = 1; i < selected.length; i += 1) {
+    const score = computeSafetyScore(selected[i]);
+    if (score < weakestScore) {
+      weakestScore = score;
+      weakestIdx = i;
+    }
+  }
+
+  const alternative = sorted.find((pick) => {
+    if (selectedSet.has(pick)) return false;
+    if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
+    const altScore = computeSafetyScore(pick);
+    return altScore >= weakestScore - SIDE_BALANCE_SWAP_MARGIN;
+  });
+
+  if (!alternative) return selected;
+
+  const next = [...selected];
+  next[weakestIdx] = alternative;
+  audit.sideBalanceSwap = {
+    replaced: summarizePickForAudit(selected[weakestIdx]),
+    with: summarizePickForAudit(alternative),
+    dominantSide,
+    minoritySide,
+  };
+  return next;
 }
 
 function rankBestSix(selected = [], league = "", options = {}) {
@@ -373,6 +420,10 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
       enriched.wnbaGameContext?.impliedTeamTotal ??
       options.impliedTeamTotal,
   });
+  enriched.flipFirstAction =
+    enriched.flipFirstDecision?.action ||
+    enriched.decisionDataIntelligence?.flipFirstDecision?.action ||
+    enriched.flipFirstAction;
 
   const gate = evaluateWnbaTrackingEligibility(
     enriched,
@@ -389,6 +440,8 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
       dataCard: enriched.wnbaDataCard,
       reader: enriched.wnbaReader,
       originalSide: enriched.initialSide,
+      flipFirstDecision:
+        enriched.flipFirstDecision || enriched.decisionDataIntelligence?.flipFirstDecision,
     });
     enriched = applySideRescueToPick(enriched, sideRescue, {
       dataCard: enriched.wnbaDataCard,

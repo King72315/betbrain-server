@@ -762,9 +762,6 @@ export function promoteBestSixCohortPick(pick = {}) {
 
   const qualityFlags = [];
   if (originalEligibility !== "TRACK") qualityFlags.push(originalEligibility);
-  if (sideRescueAction === "BOARD_ONLY" || sideRescueAction === "NO_BET") {
-    qualityFlags.push(`SIDE_RESCUE_${sideRescueAction}`);
-  }
 
   let trueRisk = String(di.trueRisk || "MEDIUM").toUpperCase();
   if (

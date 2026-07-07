@@ -383,5 +383,8 @@ export function runFlipFirstDecisionPipeline(pick = {}, options = {}) {
     };
   }
 
+  enriched.flipFirstAction = fd?.action || enriched.flipFirstAction;
+  enriched.flipFirstDecision = fd || enriched.flipFirstDecision;
+
   return enriched;
 }

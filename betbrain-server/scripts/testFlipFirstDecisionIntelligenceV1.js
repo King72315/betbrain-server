@@ -244,7 +244,7 @@ tests.push({
     });
     const result = selectBestSixDisplay([boardOnly], "WNBA");
     assert.ok(Array.isArray(result.bestSix));
-    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-six-trackable-v1");
+    assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v1");
     if (result.bestSix.length) {
       assert.strictEqual(result.bestSix[0].resultsDecisionLabel, "TRACK");
     }

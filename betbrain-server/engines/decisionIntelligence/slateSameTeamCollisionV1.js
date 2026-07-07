@@ -64,7 +64,7 @@ function evaluateTeamCluster(teamKey = "", overs = []) {
   const highMinuteScorers = demands.filter((d) => d.recentMinutes >= 24).length;
 
   if (overs.length >= 2) collisionScore += 20;
-  if (overs.length >= 3) collisionScore += 15;
+  if (overs.length >= 3) collisionScore += 22;
 
   if (impliedTeamTotal > 0 && combinedLineDemand > impliedTeamTotal * 1.12) {
     collisionScore += 28;
@@ -107,7 +107,7 @@ function evaluateTeamCluster(teamKey = "", overs = []) {
     const row = ranked[i];
     const weakerRank = i + 1;
     let scorePenalty = 0;
-    if (collisionScore >= 30) scorePenalty += Math.max(0, 16 - i * 4);
+    if (collisionScore >= 30) scorePenalty += Math.max(0, 24 - i * 6);
     if (unrealistic && weakerRank > 1) scorePenalty += 6;
     propAudits.set(row.player, {
       player: row.player,
