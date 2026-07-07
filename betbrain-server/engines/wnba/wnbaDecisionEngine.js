@@ -465,6 +465,8 @@ export async function evaluateWnbaPropDecision(context = {}) {
   pick = finalizeWnbaPickTracking(pick, reader);
 
   pick.initialSide = pickSide;
+  pick.defenseResult = defenseResult;
+  pick.wnbaGameContext = pickGameContext;
   pick = syncWnbaDataModeOnPick(pick, dataCard, reader);
   pick = runFlipFirstDecisionPipeline(pick, {
     dataCard,

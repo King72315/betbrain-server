@@ -940,6 +940,11 @@ export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate
     bestSixEligibility: di.bestSixEligibility,
     topPickEligibility: di.topPickEligibility,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
+    wnbaDataModeAudit: synced.wnbaDataModeAudit || pick.wnbaDataModeAudit || null,
+    defenseAudit: synced.defenseAudit || pick.defenseAudit || null,
+    impliedTeamTotalAudit: synced.impliedTeamTotalAudit || pick.impliedTeamTotalAudit || null,
+    flipFirstAudit: synced.flipFirstAudit || pick.flipFirstAudit || null,
+    slateCollisionAudit: synced.slateCollisionAudit || pick.slateCollisionAudit || null,
   };
 }
 

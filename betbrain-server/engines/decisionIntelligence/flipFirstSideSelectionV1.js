@@ -96,13 +96,21 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
   return problems;
 }
 
-function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "") {
+function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "", ddi = {}) {
   const problems = [];
   const { gapFloor } = resolveWnbaGapFloors({ ...metrics, side: originalSide });
   if (metrics.projectionGap > 0 && metrics.projectionGap < gapFloor) {
     problems.push({
       code: "THIN_GAP",
       reason: `Projection gap ${metrics.projectionGap.toFixed(1)} below ${gapFloor} floor — opposite-side review.`,
+    });
+  }
+
+  const market = ddi.marketIntelligence || pick.decisionDataIntelligence?.marketIntelligence || {};
+  if (market.marketWarning && market.sideImpact && market.sideImpact !== originalSide && market.sideImpact !== "NEUTRAL") {
+    problems.push({
+      code: "MARKET_AGAINST",
+      reason: market.reasons?.[0] || "Market movement against original side.",
     });
   }
 
@@ -227,10 +235,14 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
 
   const originalProblems = [
     ...collectOriginalProblems(ddi, originalSide),
-    ...collectMetricsGateProblems(pick, metrics, originalSide),
+    ...collectMetricsGateProblems(pick, metrics, originalSide, ddi),
   ];
   const originalScored = scoreSideFromModules(originalSide, ddi, reader, metrics);
   const oppositeScored = scoreSideFromModules(oppositeSide, ddi, reader, metrics);
+
+  const flipTriggered = originalProblems.length > 0;
+  const flipTriggerReasons = originalProblems.map((p) => p.code);
+  const oppositeSideEvidence = oppositeScored.reasons.filter(Boolean);
 
   const thinEdge = metrics.projectionGap > 0 && metrics.projectionGap < 3;
   const flipMargin = thinEdge ? FLIP_MARGIN_THIN : FLIP_MARGIN_DEFAULT;
@@ -257,6 +269,16 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
       flipReason: "",
       noFlipReason: noFlipReasons[0],
       action: "KEPT_ORIGINAL",
+      flipTriggered: false,
+      flipTriggerReasons: [],
+      oppositeSideEvidence: [],
+      whyRetainedFlippedOrPass: noFlipReasons[0],
+      flipFirstAudit: {
+        flipTriggered: false,
+        flipTriggerReasons: [],
+        oppositeSideEvidence: [],
+        whyRetainedFlippedOrPass: noFlipReasons[0],
+      },
       reasons,
     };
   }
@@ -292,6 +314,21 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
 
   if (!flipRecommended) reasons.push(...noFlipReasons);
 
+  const whyRetainedFlippedOrPass = flipRecommended
+    ? flipReasons[0] || `Flipped to ${finalSide}.`
+    : noFlipReasons[0] || "Original retained after opposite review.";
+
+  const flipFirstAudit = {
+    flipTriggered,
+    flipTriggerReasons,
+    oppositeSideEvidence,
+    whyRetainedFlippedOrPass,
+    oppositeSideChecked: true,
+    originalSideScore: originalScored.score,
+    oppositeSideScore: oppositeScored.score,
+    flipRecommended,
+  };
+
   return {
     version: FLIP_FIRST_VERSION,
     originalSide,
@@ -303,6 +340,11 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     flipReason: flipReasons[0] || "",
     noFlipReason: noFlipReasons[0] || "",
     action,
+    flipTriggered,
+    flipTriggerReasons,
+    oppositeSideEvidence,
+    whyRetainedFlippedOrPass,
+    flipFirstAudit,
     originalProblems,
     reasons: reasons.slice(0, 8),
   };
@@ -324,6 +366,12 @@ export function applyFlipFirstSideSelectionToPick(pick = {}, flipDecision = null
     flipFirstVersion: FLIP_FIRST_VERSION,
     flipFirstAction: fd.action,
     flipFirstExplanation: fd.flipReason || fd.noFlipReason || "",
+    flipFirstAudit: fd.flipFirstAudit || {
+      flipTriggered: fd.flipTriggered,
+      flipTriggerReasons: fd.flipTriggerReasons || [],
+      oppositeSideEvidence: fd.oppositeSideEvidence || [],
+      whyRetainedFlippedOrPass: fd.whyRetainedFlippedOrPass || "",
+    },
   };
 
   if (fd.flipRecommended && fd.finalSide) {

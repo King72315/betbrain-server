@@ -107,27 +107,150 @@ function normalizeGapSide(side = "") {
   return "";
 }
 
-/** Graduated Over/Under gap floors — FULL_DATA stable Over uses 3.5; limited/volatile Over uses 4.0. */
-export function resolveWnbaGapFloors(metrics = {}) {
+/** Graduated Over/Under gap floors — live Over uses 4.0; retro FULL+stable may use 3.5. */
+export function resolveWnbaGapFloors(metrics = {}, options = {}) {
   const side = normalizeGapSide(metrics.side);
+  const scenario = String(options.scenario || "live").toLowerCase();
+
   if (side === "UNDER") {
     return {
       gapFloor: WNBA_UNDER_GAP_FLOOR,
       reasonCode: "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      scenario: "under_standard",
+      retroFullDataStableFloor: null,
     };
   }
+
   const limited = isWnbaLimitedDataMode(metrics.dataMode);
   const volatile =
     metrics.volatility === "unstable" || metrics.volatility === "volatile";
-  if (limited || volatile) {
+  const stableMinutes = !volatile;
+  const fullStableEligible =
+    isWnbaFullDataMode(metrics.dataMode) && stableMinutes;
+
+  const retroFullDataStableFloor = fullStableEligible
+    ? WNBA_FULL_OVER_GAP_FLOOR
+    : null;
+
+  if (scenario === "retro_full_data_stable" && retroFullDataStableFloor != null) {
     return {
-      gapFloor: WNBA_LIMITED_OVER_GAP_FLOOR,
-      reasonCode: "OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      gapFloor: retroFullDataStableFloor,
+      reasonCode: "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR",
+      scenario,
+      retroFullDataStableFloor,
+    };
+  }
+
+  const reasonCode =
+    limited || volatile
+      ? "OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"
+      : "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR";
+
+  return {
+    gapFloor: WNBA_LIMITED_OVER_GAP_FLOOR,
+    reasonCode,
+    scenario: "live",
+    retroFullDataStableFloor,
+  };
+}
+
+export function resolveWnbaDataModeAudit(context = {}) {
+  const computed = resolveWnbaGraduatedDataMode(context);
+  const cardMode = context.cardDataMode || context.explicitCardMode || "";
+  const pickMode = context.pickDataMode || "";
+
+  let resolvedDataMode = computed;
+  let dataModeSource = "computed_coverage";
+
+  if (isWnbaFullDataMode(cardMode) && !isWnbaFullDataMode(computed)) {
+    const flags = context.dataMissingFlags || [];
+    const coreMissing = flags.some(
+      (f) =>
+        f?.missing &&
+        ["playerId", "seasonStats", "last5", "minutes", "fga", "market"].includes(f.key)
+    );
+    if (!coreMissing) {
+      resolvedDataMode = "WNBA_FULL_DATA";
+      dataModeSource = "card_honored_no_core_missing";
+    }
+  } else if (isWnbaFullDataMode(cardMode) && isWnbaFullDataMode(computed)) {
+    dataModeSource = "computed_matches_card";
+  } else if (isWnbaFullDataMode(pickMode) && isWnbaFullDataMode(resolvedDataMode)) {
+    dataModeSource = "pick_synced_full";
+  } else if (isWnbaLimitedDataMode(computed)) {
+    dataModeSource = "computed_limited_coverage";
+  }
+
+  const volatility = String(context.volatility || "stable").toLowerCase();
+  const stableMinutesEligibilitySatisfied =
+    volatility !== "volatile" && volatility !== "unstable";
+
+  const gapFloors = resolveWnbaGapFloors({
+    side: context.side || "OVER",
+    dataMode: resolvedDataMode,
+    volatility,
+  });
+
+  return {
+    version: WNBA_GRADUATED_DATA_MODE_VERSION,
+    resolvedDataMode,
+    dataModeSource,
+    gapFloorApplied: gapFloors.gapFloor,
+    gapFloorReasonCode: gapFloors.reasonCode,
+    gapFloorScenario: gapFloors.scenario,
+    retroFullDataStableFloor: gapFloors.retroFullDataStableFloor,
+    stableMinutesEligibilitySatisfied,
+    computedDataMode: computed,
+    cardDataMode: cardMode || null,
+    pickDataMode: pickMode || null,
+  };
+}
+
+export function buildImpliedTeamTotalAudit(pick = {}, dataCard = null) {
+  const card = dataCard || pick.wnbaDataCard || {};
+  const value = num(
+    pick.wnbaGameContext?.impliedTeamTotal ??
+      card.gameEnvironment?.impliedTeamTotal ??
+      pick.gameContext?.impliedTeamTotal
+  );
+  if (value > 0) {
+    return {
+      value,
+      source: pick.wnbaGameContext?.impliedTeamTotal
+        ? "wnba_game_context"
+        : "data_card_game_environment",
+      unavailableReason: null,
     };
   }
   return {
-    gapFloor: WNBA_FULL_OVER_GAP_FLOOR,
-    reasonCode: "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR",
+    value: null,
+    source: "unavailable",
+    unavailableReason: "spread_or_total_missing",
+  };
+}
+
+export function buildDefenseContextAudit(defenseResult = {}, cardDefense = {}) {
+  const score = num(defenseResult.defenseScore ?? cardDefense.score, 0);
+  const source =
+    defenseResult.source ||
+    cardDefense.defenseSource ||
+    (score === 50 && !defenseResult.opponentPPG && !cardDefense.opponentPPG
+      ? "default"
+      : "unknown");
+  const proxyUsed =
+    defenseResult.proxyUsed === true ||
+    cardDefense.proxyUsed === true ||
+    source === "default" ||
+    (source === "wnba_opponent_proxy_v1" && score === 50 && !defenseResult.opponentPPG);
+
+  return {
+    resolvedDefenseScore: score > 0 ? score : 50,
+    defenseSource: source,
+    proxyUsed,
+    opponentPPG: defenseResult.opponentPPG ?? cardDefense.opponentPPG ?? null,
+    unavailableReason: proxyUsed
+      ? defenseResult.reasons?.[0] || cardDefense.unavailableReason || "defense_proxy_default"
+      : null,
   };
 }
 

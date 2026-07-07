@@ -256,11 +256,22 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     evaluateDecisionDataIntelligence(pick, options);
 
   const labels = buildFlipFirstCompactLabels(ddi);
+  const flipAudit =
+    ddi.flipFirstDecision?.flipFirstAudit ||
+    (ddi.flipFirstDecision
+      ? {
+          flipTriggered: ddi.flipFirstDecision.flipTriggered,
+          flipTriggerReasons: ddi.flipFirstDecision.flipTriggerReasons || [],
+          oppositeSideEvidence: ddi.flipFirstDecision.oppositeSideEvidence || [],
+          whyRetainedFlippedOrPass: ddi.flipFirstDecision.whyRetainedFlippedOrPass || "",
+        }
+      : null);
   return {
     ...pick,
     decisionDataIntelligence: ddi,
     decisionDataIntelligenceVersion: DECISION_DATA_INTELLIGENCE_VERSION,
     flipFirstLabels: labels,
+    flipFirstAudit: flipAudit,
     opponentHistoryComparison: ddi.opponentHistoryComparison,
     opponentHistoryComparisonVersion: ddi.opponentHistoryComparison?.version,
     opponentHistoryLabel: labels.opponentHistory,

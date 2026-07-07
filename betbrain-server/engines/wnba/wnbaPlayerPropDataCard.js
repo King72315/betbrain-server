@@ -386,6 +386,14 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       score: num(defenseResult.defenseScore),
       label: defenseResult.defenseLabel || defenseResult.label || null,
       context: defenseResult.context || defenseResult.wnbaDefenseProbe || null,
+      proxyUsed:
+        defenseResult.proxyUsed === true ||
+        (defenseResult.source === "default" && num(defenseResult.defenseScore) === 50),
+      defenseSource: defenseResult.source || "unknown",
+      opponentPPG: defenseResult.opponentPPG ?? null,
+      unavailableReason:
+        defenseResult.defenseAudit?.unavailableReason ||
+        (defenseResult.proxyUsed ? defenseResult.reasons?.[0] : null),
     },
     gameEnvironment: {
       spread: wnbaGameContext?.spread ?? null,

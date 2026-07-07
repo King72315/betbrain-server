@@ -66,12 +66,26 @@ test("NBA league returns NBA_FULL_DATA", () => {
   assert.strictEqual(resolveWnbaGraduatedDataMode({ league: "NBA" }), "NBA_FULL_DATA");
 });
 
-test("FULL_DATA stable Over gap floor is 3.5", () => {
+test("live FULL_DATA stable Over gap floor stays 4.0", () => {
   const floors = resolveWnbaGapFloors({
     side: "OVER",
     dataMode: "WNBA_FULL_DATA",
     volatility: "stable",
   });
+  assert.strictEqual(floors.gapFloor, 4);
+  assert.strictEqual(floors.scenario, "live");
+  assert.strictEqual(floors.retroFullDataStableFloor, 3.5);
+});
+
+test("retro FULL_DATA stable Over gap floor is 3.5", () => {
+  const floors = resolveWnbaGapFloors(
+    {
+      side: "OVER",
+      dataMode: "WNBA_FULL_DATA",
+      volatility: "stable",
+    },
+    { scenario: "retro_full_data_stable" }
+  );
   assert.strictEqual(floors.gapFloor, 3.5);
   assert.strictEqual(floors.reasonCode, "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR");
 });

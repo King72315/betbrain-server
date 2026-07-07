@@ -433,3 +433,45 @@ Re-evaluated from `.tmp-prod-picks-0707.json` through full decision stack.
 - Test scripts: `testWnbaGraduatedDataModeV1.js`, `testPropDecisionIntelligenceV1.js`, `testFlipFirstDecisionIntelligenceV1.js`, `testWnbaTrackingGateV2.js`
 
 *Fixes applied 2026-07-07. Deploy to prod required for live `/picks` to reflect changes.*
+
+---
+
+## Engine v2 — `courteedge-trust-accuracy-engine-v2`
+
+**Builds on:** `ac2aadb` (trust-accuracy-fixes-v1)  
+**SERVER_BUILD:** `courteedge-trust-accuracy-engine-v2`
+
+### Changes (engine/audit only — no UI copy/layout, Best 6 size, track-all-6, Results/Lab/History)
+
+| Area | Implementation |
+|------|----------------|
+| **dataMode audit** | `resolveWnbaDataModeAudit()` + `wnbaDataModeAudit` on pick/gate/DI — `resolvedDataMode`, `dataModeSource`, `gapFloorApplied`, `stableMinutesEligibilitySatisfied` |
+| **Live Over floor** | **4.0 live** for all Over paths; retro-only 3.5 via `scenario: retro_full_data_stable` (see `COURTEDGE_FULL_DATA_OVER_FLOOR_RETRO_REPORT.md`) |
+| **Flip-first audit** | `flipFirstAudit`: `flipTriggered`, `flipTriggerReasons`, `oppositeSideEvidence`, `whyRetainedFlippedOrPass` — triggers on thin gap, efficiency, unstable minutes, market-against, low-volume trap |
+| **Slate collision** | `slateSameTeamCollisionV1.js` — same-team Over clusters scored vs implied team total / FGA / FTA; **ranking penalty only** before Best 6 |
+| **Defense + implied total** | `defenseAudit` + `impliedTeamTotalAudit`; WNBA games-proxy defense when BDL data exists; neutral audited when unavailable |
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| `testTrustAccuracyEngineV2.js` | **7/7** acceptance |
+| `testWnbaGraduatedDataModeV1.js` | pass |
+| `testPropDecisionIntelligenceV1.js` | pass |
+| `testFlipFirstDecisionIntelligenceV1.js` | pass |
+| `testControlledBestSix.js` | pass |
+| `testWnbaTrackingGateV2.js` | pass |
+
+### Jul 7 audit field examples (prod payload re-eval)
+
+| Player | `resolvedDataMode` | `gapFloorApplied` | `stableMinutes` | `defenseAudit` | `impliedTeamTotalAudit` | Gate |
+|--------|-------------------|-------------------|-----------------|----------------|-------------------------|------|
+| Bueckers O21.5 | WNBA_FULL_DATA | **4.0** (live) | true | proxy 50 / `wnba_opponent_proxy_v1` | unavailable (no spread/total in snapshot) | TRACK |
+| Johnson O12.5 | WNBA_FULL_DATA | 4.0 | true | proxy 50 | unavailable | TRACK |
+| Copper O19.5 | WNBA_FULL_DATA | 4.0 | true | proxy 50 | unavailable | BOARD_ONLY |
+| Astier U9.5 | WNBA_FULL_DATA | 3.5 (Under) | true | proxy 50 | unavailable | NO_BET |
+| Jones O14.5 | WNBA_FULL_DATA | 4.0 | true | proxy 50 | unavailable | BOARD_ONLY |
+
+`retroFullDataStableFloor: 3.5` is attached on all FULL stable Overs for report-only comparison; **live gate still uses 4.0**.
+
+*Engine v2 applied 2026-07-07. Deploy to Render for live audit fields on `/picks`.*

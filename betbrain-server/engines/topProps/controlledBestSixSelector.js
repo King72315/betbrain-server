@@ -31,6 +31,11 @@ import {
 } from "../decisionIntelligence/sideRescueEngineV1.js";
 import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
+import {
+  evaluateSlateSameTeamCollisions,
+  applySlateCollisionAdjustments,
+  SLATE_SAME_TEAM_COLLISION_VERSION,
+} from "../decisionIntelligence/slateSameTeamCollisionV1.js";
 export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-track-all-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
@@ -87,12 +92,31 @@ function scoreCandidate(pick = {}) {
   const league = String(pick.league || "").toUpperCase();
   const scored =
     league === "WNBA" ? scoreWnbaTopProp(pick) : scoreNbaTopProp(pick);
+  const collisionPenalty = num(pick.slateCollisionPenalty);
 
   return {
     ...pick,
     ...scored,
-    pickScore: scored.bestPropScore,
+    pickScore: Math.max(0, num(scored.bestPropScore) - collisionPenalty),
+    bestPropScore: Math.max(0, num(scored.bestPropScore) - collisionPenalty),
   };
+}
+
+function num(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function applySlateCollisionLayer(candidates = [], audit = {}) {
+  const evaluation = evaluateSlateSameTeamCollisions(candidates);
+  audit.slateSameTeamCollision = {
+    version: SLATE_SAME_TEAM_COLLISION_VERSION,
+    teamClusterCount: evaluation.teamClusterCount,
+    warningClusters: evaluation.warningClusters,
+    unrealisticClusters: evaluation.unrealisticClusters,
+    teamClusters: evaluation.teamClusters,
+  };
+  return applySlateCollisionAdjustments(candidates, evaluation);
 }
 
 function compareByScore(a = {}, b = {}) {
@@ -280,7 +304,10 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
     originalSide: initialSide,
     teamCandidates: options.teamCandidates,
     slateCandidates: options.slateCandidates || options.teamCandidates,
-    impliedTeamTotal: options.impliedTeamTotal,
+    impliedTeamTotal:
+      enriched.impliedTeamTotalAudit?.value ??
+      enriched.wnbaGameContext?.impliedTeamTotal ??
+      options.impliedTeamTotal,
   });
 
   const gate = evaluateWnbaTrackingEligibility(
@@ -479,7 +506,10 @@ export function selectControlledBestSix(candidates = [], league = "", options = 
   const valid = filterAndGateCandidates(pool, audit);
   audit.afterInvalidFilter = valid.length;
 
-  const scored = valid.map(scoreCandidate);
+  const collisionAdjusted =
+    leagueCode === "WNBA" ? applySlateCollisionLayer(valid, audit) : valid;
+
+  const scored = collisionAdjusted.map(scoreCandidate);
   scored.sort(compareByScore);
   audit.scoredCount = scored.length;
 
@@ -516,7 +546,10 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
   const valid = filterAndAnalyzeCandidates(pool, audit);
   audit.afterInvalidFilter = valid.length;
 
-  const scored = valid.map(scoreCandidate);
+  const collisionAdjusted =
+    leagueCode === "WNBA" ? applySlateCollisionLayer(valid, audit) : valid;
+
+  const scored = collisionAdjusted.map(scoreCandidate);
   scored.sort(compareByScore);
   audit.scoredCount = scored.length;
 

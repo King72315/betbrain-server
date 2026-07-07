@@ -725,6 +725,10 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
       readerConfidence: metrics.readerConfidence,
       dataMode: metrics.dataMode,
       dangerGateCount: dangerGateStack.length,
+      dataModeAudit: pick.wnbaDataModeAudit || null,
+      gapFloorApplied: pick.wnbaDataModeAudit?.gapFloorApplied ?? null,
+      defenseAudit: pick.defenseAudit || metrics.defenseAudit || null,
+      impliedTeamTotalAudit: pick.impliedTeamTotalAudit || null,
     },
   };
 }

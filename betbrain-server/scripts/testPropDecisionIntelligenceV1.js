@@ -211,13 +211,13 @@ test("07 volatile WNBA Under demoted unless elite", () => {
   assert.notStrictEqual(di.trackEligibility, "TRACK");
 });
 
-test("08 elite Over TRACK with FULL_DATA stable can earn LOW", () => {
+test("08 elite Over TRACK with FULL_DATA stable needs gap cushion for LOW", () => {
   const pick = live0625Pick("Azzi Fudd", "OVER", 13.5, {
     minutesVolatility: "stable",
     dataMode: "WNBA_FULL_DATA",
-    projection: { projection: 18, expectedMinutes: 28, expectedFGA: 10 },
+    projection: { projection: 18.5, expectedMinutes: 28, expectedFGA: 10 },
     last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
-    fairLine: { fairLineSide: "OVER", fairLineEdge: 4.5, fairLineQuality: 65 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 5, fairLineQuality: 65 },
   }, { netEdge: 8 });
   const di = evaluateDi(pick);
   assert.strictEqual(di.trackEligibility, "TRACK");

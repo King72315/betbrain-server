@@ -2,6 +2,9 @@ import {
   isWnbaFullDataMode,
   isWnbaLimitedDataMode,
   resolveWnbaGraduatedDataMode,
+  resolveWnbaDataModeAudit,
+  buildImpliedTeamTotalAudit,
+  buildDefenseContextAudit,
 } from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
@@ -34,10 +37,12 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
   const availabilityDataMissing =
     pick.availabilityDataMissing === true ||
     availability.availabilityDataMissing === true;
+  const defenseResult = pick.defenseResult || {};
+  const cardDefense = card.opponentDefense || {};
+  const defenseAudit = buildDefenseContextAudit(defenseResult, cardDefense);
   const defenseProxyUsed =
     pick.defenseProxyUsed === true ||
-    card.opponentDefense?.proxyUsed === true ||
-    String(card.opponentDefense?.label || "").toLowerCase() === "neutral";
+    defenseAudit.proxyUsed === true;
   const missingFlags = (card.dataMissingFlags || pick.dataMissingFlags || []).filter(
     (f) => f?.missing
   );
@@ -133,6 +138,7 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
     seasonPtsPerFGA,
     availabilityDataMissing,
     defenseProxyUsed,
+    defenseAudit,
     missingFlags,
     card,
     reader: rd,
@@ -143,16 +149,34 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
 export function syncWnbaDataModeOnPick(pick = {}, dataCard = null, reader = null) {
   const card = dataCard || pick.wnbaDataCard || {};
   const rd = reader || pick.wnbaReader;
-  let { dataMode } = resolveQualityGateInputs(pick, card, rd);
-  if (isWnbaFullDataMode(card.dataMode) && !isWnbaFullDataMode(dataMode)) {
-    const coreMissing = (card.dataMissingFlags || []).some(
-      (f) =>
-        f?.missing &&
-        ["playerId", "seasonStats", "last5", "minutes", "fga", "market"].includes(f.key)
-    );
-    if (!coreMissing) dataMode = "WNBA_FULL_DATA";
-  }
+  const gateInputs = resolveQualityGateInputs(pick, card, rd);
+  const dataModeAudit = resolveWnbaDataModeAudit({
+    league: String(pick.league || card.league || "WNBA").toUpperCase(),
+    dataMissingFlags: card.dataMissingFlags || pick.dataMissingFlags || [],
+    dataAvailabilityFlags: card.dataAvailabilityFlags || pick.dataAvailabilityFlags,
+    cardDataMode: card.dataMode,
+    pickDataMode: pick.dataMode,
+    volatility: gateInputs.volatility,
+    side: gateInputs.side,
+    playerId: card.playerId || pick.playerId || "",
+    last5Count: num(card.last5?.games ?? card.last5?.pointsList?.length),
+    seasonPoints: num(card.season?.points ?? pick.seasonAverage),
+    recentMinutes: num(pick.recentMinutes ?? card.last5?.minutes ?? pick.minutesAverage),
+    seasonMinutes: num(card.season?.minutes ?? pick.seasonMinutes),
+    recentFGA: num(pick.recentFGA ?? card.last5?.fga ?? pick.fgaAverage),
+    seasonFGA: num(card.season?.fga ?? pick.seasonFGA),
+    bookCount: num(pick.bookCount ?? card.bookCount),
+    projection: num(pick.projection ?? card.projection?.projection ?? pick.expectedPoints),
+    availabilityDataMissing: gateInputs.availabilityDataMissing,
+    defenseMissing: gateInputs.defenseProxyUsed,
+    matchupMissing:
+      num(card.matchupAverage ?? pick.matchupAverage) <= 0 &&
+      !(card.matchupGames || pick.matchupGames || []).length,
+  });
+
+  const dataMode = dataModeAudit.resolvedDataMode;
   const limited = isWnbaLimitedDataMode(dataMode);
+  const impliedTeamTotalAudit = buildImpliedTeamTotalAudit(pick, card);
 
   const playerState = pick.playerState
     ? {
@@ -169,9 +193,22 @@ export function syncWnbaDataModeOnPick(pick = {}, dataCard = null, reader = null
 
   const wnbaDataCard =
     card && Object.keys(card).length
-      ? card.dataMode === dataMode
-        ? card
-        : { ...card, dataMode }
+      ? {
+          ...card,
+          dataMode,
+          opponentDefense: {
+            ...(card.opponentDefense || {}),
+            score: gateInputs.defenseAudit?.resolvedDefenseScore ?? card.opponentDefense?.score,
+            proxyUsed: gateInputs.defenseAudit?.proxyUsed ?? card.opponentDefense?.proxyUsed,
+            defenseSource: gateInputs.defenseAudit?.defenseSource ?? card.opponentDefense?.defenseSource,
+            opponentPPG: gateInputs.defenseAudit?.opponentPPG ?? card.opponentDefense?.opponentPPG,
+          },
+          gameEnvironment: {
+            ...(card.gameEnvironment || {}),
+            impliedTeamTotal:
+              impliedTeamTotalAudit.value ?? card.gameEnvironment?.impliedTeamTotal ?? null,
+          },
+        }
       : pick.wnbaDataCard;
 
   return {
@@ -180,5 +217,9 @@ export function syncWnbaDataModeOnPick(pick = {}, dataCard = null, reader = null
     playerState,
     volumeProfile,
     wnbaDataCard,
+    wnbaDataModeAudit: dataModeAudit,
+    impliedTeamTotalAudit,
+    defenseAudit: gateInputs.defenseAudit,
+    defenseProxyUsed: gateInputs.defenseProxyUsed,
   };
 }

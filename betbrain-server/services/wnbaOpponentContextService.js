@@ -86,11 +86,19 @@ export async function buildWnbaOpponentDefenseContext({
 } = {}) {
   const defaultResult = {
     defenseScore: 50,
-    source: "wnba_opponent_proxy_v1",
+    source: "default",
     opponentPPG: null,
     pace: null,
     reasons: ["WNBA opponent proxy defaulted"],
     probeDisabled: true,
+    proxyUsed: true,
+    defenseAudit: {
+      resolvedDefenseScore: 50,
+      defenseSource: "default",
+      proxyUsed: true,
+      opponentPPG: null,
+      unavailableReason: "WNBA opponent proxy defaulted",
+    },
   };
 
   if (String(league).toUpperCase() !== "WNBA" || !opponentTeam) {
@@ -150,6 +158,14 @@ export async function buildWnbaOpponentDefenseContext({
     sampleGames: allowed.length,
     reasons,
     probeDisabled: true,
+    proxyUsed: false,
+    defenseAudit: {
+      resolvedDefenseScore: defenseScore,
+      defenseSource: "wnba_games_proxy",
+      proxyUsed: false,
+      opponentPPG,
+      unavailableReason: null,
+    },
   };
 
   teamDefenseCache.set(cacheKey, { loadedAt: Date.now(), result });
