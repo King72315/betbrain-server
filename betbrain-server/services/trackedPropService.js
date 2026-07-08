@@ -348,6 +348,27 @@ export function getSlateDateCT(commenceTime) {
   });
 }
 
+/** Active Results cohort slate — blocking unresolved slate wins over calendar today. */
+export function resolveResultsCohortSlateDate(options = {}) {
+  const today = options.todayLocalDate || getTodayLocalDate();
+  const lockedSlates = options.lockedSlates || getLockedSlatesRegistry().slates || [];
+  const trackedProps = options.trackedProps || getTrackedProps();
+  const reports = options.reports || [];
+
+  const blocking = getBlockingActiveResultsSlateDate(
+    trackedProps,
+    lockedSlates,
+    reports,
+    today
+  );
+  if (blocking) return blocking;
+
+  const explicit = String(options.slateDate || options.cohortSlateDate || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(explicit)) return explicit;
+
+  return today;
+}
+
 function passesBaseTrackableGate(pick = {}) {
   if (!pick?.player) return false;
   if (pick.trackingType === "NO_BET" || pick.finalDecision === "NO_BET") return false;
@@ -669,10 +690,19 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       Number(audit.notTrackedReasonsBySlate[slate][reason] || 0) + 1;
   };
 
+  const cohortSlateDate = options.cohortSlateDate
+    ? String(options.cohortSlateDate)
+    : null;
+
   for (const rawPick of candidates) {
     const pick = enrichPickFromGameCard(rawPick, rawPick);
-    const slateDate = pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time);
+    const slateDate =
+      cohortSlateDate ||
+      pick.resultsSlateDate ||
+      pick.slateDate ||
+      getSlateDateCT(pick.commenceTime || pick.time);
     pick.slateDate = slateDate;
+    pick.resultsSlateDate = slateDate;
     bumpSlateCount(audit.generatedCandidatesBySlate, slateDate);
 
     const decision = getPickDecision(pick);
@@ -869,8 +899,15 @@ export const CONTROLLED_TRACKING_COHORT_VERSION =
  */
 export function buildControlledTrackingCohort(input = {}, options = {}) {
   const gameCards = input.gameCards || [];
-  const slateDate = input.slateDate || options.slateDate || getTodayLocalDate();
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
+  const slateDate = resolveResultsCohortSlateDate({
+    todayLocalDate,
+    slateDate: input.slateDate || options.slateDate,
+    cohortSlateDate: options.cohortSlateDate,
+    lockedSlates: options.lockedSlates,
+    trackedProps: options.trackedProps,
+    reports: options.reports,
+  });
   const sourcePool = options.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY";
   const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
 
@@ -896,6 +933,7 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
       todayLocalDate,
       sourcePool,
       trackAllBestSixDisplay: true,
+      cohortSlateDate: slateDate,
     });
 
   const bestSixSnapshot = {
@@ -1546,7 +1584,11 @@ function mapPickToTrackedFields(pick = {}) {
     gameId: pick.gameId || pick.game || "",
     gameLabel: pick.game || pick.gameLabel || "",
     gameDate: getGameDate(pick),
-    slateDate: pick.slateDate || getSlateDateCT(commenceTime),
+    slateDate:
+      pick.resultsSlateDate ||
+      pick.cohortSlateDate ||
+      pick.slateDate ||
+      getSlateDateCT(commenceTime),
     commenceTime,
     startTimeDisplay: pick.startTimeDisplay || "",
     dayBucket: pick.dayBucket || pick.dateLabel || "",
@@ -2331,6 +2373,11 @@ export function getTrackedPropsForSlate(slateDate) {
 
 export function getTrackedProps() {
   return readJSON(TRACKED_FILE, []);
+}
+
+export function writeTrackedProps(props = []) {
+  writeJSON(TRACKED_FILE, Array.isArray(props) ? props : []);
+  return getTrackedProps();
 }
 
 /** Replace all tracked props for one slate date; returns full merged list. */

@@ -173,6 +173,12 @@ export function formatResultsAwaitingStatsReason(prop: any): string {
 
 /** Derive slate date for Results grouping (matches backend CT slate when possible). */
 export function getResultsPropSlateDate(prop: any): string {
+  const cohortSlate = prop.resultsSlateDate || prop.cohortSlateDate;
+  if (cohortSlate) {
+    const value = String(cohortSlate).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  }
+
   const direct = getPickSlateDate(prop);
   if (direct !== "unknown") return direct;
 
@@ -785,7 +791,8 @@ export function pickResolveCheckMessage(input: ResolveCheckMessageInput): Resolv
     ? beforeVisible.find((slate) => slate.slateDate === activeDate) || null
     : beforeVisible[0] || null;
 
-  const scopedSlates = activeAfter ? [activeAfter] : afterVisible;
+  const scopedSlates =
+    activeAfter ? [activeAfter] : activeDate ? [] : afterVisible;
   const afterAccuracy = computeAccuracySummary(scopedSlates);
   const awaitingStats = awaitingStatsCount ?? afterAccuracy.awaitingStats;
   const pending = afterAccuracy.pending;

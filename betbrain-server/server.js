@@ -216,6 +216,10 @@ import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Servi
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
 import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
 import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
+import {
+  previewSplitResultsCohortRepair,
+  repairSplitResultsCohort,
+} from "./services/repairSplitResultsCohortService.js";
 import { archiveLabSlate0621 } from "./services/archiveLabSlate0621Service.js";
 import { promoteLabSlate0628Archive0621 } from "./services/promoteLabSlate0628Archive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
@@ -232,7 +236,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-over-balance-side-rescue-v2";
+const SERVER_BUILD = "courteedge-results-cohort-slate-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -402,6 +406,8 @@ function syncTrackedFromCache() {
     {
       todayLocalDate: getTodayLocalDate(),
       sourcePool: TOP_PICKS_SOURCE_POOL,
+      lockedSlates: getLockedSlatesRegistry().slates || [],
+      trackedProps: getTrackedProps(),
       controlledSelection: hasCachedBestSix
         ? {
             bestSixWNBA: picksCache.bestSixWNBA || [],
@@ -2274,6 +2280,8 @@ async function refreshAllPicks() {
     {
       todayLocalDate: getTodayLocalDate(),
       sourcePool: TOP_PICKS_SOURCE_POOL,
+      lockedSlates: getLockedSlatesRegistry().slates || [],
+      trackedProps: getTrackedProps(),
       controlledSelection,
     }
   );
@@ -3774,6 +3782,48 @@ app.post("/admin/archive-lab-slate-0621", requireAdminSecret, (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Archive Lab 06/21 failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/repair-split-results-cohort", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+        description:
+          "Realigns Best 6 props split across CT midnight back onto the active Results cohort slate.",
+        preview: previewSplitResultsCohortRepair({
+          cohortSlateDate: req.body?.cohortSlateDate,
+          splitSlateDate: req.body?.splitSlateDate,
+        }),
+      });
+    }
+
+    const result = repairSplitResultsCohort({
+      dryRun,
+      cohortSlateDate: req.body?.cohortSlateDate,
+      splitSlateDate: req.body?.splitSlateDate,
+      backupReason: req.body?.backupReason || "pre-split-results-cohort-repair-v1",
+    });
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Split Results cohort repair dry-run complete"
+        : "Split Results cohort repair applied",
+      result,
+    });
+  } catch (error) {
+    console.log("REPAIR SPLIT RESULTS COHORT ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Split Results cohort repair failed",
       error: error.message,
     });
   }
