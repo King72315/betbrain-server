@@ -2085,12 +2085,13 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
     return null;
   }
 
-  const todayPropCount = working.filter(
-    (item) =>
-      String(item.slateDate || "") === today &&
-      isOfficialResultsProp(item) &&
-      isOfficialTrackablePick(item)
-  ).length;
+  const todayPropCount = working.filter((item) => {
+    if (String(item.slateDate || "") !== today) return false;
+    // Controlled Best 6 display cohort (often LEAN tier) must lock the slate
+    // so refresh-picks pruneExcessPreCapProps cannot swap admitted props mid-slate.
+    if (isBestSixDisplayResultsProp(item)) return true;
+    return isOfficialResultsProp(item) && isOfficialTrackablePick(item);
+  }).length;
   if (todayPropCount === 0) {
     return null;
   }
