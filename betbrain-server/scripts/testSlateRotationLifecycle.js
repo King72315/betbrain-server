@@ -1,5 +1,5 @@
 /**
- * CourtEdge slate rotation lifecycle tests (23 cases).
+ * CourtEdge slate rotation lifecycle tests (33 cases).
  * Usage: node betbrain-server/scripts/testSlateRotationLifecycle.js
  */
 import assert from "node:assert/strict";
@@ -378,6 +378,63 @@ test("30 active Results slate excluded from historySlateDates", () => {
   assert.equal(rotation.activeResultsSlateDate, activeDate);
   assert.ok(rotation.historySlateDates.includes("2026-06-21"));
   assert.ok(!rotation.historySlateDates.includes(activeDate));
+});
+
+test("31 lab wipe (no restore) leaves empty Lab with quarantined 06/21", () => {
+  const wipedDate = "2026-06-21";
+  const tracked = [
+    makeProp(wipedDate, "win"),
+    makeProp(wipedDate, "loss"),
+    makeProp("2026-07-07", "pending"),
+  ];
+  const rotation = computeSlateRotation([], {
+    trackedProps: tracked,
+    archives: [],
+    lockedSlates: [{ slateDate: "2026-07-07", phase: "ACTIVE", lockedAt: "x" }],
+    quarantinedSlates: [
+      { slateDate: wipedDate, reason: "LAB_WIPED_NO_RESTORE" },
+    ],
+    today: "2026-07-08",
+  });
+  assert.equal(rotation.currentLabSlateDate, null);
+  assert.ok(!rotation.historySlateDates.includes(wipedDate));
+  assert.equal(rotation.activeResultsSlateDate, "2026-07-07");
+});
+
+test("32 wipe keeps ARCHIVED History while Lab stays empty", () => {
+  const archives = [makeArchive("2026-06-19", "ARCHIVED")];
+  const rotation = computeSlateRotation([], {
+    archives,
+    quarantinedSlates: [
+      { slateDate: "2026-06-21", reason: "LAB_WIPED_NO_RESTORE" },
+    ],
+    today: "2026-07-08",
+  });
+  assert.equal(rotation.currentLabSlateDate, null);
+  assert.deepEqual(rotation.historySlateDates, ["2026-06-19"]);
+});
+
+test("33 Results cohort preserved when Lab empty after wipe", () => {
+  const activeDate = "2026-07-07";
+  const tracked = [
+    makeProp(activeDate, "pending"),
+    makeProp(activeDate, "pending"),
+    makeProp("2026-06-21", "win"),
+  ];
+  const locked = [{ slateDate: activeDate, phase: "ACTIVE", lockedAt: "x" }];
+  const reports = [makeInProgressReport(activeDate, 2)];
+  const rotation = computeSlateRotation(reports, {
+    trackedProps: tracked,
+    lockedSlates: locked,
+    archives: [],
+    quarantinedSlates: [
+      { slateDate: "2026-06-21", reason: "LAB_WIPED_NO_RESTORE" },
+    ],
+    today: "2026-07-08",
+  });
+  assert.equal(rotation.currentLabSlateDate, null);
+  assert.equal(rotation.activeResultsSlateDate, activeDate);
+  assert.deepEqual(rotation.activeInProgressSlateDates, [activeDate]);
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

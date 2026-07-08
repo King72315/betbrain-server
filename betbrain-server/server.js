@@ -222,6 +222,7 @@ import {
 } from "./services/repairSplitResultsCohortService.js";
 import { archiveLabSlate0621 } from "./services/archiveLabSlate0621Service.js";
 import { resetHistoryArchives } from "./services/resetHistoryArchivesService.js";
+import { resetLabNoRestore } from "./services/resetLabArchivesService.js";
 import { promoteLabSlate0628Archive0621 } from "./services/promoteLabSlate0628Archive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
@@ -237,7 +238,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-history-rebuild-v1";
+const SERVER_BUILD = "courteedge-lab-wipe-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3908,6 +3909,45 @@ app.post("/admin/reset-history", requireAdminSecret, (req, res) => {
   }
 });
 
+app.post("/admin/reset-lab-no-restore", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Lab wipe requires confirm: true or dryRun: true",
+        description:
+          "Backs up, deletes LAB-phase archives + registry rows, removes stuck Lab report dates, quarantines them. Does NOT restore 06/21. Preserves tracked props and ACTIVE Results.",
+      });
+    }
+
+    const result = resetLabNoRestore({
+      dryRun,
+      wipeReportDates: Array.isArray(req.body?.wipeReportDates)
+        ? req.body.wipeReportDates
+        : undefined,
+      quarantineWiped: req.body?.quarantineWiped !== false,
+      backupReason: req.body?.backupReason || "pre-lab-wipe-v1",
+    });
+
+    res.json({
+      ok: result.ok,
+      message: dryRun ? "Lab wipe dry-run complete" : "Lab wipe applied",
+      result,
+      serverBuild: SERVER_BUILD,
+    });
+  } catch (error) {
+    console.log("RESET LAB NO RESTORE ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab wipe failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
   try {
     const slateDate = String(req.body?.slateDate || "");
@@ -4163,7 +4203,26 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
-    if (process.env.COURTEDGE_HISTORY_REBUILD_V1 === "true") {
+    if (process.env.COURTEDGE_LAB_WIPE_V1 === "true") {
+      try {
+        const wipeResult = resetLabNoRestore({
+          backupReason: "startup-lab-wipe-v1",
+        });
+        console.log(
+          "STARTUP LAB WIPE V1:",
+          JSON.stringify({
+            ok: wipeResult.ok,
+            backupId: wipeResult.backupId,
+            clearedArchives: wipeResult.clearedArchives,
+            clearedRegistry: wipeResult.clearedRegistry,
+            after: wipeResult.after,
+            meta: wipeResult.meta,
+          })
+        );
+      } catch (error) {
+        console.log("STARTUP LAB WIPE V1 ERROR:", error.message);
+      }
+    } else if (process.env.COURTEDGE_HISTORY_REBUILD_V1 === "true") {
       try {
         const resetResult = resetHistoryArchives({
           backupReason: "startup-history-rebuild-v1",

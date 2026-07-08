@@ -276,6 +276,79 @@ export function clearHistoryArchiveFiles(options = {}) {
   return { deleted, skipped };
 }
 
+/** Remove only LAB-phase registry rows; keep ACTIVE / ARCHIVED / preserveDates. */
+export function clearLabPhaseRegistryEntries(options = {}) {
+  const preserveDates = new Set((options.preserveDates || []).map(String));
+  const registry = getRegistry();
+  const removed = [];
+  const kept = [];
+
+  registry.slates = (registry.slates || []).filter((entry) => {
+    const slateDate = String(entry.slateDate || "");
+    const phase = String(entry.phase || "").toUpperCase();
+
+    if (preserveDates.has(slateDate) || phase === SLATE_PHASE.ACTIVE) {
+      kept.push({ slateDate, phase });
+      return true;
+    }
+
+    if (phase === SLATE_PHASE.LAB) {
+      removed.push({ slateDate, phase });
+      return false;
+    }
+
+    kept.push({ slateDate, phase });
+    return true;
+  });
+
+  saveRegistry(registry);
+  return { removed, kept };
+}
+
+/**
+ * Delete history-archive files whose phase is LAB (or missing phase treated as LAB).
+ * Keeps ARCHIVED bundles and preserveDates.
+ */
+export function clearLabPhaseArchiveFiles(options = {}) {
+  const preserveDates = new Set((options.preserveDates || []).map(String));
+  const deleted = [];
+  const skipped = [];
+
+  ensureDirs();
+  if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) {
+    return { deleted, skipped };
+  }
+
+  for (const name of fs
+    .readdirSync(HISTORY_ARCHIVE_DIR)
+    .filter((entry) => entry.endsWith(".json"))) {
+    const slateDate = name.replace(/\.json$/, "");
+    const file = path.join(HISTORY_ARCHIVE_DIR, name);
+    const archive = readJSON(file, null);
+    const phase = String(archive?.phase || SLATE_PHASE.LAB).toUpperCase();
+
+    if (preserveDates.has(slateDate)) {
+      skipped.push({ slateDate, reason: "preserved" });
+      continue;
+    }
+
+    if (phase === SLATE_PHASE.ARCHIVED) {
+      skipped.push({ slateDate, reason: "archived_kept" });
+      continue;
+    }
+
+    if (phase === SLATE_PHASE.LAB || !archive?.phase) {
+      fs.unlinkSync(file);
+      deleted.push({ slateDate, phase: phase || SLATE_PHASE.LAB });
+      continue;
+    }
+
+    skipped.push({ slateDate, reason: `phase_${phase}` });
+  }
+
+  return { deleted, skipped };
+}
+
 export function getAllHistoryArchives() {
   ensureDirs();
   if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) return [];

@@ -6,7 +6,11 @@ export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
 export const QUARANTINE_REASONS = {
   INCOMPLETE_PROD_DATA: "INCOMPLETE_PROD_DATA",
+  LAB_WIPED_NO_RESTORE: "LAB_WIPED_NO_RESTORE",
 };
+
+/** Legacy Lab dates blocked from mode=lab restore after wipe (prevents re-stick). */
+export const BLOCKED_LAB_RESTORE_DATES = ["2026-06-21"];
 
 /** Slates excluded from Lab, History, and win-rate rollups (bad/incomplete prod data). */
 export const DEFAULT_QUARANTINED_SLATE_DATES = ["2026-06-24"];

@@ -521,24 +521,27 @@ export default function PropLab() {
     currentLabSlateDate: string | null;
     viewingHistorical: boolean;
     historySlateDates: string[];
+    fromServer: boolean;
   }>({
     currentLabSlateDate: null,
     viewingHistorical: false,
     historySlateDates: [],
+    fromServer: false,
   });
 
   const slateRotation = useMemo(() => {
     const base = computeSlateRotation(reports, { archives });
+    if (!rotationMeta.fromServer) return base;
     return {
       ...base,
-      currentLabSlateDate:
-        rotationMeta.currentLabSlateDate ?? base.currentLabSlateDate,
-      viewingHistorical:
-        rotationMeta.viewingHistorical ?? base.viewingHistorical,
+      currentLabSlateDate: rotationMeta.currentLabSlateDate,
+      viewingHistorical: rotationMeta.viewingHistorical,
+      historySlateDates: rotationMeta.historySlateDates,
     };
   }, [reports, archives, rotationMeta]);
-  const currentLabSlateDate =
-    rotationMeta.currentLabSlateDate ?? slateRotation.currentLabSlateDate;
+  const currentLabSlateDate = rotationMeta.fromServer
+    ? rotationMeta.currentLabSlateDate
+    : slateRotation.currentLabSlateDate;
   const viewedSlateDate = currentLabSlateDate;
   const isViewingHistoricalReport = false;
   const validCompletedReports = useMemo(
@@ -580,11 +583,10 @@ export default function PropLab() {
       currentLabSlateDate: list.currentLabSlateDate || null,
       viewingHistorical: Boolean(list.viewingHistorical),
       historySlateDates: list.historySlateDates || [],
+      fromServer: true,
     });
 
-    const labDate =
-      list.currentLabSlateDate ||
-      computeSlateRotation(validReports, { archives }).currentLabSlateDate;
+    const labDate = list.currentLabSlateDate || null;
 
     if (labDate) {
       await loadReportForSlate(labDate, validReports);
@@ -814,11 +816,12 @@ export default function PropLab() {
 
         {!loading && !report ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No current Lab slate.</Text>
+            <Text style={styles.emptyTitle}>No current Lab slate</Text>
             <Text style={styles.emptyText}>
-              June 24 was excluded due to incomplete prod data. Today's active slate
-              remains in Results until every prop grades. The next completed slate will
-              appear here automatically. Older completed slates are in History.
+              Waiting for the next graded Results slate. Tracked Results props stay
+              in Results until every pick grades, then that slate promotes here
+              automatically. Older Lab data was cleared — History only shows
+              ARCHIVED slates.
             </Text>
           </View>
         ) : null}

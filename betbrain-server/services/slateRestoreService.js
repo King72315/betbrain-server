@@ -22,7 +22,10 @@ import {
   SLATE_PHASE,
   writeSlateHistoryArchive,
 } from "./slateLockService.js";
-import { getTodayLocalDate } from "./slateScopeService.js";
+import {
+  BLOCKED_LAB_RESTORE_DATES,
+  getTodayLocalDate,
+} from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -428,6 +431,16 @@ function mergeLabRegistryEntry(slateDate, registryEntry = {}) {
 export function restoreCompletedLabSlate(slateDate, options = {}) {
   const date = String(slateDate || "");
   if (!date) return { ok: false, message: "Missing slateDate" };
+
+  if (BLOCKED_LAB_RESTORE_DATES.includes(date)) {
+    return {
+      ok: false,
+      blocked: true,
+      status: 403,
+      message: `Lab restore blocked for ${date} after Lab wipe (COURTEDGE_LAB_WIPE_V1). Use graded Results→Lab promotion instead.`,
+      slateDate: date,
+    };
+  }
 
   const loaded = loadLabBundle(date);
   if (!loaded.ok) return loaded;
