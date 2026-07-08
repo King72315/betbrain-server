@@ -39,6 +39,11 @@ import {
 } from "../../utils/historyRetention";
 import { buildHistoryReport } from "../../utils/reportBuilders";
 import { computeSlateRotation, filterValidDailyReports } from "../../utils/slateRotation";
+import {
+  formatSignalRecord,
+  type HistoryThreeSlateGroups,
+  type ThreeSlateGroup,
+} from "../../utils/signalPerformance";
 
 function TypeBadge({ type, archiveLabel }: { type: HistoryEntry["type"]; archiveLabel?: string | null }) {
   const isSaved = type === "saved-picks";
@@ -234,6 +239,9 @@ export default function History() {
   const [displayClear, setDisplayClear] = useState<HistoryDisplayClear | null>(null);
   const [clearing, setClearing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [historyThreeSlateGroups, setHistoryThreeSlateGroups] =
+    useState<HistoryThreeSlateGroups | null>(null);
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadHistoryDisplayClear().then(setDisplayClear);
@@ -257,6 +265,9 @@ export default function History() {
         currentLabSlateDate: reportData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
       });
+      setHistoryThreeSlateGroups(
+        archiveData.historyThreeSlateGroups || reportData.historyThreeSlateGroups || null
+      );
       setLoadError(null);
     } catch (err) {
       console.log("LOAD HISTORY ERROR:", err);
@@ -284,6 +295,9 @@ export default function History() {
         currentLabSlateDate: reportData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
       });
+      setHistoryThreeSlateGroups(
+        archiveData.historyThreeSlateGroups || reportData.historyThreeSlateGroups || null
+      );
     } catch (err) {
       console.log("REFRESH HISTORY ERROR:", err);
       setLoadError(String(err));
@@ -361,6 +375,15 @@ export default function History() {
       [id]: !current[id],
     }));
   };
+
+  const toggleGroupExpanded = (groupId: string) => {
+    setExpandedGroupIds((current) => ({
+      ...current,
+      [groupId]: !current[groupId],
+    }));
+  };
+
+  const threeSlateGroups = historyThreeSlateGroups?.groups || [];
 
   const getReportText = () =>
     buildHistoryReport({
@@ -526,6 +549,23 @@ export default function History() {
           ))}
         </ScrollView>
 
+        {threeSlateGroups.length > 0 ? (
+          <View style={styles.groupsSection}>
+            <Text style={styles.groupsSectionTitle}>3-Slate Signal Learning Blocks</Text>
+            <Text style={styles.groupsSectionSubtitle}>
+              Evaluate signal performance every 3 completed archived slates — not daily.
+            </Text>
+            {threeSlateGroups.map((group) => (
+              <ThreeSlateGroupCard
+                key={group.groupId}
+                group={group}
+                expanded={Boolean(expandedGroupIds[group.groupId])}
+                onToggle={() => toggleGroupExpanded(group.groupId)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         {loading ? <Text style={styles.loadingText}>Loading archive...</Text> : null}
 
         {!loading && filteredEntries.length === 0 ? (
@@ -573,6 +613,109 @@ function SummaryBox({
     <View style={styles.summaryBox}>
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={[styles.summaryValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function ThreeSlateGroupCard({
+  group,
+  expanded,
+  onToggle,
+}: {
+  group: ThreeSlateGroup;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <View style={styles.groupCard}>
+      <TouchableOpacity onPress={onToggle} activeOpacity={0.85}>
+        <View style={styles.entryHeader}>
+          <View style={styles.entryHeaderLeft}>
+            <Text style={styles.groupTitle}>
+              3-Slate Block {group.groupIndex + 1}
+              {group.incomplete ? " (in progress)" : ""}
+            </Text>
+            <Text style={styles.groupDates}>
+              {(group.slateDates || []).map(formatSlateDateLabel).join(" • ")}
+            </Text>
+          </View>
+          <Text style={styles.expandHint}>{expanded ? "▲" : "▼"}</Text>
+        </View>
+        <Text style={styles.entryRecord}>
+          {group.record}
+          {group.winRate !== null && group.winRate !== undefined ? ` (${group.winRate}%)` : ""}
+          {group.avgMargin !== null && group.avgMargin !== undefined
+            ? ` • margin ${group.avgMargin >= 0 ? "+" : ""}${group.avgMargin}`
+            : ""}
+        </Text>
+        <Text style={styles.entryMeta}>
+          {group.totalProps} props across {group.slateCount} slate(s)
+        </Text>
+      </TouchableOpacity>
+
+      {expanded ? (
+        <View style={styles.groupExpanded}>
+          <Text style={styles.groupSectionTitle}>Risk buckets</Text>
+          {Object.entries(group.riskBucketBreakdown || {}).map(([bucket, stats]) => (
+            <Text key={bucket} style={styles.groupLine}>
+              {bucket}: {stats.record || "—"}
+              {stats.winRate !== null && stats.winRate !== undefined ? ` (${stats.winRate}%)` : ""}
+            </Text>
+          ))}
+
+          <Text style={styles.groupSectionTitle}>Over / Under</Text>
+          {Object.entries(group.sideBreakdown || {}).map(([side, stats]) => (
+            <Text key={side} style={styles.groupLine}>
+              {side}: {stats.record || "—"}
+              {stats.winRate !== null && stats.winRate !== undefined ? ` (${stats.winRate}%)` : ""}
+            </Text>
+          ))}
+
+          <Text style={[styles.groupSectionTitle, { color: "#22c55e" }]}>Top helpers</Text>
+          {(group.topSignalHelpers || []).length === 0 ? (
+            <Text style={styles.groupLineMuted}>None flagged.</Text>
+          ) : (
+            (group.topSignalHelpers || []).map((item, index) => (
+              <Text key={`helper-${index}`} style={styles.groupLine}>
+                {item.signal}: {item.record}
+                {item.winRate !== null && item.winRate !== undefined ? ` (${item.winRate}%)` : ""}
+                {item.smallSample ? " • small sample" : ""}
+              </Text>
+            ))
+          )}
+
+          <Text style={[styles.groupSectionTitle, { color: "#ef4444" }]}>Top hurters</Text>
+          {(group.topSignalHurters || []).length === 0 ? (
+            <Text style={styles.groupLineMuted}>None flagged.</Text>
+          ) : (
+            (group.topSignalHurters || []).map((item, index) => (
+              <Text key={`hurt-${index}`} style={styles.groupLine}>
+                {item.signal}: {item.record}
+                {item.winRate !== null && item.winRate !== undefined ? ` (${item.winRate}%)` : ""}
+                {item.smallSample ? " • small sample" : ""}
+              </Text>
+            ))
+          )}
+
+          <Text style={styles.groupSectionTitle}>Neutral / noisy</Text>
+          {(group.neutralSignals || []).slice(0, 4).map((item, index) => (
+            <Text key={`neutral-${index}`} style={styles.groupLineMuted}>
+              {item.signal}: {formatSignalRecord(item as any)}
+            </Text>
+          ))}
+
+          {group.comparison?.notes?.length ? (
+            <>
+              <Text style={styles.groupSectionTitle}>vs prior block</Text>
+              {group.comparison.notes.map((note, index) => (
+                <Text key={`note-${index}`} style={styles.groupNote}>
+                  • {note}
+                </Text>
+              ))}
+            </>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -934,5 +1077,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     marginTop: 8,
+  },
+  groupsSection: {
+    marginBottom: 16,
+  },
+  groupsSectionTitle: {
+    color: "#38bdf8",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  groupsSectionSubtitle: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  groupCard: {
+    backgroundColor: "#0f172a",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#1e40af",
+  },
+  groupTitle: {
+    color: "#f8fafc",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  groupDates: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  groupExpanded: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+  },
+  groupSectionTitle: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "900",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  groupLine: {
+    color: "#e2e8f0",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  groupLineMuted: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 3,
+  },
+  groupNote: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 3,
   },
 });

@@ -185,6 +185,12 @@ import {
 } from "./services/slateLockService.js";
 
 import {
+  buildHistoryThreeSlateGroups,
+  HISTORY_THREE_SLATE_GROUPS_VERSION,
+} from "./services/historyThreeSlateGroupsV1.js";
+import { SIGNAL_PERFORMANCE_VERSION } from "./services/signalPerformanceV1.js";
+
+import {
   buildCourtEdgeFlowDiagnostics,
   buildSlateRotationMetadata,
   getTodayLocalDate,
@@ -238,7 +244,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-lab-wipe-v1";
+const SERVER_BUILD = "courteedge-lab-signal-learning-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2907,11 +2913,18 @@ app.get("/daily-slate-reports", (req, res) => {
     viewedSlateDate
   );
 
+  const historyThreeSlateGroups = buildHistoryThreeSlateGroups(archives, {
+    historySlateDates: rotation.historySlateDates,
+  });
+
   res.json({
     ok: true,
     reports,
     count: reports.length,
     serverBuild: SERVER_BUILD,
+    signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
+    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_VERSION,
+    historyThreeSlateGroups,
     currentLabSlateDate: rotation.currentLabSlateDate,
     activeResultsSlateDate: rotation.activeResultsSlateDate,
     viewedSlateDate: rotation.viewedSlateDate,
@@ -3030,11 +3043,16 @@ app.get("/slates/locked", (req, res) => {
 
 app.get("/history-archives", (req, res) => {
   const archives = getAllHistoryArchives();
+  const historyThreeSlateGroups = buildHistoryThreeSlateGroups(archives);
 
   res.json({
     ok: true,
     archives,
     count: archives.length,
+    serverBuild: SERVER_BUILD,
+    signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
+    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_VERSION,
+    historyThreeSlateGroups,
   });
 });
 

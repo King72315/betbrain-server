@@ -44,6 +44,14 @@ import {
   formatLabTrackingSummaryLine,
 } from "../../utils/labTrackingInference";
 import { formatSlateMessageDate } from "../../utils/slateMessages";
+import {
+  formatImpactLabel,
+  formatSignalRecord,
+  getImpactStatusColor,
+  getSignalPerformanceFromReport,
+  groupRowsByCategory,
+  type SignalPerformanceRow,
+} from "../../utils/signalPerformance";
 
 function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
   return (
@@ -111,6 +119,96 @@ function MetricRow({ label, value }: { label: string; value: string }) {
     <View style={styles.metricRow}>
       <Text style={styles.metricLabel}>{label}</Text>
       <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+function SignalImpactBadge({ status }: { status: string }) {
+  const normalized = String(status || "neutral").toLowerCase() as "helped" | "hurt" | "neutral";
+  return (
+    <View
+      style={[
+        styles.impactBadge,
+        normalized === "helped"
+          ? styles.impactHelped
+          : normalized === "hurt"
+            ? styles.impactHurt
+            : styles.impactNeutral,
+      ]}
+    >
+      <Text style={styles.impactBadgeText}>{formatImpactLabel(normalized)}</Text>
+    </View>
+  );
+}
+
+function SignalPerformanceTableSection({ rows }: { rows: SignalPerformanceRow[] }) {
+  if (!rows.length) {
+    return <Text style={styles.muted}>No signal performance rows yet.</Text>;
+  }
+
+  const byCategory = groupRowsByCategory(rows);
+
+  return (
+    <>
+      {Object.entries(byCategory).map(([category, categoryRows]) => (
+        <View key={category} style={styles.signalPerfCategory}>
+          <Text style={styles.signalPerfCategoryTitle}>{category}</Text>
+          {categoryRows.map((row, index) => (
+            <View key={`${category}-${row.value}-${index}`} style={styles.signalPerfRow}>
+              <View style={styles.signalPerfRowHeader}>
+                <Text style={styles.signalPerfValue}>{row.value}</Text>
+                <SignalImpactBadge status={row.impactStatus} />
+              </View>
+              <Text style={styles.signalPerfMeta}>
+                n={row.n} • {formatSignalRecord(row)}
+              </Text>
+              {row.smallSampleNote ? (
+                <Text style={styles.signalPerfSmallSample}>{row.smallSampleNote}</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
+  );
+}
+
+function SignalPerformanceSummary({
+  summary,
+}: {
+  summary?: {
+    helped?: SignalPerformanceRow[];
+    hurt?: SignalPerformanceRow[];
+    neutral?: SignalPerformanceRow[];
+    smallSampleCount?: number;
+  };
+}) {
+  if (!summary) return null;
+
+  const renderList = (title: string, items: SignalPerformanceRow[] = [], color: string) => {
+    if (!items.length) return null;
+    return (
+      <View style={styles.signalSummaryBlock}>
+        <Text style={[styles.signalSummaryTitle, { color }]}>{title}</Text>
+        {items.slice(0, 5).map((row, index) => (
+          <Text key={`${title}-${index}`} style={styles.signalSummaryLine}>
+            {row.signalCategory} → {row.value}: {formatSignalRecord(row)}
+          </Text>
+        ))}
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.signalSummaryWrap}>
+      {renderList("Top helpers", summary.helped, getImpactStatusColor("helped"))}
+      {renderList("Top hurters", summary.hurt, getImpactStatusColor("hurt"))}
+      {renderList("Neutral / noisy", summary.neutral, getImpactStatusColor("neutral"))}
+      {summary.smallSampleCount ? (
+        <Text style={styles.muted}>
+          {summary.smallSampleCount} bucket(s) marked small sample (still visible).
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -667,6 +765,7 @@ export default function PropLab() {
   const sectionV = report?.sections?.V || report?.sideRescueReview;
   const sectionW = report?.sections?.W || report?.sideRescueRetroSimulation;
   const sectionP = report?.sections?.P || report?.slateResultsSnapshot;
+  const signalPerformance = getSignalPerformanceFromReport(report);
   const engineScorecard = report?.engineScorecard || report?.sections?.G;
   const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
@@ -1607,6 +1706,16 @@ export default function PropLab() {
           </SectionCard>
         ) : null}
 
+        {signalPerformance?.rows?.length ? (
+          <SectionCard title="Signal Performance (All Signals)">
+            <Text style={styles.muted}>
+              Per-slate signal buckets with helped/hurt/neutral classification. Small samples are shown, not hidden.
+            </Text>
+            <SignalPerformanceSummary summary={signalPerformance.summary} />
+            <SignalPerformanceTableSection rows={signalPerformance.rows} />
+          </SectionCard>
+        ) : null}
+
         {slateTrackedProps.length > 0 ? (
           <SectionCard title="Slate Breakdown — Tier / Risk / Books / Data">
             <SlateAnalyticsBreakdown
@@ -2031,6 +2140,86 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 12,
     fontWeight: "600",
+  },
+  signalPerfCategory: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+  },
+  signalPerfCategoryTitle: {
+    color: "#38bdf8",
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  signalPerfRow: {
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#0f172a",
+  },
+  signalPerfRowHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  signalPerfValue: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    fontWeight: "800",
+    flex: 1,
+  },
+  signalPerfMeta: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  signalPerfSmallSample: {
+    color: "#fbbf24",
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  signalSummaryWrap: {
+    marginBottom: 10,
+    gap: 8,
+  },
+  signalSummaryBlock: {
+    marginBottom: 6,
+  },
+  signalSummaryTitle: {
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+  signalSummaryLine: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  impactBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  impactHelped: {
+    backgroundColor: "rgba(34, 197, 94, 0.2)",
+  },
+  impactHurt: {
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+  },
+  impactNeutral: {
+    backgroundColor: "rgba(148, 163, 184, 0.2)",
+  },
+  impactBadgeText: {
+    color: "#f8fafc",
+    fontSize: 9,
+    fontWeight: "900",
   },
   snapshotHeading: {
     color: "#38bdf8",

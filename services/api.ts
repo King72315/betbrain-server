@@ -592,6 +592,9 @@ export const fetchDailySlateReports = async () => {
       lifecycleByDate: data.lifecycleByDate || {},
       rotationDecisionDebug: data.rotationDecisionDebug || null,
       serverBuild: data.serverBuild || null,
+      historyThreeSlateGroups: data.historyThreeSlateGroups || null,
+      signalPerformanceVersion: data.signalPerformanceVersion || null,
+      historyThreeSlateGroupsVersion: data.historyThreeSlateGroupsVersion || null,
     };
   } catch (err) {
     console.log("FETCH DAILY SLATE REPORTS FAILED:", err);
@@ -761,6 +764,10 @@ export const fetchHistoryArchives = async () => {
       ok: res.ok && (data.ok ?? false),
       archives: Array.isArray(data.archives) ? data.archives : [],
       count: data.count || 0,
+      historyThreeSlateGroups: data.historyThreeSlateGroups || null,
+      signalPerformanceVersion: data.signalPerformanceVersion || null,
+      historyThreeSlateGroupsVersion: data.historyThreeSlateGroupsVersion || null,
+      serverBuild: data.serverBuild || null,
     };
   } catch (err) {
     console.log("FETCH HISTORY ARCHIVES FAILED:", err);

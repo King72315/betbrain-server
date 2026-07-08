@@ -53,6 +53,10 @@ import {
   SIDE_RESCUE_VERSION,
 } from "../engines/decisionIntelligence/sideRescueEngineV1.js";
 import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
+import {
+  buildSignalPerformanceTable,
+  SIGNAL_PERFORMANCE_VERSION,
+} from "./signalPerformanceV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1168,6 +1172,8 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     options.slateResultsSnapshot ||
     buildSlateResultsSnapshot(slateProps, { slateDate });
 
+  const signalPerformance = buildSignalPerformanceTable(slateProps, { slateDate });
+
   const sectionL = {
     title: "League-Split Calibration",
     ...leagueSplit,
@@ -1193,6 +1199,8 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     slateResultsSnapshot,
     sideRescueReview,
     sideRescueRetroSimulation,
+    signalPerformance,
+    signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
     sections: {
       A: {
         ...sectionA,
@@ -1274,6 +1282,11 @@ function buildSlateReport(slateDate, props = [], options = {}) {
             available: false,
             message: "Retro simulation runs when slate is fully graded.",
           },
+      X: {
+        title: "Signal Performance",
+        version: SIGNAL_PERFORMANCE_VERSION,
+        ...signalPerformance,
+      },
     },
   };
 }
