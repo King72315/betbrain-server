@@ -194,6 +194,88 @@ export function getHistoryArchive(slateDate) {
   return readJSON(file, null);
 }
 
+export function listHistoryArchiveSlateDates() {
+  ensureDirs();
+  if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) return [];
+
+  return fs
+    .readdirSync(HISTORY_ARCHIVE_DIR)
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => name.replace(/\.json$/, ""))
+    .filter((slateDate) => isOnOrAfterCleanDataCutoff(slateDate))
+    .sort()
+    .reverse();
+}
+
+export function deleteHistoryArchive(slateDate) {
+  const date = String(slateDate || "");
+  if (!date) return { ok: false, message: "Missing slateDate" };
+
+  const file = historyArchivePath(date);
+  if (!fs.existsSync(file)) {
+    return { ok: true, skipped: true, slateDate: date, reason: "missing_file" };
+  }
+
+  fs.unlinkSync(file);
+  return { ok: true, slateDate: date, deleted: true };
+}
+
+/** Remove ARCHIVED/LAB registry rows; keep ACTIVE and explicit preserveDates. */
+export function resetHistoryRegistryEntries(options = {}) {
+  const preserveDates = new Set((options.preserveDates || []).map(String));
+  const registry = getRegistry();
+  const removed = [];
+  const kept = [];
+
+  registry.slates = (registry.slates || []).filter((entry) => {
+    const slateDate = String(entry.slateDate || "");
+    const phase = String(entry.phase || "").toUpperCase();
+
+    if (preserveDates.has(slateDate) || phase === SLATE_PHASE.ACTIVE) {
+      kept.push({ slateDate, phase });
+      return true;
+    }
+
+    if (phase === SLATE_PHASE.ARCHIVED || phase === SLATE_PHASE.LAB) {
+      removed.push({ slateDate, phase });
+      return false;
+    }
+
+    kept.push({ slateDate, phase });
+    return true;
+  });
+
+  saveRegistry(registry);
+  return { removed, kept };
+}
+
+/** Delete history-archive JSON files except preserveDates. */
+export function clearHistoryArchiveFiles(options = {}) {
+  const preserveDates = new Set((options.preserveDates || []).map(String));
+  const deleted = [];
+  const skipped = [];
+
+  ensureDirs();
+  if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) {
+    return { deleted, skipped };
+  }
+
+  for (const name of fs
+    .readdirSync(HISTORY_ARCHIVE_DIR)
+    .filter((entry) => entry.endsWith(".json"))) {
+    const slateDate = name.replace(/\.json$/, "");
+    if (preserveDates.has(slateDate)) {
+      skipped.push(slateDate);
+      continue;
+    }
+
+    fs.unlinkSync(path.join(HISTORY_ARCHIVE_DIR, name));
+    deleted.push(slateDate);
+  }
+
+  return { deleted, skipped };
+}
+
 export function getAllHistoryArchives() {
   ensureDirs();
   if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) return [];

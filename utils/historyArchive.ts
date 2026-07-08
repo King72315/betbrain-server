@@ -245,9 +245,7 @@ function buildArchiveBackedEntries(
     if (coveredDates.has(slateDate)) continue;
 
     const phase = String(archive.phase || "").toUpperCase();
-    const isArchived = phase === "ARCHIVED";
-    const isSupersededLab = phase === "LAB" && slateDate !== currentLabSlateDate;
-    if (!isArchived && !isSupersededLab) continue;
+    if (phase !== "ARCHIVED") continue;
 
     const entry = buildEntryFromArchive(archive);
     if (entry) entries.push(entry);
@@ -319,12 +317,24 @@ export function buildHistoryEntries(
   picks: any[],
   reports: any[],
   trackedProps: any[],
-  archives: any[] = []
+  archives: any[] = [],
+  options: {
+    historySlateDates?: string[];
+    currentLabSlateDate?: string | null;
+  } = {}
 ) {
-  const { historySlates, currentLabSlateDate } = computeSlateRotation(reports, {
-    archives,
-    trackedProps,
-  });
+  const { historySlates, currentLabSlateDate: computedLabDate } = computeSlateRotation(
+    reports,
+    {
+      archives,
+      trackedProps,
+    }
+  );
+  const currentLabSlateDate =
+    options.currentLabSlateDate ?? computedLabDate ?? null;
+  const historySlateDates = options.historySlateDates?.length
+    ? options.historySlateDates
+    : null;
 
   const officialEntries = buildOfficialSlateEntries(
     historySlates,
@@ -338,11 +348,31 @@ export function buildHistoryEntries(
     currentLabSlateDate
   );
 
-  const entries = [
+  let entries = [
     ...buildSavedPickEntries(picks),
     ...officialEntries,
     ...archiveEntries,
   ];
+
+  if (historySlateDates) {
+    const allowed = new Set(historySlateDates);
+    entries = entries.filter((entry) => {
+      if (entry.type === "saved-picks") return true;
+      return allowed.has(entry.slateDate);
+    });
+  }
+
+  const archivePhaseByDate = new Map(
+    archives.map((archive) => [
+      String(archive?.slateDate || ""),
+      String(archive?.phase || "").toUpperCase(),
+    ])
+  );
+
+  entries = entries.filter((entry) => {
+    if (entry.type !== "official-slate") return true;
+    return archivePhaseByDate.get(entry.slateDate) === "ARCHIVED";
+  });
 
   return entries.sort((a, b) => {
     if (a.slateDate === "unknown") return 1;

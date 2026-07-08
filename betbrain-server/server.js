@@ -221,6 +221,7 @@ import {
   repairSplitResultsCohort,
 } from "./services/repairSplitResultsCohortService.js";
 import { archiveLabSlate0621 } from "./services/archiveLabSlate0621Service.js";
+import { resetHistoryArchives } from "./services/resetHistoryArchivesService.js";
 import { promoteLabSlate0628Archive0621 } from "./services/promoteLabSlate0628Archive0621Service.js";
 import { buildScopedResolveSummary } from "./services/resolveCheckMessageService.js";
 import {
@@ -236,7 +237,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-results-cohort-slate-v1";
+const SERVER_BUILD = "courteedge-history-rebuild-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3866,6 +3867,47 @@ app.post("/admin/repair-lab-slate-rotation", requireAdminSecret, (req, res) => {
   }
 });
 
+app.post("/admin/reset-history", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Reset requires confirm: true or dryRun: true",
+        description:
+          "Backs up, clears history-archive files and ARCHIVED/LAB registry rows, rebuilds ARCHIVED slates from snapshots, archives stuck 06/21 Lab. Preserves tracked props and ACTIVE Results cohort.",
+      });
+    }
+
+    const result = resetHistoryArchives({
+      dryRun,
+      rebuildReports: req.body?.rebuildReports !== false,
+      archiveStuck0621: req.body?.archiveStuck0621 !== false,
+      rebuildArchiveDates: Array.isArray(req.body?.rebuildArchiveDates)
+        ? req.body.rebuildArchiveDates
+        : undefined,
+      backupReason: req.body?.backupReason || "pre-history-archives-reset-v1",
+    });
+
+    res.json({
+      ok: result.ok,
+      message: dryRun
+        ? "History reset dry-run complete"
+        : "History reset applied",
+      result,
+    });
+  } catch (error) {
+    console.log("RESET HISTORY ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "History reset failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
   try {
     const slateDate = String(req.body?.slateDate || "");
@@ -4121,7 +4163,25 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
-    if (process.env.COURTEDGE_ARCHIVE_LAB_0621_V1 === "true") {
+    if (process.env.COURTEDGE_HISTORY_REBUILD_V1 === "true") {
+      try {
+        const resetResult = resetHistoryArchives({
+          backupReason: "startup-history-rebuild-v1",
+        });
+        console.log(
+          "STARTUP HISTORY REBUILD V1:",
+          JSON.stringify({
+            ok: resetResult.ok,
+            backupId: resetResult.backupId,
+            clearedFiles: resetResult.clearedFiles,
+            after: resetResult.after,
+            meta: resetResult.meta,
+          })
+        );
+      } catch (error) {
+        console.log("STARTUP HISTORY REBUILD V1 ERROR:", error.message);
+      }
+    } else if (process.env.COURTEDGE_ARCHIVE_LAB_0621_V1 === "true") {
       try {
         const archiveResult = archiveLabSlate0621({
           backupReason: "startup-archive-lab-slate-0621-v1",

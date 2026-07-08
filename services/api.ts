@@ -795,3 +795,45 @@ export const fetchHistoryArchive = async (slateDate: string) => {
     };
   }
 };
+
+export const resetHistoryArchives = async (options?: {
+  dryRun?: boolean;
+  confirm?: boolean;
+  adminSecret?: string;
+}) => {
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const secret = String(options?.adminSecret || process.env.EXPO_PUBLIC_ADMIN_SECRET || "").trim();
+    if (secret) {
+      headers["x-admin-secret"] = secret;
+    }
+
+    const res = await fetch(`${BASE_URL}/admin/reset-history`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        dryRun: Boolean(options?.dryRun),
+        confirm: Boolean(options?.confirm),
+      }),
+    });
+    const data = await safeJson(res);
+
+    return {
+      ok: res.ok && (data.ok ?? false),
+      message: data.message || "",
+      result: data.result || null,
+      status: res.status,
+    };
+  } catch (err) {
+    console.log("RESET HISTORY FAILED:", err);
+
+    return {
+      ok: false,
+      message: "Network request failed",
+      result: null,
+      status: 0,
+    };
+  }
+};

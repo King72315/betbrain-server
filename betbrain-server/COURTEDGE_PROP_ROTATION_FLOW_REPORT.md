@@ -1,8 +1,58 @@
 # CourtEdge Prop Rotation Flow Report
 
 **Branch:** `betbrain-v2-rebuild`  
-**Date:** 2026-06-28  
-**SERVER_BUILD:** `courteedge-archive-lab-0621-v1`
+**Date:** 2026-07-08  
+**SERVER_BUILD:** `courteedge-history-rebuild-v1`
+
+---
+
+## Update: History tab erase + rebuild (2026-07-08)
+
+### Problem
+
+Prod Lab stuck on `currentLabSlateDate: "2026-06-21"` while History showed **0 slates** — corrupted `history-archive/*` + `locked-slates.json` ARCHIVED/LAB registry rows out of sync with `computeSlateRotation`. Rotation blocked; 07/07 Results cohort at risk of being obscured.
+
+### Fix
+
+| Area | Change |
+|------|--------|
+| `resetHistoryArchivesService.js` | Backup → clear history-archive files + ARCHIVED/LAB registry rows → rebuild ARCHIVED slates from snapshots → archive stuck 06/21 → lab rotation repair |
+| `slateLockService.js` | `clearHistoryArchiveFiles`, `resetHistoryRegistryEntries`, `deleteHistoryArchive` |
+| `scripts/resetHistoryArchives.js` | Render-shell runner (no `ADMIN_SECRET`) |
+| `server.js` | `POST /admin/reset-history`; `SERVER_BUILD=courteedge-history-rebuild-v1`; startup hook `COURTEDGE_HISTORY_REBUILD_V1` |
+| `app/(tabs)/history.tsx` | Loads from `historySlateDates` + archives; **Reset Server History** button |
+| `utils/historyArchive.ts` | ARCHIVED-phase only for archive-backed entries; filter by server `historySlateDates` |
+| `services/api.ts` | `resetHistoryArchives()` |
+| `testSlateRotationLifecycle.js` | Tests 28–30: LAB vs ARCHIVED history eligibility, 07/07 Results preserved in rotation |
+
+### Prod repair
+
+```bash
+# Dry run (Render shell)
+cd betbrain-server
+node scripts/resetHistoryArchives.js --dry-run
+
+# Apply (creates backup first)
+node scripts/resetHistoryArchives.js
+```
+
+Or with admin secret:
+
+```bash
+curl -X POST "$API/admin/reset-history" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"dryRun": true}'
+
+curl -X POST "$API/admin/reset-history" \
+  -H "x-admin-secret: $SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
+Or set `COURTEDGE_HISTORY_REBUILD_V1=true` in Render env (replaces `COURTEDGE_ARCHIVE_LAB_0621_V1`) and redeploy.
+
+**Does NOT** call `/clear-tracked-props`. ACTIVE Results registry rows and tracked props for 07/07 are preserved.
 
 ---
 

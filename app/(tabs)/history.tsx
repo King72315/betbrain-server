@@ -18,6 +18,7 @@ import {
   fetchHistoryArchives,
   fetchPickHistory,
   fetchTrackedProps,
+  resetHistoryArchives,
 } from "../../services/api";
 import {
   HISTORY_FILTERS,
@@ -232,6 +233,7 @@ export default function History() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [displayClear, setDisplayClear] = useState<HistoryDisplayClear | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     loadHistoryDisplayClear().then(setDisplayClear);
@@ -310,8 +312,12 @@ export default function History() {
   }, [reports, archives, trackedProps, rotationMeta]);
 
   const entries = useMemo(
-    () => buildHistoryEntries(picks, reports, trackedProps, archives),
-    [picks, reports, trackedProps, archives]
+    () =>
+      buildHistoryEntries(picks, reports, trackedProps, archives, {
+        historySlateDates: rotation.historySlateDates,
+        currentLabSlateDate: rotation.currentLabSlateDate,
+      }),
+    [picks, reports, trackedProps, archives, rotation.historySlateDates, rotation.currentLabSlateDate]
   );
 
   const retainedEntries = useMemo(
@@ -391,6 +397,43 @@ export default function History() {
     );
   };
 
+  const handleResetHistory = () => {
+    Alert.alert(
+      "Reset server History archives?",
+      "Backs up, clears corrupted history archives, rebuilds ARCHIVED slates (e.g. 06/21), and unsticks Lab rotation. Tracked props and active Results (07/07) are preserved.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset History",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setResetting(true);
+              const response = await resetHistoryArchives({ confirm: true });
+              if (!response.ok) {
+                Alert.alert(
+                  "History reset failed",
+                  response.message ||
+                    "Server reset requires admin access. Run `node scripts/resetHistoryArchives.js` on Render shell."
+                );
+                return;
+              }
+
+              setDisplayClear(null);
+              await loadHistory();
+              Alert.alert(
+                "History reset complete",
+                `Rebuilt archives: ${(response.result?.after?.historySlateDates || []).join(", ") || "none"}. Lab: ${response.result?.after?.currentLabSlateDate || "empty"}.`
+              );
+            } finally {
+              setResetting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
@@ -404,10 +447,19 @@ export default function History() {
           <Text style={styles.title}>📚 History</Text>
           <Text style={styles.subtitle}>CourtEdge Archive Center</Text>
           <Text style={styles.motto}>
-            Archived Lab slates and graded saved picks — read-only. Entries stay until you
-            tap Clear History Display. Current Lab slate stays in Prop Lab until replaced.
+            Archived Lab slates (ARCHIVED phase only) and graded saved picks — read-only.
+            Server reset rebuilds archives; Clear Display hides entries on this device only.
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy History Report" />
+          <TouchableOpacity
+            style={[styles.resetBtn, resetting && styles.clearBtnDisabled]}
+            onPress={handleResetHistory}
+            disabled={resetting || loading}
+          >
+            <Text style={styles.resetBtnText}>
+              {resetting ? "Resetting..." : "Reset Server History"}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.clearBtn, clearing && styles.clearBtnDisabled]}
             onPress={handleClearHistory}
@@ -481,13 +533,13 @@ export default function History() {
             <Text style={styles.emptyTitle}>No archived entries visible.</Text>
             <Text style={styles.emptyText}>
               {rotation.historySlateDates.length > 0
-                ? `Archived slate dates on server: ${rotation.historySlateDates.join(", ")}. They may be filtered out or cleared locally.`
-                : `Graded saved picks and rotated Lab slates appear here after the next slate completes grading.`}{" "}
-              The current Lab slate
+                ? `Server archived slates: ${rotation.historySlateDates.join(", ")}. Tap Reset Server History if Lab is stuck or entries fail to load.`
+                : `Graded saved picks and rotated Lab slates appear here after archiving. Use Reset Server History if rotation is stuck on an old Lab slate.`}{" "}
+              Current Lab
               {rotation.currentLabSlateDate
                 ? ` (${rotation.currentLabSlateDate})`
-                : ""}{" "}
-              is not duplicated here.
+                : " is empty"}{" "}
+              — not shown here.
             </Text>
             {loadError ? (
               <Text style={styles.emptyArchiveError}>Load error: {loadError}</Text>
@@ -572,6 +624,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: "#7f1d1d",
+  },
+  resetBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: "#1e3a5f",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+  },
+  resetBtnText: {
+    color: "#bfdbfe",
+    fontSize: 13,
+    fontWeight: "900",
   },
   clearBtnDisabled: {
     opacity: 0.6,

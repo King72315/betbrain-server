@@ -88,7 +88,7 @@ function test(name, fn) {
   }
 }
 
-console.log("\nSlate Rotation Lifecycle — 27 tests\n");
+console.log("\nSlate Rotation Lifecycle — 30 tests\n");
 
 test("01 newest completed slate becomes current Lab", () => {
   const reports = [makeCompletedReport(LAB_CANDIDATE_DATE), makeCompletedReport("2026-06-21")];
@@ -342,6 +342,42 @@ test("27 archive 06/21 without replacement leaves empty Lab", () => {
   const after = computeSlateRotation(reports, { archives: archivedArchives, today: TODAY });
   assert.equal(after.currentLabSlateDate, null);
   assert.ok(after.historySlateDates.includes("2026-06-21"));
+});
+
+test("28 LAB-phase archive does not count as archived history source", () => {
+  const reports = [makeCompletedReport("2026-06-21")];
+  const archives = [makeArchive("2026-06-21", "LAB")];
+  const rotation = computeSlateRotation(reports, { archives, today: TODAY });
+  assert.equal(rotation.currentLabSlateDate, "2026-06-21");
+  const archivedOnly = (archives || []).filter(
+    (entry) => String(entry.phase || "").toUpperCase() === "ARCHIVED"
+  );
+  assert.equal(archivedOnly.length, 0);
+});
+
+test("29 ARCHIVED rebuild makes History tab eligible slate", () => {
+  const reports = [makeCompletedReport("2026-06-21")];
+  const archives = [makeArchive("2026-06-21", "ARCHIVED")];
+  const rotation = computeSlateRotation(reports, { archives, today: TODAY });
+  assert.equal(rotation.currentLabSlateDate, null);
+  assert.deepEqual(rotation.historySlateDates, ["2026-06-21"]);
+});
+
+test("30 active Results slate excluded from historySlateDates", () => {
+  const activeDate = "2026-07-07";
+  const tracked = [makeProp(activeDate, "pending")];
+  const locked = [{ slateDate: activeDate, phase: "ACTIVE", lockedAt: "x" }];
+  const reports = [makeInProgressReport(activeDate, 4), makeCompletedReport("2026-06-21")];
+  const archives = [makeArchive("2026-06-21", "ARCHIVED")];
+  const rotation = computeSlateRotation(reports, {
+    trackedProps: tracked,
+    archives,
+    lockedSlates: locked,
+    today: "2026-07-08",
+  });
+  assert.equal(rotation.activeResultsSlateDate, activeDate);
+  assert.ok(rotation.historySlateDates.includes("2026-06-21"));
+  assert.ok(!rotation.historySlateDates.includes(activeDate));
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
