@@ -9,6 +9,7 @@ import {
   buildResultsTrackingCohort,
   resolveResultsCohortSlateDate,
 } from "../services/trackedPropService.js";
+import { getBlockingActiveResultsSlateDate } from "../services/slateScopeService.js";
 import {
   previewSplitResultsCohortRepair,
 } from "../services/repairSplitResultsCohortService.js";
@@ -127,6 +128,48 @@ test("buildControlledTrackingCohort uses blocking slate for cohort date", () => 
   );
   assert.strictEqual(bundle.audit.slateDate, "2026-07-07");
   assert.strictEqual(bundle.trackingCohort[0]?.slateDate, "2026-07-07");
+});
+
+test("getBlockingActiveResultsSlateDate finds prior unresolved cohort without lock", () => {
+  const blocking = getBlockingActiveResultsSlateDate(
+    [
+      {
+        player: "Brittney Griner",
+        slateDate: "2026-07-07",
+        resultsSlateDate: "2026-07-07",
+        status: "pending",
+        controlledBestSixDisplayTracked: true,
+        trackingAdmissionSource: "CONTROLLED_BEST_SIX_DISPLAY",
+      },
+      {
+        player: "Flau'jae Johnson",
+        slateDate: "2026-07-08",
+        status: "pending",
+        controlledBestSixDisplayTracked: true,
+      },
+    ],
+    [],
+    [],
+    "2026-07-08"
+  );
+  assert.strictEqual(blocking, "2026-07-07");
+});
+
+test("resolveResultsCohortSlateDate uses prior unresolved when not locked", () => {
+  const slate = resolveResultsCohortSlateDate({
+    todayLocalDate: "2026-07-08",
+    lockedSlates: [],
+    trackedProps: [
+      {
+        slateDate: "2026-07-07",
+        resultsSlateDate: "2026-07-07",
+        status: "pending",
+        controlledBestSixDisplayTracked: true,
+      },
+    ],
+    reports: [],
+  });
+  assert.strictEqual(slate, "2026-07-07");
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

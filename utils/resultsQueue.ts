@@ -9,6 +9,7 @@ import {
   computeSlateRotation,
   getBlockingActiveResultsSlateDate,
   getReportPending,
+  getResultsPropSlateDate,
   getTodayLocalDate,
   hasUnresolvedGradingProps,
   isCompletedSlate,
@@ -19,6 +20,8 @@ import {
   slateHasUnresolvedProps,
   type SlateRotation,
 } from "./slateRotation";
+
+export { getResultsPropSlateDate } from "./slateRotation";
 
 export { PRIOR_SLATE_STILL_ACTIVE_LABEL, isPriorSlateStillActive };
 
@@ -169,28 +172,6 @@ export function groupResultsPropsByGame(props: any[] = []) {
 export function formatResultsAwaitingStatsReason(prop: any): string {
   if (getTrackedPropStatus(prop) !== "Awaiting stats") return "";
   return prop.pendingReason || AWAITING_STATS_LABEL;
-}
-
-/** Derive slate date for Results grouping (matches backend CT slate when possible). */
-export function getResultsPropSlateDate(prop: any): string {
-  const cohortSlate = prop.resultsSlateDate || prop.cohortSlateDate;
-  if (cohortSlate) {
-    const value = String(cohortSlate).slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  }
-
-  const direct = getPickSlateDate(prop);
-  if (direct !== "unknown") return direct;
-
-  const commence = prop.commenceTime || prop.time;
-  if (commence) {
-    const parsed = new Date(commence);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-    }
-  }
-
-  return "unknown";
 }
 
 export function formatTrackedPropGameLabel(prop: any): string {

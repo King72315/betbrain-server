@@ -50,6 +50,7 @@ import {
   filterCompletedDailyReports,
   getBlockingActiveResultsSlateDate,
   getQuarantinedSlateDatesSet,
+  getResultsPropSlateDate,
   getTodayLocalDate,
   isCompletedSlate,
   isFutureSlateDate,
@@ -848,6 +849,9 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       ...gatedPick,
       trackingType: recordType,
       recordType,
+      slateDate,
+      resultsSlateDate: slateDate,
+      cohortSlateDate: slateDate,
       resultsDecisionLabel:
         gatedPick.resultsDecisionLabel ||
         resolveDisplayResultsDecisionLabel(gatedPick) ||
@@ -1578,17 +1582,21 @@ function mapPickToTrackedFields(pick = {}) {
     ps.sportsProjection ??
     null;
 
+  const resolvedSlate =
+    pick.resultsSlateDate ||
+    pick.cohortSlateDate ||
+    pick.slateDate ||
+    getSlateDateCT(commenceTime);
+
   const baseFields = {
     source: "AUTO_TRACKED",
     league: pick.league || "",
     gameId: pick.gameId || pick.game || "",
     gameLabel: pick.game || pick.gameLabel || "",
     gameDate: getGameDate(pick),
-    slateDate:
-      pick.resultsSlateDate ||
-      pick.cohortSlateDate ||
-      pick.slateDate ||
-      getSlateDateCT(commenceTime),
+    slateDate: resolvedSlate,
+    resultsSlateDate: pick.resultsSlateDate || resolvedSlate,
+    cohortSlateDate: pick.cohortSlateDate || resolvedSlate,
     commenceTime,
     startTimeDisplay: pick.startTimeDisplay || "",
     dayBucket: pick.dayBucket || pick.dateLabel || "",
@@ -1986,8 +1994,21 @@ function resolveInitialOfficialLine(existing = null, fields = {}) {
 function normalizeTrackedProp(pick = {}, existing = null) {
   const now = new Date().toISOString();
   const fields = mapPickToTrackedFields(pick);
-  const trackedKey = getStableTrackedPropKey(pick);
+
+  if (
+    existing &&
+    !isResolvedStatus(existing.status) &&
+    existing.slateDate &&
+    fields.slateDate &&
+    existing.slateDate !== fields.slateDate
+  ) {
+    fields.slateDate = existing.slateDate;
+    fields.resultsSlateDate = existing.resultsSlateDate || existing.slateDate;
+    fields.cohortSlateDate = existing.cohortSlateDate || existing.slateDate;
+  }
+
   const slateDate = fields.slateDate || existing?.slateDate || "";
+  const trackedKey = getStableTrackedPropKey(pick);
   const locked =
     existing?.slateLocked === true || (slateDate && isSlateLocked(slateDate));
 
@@ -2110,35 +2131,39 @@ function pruneExcessPreCapProps(working = [], incoming = [], audit = {}) {
 
 function maybeAutoLockTodaySlate(working = [], audit = {}) {
   const today = getTodayLocalDate();
-  if (!today || isSlateLocked(today)) {
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
+  const cohortSlate = resolveResultsCohortSlateDate({
+    todayLocalDate: today,
+    lockedSlates,
+    trackedProps: working,
+  });
+
+  if (!cohortSlate || isSlateLocked(cohortSlate)) {
     return null;
   }
 
-  const lockedSlates = getLockedSlatesRegistry().slates || [];
   const blockingSlate = getBlockingActiveResultsSlateDate(
     working,
     lockedSlates,
     [],
     today
   );
-  if (blockingSlate && blockingSlate !== today) {
+  if (blockingSlate && blockingSlate !== cohortSlate) {
     audit.autoLockBlocked = true;
     audit.autoLockBlockedBy = blockingSlate;
     return null;
   }
 
-  const todayPropCount = working.filter((item) => {
-    if (String(item.slateDate || "") !== today) return false;
-    // Controlled Best 6 display cohort (often LEAN tier) must lock the slate
-    // so refresh-picks pruneExcessPreCapProps cannot swap admitted props mid-slate.
+  const cohortPropCount = working.filter((item) => {
+    if (getResultsPropSlateDate(item) !== cohortSlate) return false;
     if (isBestSixDisplayResultsProp(item)) return true;
     return isOfficialResultsProp(item) && isOfficialTrackablePick(item);
   }).length;
-  if (todayPropCount === 0) {
+  if (cohortPropCount === 0) {
     return null;
   }
 
-  const lockResult = lockSlate(today, {
+  const lockResult = lockSlate(cohortSlate, {
     reason: "auto_results_track",
     autoLocked: true,
     trackedProps: working,
@@ -2149,13 +2174,16 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
   }
 
   for (let i = 0; i < working.length; i += 1) {
-    if (String(working[i].slateDate || "") === today && working[i].homeStaged) {
+    if (
+      getResultsPropSlateDate(working[i]) === cohortSlate &&
+      working[i].homeStaged
+    ) {
       working[i] = { ...working[i], homeStaged: false };
     }
   }
 
   audit.autoLocked = true;
-  audit.autoLockSlateDate = today;
+  audit.autoLockSlateDate = cohortSlate;
   audit.autoLockPropCount = lockResult.snapshot?.propCount ?? 0;
 
   return lockResult;
@@ -2212,7 +2240,7 @@ export function addTrackedProps(picks = [], options = {}) {
     const stableKey = getStableTrackedPropKey(pick);
     const legacyKey = getLegacyTrackedPropKey(pick);
     const fields = mapPickToTrackedFields(pick);
-    const slateDate = String(fields.slateDate || "");
+    const slateDate = getResultsPropSlateDate({ ...pick, ...fields });
     const slateLocked =
       slateDate &&
       (isSlateLocked(slateDate) || getHistoryArchiveProps(slateDate).length > 0);

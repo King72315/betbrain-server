@@ -65,6 +65,46 @@ export function getTodayLocalDate(now: Date = new Date()): string {
   return now.toLocaleDateString("en-CA", { timeZone: CT_TIMEZONE });
 }
 
+function getSlateDateFromCommence(commenceTime = "") {
+  const source = commenceTime || "";
+  if (!source) return "";
+
+  const parsed = new Date(source);
+  if (Number.isNaN(parsed.getTime())) {
+    return String(source).slice(0, 10);
+  }
+
+  return parsed.toLocaleDateString("en-CA", { timeZone: CT_TIMEZONE });
+}
+
+/** Canonical Results cohort date for a tracked prop (matches backend slateScopeService). */
+export function getResultsPropSlateDate(prop: any = {}): string {
+  const cohortSlate = prop.resultsSlateDate || prop.cohortSlateDate;
+  if (cohortSlate) {
+    const value = String(cohortSlate).slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  }
+
+  const direct = String(prop.slateDate || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
+
+  return getSlateDateFromCommence(prop.commenceTime || prop.time);
+}
+
+function isBestSixDisplayResultsProp(prop: any = {}) {
+  if (prop.homeStaged === true) return false;
+  return (
+    prop.controlledBestSixDisplay === true ||
+    prop.controlledBestSixDisplayTracked === true ||
+    prop.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY"
+  );
+}
+
+function isResultsCohortProp(prop: any = {}) {
+  if (isBestSixDisplayResultsProp(prop)) return true;
+  return isOfficialTrackingProp(prop);
+}
+
 export function isOnOrAfterCleanDataCutoff(slateDate: string | null | undefined): boolean {
   const value = String(slateDate || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -594,9 +634,10 @@ export function getActiveLockedUnresolvedSlateDates(
   const propsBySlate: Record<string, any[]> = {};
 
   for (const prop of trackedProps) {
-    const slateDate = String(prop.slateDate || "");
+    const slateDate = getResultsPropSlateDate(prop);
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
     if (isFutureSlateDate(slateDate, today)) continue;
+    if (!isResultsCohortProp(prop)) continue;
     if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
     propsBySlate[slateDate].push(prop);
   }
@@ -620,6 +661,41 @@ export function getActiveLockedUnresolvedSlateDates(
   });
 }
 
+/** Prior slates with unresolved Best 6 / official props — safety net when auto-lock missed. */
+export function getUnresolvedPriorCohortSlateDates(
+  trackedProps: any[] = [],
+  reports: any[] = [],
+  lockedSlates: any[] = [],
+  today: string = getTodayLocalDate()
+): string[] {
+  const lockedDates = new Set(
+    (lockedSlates || [])
+      .map((entry) => String(entry.slateDate || ""))
+      .filter(Boolean)
+  );
+  const propsBySlate: Record<string, any[]> = {};
+
+  for (const prop of trackedProps) {
+    if (prop.homeStaged === true) continue;
+    const slateDate = getResultsPropSlateDate(prop);
+    if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
+    if (!isPastSlateDate(slateDate, today)) continue;
+    if (!isResultsCohortProp(prop)) continue;
+    if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
+    propsBySlate[slateDate].push(prop);
+  }
+
+  return Object.keys(propsBySlate)
+    .sort()
+    .filter((slateDate) => {
+      if (lockedDates.has(slateDate)) return false;
+      const report = reports.find((item) => String(item.slateDate) === slateDate) || null;
+      if (isCompletedSlate(report)) return false;
+      const props = propsBySlate[slateDate] || [];
+      return props.length > 0 && hasUnresolvedGradingProps(props);
+    });
+}
+
 export function getBlockingActiveResultsSlateDate(
   trackedProps: any[] = [],
   lockedSlates: any[] = [],
@@ -632,7 +708,15 @@ export function getBlockingActiveResultsSlateDate(
     reports,
     today
   );
-  return unresolved[0] || null;
+  if (unresolved[0]) return unresolved[0];
+
+  const priorUnresolved = getUnresolvedPriorCohortSlateDates(
+    trackedProps,
+    reports,
+    lockedSlates,
+    today
+  );
+  return priorUnresolved[0] || null;
 }
 
 export function pickActiveResultsSlateDate(
@@ -650,12 +734,12 @@ export function pickActiveResultsSlateDate(
   if (blockingSlate) return blockingSlate;
 
   const hasTodayProps = trackedProps.some((prop) => {
-    const slateDate = String(prop.slateDate || "");
+    const slateDate = getResultsPropSlateDate(prop);
     return (
       slateDate === today &&
       isOnOrAfterCleanDataCutoff(slateDate) &&
       prop.homeStaged !== true &&
-      isOfficialTrackingProp(prop)
+      isResultsCohortProp(prop)
     );
   });
 

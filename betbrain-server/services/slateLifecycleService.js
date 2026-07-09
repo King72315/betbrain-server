@@ -3,6 +3,7 @@
  */
 import {
   computeSlateRotation,
+  getResultsPropSlateDate,
   getTodayLocalDate,
   isCompletedSlate,
   isFutureSlateDate,
@@ -280,7 +281,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     rotation = computeSlateRotation(reports),
   } = context;
 
-  const slateDate = String(prop.slateDate || "");
+  const slateDate = getResultsPropSlateDate(prop);
   if (!slateDate) {
     return TRACKED_PROP_LIFECYCLE.QUARANTINED_LEGACY;
   }

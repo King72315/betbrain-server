@@ -80,7 +80,7 @@ test("01 active TRACKING_ACTIVE slate props appear in activeResultsProps", () =>
 });
 
 test("02 PARTIALLY_GRADED blocking slate stays in active results", () => {
-  const slate = "2026-06-24";
+  const slate = "2026-06-22";
   const props = [
     makeProp({ slateDate: slate, status: "win" }),
     makeProp({ slateDate: slate, player: "Player B", status: "pending" }),
@@ -129,16 +129,18 @@ test("05 legacy completed slate stays out of active results", () => {
     makeProp({ slateDate: legacyDate, player: `Legacy ${i}`, status: "win", actualStat: 18, result: 18 })
   );
   const result = classifyTrackedPropsByLifecycle(props, {
-    reports: [completedReport("2026-06-24")],
+    reports: [completedReport(legacyDate), completedReport("2026-06-24")],
     archives: [],
     lockedSlates: [],
     today: TODAY,
   });
   assert.equal(result.activeResultsTrackedCount, 0);
-  assert.ok(result.archivedHistoryTrackedCount >= 10);
+  assert.ok(
+    result.archivedHistoryTrackedCount + result.labCurrentTrackedCount >= 10
+  );
 });
 
-test("06 stale unresolved past slate classified STALE_UNRESOLVED", () => {
+test("06 prior unresolved past slate blocks Results when lock missed", () => {
   const staleDate = "2026-06-20";
   const props = [makeProp({ slateDate: staleDate, status: "pending" })];
   const result = classifyTrackedPropsByLifecycle(props, {
@@ -147,10 +149,11 @@ test("06 stale unresolved past slate classified STALE_UNRESOLVED", () => {
     lockedSlates: [],
     today: TODAY,
   });
-  assert.equal(result.activeResultsTrackedCount, 0);
-  assert.equal(result.staleUnresolvedTrackedCount, 1);
+  assert.equal(result.activeResultsSlateDate, staleDate);
+  assert.equal(result.activeResultsTrackedCount, 1);
+  assert.equal(result.staleUnresolvedTrackedCount, 0);
   assert.equal(
-    result.trackedCountsByLifecycleState[TRACKED_PROP_LIFECYCLE.STALE_UNRESOLVED],
+    result.trackedCountsByLifecycleState[TRACKED_PROP_LIFECYCLE.ACTIVE_RESULTS],
     1
   );
 });
@@ -181,7 +184,7 @@ test("08 locked 06/21 lab props untouched in labCurrent bucket", () => {
 });
 
 test("09 cap validation uses active results only", () => {
-  const slate = "2026-06-24";
+  const slate = "2026-06-22";
   const activeProps = Array.from({ length: BEST_SIX_LIMIT + 2 }, (_, i) =>
     makeProp({ slateDate: slate, player: `Active ${i}` })
   );

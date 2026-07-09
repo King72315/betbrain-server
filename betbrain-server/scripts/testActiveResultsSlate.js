@@ -4,6 +4,7 @@ import {
   pickActiveResultsSlateDate,
   buildCourtEdgeFlowDiagnostics,
   getBlockingActiveResultsSlateDate,
+  getUnresolvedPriorCohortSlateDates,
   countStagedHomeProps,
   hasUnresolvedGradingProps,
 } from "../services/slateScopeService.js";
@@ -209,6 +210,31 @@ console.log("testActiveResultsSlate: Home→Results→Lab flow");
   assert.equal(flow.activeResultsSlateDate, JUNE_21);
   assert.equal(flow.staleUnresolvedCount, 1);
   assert.equal(flow.staleUnresolvedSlates[0], "2026-06-20");
+}
+
+// Test 7 — prior unresolved cohort blocks without lock (midnight split guard)
+{
+  const tracked = [
+    makeProp("2026-07-07", "pending", {
+      player: "Prior Slate",
+      controlledBestSixDisplayTracked: true,
+      trackingAdmissionSource: "CONTROLLED_BEST_SIX_DISPLAY",
+    }),
+    makeProp("2026-07-08", "pending", {
+      player: "Calendar Today",
+      controlledBestSixDisplayTracked: true,
+    }),
+  ];
+  const today = "2026-07-08";
+
+  const prior = getUnresolvedPriorCohortSlateDates(tracked, [], [], today);
+  assert.deepEqual(prior, ["2026-07-07"]);
+
+  const blocking = getBlockingActiveResultsSlateDate(tracked, [], [], today);
+  assert.equal(blocking, "2026-07-07", "prior unresolved cohort blocks without lock");
+
+  const active = pickActiveResultsSlateDate(tracked, [], today, []);
+  assert.equal(active, "2026-07-07", "Results stays on prior cohort slate");
 }
 
 console.log("testActiveResultsSlate: all passed");

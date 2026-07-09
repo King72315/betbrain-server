@@ -155,6 +155,7 @@ import {
   getAnalyticsScopeProps,
   getTrackedProps,
   resetChiDalBadGrades,
+  resolveResultsCohortSlateDate,
   resolveTrackedProps,
 } from "./services/trackedPropService.js";
 
@@ -2310,7 +2311,7 @@ async function refreshAllPicks() {
   const topSelectionAudit = controlledSelection.controlledBestSixAudit;
 
   saveTopPicksSnapshot(topProps, {
-    slateDate: getTodayLocalDate(),
+    slateDate: cohortBundle.audit.slateDate || getTodayLocalDate(),
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     topSelectionAudit,
     sourcePool: TOP_PICKS_SOURCE_POOL,
@@ -2318,7 +2319,7 @@ async function refreshAllPicks() {
   });
 
   saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
-    slateDate: getTodayLocalDate(),
+    slateDate: cohortBundle.audit.slateDate || getTodayLocalDate(),
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     controlledBestSixAudit: topSelectionAudit,
   });
@@ -3249,6 +3250,12 @@ app.get("/diagnostics", (req, res) => {
     getTodayLocalDate(),
     registry.slates || []
   );
+  courtEdgeFlow.resultsCohortSlateDate = resolveResultsCohortSlateDate({
+    todayLocalDate: getTodayLocalDate(),
+    lockedSlates: registry.slates || [],
+    trackedProps: tracked,
+    reports: rawReports,
+  });
   courtEdgeFlow.analyticsScopeCount = getAnalyticsScopeProps(
     tracked,
     rawReports,
