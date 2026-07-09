@@ -10,8 +10,67 @@ export const DISPLAY_SIDE_BALANCE_MINORITY = 3;
 export const DISPLAY_SIDE_BALANCE_SWAP_MARGIN = 24;
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
-/** Home tab shows tomorrow slate only — no Today section. */
+/** Home tab prefers tomorrow slate; see resolveHomeControlledDateView for midnight fallback. */
 export const HOME_DATE_VIEW = "tomorrow";
+
+function hasUnstartedGamesInBucket(games = [], bucket = "TODAY") {
+  return (games || []).some(
+    (game) => resolveDayBucket(game) === bucket && !game.isStarted
+  );
+}
+
+function bucketHasDisplayOrCandidates({
+  displayPool = [],
+  games = [],
+  league = "WNBA",
+  dateView = "tomorrow",
+} = {}) {
+  const inBucket = filterBestSixByDateView(displayPool, dateView);
+  const candidates = scopeCandidatesByDateView(
+    collectLeagueCandidatesFromGames(games, league),
+    dateView
+  );
+  return inBucket.length > 0 || candidates.length > 0;
+}
+
+/**
+ * Home targets the next actionable slate. After CT midnight, tonight's games flip to
+ * TODAY while tomorrow's lines may not exist yet — fall back so Best 6 isn't empty.
+ */
+export function resolveHomeControlledDateView({
+  bestSix = [],
+  bestSixDisplay = [],
+  games = [],
+  league = "WNBA",
+} = {}) {
+  const leagueCode = normalizeLeagueCode(league);
+  const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
+
+  if (
+    bucketHasDisplayOrCandidates({
+      displayPool,
+      games,
+      league: leagueCode,
+      dateView: "tomorrow",
+    })
+  ) {
+    return "tomorrow";
+  }
+
+  if (
+    bucketHasDisplayOrCandidates({
+      displayPool,
+      games,
+      league: leagueCode,
+      dateView: "today",
+    }) &&
+    hasUnstartedGamesInBucket(games, "TODAY")
+  ) {
+    return "today";
+  }
+
+  return HOME_DATE_VIEW;
+}
 
 export function resolveTrackEligibility(pick = {}) {
   return String(

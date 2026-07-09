@@ -27,6 +27,7 @@ import {
   buildHomeControlledBestSixReportText,
   buildLeagueBestSixBoard,
   formatDateViewLabel,
+  resolveHomeControlledDateView,
   resolveLeaguePicksPayload,
 } from "../utils/controlledBestSixDisplay";
 import { getTodayLocalDate } from "../utils/slateRotation";
@@ -175,13 +176,19 @@ export default function HomeControlledBestSixScreen() {
     return SUPPORTED_LEAGUES.reduce<Record<SupportedLeague, ReturnType<typeof buildLeagueBestSixBoard>>>(
       (acc, league) => {
         const payload = resolveLeaguePicksPayload(picksData, league);
+        const dateView = resolveHomeControlledDateView({
+          league,
+          bestSix: payload.bestSix,
+          bestSixDisplay: payload.bestSixDisplay,
+          games: payload.games,
+        });
         acc[league as SupportedLeague] = buildLeagueBestSixBoard({
           league,
           bestSix: payload.bestSix,
           bestSixDisplay: payload.bestSixDisplay,
           topProps: payload.topProps,
           games: payload.games,
-          dateView: HOME_DATE_VIEW,
+          dateView,
           bestSixLimit,
         });
         return acc;
@@ -224,11 +231,13 @@ export default function HomeControlledBestSixScreen() {
         bestSixCards: boards.WNBA.bestSixCards,
         summary: boards.WNBA.summary,
         games: resolveLeaguePicksPayload(picksData || {}, "WNBA").games,
+        dateView: boards.WNBA.summary.dateView,
       },
       nba: {
         bestSixCards: boards.NBA.bestSixCards,
         summary: boards.NBA.summary,
         games: resolveLeaguePicksPayload(picksData || {}, "NBA").games,
+        dateView: boards.NBA.summary.dateView,
       },
     });
 

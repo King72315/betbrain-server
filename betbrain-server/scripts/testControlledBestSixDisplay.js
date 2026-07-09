@@ -27,6 +27,7 @@ const {
   buildWnbaControlledBestSixReportText,
   buildLeagueBestSixBoard,
   buildHomeControlledBestSixReportText,
+  resolveHomeControlledDateView,
   resolveLeaguePicksPayload,
   resolveDateScopedDisplayPool,
   selectTopTwoFromDisplayBestSix,
@@ -861,6 +862,99 @@ test("44 home tomorrow board matches summary row count", () => {
 
   assert.strictEqual(board.summary.controlledBestSixTotal, board.bestSixCards.length);
   assert.strictEqual(board.bestSixCards.length, 6);
+});
+
+test("45 midnight gap falls back to today when tomorrow bucket is empty", () => {
+  const todayDisplayPicks = [1, 2, 3, 4, 5, 6].map((rank) => ({
+    player: `Player ${rank}`,
+    team: "TST",
+    line: 10 + rank,
+    side: rank % 2 === 0 ? "Under" : "Over",
+    dayBucket: "TODAY",
+    dateLabel: "Today",
+    league: "WNBA",
+    decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW" },
+    controlledBestSixRank: rank,
+    controlledBestSixDisplay: true,
+  }));
+
+  const games = [
+    {
+      league: "WNBA",
+      game: "SEATTLESTORM vs ATLANTADREAM",
+      dayBucket: "TODAY",
+      dateLabel: "Today",
+      isStarted: false,
+      allGeneratedCandidates: todayDisplayPicks,
+    },
+    {
+      league: "WNBA",
+      game: "GOLDENSTATEVALKYRIES vs CONNECTICUTSUN",
+      dayBucket: "TOMORROW",
+      dateLabel: "Tomorrow",
+      isStarted: false,
+      allGeneratedCandidates: [],
+      picks: [],
+    },
+  ];
+
+  const view = resolveHomeControlledDateView({
+    league: "WNBA",
+    bestSixDisplay: todayDisplayPicks,
+    games,
+  });
+  assert.strictEqual(view, "today");
+
+  const board = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSixDisplay: todayDisplayPicks,
+    games,
+    dateView: view,
+  });
+  assert.strictEqual(board.bestSixCards.length, 6);
+  assert.strictEqual(board.summary.controlledBestSixTotal, 6);
+  assert.strictEqual(board.summary.boardCandidates, todayDisplayPicks.length);
+});
+
+test("46 tomorrow bucket wins when both today and tomorrow have content", () => {
+  const tomorrowPick = {
+    player: "Caitlin Clark",
+    team: "IND",
+    line: 18.5,
+    side: "Over",
+    dayBucket: "TOMORROW",
+    dateLabel: "Tomorrow",
+    league: "WNBA",
+    decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW" },
+    controlledBestSixDisplay: true,
+  };
+  const todayPick = {
+    ...tomorrowPick,
+    player: "A'ja Wilson",
+    dayBucket: "TODAY",
+    dateLabel: "Today",
+  };
+  const games = [
+    {
+      league: "WNBA",
+      dayBucket: "TODAY",
+      isStarted: false,
+      allGeneratedCandidates: [todayPick],
+    },
+    {
+      league: "WNBA",
+      dayBucket: "TOMORROW",
+      isStarted: false,
+      allGeneratedCandidates: [tomorrowPick],
+    },
+  ];
+
+  const view = resolveHomeControlledDateView({
+    league: "WNBA",
+    bestSixDisplay: [todayPick, tomorrowPick],
+    games,
+  });
+  assert.strictEqual(view, "tomorrow");
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);
