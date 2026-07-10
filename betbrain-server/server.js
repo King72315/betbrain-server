@@ -153,10 +153,12 @@ import {
   backfillOfficialLines,
   deleteTrackedProp,
   getAnalyticsScopeProps,
+  getLifecycleIntegrityDiagnostics,
   getTrackedProps,
   resetChiDalBadGrades,
   resolveResultsCohortSlateDate,
   resolveTrackedProps,
+  runTrackedPropStartupIntegrityCheck,
 } from "./services/trackedPropService.js";
 
 import {
@@ -3260,6 +3262,7 @@ app.get("/diagnostics", (req, res) => {
     getTodayLocalDate(),
     registry.slates || []
   );
+  const lifecycleIntegrity = getLifecycleIntegrityDiagnostics(tracked);
   courtEdgeFlow.resultsCohortSlateDate = resolveResultsCohortSlateDate({
     todayLocalDate: getTodayLocalDate(),
     lockedSlates: registry.slates || [],
@@ -3289,6 +3292,7 @@ app.get("/diagnostics", (req, res) => {
       duplicates: dupes,
     },
     courtEdgeFlow,
+    lifecycleIntegrity,
     slateLifecycle,
     slateLifecycleStates: SLATE_LIFECYCLE_STATES,
     controlledTrackingCohortVersion: picksCache?.controlledTrackingCohortAudit?.version || "controlled-tracking-cohort-v1",
@@ -4224,6 +4228,9 @@ if (process.env.RUN_AUDIT === "1") {
     });
 } else {
   const rehydrateResult = rehydrateLockedSlatesOnStartup();
+  if (!rehydrateResult.startupIntegrity) {
+    runTrackedPropStartupIntegrityCheck();
+  }
 
   async function startServer() {
     if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {

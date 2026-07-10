@@ -3,6 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { createBackup } from "./backupService.js";
+import { overlayLiveGradingFields } from "./gradeMonotonicityGuard.js";
 import {
   getTodayLocalDate,
   hasUnresolvedGradingProps,
@@ -582,14 +583,10 @@ export function mergeSnapshotPropsWithLiveGrades(snapshotProps = [], liveProps =
     const live = findLivePropForSnapshot(snapshotProp, index);
     if (!live) return { ...snapshotProp };
 
-    const merged = { ...snapshotProp };
-    for (const field of LIVE_GRADING_FIELDS) {
-      if (live[field] !== undefined) {
-        merged[field] = live[field];
-      }
-    }
-
-    return merged;
+    return overlayLiveGradingFields(snapshotProp, live, {
+      sourcePath: "mergeSnapshotPropsWithLiveGrades",
+      slateDate: snapshotProp.slateDate || live.slateDate,
+    });
   });
 }
 

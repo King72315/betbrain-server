@@ -15,6 +15,14 @@ import {
   resolvePlayerStatForPick,
 } from "./resultService.js";
 import { clearGameFinalVerificationCache } from "./gameFinalVerificationService.js";
+import {
+  applyGradeMonotonicityGuard,
+  buildLifecycleIntegrityDiagnostics,
+  logLifecycleIntegrityEvent,
+  reconcileTrackedPropIntegrity,
+  runStartupIntegrityCheck,
+  verifyResolvedPropsPersisted,
+} from "./gradeMonotonicityGuard.js";
 
 import {
   getHistoryArchiveProps,
@@ -1980,20 +1988,13 @@ function appendLineHistory(existing = {}, nextLine = 0) {
   return history.slice(-20);
 }
 
-export function applySafeLockedTrackedPropMerge(existing = {}, incomingFields = {}) {
+export function applySafeLockedTrackedPropMerge(existing = {}, incomingFields = {}, options = {}) {
   const now = new Date().toISOString();
   const nextLine = num(incomingFields.currentLine ?? incomingFields.line ?? existing.latestLine);
   const patch = {};
 
   for (const key of SAFE_LOCKED_UPDATE_FIELDS) {
     if (incomingFields[key] !== undefined) {
-      if (
-        RESOLVED_GRADE_FIELDS.has(key) &&
-        isResolvedStatus(existing.status) &&
-        !isResolvedStatus(incomingFields[key])
-      ) {
-        continue;
-      }
       patch[key] = incomingFields[key];
     }
   }
@@ -2015,7 +2016,7 @@ export function applySafeLockedTrackedPropMerge(existing = {}, incomingFields = 
     };
   }
 
-  return {
+  const identityLocked = {
     ...existing,
     ...patch,
     officialLine: existing.officialLine,
@@ -2028,6 +2029,15 @@ export function applySafeLockedTrackedPropMerge(existing = {}, incomingFields = 
     lockedVolumeProfile: existing.lockedVolumeProfile,
     slateLocked: true,
   };
+
+  const { result } = applyGradeMonotonicityGuard(existing, identityLocked, {
+    sourcePath: options.sourcePath || "applySafeLockedTrackedPropMerge",
+    slateDate: existing.slateDate,
+    allowGradeCorrection: options.allowGradeCorrection,
+    gradeCorrectionReason: options.gradeCorrectionReason,
+  });
+
+  return result;
 }
 
 function resolveInitialOfficialLine(existing = null, fields = {}) {
@@ -2078,7 +2088,7 @@ function normalizeTrackedProp(pick = {}, existing = null) {
   const previousLatest =
     existing?.latestLine ?? existing?.currentLine ?? existing?.line ?? null;
 
-  return {
+  const normalized = {
     ...existing,
     ...fields,
     trackedId: existing?.trackedId || trackedKey,
@@ -2103,25 +2113,39 @@ function normalizeTrackedProp(pick = {}, existing = null) {
     generatedAt: existing?.generatedAt || now,
     lastSeenAt: now,
     timesSeen: existing ? num(existing.timesSeen) + 1 : 1,
-    status: existing?.status || "pending",
-    actualStat: existing?.actualStat ?? null,
-    result: existing?.result ?? null,
-    resultMargin: existing?.resultMargin ?? null,
-    gradedAt: existing?.gradedAt ?? null,
-    pendingReason: existing?.pendingReason ?? null,
-    currentEngineResult: existing?.currentEngineResult ?? null,
-    currentEngineWon: existing?.currentEngineWon ?? null,
-    currentEngineMargin: existing?.currentEngineMargin ?? null,
-    fairLineShadowResult: existing?.fairLineShadowResult ?? null,
-    fairLineShadowWon: existing?.fairLineShadowWon ?? null,
-    fairLineShadowMargin: existing?.fairLineShadowMargin ?? null,
+    status: fields.status ?? existing?.status ?? "pending",
+    actualStat: fields.actualStat ?? existing?.actualStat ?? null,
+    result: fields.result ?? existing?.result ?? null,
+    resultMargin: fields.resultMargin ?? existing?.resultMargin ?? null,
+    gradedAt: fields.gradedAt ?? existing?.gradedAt ?? null,
+    pendingReason: fields.pendingReason ?? existing?.pendingReason ?? null,
+    currentEngineResult:
+      fields.currentEngineResult ?? existing?.currentEngineResult ?? null,
+    currentEngineWon: fields.currentEngineWon ?? existing?.currentEngineWon ?? null,
+    currentEngineMargin:
+      fields.currentEngineMargin ?? existing?.currentEngineMargin ?? null,
+    fairLineShadowResult:
+      fields.fairLineShadowResult ?? existing?.fairLineShadowResult ?? null,
+    fairLineShadowWon:
+      fields.fairLineShadowWon ?? existing?.fairLineShadowWon ?? null,
+    fairLineShadowMargin:
+      fields.fairLineShadowMargin ?? existing?.fairLineShadowMargin ?? null,
     sideComparison:
+      fields.sideComparison ??
       existing?.sideComparison ??
       buildSideComparison({
         fairLineSide: fields.fairLineSide,
         auditSideMatch: fields.auditSideMatch,
       }),
   };
+
+  if (!existing) return normalized;
+
+  const { result } = applyGradeMonotonicityGuard(existing, normalized, {
+    sourcePath: "normalizeTrackedProp",
+    slateDate: normalized.slateDate,
+  });
+  return result;
 }
 
 function countPropsForSlate(tracked = [], slateDate = "") {
@@ -2436,17 +2460,42 @@ export function mergeLockedSlateFreezeIntoTracked(
   });
 }
 
-export function persistResolvedTrackedProps(updated = []) {
+export function persistResolvedTrackedProps(updated = [], options = {}) {
   const props = Array.isArray(updated) ? updated : [];
+  const verify = options.verify !== false;
+
   writeJSON(TRACKED_FILE, props);
 
+  let syncResults = [];
   try {
-    syncLockedSlateGradesFromLive(props);
+    syncResults = syncLockedSlateGradesFromLive(props);
   } catch (err) {
     console.log("LOCKED SLATE GRADE SYNC WARNING:", err.message);
   }
 
-  return props;
+  let verification = null;
+  let verified = null;
+  if (verify) {
+    const readBack = readJSON(TRACKED_FILE, []);
+    verification = verifyResolvedPropsPersisted(props, readBack);
+    verified = verification.ok;
+    if (!verification.ok) {
+      logLifecycleIntegrityEvent({
+        type: "resolver_persistence_verification_failed",
+        severity: "high",
+        verification,
+        syncResults,
+      });
+    }
+  }
+
+  return {
+    props,
+    persisted: true,
+    verified,
+    verification,
+    syncResults,
+  };
 }
 
 export function applySlateLockFreeze(slateDate, frozenProps = []) {
@@ -2493,19 +2542,59 @@ export function getTrackedProps() {
   return normalized;
 }
 
-export function writeTrackedProps(props = []) {
-  writeJSON(TRACKED_FILE, Array.isArray(props) ? props : []);
-  return getTrackedProps();
+export function writeTrackedProps(props = [], options = {}) {
+  const incoming = Array.isArray(props) ? props : [];
+  const existing = readJSON(TRACKED_FILE, []);
+  const existingByKey = new Map();
+
+  for (const item of existing) {
+    const key = String(item.trackedKey || item.trackedId || "");
+    if (key) existingByKey.set(key, item);
+  }
+
+  const guarded = incoming.map((item) => {
+    const key = String(item.trackedKey || item.trackedId || "");
+    const prev = key ? existingByKey.get(key) : null;
+    if (!prev) return item;
+    return applyGradeMonotonicityGuard(prev, item, {
+      sourcePath: options.sourcePath || "writeTrackedProps",
+      slateDate: item.slateDate || prev.slateDate,
+      allowGradeCorrection: options.allowGradeCorrection,
+      gradeCorrectionReason: options.gradeCorrectionReason,
+    }).result;
+  });
+
+  writeJSON(TRACKED_FILE, guarded);
+  return guarded;
 }
 
 /** Replace all tracked props for one slate date; returns full merged list. */
-export function replaceTrackedPropsForSlate(slateDate, nextSlateProps = []) {
+export function replaceTrackedPropsForSlate(slateDate, nextSlateProps = [], options = {}) {
   const date = String(slateDate || "");
   const tracked = readJSON(TRACKED_FILE, []);
-  const preserved = tracked.filter(
-    (prop) => String(prop.slateDate || "") !== date
+  const existingSlate = tracked.filter((prop) => String(prop.slateDate || "") === date);
+  const existingByKey = new Map();
+  for (const item of existingSlate) {
+    const key = String(item.trackedKey || item.trackedId || "");
+    if (key) existingByKey.set(key, item);
+  }
+
+  const guardedSlateProps = (Array.isArray(nextSlateProps) ? nextSlateProps : []).map(
+    (incoming) => {
+      const key = String(incoming.trackedKey || incoming.trackedId || "");
+      const prev = key ? existingByKey.get(key) : null;
+      if (!prev) return incoming;
+      return applyGradeMonotonicityGuard(prev, incoming, {
+        sourcePath: options.sourcePath || "replaceTrackedPropsForSlate",
+        slateDate: date,
+        allowGradeCorrection: options.allowGradeCorrection,
+        gradeCorrectionReason: options.gradeCorrectionReason,
+      }).result;
+    }
   );
-  const merged = [...preserved, ...(Array.isArray(nextSlateProps) ? nextSlateProps : [])];
+
+  const preserved = tracked.filter((prop) => String(prop.slateDate || "") !== date);
+  const merged = [...preserved, ...guardedSlateProps];
   writeJSON(TRACKED_FILE, merged);
   return merged;
 }
@@ -2837,19 +2926,74 @@ export async function resolveTrackedProps(options = {}) {
     updated.push(graded);
   }
 
-  persistResolvedTrackedProps(updated);
+  const calculatedSummary = {
+    pendingTotal: pending.length,
+    gradeable: gradeable.length,
+    gradedCount,
+    skippedNotReady,
+    stillPending,
+    requireLikelyFinished,
+    calculated: true,
+  };
+
+  const persistResult = persistResolvedTrackedProps(updated, { verify: true });
+  const persistedProps = persistResult.props || updated;
+  const verified = persistResult.verified === true;
+
+  const reconciliation = reconcileTrackedPropIntegrity({
+    trackedProps: persistedProps,
+    lockedSlates: getLockedSlatesRegistry().slates || [],
+    getSnapshot: getLockedSnapshot,
+  });
+
+  if (
+    reconciliation.missingLockedPropIds.length ||
+    reconciliation.gradeMismatchIds.length ||
+    reconciliation.resolvedButNotPersisted.length
+  ) {
+    logLifecycleIntegrityEvent({
+      type: "post_resolver_reconciliation",
+      severity: "high",
+      reconciliation,
+      calculatedSummary,
+      persistVerified: verified,
+    });
+  }
+
+  const reportedGradedCount = verified ? gradedCount : 0;
 
   return {
-    props: updated,
+    props: persistedProps,
     summary: {
-      pendingTotal: pending.length,
-      gradeable: gradeable.length,
-      gradedCount,
-      skippedNotReady,
-      stillPending,
-      requireLikelyFinished,
+      ...calculatedSummary,
+      persisted: persistResult.persisted === true,
+      verified,
+      gradedCount: reportedGradedCount,
+      reconciliation,
+      persistenceVerification: persistResult.verification || null,
     },
   };
+}
+
+export function runTrackedPropStartupIntegrityCheck() {
+  const tracked = getTrackedProps();
+  return runStartupIntegrityCheck({
+    trackedProps: tracked,
+    lockedSlates: getLockedSlatesRegistry().slates || [],
+    getSnapshot: getLockedSnapshot,
+    readTrackedPropsFile: () => {
+      const stored = readJSON(TRACKED_FILE, null);
+      return Array.isArray(stored) || Array.isArray(stored?.props);
+    },
+  });
+}
+
+export function getLifecycleIntegrityDiagnostics(trackedProps = getTrackedProps()) {
+  return buildLifecycleIntegrityDiagnostics({
+    trackedProps,
+    lockedSlates: getLockedSlatesRegistry().slates || [],
+    getSnapshot: getLockedSnapshot,
+  });
 }
 
 function updateBucket(bucket = {}, key = "UNKNOWN", field = "total", amount = 1) {

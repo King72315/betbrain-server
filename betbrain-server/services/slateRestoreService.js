@@ -7,7 +7,9 @@ import { createBackup } from "./backupService.js";
 import {
   applySlateLockFreeze,
   getTrackedProps,
+  runTrackedPropStartupIntegrityCheck,
 } from "./trackedPropService.js";
+import { isResolvedStatus } from "./gradeMonotonicityGuard.js";
 import {
   getDailySlateReport,
   upsertDailySlateReport,
@@ -82,6 +84,32 @@ function writeJSON(file, data) {
 
 function countPropsForSlate(props, slateDate) {
   return props.filter((p) => String(p.slateDate || "") === slateDate).length;
+}
+
+function verifyBundleFiles(dir, requiredFiles = []) {
+  const missing = requiredFiles.filter((file) => !fs.existsSync(path.join(dir, file)));
+  return {
+    ok: missing.length === 0,
+    missing,
+    checked: requiredFiles,
+  };
+}
+
+function liveIsNewerThanBundle(liveProps = [], bundleProps = []) {
+  const liveResolved = liveProps.filter((p) => isResolvedStatus(p.status)).length;
+  const bundleResolved = bundleProps.filter((p) => isResolvedStatus(p.status)).length;
+  if (liveResolved > bundleResolved) return true;
+  if (liveResolved < bundleResolved) return false;
+
+  const liveLatest = Math.max(
+    0,
+    ...liveProps.map((p) => Date.parse(p.gradedAt || p.resolvedAt || 0) || 0)
+  );
+  const bundleLatest = Math.max(
+    0,
+    ...bundleProps.map((p) => Date.parse(p.gradedAt || p.resolvedAt || 0) || 0)
+  );
+  return liveLatest >= bundleLatest && liveProps.length >= bundleProps.length;
 }
 
 function pyJsonStringify(value) {
@@ -183,8 +211,28 @@ function loadActiveBundle(slateDate) {
 
   const dir = activeBundleDirFor(date);
   if (!dir || !fs.existsSync(dir)) {
+    console.error(`ACTIVE BUNDLE VERIFY FAILED: directory missing for ${date}`);
     return { ok: false, message: `Active bundle directory missing: ${entry.bundleDir}` };
   }
+
+  const fileCheck = verifyBundleFiles(dir, [
+    "tracked-props.json",
+    "slate-snapshot.json",
+    "locked-slate-entry.json",
+  ]);
+  if (!fileCheck.ok) {
+    console.error(
+      `ACTIVE BUNDLE VERIFY FAILED: missing files for ${date}:`,
+      fileCheck.missing.join(", ")
+    );
+    return {
+      ok: false,
+      message: `Active bundle missing files: ${fileCheck.missing.join(", ")}`,
+      missingFiles: fileCheck.missing,
+    };
+  }
+
+  console.log(`ACTIVE BUNDLE VERIFY OK: ${date} files present`);
 
   const trackedRaw = readJSON(path.join(dir, "tracked-props.json"), null);
   const props = Array.isArray(trackedRaw?.props)
@@ -224,6 +272,22 @@ export function restoreActiveSlateBundle(slateDate, options = {}) {
   const date = String(slateDate || "");
   const loaded = loadActiveBundle(date);
   if (!loaded.ok) return loaded;
+
+  const existing = readJSON(TRACKED_FILE, []);
+  const liveSlateProps = existing.filter((p) => String(p.slateDate || "") === date);
+  if (liveSlateProps.length > 0 && liveIsNewerThanBundle(liveSlateProps, loaded.props)) {
+    console.log(
+      `ACTIVE BUNDLE RESTORE SKIPPED: live ${date} slate is newer than bundled snapshot`
+    );
+    return {
+      ok: false,
+      skipped: true,
+      message: `Live slate ${date} is newer than bundle — restore skipped`,
+      slateDate: date,
+      liveCount: liveSlateProps.length,
+      bundleCount: loaded.props.length,
+    };
+  }
 
   let backupId = null;
   try {
@@ -781,7 +845,9 @@ export function rehydrateLockedSlatesOnStartup() {
     console.log("STARTUP SLATE REHYDRATION:", JSON.stringify(results, null, 2));
   }
 
-  return { ok: true, results };
+  const integrity = runTrackedPropStartupIntegrityCheck();
+
+  return { ok: true, results, startupIntegrity: integrity };
 }
 
 export function getLabBundleInfo(slateDate) {

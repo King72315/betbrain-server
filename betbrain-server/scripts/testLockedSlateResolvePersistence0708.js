@@ -14,6 +14,14 @@ import {
   persistResolvedTrackedProps,
 } from "../services/trackedPropService.js";
 import { mergeSnapshotPropsWithLiveGrades } from "../services/slateLockService.js";
+import {
+  applyGradeMonotonicityGuard,
+  buildLifecycleIntegrityDiagnostics,
+  overlayLiveGradingFields,
+  resetGradeMonotonicityDiagnosticsForTests,
+  verifyResolvedPropsPersisted,
+} from "../services/gradeMonotonicityGuard.js";
+import { classifyTrackedPropsByLifecycle } from "../services/slateLifecycleService.js";
 
 const SLATE_0708 = "2026-07-08";
 
@@ -38,10 +46,15 @@ function makeProp({
   status = "pending",
   actualStat = null,
   trackedKey,
+  gradedAt = null,
 }) {
   const key =
     trackedKey ||
     `20260708-wnba-${String(player).toLowerCase().replace(/[^a-z0-9]/g, "")}-team-opp-points-${side.toLowerCase()}`;
+
+  const resolvedAt =
+    gradedAt ||
+    (status === "pending" ? null : "2026-07-10T10:00:00.000Z");
 
   return {
     player,
@@ -67,7 +80,8 @@ function makeProp({
     actualStat,
     result: actualStat,
     resultMargin: actualStat === null ? null : line - actualStat,
-    gradedAt: status === "pending" ? null : "2026-07-10T10:00:00.000Z",
+    gradedAt: resolvedAt,
+    resolvedAt,
     pendingReason: status === "pending" ? "Game not final yet." : null,
   };
 }
@@ -148,9 +162,24 @@ function summarizeSlate(props = []) {
   };
 }
 
+function simulateResolverSummary(updated, verification) {
+  const gradedCount = updated.filter((prop) =>
+    ["win", "loss", "push"].includes(String(prop.status || "").toLowerCase())
+  ).length;
+  const verified = verification?.ok === true;
+  return {
+    calculated: true,
+    persisted: true,
+    verified,
+    gradedCount: verified ? gradedCount : 0,
+  };
+}
+
 console.log("\n0708 locked slate resolve persistence tests\n");
 
-test("fixture has 5 props with 3 pre-graded and 2 pending", () => {
+resetGradeMonotonicityDiagnosticsForTests();
+
+test("A: fixture has 5 props with 3 pre-graded and 2 pending", () => {
   const { props } = buildFixture();
   const stats = summarizeSlate(props);
   assert.equal(stats.total, 5);
@@ -158,7 +187,7 @@ test("fixture has 5 props with 3 pre-graded and 2 pending", () => {
   assert.equal(stats.pending, 2);
 });
 
-test("resolve grades Carleton (9) and Leite (13) as losses", () => {
+test("A: resolve grades Carleton (9) and Leite (13) as losses", () => {
   const { props } = buildFixture();
   const resolved = simulateResolve(props);
   const carleton = resolved.find((prop) => prop.player === "Bridget Carleton");
@@ -169,19 +198,59 @@ test("resolve grades Carleton (9) and Leite (13) as losses", () => {
   assert.equal(leite.actualStat, 13);
 });
 
-test("stale snapshot freeze merge keeps live resolved grades", () => {
-  const { props, snapshotProps } = buildFixture();
+test("A: after resolve + freeze guard, all 5 slate props stay graded 2-3 ACTIVE", () => {
+  const { props, snapshotProps, lockedEntry } = buildFixture();
   const resolved = simulateResolve(props);
-  const merged = mergeLockedSlateFreezeIntoTracked(resolved, SLATE_0708, snapshotProps);
-  const stats = summarizeSlate(merged);
+  const persisted = mergeLockedSlateFreezeIntoTracked(resolved, SLATE_0708, snapshotProps);
+  const stats = summarizeSlate(persisted);
 
   assert.equal(stats.total, 5);
   assert.equal(stats.graded, 5);
   assert.equal(stats.pending, 0);
   assert.equal(stats.record, "2-3-0");
+  assert.equal(lockedEntry.phase, "ACTIVE");
+  assert.equal(
+    persisted.filter((prop) => String(prop.slateDate) === SLATE_0708).length,
+    5,
+    "no props disappeared from the locked slate"
+  );
 });
 
-test("poll safe-merge cannot downgrade resolved Carleton grade to pending", () => {
+test("B: stale lock pending vs live loss — live wins", () => {
+  const { props } = buildFixture();
+  const resolved = simulateResolve(props);
+  const snapshot = props.map((prop) => ({ ...prop }));
+  const carletonLive = resolved.find((prop) => prop.player === "Bridget Carleton");
+
+  const merged = overlayLiveGradingFields(
+    snapshot.find((prop) => prop.player === "Bridget Carleton"),
+    carletonLive,
+    { sourcePath: "testB", slateDate: SLATE_0708 }
+  );
+
+  assert.equal(merged.status, "loss");
+  assert.equal(merged.actualStat, 9);
+});
+
+test("B: mergeSnapshotPropsWithLiveGrades prefers live resolved grade", () => {
+  const { props } = buildFixture();
+  const resolved = simulateResolve(props);
+  const snapshot = props.map((prop) => ({ ...prop }));
+  const live = resolved.filter((prop) =>
+    ["Bridget Carleton", "Carla Leite"].includes(prop.player)
+  );
+  const merged = mergeSnapshotPropsWithLiveGrades(
+    snapshot.filter((prop) =>
+      ["Bridget Carleton", "Carla Leite"].includes(prop.player)
+    ),
+    live
+  );
+
+  assert.equal(merged.length, 2);
+  assert.ok(merged.every((prop) => prop.status === "loss"));
+});
+
+test("C: poll safe-merge cannot downgrade resolved Carleton grade to pending", () => {
   const { props } = buildFixture();
   const resolved = simulateResolve(props);
   const carleton = resolved.find((prop) => prop.player === "Bridget Carleton");
@@ -198,39 +267,125 @@ test("poll safe-merge cannot downgrade resolved Carleton grade to pending", () =
   assert.equal(merged.pendingReason, null);
 });
 
-test("after resolve + freeze guard, all 5 slate props stay graded 2-3 with none pending", () => {
+test("C: poll pending over live win is blocked by monotonicity guard", () => {
+  const winProp = makeProp({
+    player: "Test Player",
+    line: 10.5,
+    status: "win",
+    actualStat: 15,
+  });
+
+  const { result, blocked } = applyGradeMonotonicityGuard(winProp, {
+    status: "pending",
+    actualStat: null,
+    pendingReason: "Game not final yet.",
+  }, { sourcePath: "testC" });
+
+  assert.equal(blocked, true);
+  assert.equal(result.status, "win");
+  assert.equal(result.actualStat, 15);
+});
+
+test("D: simulated write verify fail — response does not claim graded", () => {
+  const { props } = buildFixture();
+  const resolved = simulateResolve(props);
+  const failedReadBack = resolved.map((prop) =>
+    prop.player === "Bridget Carleton"
+      ? { ...prop, status: "pending", actualStat: null, gradedAt: null }
+      : prop
+  );
+
+  const verification = verifyResolvedPropsPersisted(resolved, failedReadBack);
+  assert.equal(verification.ok, false);
+
+  const summary = simulateResolverSummary(resolved, verification);
+  assert.equal(summary.calculated, true);
+  assert.equal(summary.persisted, true);
+  assert.equal(summary.verified, false);
+  assert.equal(summary.gradedCount, 0, "must not report graded unless verified");
+});
+
+test("E: rehydrate ACTIVE 07/08 — props and grades survive freeze merge", () => {
   const { props, snapshotProps } = buildFixture();
   const resolved = simulateResolve(props);
-  const persisted = mergeLockedSlateFreezeIntoTracked(resolved, SLATE_0708, snapshotProps);
-  const stats = summarizeSlate(persisted);
-
+  const rehydratedFromBundle = snapshotProps.map((prop) => ({ ...prop }));
+  const withLiveGrades = mergeLockedSlateFreezeIntoTracked(
+    resolved,
+    SLATE_0708,
+    rehydratedFromBundle
+  );
+  const stats = summarizeSlate(withLiveGrades);
   assert.equal(stats.total, 5);
   assert.equal(stats.graded, 5);
   assert.equal(stats.pending, 0);
-  assert.equal(stats.record, "2-3-0");
-  assert.equal(
-    persisted.filter((prop) => String(prop.slateDate) === SLATE_0708).length,
-    5,
-    "no props disappeared from the locked slate"
-  );
 });
 
-test("mergeSnapshotPropsWithLiveGrades overlays loss onto pending snapshot row", () => {
+test("F: lifecycle diagnostics readable with legacy+active classification", () => {
+  const { props, snapshotProps, lockedEntry } = buildFixture();
+  const legacyProp = makeProp({
+    player: "Legacy Star",
+    line: 8.5,
+    status: "win",
+    actualStat: 12,
+    trackedKey: "legacy-0621-prop",
+  });
+  legacyProp.slateDate = "2026-06-21";
+  legacyProp.resultsSlateDate = "2026-06-21";
+  legacyProp.cohortSlateDate = "2026-06-21";
+
+  const resolved = simulateResolve(props);
+  const allProps = [...resolved, legacyProp];
+  const classification = classifyTrackedPropsByLifecycle(allProps, {
+    reports: [{ slateDate: "2026-06-21", reportStatus: "final", frozen: true }],
+    archives: [{ slateDate: "2026-06-21", props: [legacyProp] }],
+    lockedSlates: [lockedEntry, { slateDate: "2026-06-21", phase: "LAB", propCount: 1 }],
+    quarantinedSlates: [],
+    today: "2026-07-10",
+  });
+
+  assert.ok(classification);
+  assert.ok(typeof classification.trackedCountsByLifecycleState === "object");
+  assert.ok(Object.keys(classification.trackedCountsByLifecycleState).length > 0);
+  assert.ok(Array.isArray(classification.activeResultsProps));
+  assert.ok(Array.isArray(classification.legacyCompletedProps));
+
+  const diagnostics = buildLifecycleIntegrityDiagnostics({
+    trackedProps: resolved,
+    lockedSlates: [lockedEntry],
+    getSnapshot: () => ({ props: snapshotProps, updatedAt: "2026-07-10T08:00:00.000Z" }),
+  });
+  assert.equal(diagnostics.activeSlateDate, SLATE_0708);
+  assert.equal(typeof diagnostics.blockedDowngradeCount, "number");
+  assert.equal(diagnostics.lockedCount, 5);
+  assert.equal(diagnostics.storedCount, 5);
+  assert.ok(diagnostics.lastResolverPersistenceVerification === null ||
+    typeof diagnostics.lastResolverPersistenceVerification === "object");
+});
+
+test("G: authorized correction with reason can change final grade", () => {
   const { props } = buildFixture();
   const resolved = simulateResolve(props);
-  const snapshot = props.map((prop) => ({ ...prop }));
-  const live = resolved.filter((prop) =>
-    ["Bridget Carleton", "Carla Leite"].includes(prop.player)
-  );
-  const merged = mergeSnapshotPropsWithLiveGrades(
-    snapshot.filter((prop) =>
-      ["Bridget Carleton", "Carla Leite"].includes(prop.player)
-    ),
-    live
+  const carleton = resolved.find((prop) => prop.player === "Bridget Carleton");
+
+  const corrected = applySafeLockedTrackedPropMerge(
+    carleton,
+    {
+      status: "win",
+      actualStat: 14,
+      result: 14,
+      resultMargin: carleton.officialLine - 14,
+      gradedAt: "2026-07-10T12:00:00.000Z",
+      pendingReason: null,
+      currentLine: carleton.line,
+    },
+    {
+      allowGradeCorrection: true,
+      gradeCorrectionReason: "official_stat_correction",
+    }
   );
 
-  assert.equal(merged.length, 2);
-  assert.ok(merged.every((prop) => prop.status === "loss"));
+  assert.equal(corrected.status, "win");
+  assert.equal(corrected.actualStat, 14);
 });
 
 test("persistResolvedTrackedProps is exported for atomic resolve write-back", () => {
