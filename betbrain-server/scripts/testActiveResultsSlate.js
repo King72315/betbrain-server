@@ -212,7 +212,7 @@ console.log("testActiveResultsSlate: Home→Results→Lab flow");
   assert.equal(flow.staleUnresolvedSlates[0], "2026-06-20");
 }
 
-// Test 7 — prior unresolved cohort blocks without lock (midnight split guard)
+// Test 7 — stale prior cohort without lock does not block today's Results
 {
   const tracked = [
     makeProp("2026-07-07", "pending", {
@@ -231,10 +231,10 @@ console.log("testActiveResultsSlate: Home→Results→Lab flow");
   assert.deepEqual(prior, ["2026-07-07"]);
 
   const blocking = getBlockingActiveResultsSlateDate(tracked, [], [], today);
-  assert.equal(blocking, "2026-07-07", "prior unresolved cohort blocks without lock");
+  assert.equal(blocking, null, "unlocked stale prior cohort does not block Results");
 
   const active = pickActiveResultsSlateDate(tracked, [], today, []);
-  assert.equal(active, "2026-07-07", "Results stays on prior cohort slate");
+  assert.equal(active, "2026-07-08", "Results shows today's cohort only");
 }
 
 console.log("testActiveResultsSlate: all passed");

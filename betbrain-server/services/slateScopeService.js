@@ -359,15 +359,25 @@ export function getBlockingActiveResultsSlateDate(
     reports,
     today
   );
-  if (unresolved[0]) return unresolved[0];
+  return unresolved[0] || null;
+}
 
-  const priorUnresolved = getUnresolvedPriorCohortSlateDates(
-    trackedProps,
-    reports,
-    lockedSlates,
-    today
-  );
-  return priorUnresolved[0] || null;
+function getTodayOfficialResultsCohortProps(trackedProps = [], today = getTodayLocalDate()) {
+  return (trackedProps || []).filter((prop) => {
+    const slateDate = getResultsPropSlateDate(prop);
+    return (
+      slateDate === today &&
+      isOnOrAfterCleanDataCutoff(slateDate) &&
+      prop.homeStaged !== true &&
+      isResultsCohortProp(prop)
+    );
+  });
+}
+
+export function isTodayResultsCohortOpen(trackedProps = [], today = getTodayLocalDate()) {
+  const todayCohort = getTodayOfficialResultsCohortProps(trackedProps, today);
+  if (!todayCohort.length) return false;
+  return hasUnresolvedGradingProps(todayCohort);
 }
 
 export function countStagedHomeProps(trackedProps = [], today = getTodayLocalDate()) {
@@ -854,17 +864,7 @@ export function pickActiveResultsSlateDate(
   );
   if (blockingSlate) return blockingSlate;
 
-  const hasTodayProps = trackedProps.some((prop) => {
-    const slateDate = getResultsPropSlateDate(prop);
-    return (
-      slateDate === today &&
-      isOnOrAfterCleanDataCutoff(slateDate) &&
-      prop.homeStaged !== true &&
-      isResultsCohortProp(prop)
-    );
-  });
-
-  return hasTodayProps ? today : null;
+  return isTodayResultsCohortOpen(trackedProps, today) ? today : null;
 }
 
 function isDirtyLegacyGrade(prop = {}) {

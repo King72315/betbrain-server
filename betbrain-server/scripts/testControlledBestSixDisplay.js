@@ -28,6 +28,9 @@ const {
   buildLeagueBestSixBoard,
   buildHomeControlledBestSixReportText,
   resolveHomeControlledDateView,
+  resolveTopControlledDateView,
+  filterPicksByDateView,
+  TOP_DATE_VIEW,
   resolveLeaguePicksPayload,
   resolveDateScopedDisplayPool,
   selectTopTwoFromDisplayBestSix,
@@ -864,7 +867,7 @@ test("44 home tomorrow board matches summary row count", () => {
   assert.strictEqual(board.bestSixCards.length, 6);
 });
 
-test("45 midnight gap falls back to today when tomorrow bucket is empty", () => {
+test("45 tomorrow-only Home keeps empty board when tomorrow bucket is empty", () => {
   const todayDisplayPicks = [1, 2, 3, 4, 5, 6].map((rank) => ({
     player: `Player ${rank}`,
     team: "TST",
@@ -898,12 +901,8 @@ test("45 midnight gap falls back to today when tomorrow bucket is empty", () => 
     },
   ];
 
-  const view = resolveHomeControlledDateView({
-    league: "WNBA",
-    bestSixDisplay: todayDisplayPicks,
-    games,
-  });
-  assert.strictEqual(view, "today");
+  const view = resolveHomeControlledDateView();
+  assert.strictEqual(view, "tomorrow");
 
   const board = buildLeagueBestSixBoard({
     league: "WNBA",
@@ -911,9 +910,9 @@ test("45 midnight gap falls back to today when tomorrow bucket is empty", () => 
     games,
     dateView: view,
   });
-  assert.strictEqual(board.bestSixCards.length, 6);
-  assert.strictEqual(board.summary.controlledBestSixTotal, 6);
-  assert.strictEqual(board.summary.boardCandidates, todayDisplayPicks.length);
+  assert.strictEqual(board.bestSixCards.length, 0);
+  assert.strictEqual(board.summary.controlledBestSixTotal, 0);
+  assert.strictEqual(board.summary.boardCandidates, 0);
 });
 
 test("46 tomorrow bucket wins when both today and tomorrow have content", () => {
@@ -949,12 +948,24 @@ test("46 tomorrow bucket wins when both today and tomorrow have content", () => 
     },
   ];
 
-  const view = resolveHomeControlledDateView({
+  const view = resolveHomeControlledDateView();
+  assert.strictEqual(view, "tomorrow");
+
+  const board = buildLeagueBestSixBoard({
     league: "WNBA",
     bestSixDisplay: [todayPick, tomorrowPick],
     games,
+    dateView: view,
   });
-  assert.strictEqual(view, "tomorrow");
+  assert.strictEqual(board.bestSixCards.length, 1);
+  assert.strictEqual(board.bestSixCards[0].player, "Caitlin Clark");
+});
+
+test("47 Top tab date view is tomorrow-only", () => {
+  assert.strictEqual(resolveTopControlledDateView(), TOP_DATE_VIEW);
+  const filtered = filterPicksByDateView([todayPick, tomorrowPick], TOP_DATE_VIEW);
+  assert.strictEqual(filtered.length, 1);
+  assert.strictEqual(filtered[0].player, "Caitlin Clark");
 });
 
 console.log(`\nControlled Best Six display: ${passed} passed, ${failed} failed`);

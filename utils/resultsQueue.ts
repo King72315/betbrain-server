@@ -16,13 +16,15 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
   isPriorSlateStillActive,
+  isTodayResultsCohortOpen,
   formatPriorSlateStillActiveLabel,
+  pickActiveResultsSlateDate,
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
   slateHasUnresolvedProps,
   type SlateRotation,
 } from "./slateRotation";
 
-export { getResultsPropSlateDate } from "./slateRotation";
+export { getResultsPropSlateDate, pickActiveResultsSlateDate, isTodayResultsCohortOpen } from "./slateRotation";
 
 export {
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
@@ -509,34 +511,7 @@ function buildSlateSummary(props: any[]) {
 }
 
 
-/** Active Results slate: locked ACTIVE unresolved first, then today when unblocked. */
-export function pickActiveResultsSlateDate(
-  trackedProps: any[] = [],
-  reports: any[] = [],
-  today: string = getTodayLocalDate(),
-  lockedSlates: any[] = []
-): string | null {
-  const blockingSlate = getBlockingActiveResultsSlateDate(
-    trackedProps,
-    lockedSlates,
-    reports,
-    today
-  );
-  if (blockingSlate) return blockingSlate;
-
-  const hasTodayProps = trackedProps.some((prop) => {
-    const slateDate = getResultsPropSlateDate(prop);
-    return (
-      slateDate === today &&
-      isOnOrAfterCleanDataCutoff(slateDate) &&
-      prop.homeStaged !== true
-    );
-  });
-
-  return hasTodayProps ? today : null;
-}
-
-/** Active Results slate for the current locked/unresolved queue. */
+/** Active Results slate: locked ACTIVE unresolved first, then today when cohort still open. */
 export function computeActiveResultsSlate(
   trackedProps: any[] = [],
   reports: any[] = [],

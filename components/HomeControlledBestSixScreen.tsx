@@ -176,12 +176,7 @@ export default function HomeControlledBestSixScreen() {
     return SUPPORTED_LEAGUES.reduce<Record<SupportedLeague, ReturnType<typeof buildLeagueBestSixBoard>>>(
       (acc, league) => {
         const payload = resolveLeaguePicksPayload(picksData, league);
-        const dateView = resolveHomeControlledDateView({
-          league,
-          bestSix: payload.bestSix,
-          bestSixDisplay: payload.bestSixDisplay,
-          games: payload.games,
-        });
+        const dateView = resolveHomeControlledDateView();
         acc[league as SupportedLeague] = buildLeagueBestSixBoard({
           league,
           bestSix: payload.bestSix,

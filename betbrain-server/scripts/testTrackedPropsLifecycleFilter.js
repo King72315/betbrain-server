@@ -140,7 +140,7 @@ test("05 legacy completed slate stays out of active results", () => {
   );
 });
 
-test("06 prior unresolved past slate blocks Results when lock missed", () => {
+test("06 prior unresolved past slate is stale — not active Results without lock", () => {
   const staleDate = "2026-06-20";
   const props = [makeProp({ slateDate: staleDate, status: "pending" })];
   const result = classifyTrackedPropsByLifecycle(props, {
@@ -149,11 +149,11 @@ test("06 prior unresolved past slate blocks Results when lock missed", () => {
     lockedSlates: [],
     today: TODAY,
   });
-  assert.equal(result.activeResultsSlateDate, staleDate);
-  assert.equal(result.activeResultsTrackedCount, 1);
-  assert.equal(result.staleUnresolvedTrackedCount, 0);
+  assert.equal(result.activeResultsSlateDate, null);
+  assert.equal(result.activeResultsTrackedCount, 0);
+  assert.equal(result.staleUnresolvedTrackedCount, 1);
   assert.equal(
-    result.trackedCountsByLifecycleState[TRACKED_PROP_LIFECYCLE.ACTIVE_RESULTS],
+    result.trackedCountsByLifecycleState[TRACKED_PROP_LIFECYCLE.STALE_UNRESOLVED],
     1
   );
 });

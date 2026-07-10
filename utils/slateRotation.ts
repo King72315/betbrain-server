@@ -696,6 +696,7 @@ export function getUnresolvedPriorCohortSlateDates(
     });
 }
 
+/** Locked ACTIVE slates still grading — midnight rollover only (not stale past cohorts). */
 export function getBlockingActiveResultsSlateDate(
   trackedProps: any[] = [],
   lockedSlates: any[] = [],
@@ -708,15 +709,31 @@ export function getBlockingActiveResultsSlateDate(
     reports,
     today
   );
-  if (unresolved[0]) return unresolved[0];
+  return unresolved[0] || null;
+}
 
-  const priorUnresolved = getUnresolvedPriorCohortSlateDates(
-    trackedProps,
-    reports,
-    lockedSlates,
-    today
-  );
-  return priorUnresolved[0] || null;
+function getTodayOfficialResultsCohortProps(
+  trackedProps: any[] = [],
+  today: string = getTodayLocalDate()
+) {
+  return trackedProps.filter((prop) => {
+    const slateDate = getResultsPropSlateDate(prop);
+    return (
+      slateDate === today &&
+      isOnOrAfterCleanDataCutoff(slateDate) &&
+      prop.homeStaged !== true &&
+      isResultsCohortProp(prop)
+    );
+  });
+}
+
+export function isTodayResultsCohortOpen(
+  trackedProps: any[] = [],
+  today: string = getTodayLocalDate()
+): boolean {
+  const todayCohort = getTodayOfficialResultsCohortProps(trackedProps, today);
+  if (!todayCohort.length) return false;
+  return hasUnresolvedGradingProps(todayCohort);
 }
 
 export function pickActiveResultsSlateDate(
@@ -733,15 +750,5 @@ export function pickActiveResultsSlateDate(
   );
   if (blockingSlate) return blockingSlate;
 
-  const hasTodayProps = trackedProps.some((prop) => {
-    const slateDate = getResultsPropSlateDate(prop);
-    return (
-      slateDate === today &&
-      isOnOrAfterCleanDataCutoff(slateDate) &&
-      prop.homeStaged !== true &&
-      isResultsCohortProp(prop)
-    );
-  });
-
-  return hasTodayProps ? today : null;
+  return isTodayResultsCohortOpen(trackedProps, today) ? today : null;
 }

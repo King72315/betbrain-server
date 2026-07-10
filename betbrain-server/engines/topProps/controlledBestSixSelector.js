@@ -787,6 +787,18 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
   };
 }
 
+function filterPicksByDayBucket(picks = [], bucket = "TOMORROW") {
+  const target = String(bucket || "TOMORROW").toUpperCase();
+  return (picks || []).filter((pick) => {
+    const dayBucket = String(pick.dayBucket || "").toUpperCase();
+    if (dayBucket === target) return true;
+    const label = String(pick.dateLabel || "").toLowerCase();
+    if (target === "TOMORROW") return label === "tomorrow";
+    if (target === "TODAY") return label === "today";
+    return false;
+  });
+}
+
 export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const candidates = collectAllGeneratedCandidates(gameCards);
 
@@ -795,12 +807,20 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const wnbaDisplay = selectBestSixDisplay(candidates, "WNBA", options);
   const nbaDisplay = selectBestSixDisplay(candidates, "NBA", options);
 
-  const wnbaTop = selectTopTwoFromBestSix(wnbaDisplay.bestSix, "WNBA", {
+  const wnbaTop = selectTopTwoFromBestSix(
+    filterPicksByDayBucket(wnbaDisplay.bestSix, "TOMORROW"),
+    "WNBA",
+    {
     topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
-  });
-  const nbaTop = selectTopTwoFromBestSix(nbaDisplay.bestSix, "NBA", {
+    }
+  );
+  const nbaTop = selectTopTwoFromBestSix(
+    filterPicksByDayBucket(nbaDisplay.bestSix, "TOMORROW"),
+    "NBA",
+    {
     topLimit: options.nbaTopLimit ?? CONFIG.NBA_TOP_PROP_LIMIT,
-  });
+    }
+  );
 
   const topWNBAProps = wnbaTop.topProps;
   const topNBAProps = nbaTop.topProps;

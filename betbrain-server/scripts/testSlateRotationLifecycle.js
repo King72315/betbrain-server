@@ -295,7 +295,7 @@ test("24 completed slate excluded from Lab when still active Results", () => {
   const activeDate = "2026-06-25";
   const tracked = [
     makeProp(activeDate, "win"),
-    makeProp(activeDate, "loss", { player: "P2" }),
+    makeProp(activeDate, "pending", { player: "P2" }),
   ];
   const reports = [
     makeInProgressReport(activeDate, 4),

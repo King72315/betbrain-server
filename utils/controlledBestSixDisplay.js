@@ -10,66 +10,21 @@ export const DISPLAY_SIDE_BALANCE_MINORITY = 3;
 export const DISPLAY_SIDE_BALANCE_SWAP_MARGIN = 24;
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
-/** Home tab prefers tomorrow slate; see resolveHomeControlledDateView for midnight fallback. */
+/** Home + Top tabs show tomorrow slate only (America/Chicago). */
 export const HOME_DATE_VIEW = "tomorrow";
+export const TOP_DATE_VIEW = "tomorrow";
 
-function hasUnstartedGamesInBucket(games = [], bucket = "TODAY") {
-  return (games || []).some(
-    (game) => resolveDayBucket(game) === bucket && !game.isStarted
-  );
-}
-
-function bucketHasDisplayOrCandidates({
-  displayPool = [],
-  games = [],
-  league = "WNBA",
-  dateView = "tomorrow",
-} = {}) {
-  const inBucket = filterBestSixByDateView(displayPool, dateView);
-  const candidates = scopeCandidatesByDateView(
-    collectLeagueCandidatesFromGames(games, league),
-    dateView
-  );
-  return inBucket.length > 0 || candidates.length > 0;
-}
-
-/**
- * Home targets the next actionable slate. After CT midnight, tonight's games flip to
- * TODAY while tomorrow's lines may not exist yet — fall back so Best 6 isn't empty.
- */
-export function resolveHomeControlledDateView({
-  bestSix = [],
-  bestSixDisplay = [],
-  games = [],
-  league = "WNBA",
-} = {}) {
-  const leagueCode = normalizeLeagueCode(league);
-  const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
-
-  if (
-    bucketHasDisplayOrCandidates({
-      displayPool,
-      games,
-      league: leagueCode,
-      dateView: "tomorrow",
-    })
-  ) {
-    return "tomorrow";
-  }
-
-  if (
-    bucketHasDisplayOrCandidates({
-      displayPool,
-      games,
-      league: leagueCode,
-      dateView: "today",
-    }) &&
-    hasUnstartedGamesInBucket(games, "TODAY")
-  ) {
-    return "today";
-  }
-
+/** Home/Top always target tomorrow — empty state when no tomorrow lines exist. */
+export function resolveHomeControlledDateView() {
   return HOME_DATE_VIEW;
+}
+
+export function resolveTopControlledDateView() {
+  return TOP_DATE_VIEW;
+}
+
+export function filterPicksByDateView(picks = [], dateView = "tomorrow") {
+  return filterBestSixByDateView(picks, dateView);
 }
 
 export function resolveTrackEligibility(pick = {}) {

@@ -19,6 +19,10 @@ import {
 } from "../../services/api";
 import { formatApiLoadError } from "../../utils/apiLoadError";
 import { buildTopPropsReport } from "../../utils/reportBuilders";
+import {
+  TOP_DATE_VIEW,
+  filterPicksByDateView,
+} from "../../utils/controlledBestSixDisplay";
 import { getTodayLocalDate } from "../../utils/slateRotation";
 import { formatSlateMessageDate } from "../../utils/slateMessages";
 
@@ -57,14 +61,14 @@ export default function TopPropsScreen() {
   }, []);
 
   const nbaCards = useMemo<DisplayCard[]>(() => {
-    return topNBAProps.map((pick, index) => ({
+    return filterPicksByDateView(topNBAProps, TOP_DATE_VIEW).map((pick, index) => ({
       pick: enrichPickForDisplay(pick, index, "NBA"),
       playType: resolvePlayType(pick),
     }));
   }, [topNBAProps]);
 
   const wnbaCards = useMemo<DisplayCard[]>(() => {
-    return topWNBAProps.map((pick, index) => ({
+    return filterPicksByDateView(topWNBAProps, TOP_DATE_VIEW).map((pick, index) => ({
       pick: enrichPickForDisplay(pick, index, "WNBA"),
       playType: resolvePlayType(pick),
     }));
@@ -173,8 +177,9 @@ export default function TopPropsScreen() {
       >
         <View style={styles.headerCard}>
           <Text style={styles.title}>Top Props</Text>
+          <Text style={styles.subtitle}>Tomorrow — Best 2 per league</Text>
           {topPropsSource === "CONTROLLED_BEST_SIX" ? (
-            <Text style={styles.subtitle}>Selected from controlled Best 6</Text>
+            <Text style={styles.sourceLine}>Selected from controlled Best 6</Text>
           ) : null}
           <CopyReportButton
             getReportText={getReportText}
@@ -193,13 +198,13 @@ export default function TopPropsScreen() {
             {renderSection(
               "Best 2 NBA Props",
               nbaCards,
-              "No NBA props available.",
+              "No NBA props for tomorrow.",
               "nba"
             )}
             {renderSection(
               "Best 2 WNBA Props",
               wnbaCards,
-              "No WNBA props available.",
+              "No WNBA props for tomorrow.",
               "wnba"
             )}
           </>
@@ -241,11 +246,18 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    color: "#94a3b8",
+    color: "#86efac",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
     marginTop: 6,
     marginBottom: 4,
+  },
+
+  sourceLine: {
+    color: "#94a3b8",
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 4,
   },
 
   sectionCard: {
