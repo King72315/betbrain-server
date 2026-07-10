@@ -23,7 +23,9 @@ import {
   getQuarantinedSlatesFromRegistry,
   isSlateLocked,
   lockSlate,
+  mergeSnapshotPropsWithLiveGrades,
   recordBlockedWrite,
+  syncLockedSlateGradesFromLive,
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
@@ -80,6 +82,32 @@ const DEDUPE_BACKUP_FILE = path.join(
   "..",
   "tracked-props-backup-before-dedupe-migration.json"
 );
+
+const RESOLVED_GRADE_FIELDS = new Set([
+  "status",
+  "actualStat",
+  "result",
+  "resultMargin",
+  "margin",
+  "gradedAt",
+  "resolvedAt",
+  "pendingReason",
+  "gradingNotes",
+  "resolveDebug",
+  "currentEngineResult",
+  "currentEngineWon",
+  "currentEngineMargin",
+  "fairLineShadowResult",
+  "fairLineShadowWon",
+  "fairLineShadowMargin",
+  "sideComparison",
+  "resultMeta",
+  "matchVerified",
+  "resultConfidence",
+  "matchedDate",
+  "matchedGameId",
+  "matchedSource",
+]);
 
 const SAFE_LOCKED_UPDATE_FIELDS = new Set([
   "latestLine",
@@ -1952,13 +1980,20 @@ function appendLineHistory(existing = {}, nextLine = 0) {
   return history.slice(-20);
 }
 
-function applySafeLockedMerge(existing = {}, incomingFields = {}) {
+export function applySafeLockedTrackedPropMerge(existing = {}, incomingFields = {}) {
   const now = new Date().toISOString();
   const nextLine = num(incomingFields.currentLine ?? incomingFields.line ?? existing.latestLine);
   const patch = {};
 
   for (const key of SAFE_LOCKED_UPDATE_FIELDS) {
     if (incomingFields[key] !== undefined) {
+      if (
+        RESOLVED_GRADE_FIELDS.has(key) &&
+        isResolvedStatus(existing.status) &&
+        !isResolvedStatus(incomingFields[key])
+      ) {
+        continue;
+      }
       patch[key] = incomingFields[key];
     }
   }
@@ -2029,7 +2064,7 @@ function normalizeTrackedProp(pick = {}, existing = null) {
     existing?.slateLocked === true || (slateDate && isSlateLocked(slateDate));
 
   if (locked && existing) {
-    return applySafeLockedMerge(existing, fields);
+    return applySafeLockedTrackedPropMerge(existing, fields);
   }
 
   const incomingLine = num(fields.currentLine ?? fields.line);
@@ -2378,22 +2413,48 @@ export function addTrackedProps(picks = [], options = {}) {
   return working;
 }
 
+/** Pure merge: locked snapshot identity with live resolved grades preserved. */
+export function mergeLockedSlateFreezeIntoTracked(
+  tracked = [],
+  slateDate,
+  frozenProps = []
+) {
+  const date = String(slateDate || "");
+  if (!date || !frozenProps.length) return tracked;
+
+  const frozenByKey = new Map(
+    frozenProps.map((prop) => [prop.trackedKey || prop.trackedId, prop])
+  );
+
+  return tracked.map((item) => {
+    if (String(item.slateDate || "") !== date) return item;
+    const key = item.trackedKey || item.trackedId;
+    const frozen = frozenByKey.get(key);
+    if (!frozen) return item;
+    const [merged] = mergeSnapshotPropsWithLiveGrades([frozen], [item]);
+    return { ...merged, slateLocked: true };
+  });
+}
+
+export function persistResolvedTrackedProps(updated = []) {
+  const props = Array.isArray(updated) ? updated : [];
+  writeJSON(TRACKED_FILE, props);
+
+  try {
+    syncLockedSlateGradesFromLive(props);
+  } catch (err) {
+    console.log("LOCKED SLATE GRADE SYNC WARNING:", err.message);
+  }
+
+  return props;
+}
+
 export function applySlateLockFreeze(slateDate, frozenProps = []) {
   const date = String(slateDate || "");
   if (!date || !frozenProps.length) return getTrackedProps();
 
   const tracked = readJSON(TRACKED_FILE, []);
-  const frozenByKey = new Map(
-    frozenProps.map((prop) => [prop.trackedKey || prop.trackedId, prop])
-  );
-
-  const next = tracked.map((item) => {
-    if (String(item.slateDate || "") !== date) return item;
-    const key = item.trackedKey || item.trackedId;
-    const frozen = frozenByKey.get(key);
-    return frozen ? { ...item, ...frozen, slateLocked: true } : item;
-  });
-
+  const next = mergeLockedSlateFreezeIntoTracked(tracked, date, frozenProps);
   writeJSON(TRACKED_FILE, next);
   return next;
 }
@@ -2776,14 +2837,7 @@ export async function resolveTrackedProps(options = {}) {
     updated.push(graded);
   }
 
-  writeJSON(TRACKED_FILE, updated);
-
-  try {
-    const { syncLockedSlateGradesFromLive } = await import("./slateLockService.js");
-    syncLockedSlateGradesFromLive(updated);
-  } catch (err) {
-    console.log("LOCKED SLATE GRADE SYNC WARNING:", err.message);
-  }
+  persistResolvedTrackedProps(updated);
 
   return {
     props: updated,
