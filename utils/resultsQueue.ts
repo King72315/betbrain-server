@@ -16,6 +16,7 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
   isPriorSlateStillActive,
+  formatPriorSlateStillActiveLabel,
   PRIOR_SLATE_STILL_ACTIVE_LABEL,
   slateHasUnresolvedProps,
   type SlateRotation,
@@ -23,7 +24,11 @@ import {
 
 export { getResultsPropSlateDate } from "./slateRotation";
 
-export { PRIOR_SLATE_STILL_ACTIVE_LABEL, isPriorSlateStillActive };
+export {
+  PRIOR_SLATE_STILL_ACTIVE_LABEL,
+  isPriorSlateStillActive,
+  formatPriorSlateStillActiveLabel,
+};
 
 export const RESULTS_FILTERS = [
   "All",
