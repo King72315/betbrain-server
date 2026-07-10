@@ -14,6 +14,7 @@ import {
   primePickStatsCache,
   resolvePlayerStatForPick,
 } from "./resultService.js";
+import { clearGameFinalVerificationCache } from "./gameFinalVerificationService.js";
 
 import {
   getHistoryArchiveProps,
@@ -2642,6 +2643,10 @@ export async function resolveTrackedProps(options = {}) {
   const isReadyToGrade = requireLikelyFinished
     ? isPickLikelyFinished
     : isPickGameStarted;
+
+  // BDL/ESPN final checks cache live + null results for the process lifetime;
+  // clear each resolve pass so finished games are not stuck behind stale "in".
+  clearGameFinalVerificationCache();
 
   const tracked = getTrackedProps();
   const pending = tracked.filter(

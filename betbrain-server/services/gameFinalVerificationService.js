@@ -350,7 +350,6 @@ async function checkBdlGameFinal(queryDate, teamA, teamB, league, pickGameId = "
     }) || null;
 
   if (!match) {
-    verificationCache.set(cacheKey, null);
     return null;
   }
 
@@ -360,7 +359,9 @@ async function checkBdlGameFinal(queryDate, teamA, teamB, league, pickGameId = "
     match?.id || pickGameId
   );
 
-  verificationCache.set(cacheKey, result);
+  if (result.isFinal) {
+    verificationCache.set(cacheKey, result);
+  }
   return result;
 }
 
@@ -397,7 +398,6 @@ async function checkEspnGameFinal(queryDate, teamA, teamB) {
     }) || null;
 
   if (!match) {
-    verificationCache.set(cacheKey, null);
     return null;
   }
 
@@ -408,7 +408,9 @@ async function checkEspnGameFinal(queryDate, teamA, teamB) {
 
   const result = providerResult("ESPN", parsedStatus, match?.id || "");
 
-  verificationCache.set(cacheKey, result);
+  if (result.isFinal) {
+    verificationCache.set(cacheKey, result);
+  }
   return result;
 }
 
@@ -445,7 +447,6 @@ async function checkSportsDataGameFinal(queryDate, teamA, teamB, league, pickGam
     }) || null;
 
   if (!match) {
-    verificationCache.set(cacheKey, null);
     return null;
   }
 
@@ -455,7 +456,9 @@ async function checkSportsDataGameFinal(queryDate, teamA, teamB, league, pickGam
     match?.GameID || match?.GlobalGameID || pickGameId
   );
 
-  verificationCache.set(cacheKey, result);
+  if (result.isFinal) {
+    verificationCache.set(cacheKey, result);
+  }
   return result;
 }
 
