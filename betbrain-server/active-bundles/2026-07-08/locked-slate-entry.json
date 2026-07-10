@@ -1,0 +1,9 @@
+{
+  "slateDate": "2026-07-08",
+  "phase": "ACTIVE",
+  "lockedAt": "2026-07-09T02:05:27.407Z",
+  "lockReason": "auto_results_track",
+  "autoLocked": true,
+  "propCount": 5,
+  "snapshotFile": "slate-snapshots/2026-07-08.json"
+}

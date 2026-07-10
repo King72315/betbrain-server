@@ -20,6 +20,6 @@ services:
       - key: ADMIN_SECRET
         sync: false
       - key: COURTEDGE_LAB_WIPE_V1
-        value: "true"
+        value: "false"
       - key: COURTEDGE_HISTORY_REBUILD_V1
         value: "false"

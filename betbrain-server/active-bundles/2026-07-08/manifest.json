@@ -1,0 +1,12 @@
+{
+  "slateDate": "2026-07-08",
+  "phase": "ACTIVE",
+  "expectedPropCount": 5,
+  "actual": {
+    "propCount": 5,
+    "graded": 3,
+    "pending": 2
+  },
+  "sourceSnapshot": ".tmp-pending-tracked.json",
+  "sourceBackupId": "2026-07-09T02-05-27-401Z-pre-lock-2026-07-08"
+}

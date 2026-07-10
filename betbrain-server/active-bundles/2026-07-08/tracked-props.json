@@ -1,0 +1,5602 @@
+[
+  {
+    "source": "AUTO_TRACKED",
+    "league": "WNBA",
+    "gameId": "bbda183d9dc2a8ed43f79f82ef0ac320",
+    "gameLabel": "SEATTLESTORM vs ATLANTADREAM",
+    "gameDate": "2026-07-09",
+    "slateDate": "2026-07-08",
+    "commenceTime": "2026-07-10T00:00:00Z",
+    "startTimeDisplay": "",
+    "dayBucket": "TOMORROW",
+    "player": "Flau'jae Johnson",
+    "playerId": "",
+    "team": "seattlestorm",
+    "opponent": "atlantadream",
+    "stat": "Points",
+    "line": 12.5,
+    "currentEngineSide": "Over",
+    "fairLineSide": "OVER",
+    "auditSideMatch": false,
+    "confidence": 80,
+    "riskLabel": "Medium Risk",
+    "tier": "WATCHLIST",
+    "signalStrength": "STRONG",
+    "supportScore": 57,
+    "resistanceScore": -17,
+    "netEdge": 74,
+    "supportDangerGap": 74,
+    "projection": 17.2,
+    "last5Average": 17.4,
+    "seasonAverage": 12.7,
+    "matchupAverage": 24,
+    "dataCoverage": 100,
+    "dataQuality": 86,
+    "evidenceReliability": 1,
+    "dangerPressure": 0,
+    "bookCount": 4,
+    "marketQuality": 65,
+    "lineSpread": 0,
+    "overOdds": -120,
+    "underOdds": -109,
+    "playerState": {
+      "player": "Flau'jae Johnson",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "seattlestorm",
+      "opponent": "atlantadream",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 12.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -120,
+      "underOdds": -109,
+      "seasonPoints": 12.695652173913043,
+      "recentPoints": 17.4,
+      "seasonMinutes": 28.3,
+      "recentMinutes": 30.6,
+      "seasonFGA": 11.7,
+      "recentFGA": 14.2,
+      "seasonFTA": 3.3,
+      "recentFTA": 3,
+      "recentEfficiency": 1.121,
+      "seasonEfficiency": 0.965,
+      "last5HitRate": 60,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 24,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:19.509Z"
+    },
+    "roleChange": {
+      "expectedMinutesDelta": 2.3,
+      "expectedFGADelta": 2.5,
+      "expectedFTADelta": -0.3,
+      "usageDelta": 2.37,
+      "roleChangeScore": 73,
+      "roleChangeCertainty": 75,
+      "roleChangeReasons": [
+        "Shot volume trending up (+2.5 FGA vs season)",
+        "Recent scoring above season (+4.7 PPG)"
+      ],
+      "roleRiskReasons": [],
+      "recentMinutesTrend": "UP",
+      "recentFGATrend": "UP",
+      "recentFTATrend": "FLAT",
+      "teammateOutBoost": null
+    },
+    "dataMode": "WNBA_FULL_DATA",
+    "fairLine": 17.4,
+    "fairLineEdge": 4.9,
+    "fairLineQuality": 95,
+    "fairLineConfidence": 92,
+    "expectedMinutes": 31.8,
+    "expectedFGA": 15.4,
+    "expectedFTA": 2.9,
+    "pointsPerFGA": 0.992,
+    "ftPercent": 0.779,
+    "supportReasons": [
+      "Projection gap 4.7 supports OVER",
+      "Star-line over with strong minutes+FGA",
+      "Last-5 avg 17.4 above line",
+      "Recent scoring backed by shot volume",
+      "Scoring trend up",
+      "Fair line 17.4 agrees with OVER",
+      "Role trend rising — volume path expanding"
+    ],
+    "dangerReasons": [],
+    "warningReasons": [],
+    "confidenceAdjustmentReasons": [],
+    "tierReasons": [
+      "WNBA v2 reader decision: OFFICIAL",
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility"
+    ],
+    "fairLineReasons": [
+      "SportsData projection anchor at 17.2",
+      "Volume-first blend: 17.5 base + 17.2 anchor",
+      "Minutes elevated vs season (31.8 expected)",
+      "Recent FGA above season (14.2 vs 11.7)",
+      "Recent scoring above season (17.4 vs 12.695652173913043)",
+      "Fair line 17.4 is 4.9 above book 12.5"
+    ],
+    "fairLineRiskReasons": [],
+    "rank": 0,
+    "pickScore": 88.9,
+    "roleChangeScore": 73,
+    "confidenceBucket": "80+",
+    "marketQualityBucket": "65-79",
+    "bookCountBucket": "3-4",
+    "fairLineEdgeBucket": "4+",
+    "supportDangerGapBucket": "20+",
+    "roleChangeScoreBucket": "65-79",
+    "volumeProfile": {
+      "recentMinutes": 30.6,
+      "seasonMinutes": 28.3,
+      "recentFGA": 14.2,
+      "seasonFGA": 11.7,
+      "recentFTA": 3,
+      "seasonFTA": 3.3,
+      "recent3PA": 6,
+      "shotVolume": 15.5,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 2.3,
+      "fgaDelta": 2.5,
+      "ftaDelta": -0.3,
+      "roleChangeScore": 73,
+      "roleChangeCertainty": 75
+    },
+    "volumeDangerGates": {
+      "gates": [
+        "unstable_minutes"
+      ],
+      "dangerReasons": [
+        "Unstable minutes profile"
+      ],
+      "supportReasons": [],
+      "dangerPressure": 0.12,
+      "resistanceScore": 12,
+      "noPlay": false,
+      "noPlayReasons": []
+    },
+    "marketIntelligence": {
+      "openingLine": 12.5,
+      "currentLine": 12.5,
+      "consensusLine": 12.5,
+      "lineDelta": 0,
+      "consensusDelta": 0,
+      "bookCount": 4,
+      "consensusBookCount": 4,
+      "lineSpread": 0,
+      "marketQuality": 65,
+      "signals": [],
+      "supportReasons": [],
+      "dangerReasons": [],
+      "dangerPressure": 0,
+      "supportScore": 0,
+      "resistanceScore": 0,
+      "lineMovementAgainstSide": false,
+      "lineMovedAgainstSide": false,
+      "lineMovementDirection": "flat",
+      "lineMovedForPickSide": false,
+      "lineMovedAgainstPickSide": false,
+      "currentLineValueImproved": false,
+      "marketDirectionAgainstPick": false,
+      "lineMovementInterpretation": "No meaningful line movement"
+    },
+    "availabilityGate": {
+      "applicable": true,
+      "status": "active",
+      "statusLevel": "ACTIVE",
+      "statusLabel": "Active",
+      "availabilityStatus": "ACTIVE",
+      "availabilityDataMissing": false,
+      "availabilityRisk": false,
+      "availabilitySourceStatus": "OK",
+      "availabilityMessage": "Active — not on injury report",
+      "feedFetchOk": true,
+      "feedHttpStatus": 200,
+      "feedRowCount": 0,
+      "feedErrorReason": null,
+      "dangerPressure": 0,
+      "dangerReasons": [],
+      "noPlay": false,
+      "noPlayReasons": [],
+      "blocksOfficial": false,
+      "officialCapTier": null,
+      "injuryRow": null,
+      "source": "wnba-availability-active-v1"
+    },
+    "defenseResult": {
+      "defenseScore": 50,
+      "source": "default",
+      "opponentPPG": null,
+      "pace": null,
+      "reasons": [
+        "No recent BDL games for opponent atlantadream"
+      ],
+      "probeDisabled": true,
+      "proxyUsed": true,
+      "defenseAudit": {
+        "resolvedDefenseScore": 50,
+        "defenseSource": "default",
+        "proxyUsed": true,
+        "opponentPPG": null,
+        "unavailableReason": "WNBA opponent proxy defaulted"
+      }
+    },
+    "defenseScore": 50,
+    "scoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 14,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 17.2 vs line 12.5 (+4.7)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 17.4 vs line 12.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 73,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "14.2 FGA / 30.6 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 17.4",
+        "explanation": "Fair edge +4.9 vs book 12.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "OVER",
+        "score": 76,
+        "pressure": null,
+        "label": "Opportunity 76",
+        "explanation": "Strong minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 42,
+        "pressure": null,
+        "label": "Net edge 21",
+        "explanation": "Support 42 vs resistance 21"
+      }
+    ],
+    "openingLine": 12.5,
+    "currentLine": 12.5,
+    "lineDelta": null,
+    "consensusLine": 12.5,
+    "trackingType": "OFFICIAL",
+    "recordType": "OFFICIAL",
+    "engineVersion": null,
+    "generatedAfterV1": null,
+    "officialEligible": false,
+    "excludedFromOfficialRecord": false,
+    "testReason": "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility; Official tier cap WATCHLIST from WNBA v1 gates",
+    "testReasons": [
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility",
+      "Official tier cap WATCHLIST from WNBA v1 gates"
+    ],
+    "v1OfficialGatePassed": false,
+    "readerOfficialDemoted": true,
+    "officialDemotionReason": "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility; Official tier cap WATCHLIST from WNBA v1 gates",
+    "officialEligibilityFailReason": "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerOutcome": "OFFICIAL",
+    "readerDecision": "OFFICIAL",
+    "trackingReason": "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerConfidence": 95,
+    "winProbability": 60,
+    "finalConfidence": 80,
+    "confidenceBlendVersion": "v1-70-30",
+    "confidenceBlendFormula": "0.7*readerConfidence + 0.3*winProbability",
+    "underGap": null,
+    "underGapFloorUsed": null,
+    "underGapFloorPassed": null,
+    "limitedDataUnderPenaltyApplied": false,
+    "lineToRecentAvgRatio": 0.72,
+    "lineToSeasonAvgRatio": 0.98,
+    "absoluteLineBucket": "mid",
+    "playerContextLineBucket": "below_recent",
+    "sideSelectionDecision": "TEST",
+    "sideSelectionAudit": null,
+    "contradictions": [],
+    "noBetReasons": [],
+    "sideTrustScore": null,
+    "sideTrustable": null,
+    "controlledBestSixRank": 1,
+    "controlledBestSixVersion": "controlled-best-six-over-balance-v2",
+    "topPickRank": null,
+    "sourcePool": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingAdmissionSource": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingCohortSource": null,
+    "qualityGateVersion": "wnba-tracking-gate-v2-live",
+    "trackingEligibility": "TRACK",
+    "qualityGateScore": 96,
+    "trackingBlockReasons": [],
+    "trackingWarnings": [
+      "FAIR_LINE_AGREEMENT",
+      "PARTIAL_DANGER_GATE_STACK",
+      "DANGER_STACK_EXTRA_EDGE_REQUIRED"
+    ],
+    "wnbaGateVersion": "wnba-tracking-gate-v2-live",
+    "wnbaTrackingDecision": "TRACK",
+    "wnbaTrackingReason": "WNBA_OVER_PASSED_V2_GATE",
+    "wnbaSideGate": "WNBA_OVER_GATE",
+    "sideGatePassed": true,
+    "dangerGateStack": [
+      "unstableMinutes",
+      "missingOpponentDefense"
+    ],
+    "dangerGateCount": 2,
+    "limitedDataPenalty": 0,
+    "underFragilityPenalty": 0,
+    "overVolumePenalty": 0,
+    "roleStabilityScore": 45,
+    "volumeStabilityScore": 72,
+    "minutesStabilityScore": 82,
+    "marketConfidenceScore": 57,
+    "projectionReliabilityScore": 58,
+    "fairLineReliabilityScore": 75,
+    "finalTrackScore": 96,
+    "riskCeilingReason": "DECISION_INTELLIGENCE_MEDIUM",
+    "riskBeforeCeiling": "Medium Risk",
+    "riskAfterCeiling": "Medium Risk",
+    "controlledBestSixApplied": true,
+    "decisionIntelligence": {
+      "version": "courtedge-decision-intelligence-v1",
+      "evidenceScore": 71,
+      "riskDebtScore": 27,
+      "repairScore": 96,
+      "finalQualityScore": 79,
+      "trueRisk": "MEDIUM",
+      "riskBeforeDecision": "Medium Risk",
+      "riskAfterDecision": "Medium Risk",
+      "trackEligibility": "TRACK",
+      "topPickEligibility": true,
+      "bestSixEligibility": true,
+      "riskDebts": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "MISSING_OPPONENT_DEFENSE",
+          "severity": "LOW",
+          "reason": "missing opponent defense flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        }
+      ],
+      "riskRepairs": [
+        {
+          "code": "STRONG_PROJECTION_GAP",
+          "reason": "Projection gap 4.7 clears WNBA floor.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "ELITE_NET_EDGE",
+          "reason": "Net edge 74.0 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_FAIR_LINE_EDGE",
+          "reason": "Fair line supports the chosen side with meaningful edge.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "PROJECTION_FAIR_LINE_AGREE",
+          "reason": "Projection and fair line agree on side.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Recent FGA 14.2 supports volume.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Recent minutes 30.6 are strong.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "EXPANDING_ROLE_FOR_OVER",
+          "reason": "Role is expanding in support of Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "MULTI_BOOK_COVERAGE",
+          "reason": "3 books cover this market.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_RECENT_SCORING",
+          "reason": "Recent scoring supports Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_OPPORTUNITY_SCORE",
+          "reason": "Opportunity score is strong.",
+          "strength": "MODERATE"
+        }
+      ],
+      "killReasons": [],
+      "demotionReasons": [],
+      "upgradeReasons": [
+        "TRACK_WITH_REPAIRED_RISK"
+      ],
+      "simpleExplanation": "TRACK — Strong Over profile with strong projection gap. True risk stays MEDIUM because unstable minutes flagged by danger gate..",
+      "whatWouldMakeItBetter": [
+        "Need stable minutes trend over last 5 games.",
+        "Need missing opponent defense flagged by danger gate..",
+        "Reduce danger gate stack below 2 before tracking."
+      ],
+      "gateVersion": "wnba-tracking-gate-v2-live",
+      "gateReason": "WNBA_OVER_PASSED_V2_GATE",
+      "repairable": true
+    },
+    "decisionIntelligenceVersion": "courtedge-decision-intelligence-v1",
+    "trueRisk": "MEDIUM",
+    "bestSixEligibility": true,
+    "topPickEligibility": true,
+    "sideRescue": {
+      "version": "side-rescue-v1.2",
+      "league": "WNBA",
+      "triggered": true,
+      "originalSide": "OVER",
+      "finalSide": "OVER",
+      "action": "KEEP_ORIGINAL",
+      "originalSideScore": 100,
+      "oppositeSideScore": 0,
+      "originalRiskAdjustedScore": 78,
+      "oppositeRiskAdjustedScore": 8,
+      "rescueScore": 0,
+      "flipConfidence": 0,
+      "flipMarginRequired": 7,
+      "flipScoreFloor": 52,
+      "triggerReasons": [
+        "UNSTABLE_MINUTES",
+        "FLIP_FIRST_CHECK_OPPOSITE"
+      ],
+      "originalSideWeaknesses": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "reason": "unstable minutes flagged by danger gate.",
+          "penalty": 18
+        }
+      ],
+      "oppositeSideEvidence": [
+        {
+          "code": "EFFICIENCY_REGRESSION",
+          "reason": "Efficiency regression risk."
+        }
+      ],
+      "oppositeKillDebts": [
+        "ROLE_TREND_CONTRADICTS_SIDE"
+      ],
+      "keepReasons": [
+        "Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.7)."
+      ],
+      "flipReasons": [],
+      "boardOnlyReasons": [],
+      "noBetReasons": [],
+      "riskDebtThatTriggeredReview": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        }
+      ],
+      "underFragility": {
+        "fragile": false,
+        "count": 0,
+        "factors": []
+      },
+      "simpleExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.7)."
+    },
+    "sideRescueVersion": "side-rescue-v1.2",
+    "sideRescueAction": "KEEP_ORIGINAL",
+    "sideRescueExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.7).",
+    "initialSide": "OVER",
+    "flippedFromSide": null,
+    "flippedFromSideLabel": null,
+    "sideRescueFlipped": false,
+    "decisionDataIntelligence": {
+      "version": "flip-first-decision-data-intelligence-v1",
+      "roleStability": {
+        "version": "role-stability-intelligence-v1",
+        "score": 71,
+        "status": "GOOD",
+        "sideImpact": "OVER",
+        "roleTrend": "up",
+        "minutesVolatility": "unstable",
+        "hotShootingRisk": false,
+        "reasons": [
+          "Minutes profile unstable.",
+          "Strong recent minutes.",
+          "Stable FGA floor.",
+          "Expanding role supports Over."
+        ]
+      },
+      "usageShare": {
+        "version": "usage-share-intelligence-v1",
+        "score": 86,
+        "status": "GOOD",
+        "usageTrend": "UP",
+        "fgaShareTrend": "UP",
+        "threePointShareTrend": "UNKNOWN",
+        "ftaShareTrend": "UNKNOWN",
+        "sideImpact": "OVER",
+        "reasons": [
+          "Minutes trend up.",
+          "FGA share trend up.",
+          "Usage + FGA rising supports Over."
+        ]
+      },
+      "sameTeamCollision": {
+        "version": "same-team-usage-collision-v1",
+        "detected": false,
+        "collisionScore": 0,
+        "teammatesInConflict": [],
+        "combinedLineDemand": 12.5,
+        "impliedTeamTotal": null,
+        "combinedRecentAvg": 17.4,
+        "sideImpact": "NEUTRAL",
+        "recommendation": "KEEP_OVER",
+        "reasons": [
+          "No teammate Over conflict."
+        ]
+      },
+      "marketIntelligence": {
+        "version": "market-movement-intelligence-v1",
+        "openingLine": 12.5,
+        "currentLine": 12.5,
+        "movement": "flat",
+        "lineDelta": 0,
+        "edgeAtOpen": 4.7,
+        "edgeNow": 4.7,
+        "marketWarning": false,
+        "staleLineSuspected": false,
+        "bookConsensus": "MODERATE",
+        "sideImpact": "NEUTRAL",
+        "reasons": []
+      },
+      "availabilityImpact": {
+        "version": "availability-impact-v1",
+        "playerStatus": "ACTIVE",
+        "teammateBoosts": [],
+        "teammateReductions": [],
+        "sourceStatus": "OK",
+        "uncertaintyAdded": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Player active."
+        ]
+      },
+      "opponentHistoryComparison": {
+        "version": "opponent-history-comparison-v1",
+        "recentForm": {
+          "gamesUsed": 5,
+          "pointsAvg": 17.4,
+          "minutesAvg": 30.6,
+          "fgaAvg": 14.2,
+          "threePaAvg": 6,
+          "ftaAvg": 3,
+          "hitRateVsLine": 60,
+          "hitRateOver": 60,
+          "hitRateUnder": 40,
+          "volatility": "high",
+          "sideSupport": "OVER",
+          "reasons": [
+            "Recent 17.4 pts avg over 5 games.",
+            "Recent form leans Over vs line."
+          ]
+        },
+        "opponentHistory": {
+          "gamesFound": 1,
+          "gamesUsed": 1,
+          "sampleStatus": "SMALL_SAMPLE",
+          "pointsAvg": 24,
+          "minutesAvg": 33,
+          "fgaAvg": 12,
+          "threePaAvg": 3,
+          "ftaAvg": 5,
+          "hitRateVsLine": 100,
+          "hitRateOver": 100,
+          "hitRateUnder": 0,
+          "volatility": null,
+          "sideSupport": "OVER",
+          "noHistory": false,
+          "reasons": [
+            "1 opponent game(s) found.",
+            "Small opponent sample — context only.",
+            "Opponent history leans Over vs line."
+          ]
+        },
+        "comparison": {
+          "agreement": "AGREES_WITH_RECENT",
+          "confidenceImpact": "NONE",
+          "riskImpact": "NONE",
+          "flipSignal": "NONE",
+          "finalImpact": "NEUTRAL",
+          "sideImpact": "NEUTRAL",
+          "weight": 0.25,
+          "reasons": [
+            "Agreement present but opponent sample too small for strong boost."
+          ]
+        },
+        "sideImpact": "NEUTRAL",
+        "status": "NEUTRAL",
+        "flipSignal": "NONE",
+        "reasons": [
+          "Recent 17.4 pts avg over 5 games.",
+          "Recent form leans Over vs line.",
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Over vs line.",
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "projectionQuality": {
+        "score": 77,
+        "status": "STRONG",
+        "supportedByUsage": true,
+        "supportedByMinutes": true,
+        "supportedByMarket": true,
+        "hotGameRisk": false,
+        "sideImpact": "OVER",
+        "reasons": [
+          "Strong projection gap."
+        ]
+      },
+      "flipFirstDecision": {
+        "version": "flip-first-side-selection-v1",
+        "originalSide": "OVER",
+        "oppositeSideChecked": true,
+        "originalSideScore": 100,
+        "oppositeSideScore": 0,
+        "flipRecommended": false,
+        "finalSide": "OVER",
+        "flipReason": "",
+        "noFlipReason": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "action": "CHECK_UNDER",
+        "flipTriggered": true,
+        "flipTriggerReasons": [
+          "UNSTABLE_MINUTES"
+        ],
+        "oppositeSideEvidence": [
+          "Thin UNDER gap."
+        ],
+        "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "flipFirstAudit": {
+          "flipTriggered": true,
+          "flipTriggerReasons": [
+            "UNSTABLE_MINUTES"
+          ],
+          "oppositeSideEvidence": [
+            "Thin UNDER gap."
+          ],
+          "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+          "oppositeSideChecked": true,
+          "originalSideScore": 100,
+          "oppositeSideScore": 0,
+          "flipRecommended": false
+        },
+        "originalProblems": [
+          {
+            "code": "UNSTABLE_MINUTES",
+            "reason": "Unstable or volatile minutes profile."
+          }
+        ],
+        "reasons": [
+          "Original problems: UNSTABLE_MINUTES.",
+          "Opposite blocked: ROLE_CONTRADICTS_UNDER."
+        ]
+      },
+      "finalInfluence": {
+        "confidenceAdjustment": 0,
+        "riskAdjustment": "NEUTRAL",
+        "decisionAdjustment": "KEEP",
+        "bestSixImpact": "NEUTRAL",
+        "resultsAdmissionImpact": "NEUTRAL",
+        "reasons": []
+      }
+    },
+    "decisionDataIntelligenceVersion": "flip-first-decision-data-intelligence-v1",
+    "flipFirstLabels": {
+      "usage": "GOOD",
+      "collision": "CLEAR",
+      "market": "NEUTRAL",
+      "availability": "CONFIRMED",
+      "projectionQuality": "STRONG",
+      "opponentHistory": "Small sample, 1 game used",
+      "flipCheck": "CHECK_UNDER"
+    },
+    "opponentHistoryComparison": {
+      "version": "opponent-history-comparison-v1",
+      "recentForm": {
+        "gamesUsed": 5,
+        "pointsAvg": 17.4,
+        "minutesAvg": 30.6,
+        "fgaAvg": 14.2,
+        "threePaAvg": 6,
+        "ftaAvg": 3,
+        "hitRateVsLine": 60,
+        "hitRateOver": 60,
+        "hitRateUnder": 40,
+        "volatility": "high",
+        "sideSupport": "OVER",
+        "reasons": [
+          "Recent 17.4 pts avg over 5 games.",
+          "Recent form leans Over vs line."
+        ]
+      },
+      "opponentHistory": {
+        "gamesFound": 1,
+        "gamesUsed": 1,
+        "sampleStatus": "SMALL_SAMPLE",
+        "pointsAvg": 24,
+        "minutesAvg": 33,
+        "fgaAvg": 12,
+        "threePaAvg": 3,
+        "ftaAvg": 5,
+        "hitRateVsLine": 100,
+        "hitRateOver": 100,
+        "hitRateUnder": 0,
+        "volatility": null,
+        "sideSupport": "OVER",
+        "noHistory": false,
+        "reasons": [
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Over vs line."
+        ]
+      },
+      "comparison": {
+        "agreement": "AGREES_WITH_RECENT",
+        "confidenceImpact": "NONE",
+        "riskImpact": "NONE",
+        "flipSignal": "NONE",
+        "finalImpact": "NEUTRAL",
+        "sideImpact": "NEUTRAL",
+        "weight": 0.25,
+        "reasons": [
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "sideImpact": "NEUTRAL",
+      "status": "NEUTRAL",
+      "flipSignal": "NONE",
+      "reasons": [
+        "Recent 17.4 pts avg over 5 games.",
+        "Recent form leans Over vs line.",
+        "1 opponent game(s) found.",
+        "Small opponent sample — context only.",
+        "Opponent history leans Over vs line.",
+        "Agreement present but opponent sample too small for strong boost."
+      ]
+    },
+    "opponentHistoryComparisonVersion": "opponent-history-comparison-v1",
+    "opponentHistoryLabel": "Small sample, 1 game used",
+    "flipFirstAction": "CHECK_UNDER",
+    "flipFirstFlipped": false,
+    "signalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "WEAK_RESISTANCE",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "trackedId": "20260708-wnba-flaujaejohnson-seattlestorm-atlantadream-points-over",
+    "trackedKey": "20260708-wnba-flaujaejohnson-seattlestorm-atlantadream-points-over",
+    "trackingMode": "ALL_GENERATED_PROPS",
+    "officialLine": 12.5,
+    "pickLine": 12.5,
+    "lockedSide": "Over",
+    "latestLine": 12.5,
+    "lineHistory": [],
+    "lineMovement": null,
+    "generatedAt": "2026-07-09T02:05:27.391Z",
+    "lastSeenAt": "2026-07-09T06:11:18.074Z",
+    "timesSeen": 19,
+    "status": "win",
+    "actualStat": 14,
+    "result": 14,
+    "resultMargin": 1.5,
+    "gradedAt": "2026-07-10T02:31:31.671Z",
+    "pendingReason": null,
+    "currentEngineResult": "win",
+    "currentEngineWon": true,
+    "currentEngineMargin": 1.5,
+    "fairLineShadowResult": "win",
+    "fairLineShadowWon": true,
+    "fairLineShadowMargin": 1.5,
+    "sideComparison": "BOTH_WON",
+    "slateLocked": true,
+    "lockedScoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 14,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 17.2 vs line 12.5 (+4.7)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 17.4 vs line 12.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 73,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "14.2 FGA / 30.6 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 17.4",
+        "explanation": "Fair edge +4.9 vs book 12.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "OVER",
+        "score": 76,
+        "pressure": null,
+        "label": "Opportunity 76",
+        "explanation": "Strong minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 42,
+        "pressure": null,
+        "label": "Net edge 21",
+        "explanation": "Support 42 vs resistance 21"
+      }
+    ],
+    "lockedSignalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "WEAK_RESISTANCE",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "lockedPlayerState": {
+      "player": "Flau'jae Johnson",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "seattlestorm",
+      "opponent": "atlantadream",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 12.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -120,
+      "underOdds": -109,
+      "seasonPoints": 12.695652173913043,
+      "recentPoints": 17.4,
+      "seasonMinutes": 28.3,
+      "recentMinutes": 30.6,
+      "seasonFGA": 11.7,
+      "recentFGA": 14.2,
+      "seasonFTA": 3.3,
+      "recentFTA": 3,
+      "recentEfficiency": 1.121,
+      "seasonEfficiency": 0.965,
+      "last5HitRate": 60,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 24,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:19.509Z"
+    },
+    "lockedVolumeProfile": {
+      "recentMinutes": 30.6,
+      "seasonMinutes": 28.3,
+      "recentFGA": 14.2,
+      "seasonFGA": 11.7,
+      "recentFTA": 3,
+      "seasonFTA": 3.3,
+      "recent3PA": 6,
+      "shotVolume": 15.5,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 2.3,
+      "fgaDelta": 2.5,
+      "ftaDelta": -0.3,
+      "roleChangeScore": 73,
+      "roleChangeCertainty": 75
+    },
+    "resolveDebug": {
+      "gameStarted": false,
+      "gameLikelyFinished": false,
+      "blockedByFutureGame": false,
+      "blockedByCommenceTime": true,
+      "blockedByGameNotStarted": true,
+      "blocked": true,
+      "at": "2026-07-09T23:58:14.777Z"
+    },
+    "resolvedAt": "2026-07-10T02:31:31.671Z",
+    "gradingNotes": null,
+    "matchVerified": true,
+    "resultConfidence": "medium",
+    "matchedDate": "2026-07-10",
+    "matchedGameId": "24914",
+    "matchedSource": "BallDontLie",
+    "trackedLifecycleState": "ACTIVE_RESULTS"
+  },
+  {
+    "source": "AUTO_TRACKED",
+    "league": "WNBA",
+    "gameId": "803d077d9e5f6f5b156f4a2be5ad2ec5",
+    "gameLabel": "LASVEGASACES vs PORTLANDFIRE",
+    "gameDate": "2026-07-09",
+    "slateDate": "2026-07-08",
+    "commenceTime": "2026-07-10T02:00:00Z",
+    "startTimeDisplay": "",
+    "dayBucket": "TOMORROW",
+    "player": "Bridget Carleton",
+    "playerId": "",
+    "team": "portlandfire",
+    "opponent": "lasvegasaces",
+    "stat": "Points",
+    "line": 13.5,
+    "currentEngineSide": "Over",
+    "fairLineSide": "OVER",
+    "auditSideMatch": false,
+    "confidence": 80,
+    "riskLabel": "Medium Risk",
+    "tier": "WATCHLIST",
+    "signalStrength": "STRONG",
+    "supportScore": 54,
+    "resistanceScore": -22,
+    "netEdge": 76,
+    "supportDangerGap": 76,
+    "projection": 17.8,
+    "last5Average": 16.2,
+    "seasonAverage": 13.8,
+    "matchupAverage": 13,
+    "dataCoverage": 100,
+    "dataQuality": 77,
+    "evidenceReliability": 1,
+    "dangerPressure": 0,
+    "bookCount": 2,
+    "marketQuality": 29,
+    "lineSpread": 1,
+    "overOdds": -106,
+    "underOdds": -122,
+    "playerState": {
+      "player": "Bridget Carleton",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "lasvegasaces",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "bookLine": 13.5,
+      "bookCount": 2,
+      "marketQuality": 29,
+      "lineSpread": 1,
+      "overOdds": -106,
+      "underOdds": -122,
+      "seasonPoints": 13.85,
+      "recentPoints": 16.2,
+      "seasonMinutes": 30.4,
+      "recentMinutes": 33.8,
+      "seasonFGA": 11.1,
+      "recentFGA": 12,
+      "seasonFTA": 3,
+      "recentFTA": 5,
+      "recentEfficiency": 1.141,
+      "seasonEfficiency": 1.115,
+      "last5HitRate": 80,
+      "volatility": "MEDIUM",
+      "sportsProjection": 0,
+      "matchupAverage": 13,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:21.647Z"
+    },
+    "roleChange": {
+      "expectedMinutesDelta": 3.4,
+      "expectedFGADelta": 0.9,
+      "expectedFTADelta": 2,
+      "usageDelta": 1.78,
+      "roleChangeScore": 74,
+      "roleChangeCertainty": 75,
+      "roleChangeReasons": [
+        "Minutes trending up (+3.4 vs season)",
+        "Free throw attempts trending up (+2.0 FTA vs season)"
+      ],
+      "roleRiskReasons": [],
+      "recentMinutesTrend": "UP",
+      "recentFGATrend": "FLAT",
+      "recentFTATrend": "UP",
+      "teammateOutBoost": null
+    },
+    "dataMode": "WNBA_FULL_DATA",
+    "fairLine": 17.6,
+    "fairLineEdge": 4.1,
+    "fairLineQuality": 95,
+    "fairLineConfidence": 92,
+    "expectedMinutes": 35.5,
+    "expectedFGA": 12.4,
+    "expectedFTA": 6,
+    "pointsPerFGA": 1.029,
+    "ftPercent": 0.78,
+    "supportReasons": [
+      "Projection gap 4.3 supports OVER",
+      "Star-line over with strong minutes+FGA",
+      "Last-5 avg 16.2 above line",
+      "Recent scoring backed by shot volume",
+      "Fair line 17.6 agrees with OVER",
+      "Role trend rising — volume path expanding"
+    ],
+    "dangerReasons": [],
+    "warningReasons": [
+      "Low book coverage",
+      "Weak line agreement"
+    ],
+    "confidenceAdjustmentReasons": [],
+    "tierReasons": [
+      "WNBA v2 reader decision: OFFICIAL",
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility"
+    ],
+    "fairLineReasons": [
+      "SportsData projection anchor at 17.8",
+      "Volume-first blend: 17.4 base + 17.8 anchor",
+      "Minutes elevated vs season (35.5 expected)",
+      "Fair line 17.6 is 4.1 above book 13.5"
+    ],
+    "fairLineRiskReasons": [],
+    "rank": 0,
+    "pickScore": 61.45,
+    "roleChangeScore": 74,
+    "confidenceBucket": "80+",
+    "marketQualityBucket": "Under 50",
+    "bookCountBucket": "1-2",
+    "fairLineEdgeBucket": "4+",
+    "supportDangerGapBucket": "20+",
+    "roleChangeScoreBucket": "65-79",
+    "volumeProfile": {
+      "recentMinutes": 33.8,
+      "seasonMinutes": 30.4,
+      "recentFGA": 12,
+      "seasonFGA": 11.1,
+      "recentFTA": 5,
+      "seasonFTA": 3,
+      "recent3PA": 7,
+      "shotVolume": 14.2,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "MEDIUM",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 3.4,
+      "fgaDelta": 0.9,
+      "ftaDelta": 2,
+      "roleChangeScore": 74,
+      "roleChangeCertainty": 75
+    },
+    "volumeDangerGates": {
+      "gates": [
+        "unstable_minutes"
+      ],
+      "dangerReasons": [
+        "Unstable minutes profile"
+      ],
+      "supportReasons": [],
+      "dangerPressure": 0.12,
+      "resistanceScore": 12,
+      "noPlay": false,
+      "noPlayReasons": []
+    },
+    "marketIntelligence": {
+      "openingLine": 13.5,
+      "currentLine": 13.5,
+      "consensusLine": 13,
+      "lineDelta": 0,
+      "consensusDelta": 0.5,
+      "bookCount": 2,
+      "consensusBookCount": 1,
+      "lineSpread": 1,
+      "marketQuality": 29,
+      "signals": [
+        "thin_market"
+      ],
+      "supportReasons": [],
+      "dangerReasons": [
+        "Thin two-book market"
+      ],
+      "dangerPressure": 0.06,
+      "supportScore": 0,
+      "resistanceScore": 4,
+      "lineMovementAgainstSide": false,
+      "lineMovedAgainstSide": false,
+      "lineMovementDirection": "flat",
+      "lineMovedForPickSide": false,
+      "lineMovedAgainstPickSide": false,
+      "currentLineValueImproved": false,
+      "marketDirectionAgainstPick": false,
+      "lineMovementInterpretation": "No meaningful line movement"
+    },
+    "availabilityGate": {
+      "applicable": true,
+      "status": "active",
+      "statusLevel": "ACTIVE",
+      "statusLabel": "Active",
+      "availabilityStatus": "ACTIVE",
+      "availabilityDataMissing": false,
+      "availabilityRisk": false,
+      "availabilitySourceStatus": "OK",
+      "availabilityMessage": "Active — not on injury report",
+      "feedFetchOk": true,
+      "feedHttpStatus": 200,
+      "feedRowCount": 0,
+      "feedErrorReason": null,
+      "dangerPressure": 0,
+      "dangerReasons": [],
+      "noPlay": false,
+      "noPlayReasons": [],
+      "blocksOfficial": false,
+      "officialCapTier": null,
+      "injuryRow": null,
+      "source": "wnba-availability-active-v1"
+    },
+    "defenseResult": {
+      "defenseScore": 50,
+      "source": "default",
+      "opponentPPG": null,
+      "pace": null,
+      "reasons": [
+        "No recent BDL games for opponent lasvegasaces"
+      ],
+      "probeDisabled": true,
+      "proxyUsed": true,
+      "defenseAudit": {
+        "resolvedDefenseScore": 50,
+        "defenseSource": "default",
+        "proxyUsed": true,
+        "opponentPPG": null,
+        "unavailableReason": "WNBA opponent proxy defaulted"
+      }
+    },
+    "defenseScore": 50,
+    "scoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 13,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 17.8 vs line 13.5 (+4.3)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 16.2 vs line 13.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 74,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12 FGA / 33.8 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 17.6",
+        "explanation": "Fair edge +4.1 vs book 13.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 29,
+        "pressure": null,
+        "label": "Market quality 29%",
+        "explanation": "2 books, spread 1"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 62,
+        "pressure": null,
+        "label": "Opportunity 62",
+        "explanation": "Elite minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 77,
+        "pressure": null,
+        "label": "Data quality 77%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 30,
+        "pressure": 0.15,
+        "label": "Net edge -3",
+        "explanation": "Support 30 vs resistance 33"
+      }
+    ],
+    "openingLine": 13.5,
+    "currentLine": 13.5,
+    "lineDelta": null,
+    "consensusLine": 13,
+    "trackingType": "OFFICIAL",
+    "recordType": "OFFICIAL",
+    "engineVersion": null,
+    "generatedAfterV1": null,
+    "officialEligible": false,
+    "excludedFromOfficialRecord": false,
+    "testReason": "Market quality 29 below WNBA official floor (40)",
+    "testReasons": [
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility",
+      "Market quality 29 below WNBA official floor (40)",
+      "Official tier cap WATCHLIST from WNBA v1 gates"
+    ],
+    "v1OfficialGatePassed": false,
+    "readerOfficialDemoted": true,
+    "officialDemotionReason": "Market quality 29 below WNBA official floor (40)",
+    "officialEligibilityFailReason": "Market quality 29 below WNBA official floor (40)",
+    "readerOutcome": "OFFICIAL",
+    "readerDecision": "OFFICIAL",
+    "trackingReason": "Market quality 29 below WNBA official floor (40)",
+    "readerConfidence": 95,
+    "winProbability": 62,
+    "finalConfidence": 80,
+    "confidenceBlendVersion": "v1-70-30",
+    "confidenceBlendFormula": "0.7*readerConfidence + 0.3*winProbability",
+    "underGap": null,
+    "underGapFloorUsed": null,
+    "underGapFloorPassed": null,
+    "limitedDataUnderPenaltyApplied": false,
+    "lineToRecentAvgRatio": 0.83,
+    "lineToSeasonAvgRatio": 0.97,
+    "absoluteLineBucket": "mid",
+    "playerContextLineBucket": "below_recent",
+    "sideSelectionDecision": "TEST",
+    "sideSelectionAudit": null,
+    "contradictions": [],
+    "noBetReasons": [],
+    "sideTrustScore": null,
+    "sideTrustable": null,
+    "controlledBestSixRank": 2,
+    "controlledBestSixVersion": "controlled-best-six-over-balance-v2",
+    "topPickRank": null,
+    "sourcePool": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingAdmissionSource": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingCohortSource": null,
+    "qualityGateVersion": "wnba-tracking-gate-v2-live",
+    "trackingEligibility": "BOARD_ONLY",
+    "qualityGateScore": 95,
+    "trackingBlockReasons": [],
+    "trackingWarnings": [
+      "FAIR_LINE_AGREEMENT",
+      "THIN_MARKET",
+      "PARTIAL_DANGER_GATE_STACK",
+      "DANGER_STACK_EXTRA_EDGE_REQUIRED"
+    ],
+    "wnbaGateVersion": "wnba-tracking-gate-v2-live",
+    "wnbaTrackingDecision": "BOARD_ONLY",
+    "wnbaTrackingReason": "DANGER_STACK_INSUFFICIENT_EDGE",
+    "wnbaSideGate": "WNBA_OVER_GATE",
+    "sideGatePassed": true,
+    "dangerGateStack": [
+      "unstableMinutes",
+      "missingOpponentDefense"
+    ],
+    "dangerGateCount": 2,
+    "limitedDataPenalty": 0,
+    "underFragilityPenalty": 0,
+    "overVolumePenalty": 0,
+    "roleStabilityScore": 45,
+    "volumeStabilityScore": 72,
+    "minutesStabilityScore": 82,
+    "marketConfidenceScore": 31,
+    "projectionReliabilityScore": 56,
+    "fairLineReliabilityScore": 72,
+    "finalTrackScore": 95,
+    "riskCeilingReason": "DECISION_INTELLIGENCE_MEDIUM",
+    "riskBeforeCeiling": "Medium Risk",
+    "riskAfterCeiling": "Medium Risk",
+    "controlledBestSixApplied": true,
+    "decisionIntelligence": {
+      "version": "courtedge-decision-intelligence-v1",
+      "evidenceScore": 67,
+      "riskDebtScore": 32,
+      "repairScore": 88,
+      "finalQualityScore": 72,
+      "trueRisk": "MEDIUM",
+      "riskBeforeDecision": "Medium Risk",
+      "riskAfterDecision": "Medium Risk",
+      "trackEligibility": "BOARD_ONLY",
+      "topPickEligibility": false,
+      "bestSixEligibility": false,
+      "riskDebts": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "MISSING_OPPONENT_DEFENSE",
+          "severity": "LOW",
+          "reason": "missing opponent defense flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        },
+        {
+          "code": "WEAK_MARKET_QUALITY",
+          "severity": "LOW",
+          "reason": "Market quality score is weak.",
+          "side": "BOTH",
+          "repairable": true
+        }
+      ],
+      "riskRepairs": [
+        {
+          "code": "STRONG_PROJECTION_GAP",
+          "reason": "Projection gap 4.3 clears WNBA floor.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "ELITE_NET_EDGE",
+          "reason": "Net edge 76.0 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_FAIR_LINE_EDGE",
+          "reason": "Fair line supports the chosen side with meaningful edge.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "PROJECTION_FAIR_LINE_AGREE",
+          "reason": "Projection and fair line agree on side.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Recent FGA 12.0 supports volume.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Recent minutes 33.8 are strong.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "EXPANDING_ROLE_FOR_OVER",
+          "reason": "Role is expanding in support of Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_RECENT_SCORING",
+          "reason": "Recent scoring supports Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_OPPORTUNITY_SCORE",
+          "reason": "Opportunity score is strong.",
+          "strength": "MODERATE"
+        }
+      ],
+      "killReasons": [],
+      "demotionReasons": [
+        "DANGER_STACK_INSUFFICIENT_EDGE"
+      ],
+      "upgradeReasons": [],
+      "simpleExplanation": "BOARD_ONLY — Over has unstable minutes flagged by danger gate.. DANGER_STACK_INSUFFICIENT_EDGE",
+      "whatWouldMakeItBetter": [
+        "Need stable minutes trend over last 5 games.",
+        "Need missing opponent defense flagged by danger gate..",
+        "Reduce danger gate stack below 2 before tracking."
+      ],
+      "gateVersion": "wnba-tracking-gate-v2-live",
+      "gateReason": "DANGER_STACK_INSUFFICIENT_EDGE",
+      "repairable": true
+    },
+    "decisionIntelligenceVersion": "courtedge-decision-intelligence-v1",
+    "trueRisk": "MEDIUM",
+    "bestSixEligibility": false,
+    "topPickEligibility": false,
+    "sideRescue": {
+      "version": "side-rescue-v1.2",
+      "league": "WNBA",
+      "triggered": true,
+      "originalSide": "OVER",
+      "finalSide": "OVER",
+      "action": "KEEP_ORIGINAL",
+      "originalSideScore": 100,
+      "oppositeSideScore": 0,
+      "originalRiskAdjustedScore": 78,
+      "oppositeRiskAdjustedScore": 8,
+      "rescueScore": 0,
+      "flipConfidence": 0,
+      "flipMarginRequired": 7,
+      "flipScoreFloor": 52,
+      "triggerReasons": [
+        "UNSTABLE_MINUTES",
+        "FLIP_FIRST_CHECK_OPPOSITE"
+      ],
+      "originalSideWeaknesses": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "reason": "unstable minutes flagged by danger gate.",
+          "penalty": 18
+        }
+      ],
+      "oppositeSideEvidence": [
+        {
+          "code": "EFFICIENCY_REGRESSION",
+          "reason": "Efficiency regression risk."
+        }
+      ],
+      "oppositeKillDebts": [
+        "ROLE_TREND_CONTRADICTS_SIDE"
+      ],
+      "keepReasons": [
+        "Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.3)."
+      ],
+      "flipReasons": [],
+      "boardOnlyReasons": [],
+      "noBetReasons": [],
+      "riskDebtThatTriggeredReview": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        }
+      ],
+      "underFragility": {
+        "fragile": false,
+        "count": 0,
+        "factors": []
+      },
+      "simpleExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.3)."
+    },
+    "sideRescueVersion": "side-rescue-v1.2",
+    "sideRescueAction": "KEEP_ORIGINAL",
+    "sideRescueExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -4.3).",
+    "initialSide": "OVER",
+    "flippedFromSide": null,
+    "flippedFromSideLabel": null,
+    "sideRescueFlipped": false,
+    "decisionDataIntelligence": {
+      "version": "flip-first-decision-data-intelligence-v1",
+      "roleStability": {
+        "version": "role-stability-intelligence-v1",
+        "score": 71,
+        "status": "GOOD",
+        "sideImpact": "OVER",
+        "roleTrend": "up",
+        "minutesVolatility": "unstable",
+        "hotShootingRisk": false,
+        "reasons": [
+          "Minutes profile unstable.",
+          "Strong recent minutes.",
+          "Stable FGA floor.",
+          "Expanding role supports Over."
+        ]
+      },
+      "usageShare": {
+        "version": "usage-share-intelligence-v1",
+        "score": 72,
+        "status": "GOOD",
+        "usageTrend": "UP",
+        "fgaShareTrend": "UNKNOWN",
+        "threePointShareTrend": "UNKNOWN",
+        "ftaShareTrend": "UP",
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Minutes trend up.",
+          "FTA trend up — paint pressure."
+        ]
+      },
+      "sameTeamCollision": {
+        "version": "same-team-usage-collision-v1",
+        "detected": true,
+        "collisionScore": 37,
+        "teammatesInConflict": [
+          "Carla Leite"
+        ],
+        "combinedLineDemand": 28,
+        "impliedTeamTotal": null,
+        "combinedRecentAvg": 36.2,
+        "sideImpact": "NEUTRAL",
+        "recommendation": "REVIEW_UNDER",
+        "reasons": [
+          "Multiple high-minute scorers share usage zones.",
+          "Collision warning — monitor combined scoring demand."
+        ]
+      },
+      "marketIntelligence": {
+        "version": "market-movement-intelligence-v1",
+        "openingLine": 13.5,
+        "currentLine": 13.5,
+        "movement": "flat",
+        "lineDelta": 0,
+        "edgeAtOpen": 4.3,
+        "edgeNow": 4.3,
+        "marketWarning": true,
+        "staleLineSuspected": false,
+        "bookConsensus": "THIN",
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Low book count — market quality thin."
+        ]
+      },
+      "availabilityImpact": {
+        "version": "availability-impact-v1",
+        "playerStatus": "ACTIVE",
+        "teammateBoosts": [],
+        "teammateReductions": [],
+        "sourceStatus": "OK",
+        "uncertaintyAdded": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Player active."
+        ]
+      },
+      "opponentHistoryComparison": {
+        "version": "opponent-history-comparison-v1",
+        "recentForm": {
+          "gamesUsed": 5,
+          "pointsAvg": 16.2,
+          "minutesAvg": 33.8,
+          "fgaAvg": 12,
+          "threePaAvg": 7,
+          "ftaAvg": 5,
+          "hitRateVsLine": 80,
+          "hitRateOver": 80,
+          "hitRateUnder": 20,
+          "volatility": "moderate",
+          "sideSupport": "OVER",
+          "reasons": [
+            "Recent 16.2 pts avg over 5 games.",
+            "Recent form leans Over vs line."
+          ]
+        },
+        "opponentHistory": {
+          "gamesFound": 1,
+          "gamesUsed": 1,
+          "sampleStatus": "SMALL_SAMPLE",
+          "pointsAvg": 13,
+          "minutesAvg": 33,
+          "fgaAvg": 13,
+          "threePaAvg": 9,
+          "ftaAvg": 0,
+          "hitRateVsLine": 0,
+          "hitRateOver": 0,
+          "hitRateUnder": 100,
+          "volatility": null,
+          "sideSupport": "NEUTRAL",
+          "noHistory": false,
+          "reasons": [
+            "1 opponent game(s) found.",
+            "Small opponent sample — context only."
+          ]
+        },
+        "comparison": {
+          "agreement": "NEUTRAL",
+          "confidenceImpact": "NONE",
+          "riskImpact": "NONE",
+          "flipSignal": "NONE",
+          "finalImpact": "NEUTRAL",
+          "sideImpact": "NEUTRAL",
+          "weight": 0.25,
+          "reasons": []
+        },
+        "sideImpact": "NEUTRAL",
+        "status": "NEUTRAL",
+        "flipSignal": "NONE",
+        "reasons": [
+          "Recent 16.2 pts avg over 5 games.",
+          "Recent form leans Over vs line.",
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only."
+        ]
+      },
+      "projectionQuality": {
+        "score": 69,
+        "status": "MIXED",
+        "supportedByUsage": true,
+        "supportedByMinutes": true,
+        "supportedByMarket": false,
+        "hotGameRisk": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Strong projection gap.",
+          "Projection contradicted by market movement."
+        ]
+      },
+      "flipFirstDecision": {
+        "version": "flip-first-side-selection-v1",
+        "originalSide": "OVER",
+        "oppositeSideChecked": true,
+        "originalSideScore": 100,
+        "oppositeSideScore": 0,
+        "flipRecommended": false,
+        "finalSide": "OVER",
+        "flipReason": "",
+        "noFlipReason": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "action": "CHECK_UNDER",
+        "flipTriggered": true,
+        "flipTriggerReasons": [
+          "SAME_TEAM_COLLISION_WARNING",
+          "MARKET_WARNING",
+          "UNSTABLE_MINUTES",
+          "DANGER_STACK_INSUFFICIENT_EDGE"
+        ],
+        "oppositeSideEvidence": [
+          "Thin UNDER gap."
+        ],
+        "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "flipFirstAudit": {
+          "flipTriggered": true,
+          "flipTriggerReasons": [
+            "SAME_TEAM_COLLISION_WARNING",
+            "MARKET_WARNING",
+            "UNSTABLE_MINUTES",
+            "DANGER_STACK_INSUFFICIENT_EDGE"
+          ],
+          "oppositeSideEvidence": [
+            "Thin UNDER gap."
+          ],
+          "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+          "oppositeSideChecked": true,
+          "originalSideScore": 100,
+          "oppositeSideScore": 0,
+          "flipRecommended": false
+        },
+        "originalProblems": [
+          {
+            "code": "SAME_TEAM_COLLISION_WARNING",
+            "reason": "Multiple high-minute scorers share usage zones."
+          },
+          {
+            "code": "MARKET_WARNING",
+            "reason": "Low book count — market quality thin."
+          },
+          {
+            "code": "UNSTABLE_MINUTES",
+            "reason": "Unstable or volatile minutes profile."
+          },
+          {
+            "code": "DANGER_STACK_INSUFFICIENT_EDGE",
+            "reason": "Danger stack with insufficient edge."
+          }
+        ],
+        "reasons": [
+          "Original problems: SAME_TEAM_COLLISION_WARNING, MARKET_WARNING, UNSTABLE_MINUTES, DANGER_STACK_INSUFFICIENT_EDGE.",
+          "Opposite blocked: ROLE_CONTRADICTS_UNDER."
+        ]
+      },
+      "finalInfluence": {
+        "confidenceAdjustment": -4,
+        "riskAdjustment": "MONITOR",
+        "decisionAdjustment": "KEEP",
+        "bestSixImpact": "NEUTRAL",
+        "resultsAdmissionImpact": "NEUTRAL",
+        "reasons": [
+          "Some data weakness — monitor risk."
+        ]
+      }
+    },
+    "decisionDataIntelligenceVersion": "flip-first-decision-data-intelligence-v1",
+    "flipFirstLabels": {
+      "usage": "GOOD",
+      "collision": "WARNING",
+      "market": "AGAINST",
+      "availability": "CONFIRMED",
+      "projectionQuality": "MIXED",
+      "opponentHistory": "Small sample, 1 game used",
+      "flipCheck": "CHECK_UNDER"
+    },
+    "opponentHistoryComparison": {
+      "version": "opponent-history-comparison-v1",
+      "recentForm": {
+        "gamesUsed": 5,
+        "pointsAvg": 16.2,
+        "minutesAvg": 33.8,
+        "fgaAvg": 12,
+        "threePaAvg": 7,
+        "ftaAvg": 5,
+        "hitRateVsLine": 80,
+        "hitRateOver": 80,
+        "hitRateUnder": 20,
+        "volatility": "moderate",
+        "sideSupport": "OVER",
+        "reasons": [
+          "Recent 16.2 pts avg over 5 games.",
+          "Recent form leans Over vs line."
+        ]
+      },
+      "opponentHistory": {
+        "gamesFound": 1,
+        "gamesUsed": 1,
+        "sampleStatus": "SMALL_SAMPLE",
+        "pointsAvg": 13,
+        "minutesAvg": 33,
+        "fgaAvg": 13,
+        "threePaAvg": 9,
+        "ftaAvg": 0,
+        "hitRateVsLine": 0,
+        "hitRateOver": 0,
+        "hitRateUnder": 100,
+        "volatility": null,
+        "sideSupport": "NEUTRAL",
+        "noHistory": false,
+        "reasons": [
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only."
+        ]
+      },
+      "comparison": {
+        "agreement": "NEUTRAL",
+        "confidenceImpact": "NONE",
+        "riskImpact": "NONE",
+        "flipSignal": "NONE",
+        "finalImpact": "NEUTRAL",
+        "sideImpact": "NEUTRAL",
+        "weight": 0.25,
+        "reasons": []
+      },
+      "sideImpact": "NEUTRAL",
+      "status": "NEUTRAL",
+      "flipSignal": "NONE",
+      "reasons": [
+        "Recent 16.2 pts avg over 5 games.",
+        "Recent form leans Over vs line.",
+        "1 opponent game(s) found.",
+        "Small opponent sample — context only."
+      ]
+    },
+    "opponentHistoryComparisonVersion": "opponent-history-comparison-v1",
+    "opponentHistoryLabel": "Small sample, 1 game used",
+    "flipFirstAction": "CHECK_UNDER",
+    "flipFirstFlipped": false,
+    "signalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "neutral",
+      "opponentDefenseSignal": "NEUTRAL",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "weak_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "trackedId": "20260708-wnba-bridgetcarleton-portlandfire-lasvegasaces-points-over",
+    "trackedKey": "20260708-wnba-bridgetcarleton-portlandfire-lasvegasaces-points-over",
+    "trackingMode": "ALL_GENERATED_PROPS",
+    "officialLine": 13.5,
+    "pickLine": 13.5,
+    "lockedSide": "Over",
+    "latestLine": 13.5,
+    "lineHistory": [],
+    "lineMovement": null,
+    "generatedAt": "2026-07-09T02:05:27.391Z",
+    "lastSeenAt": "2026-07-09T02:23:46.677Z",
+    "timesSeen": 5,
+    "status": "pending",
+    "actualStat": null,
+    "result": null,
+    "resultMargin": null,
+    "gradedAt": null,
+    "pendingReason": "Game not final yet.",
+    "currentEngineResult": null,
+    "currentEngineWon": null,
+    "currentEngineMargin": null,
+    "fairLineShadowResult": null,
+    "fairLineShadowWon": null,
+    "fairLineShadowMargin": null,
+    "sideComparison": null,
+    "slateLocked": true,
+    "lockedScoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 13,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 17.8 vs line 13.5 (+4.3)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 16.2 vs line 13.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 74,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12 FGA / 33.8 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 17.6",
+        "explanation": "Fair edge +4.1 vs book 13.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 29,
+        "pressure": null,
+        "label": "Market quality 29%",
+        "explanation": "2 books, spread 1"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 62,
+        "pressure": null,
+        "label": "Opportunity 62",
+        "explanation": "Elite minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 77,
+        "pressure": null,
+        "label": "Data quality 77%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 30,
+        "pressure": 0.15,
+        "label": "Net edge -3",
+        "explanation": "Support 30 vs resistance 33"
+      }
+    ],
+    "lockedSignalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "neutral",
+      "opponentDefenseSignal": "NEUTRAL",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "weak_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "lockedPlayerState": {
+      "player": "Bridget Carleton",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "lasvegasaces",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "bookLine": 13.5,
+      "bookCount": 2,
+      "marketQuality": 29,
+      "lineSpread": 1,
+      "overOdds": -106,
+      "underOdds": -122,
+      "seasonPoints": 13.85,
+      "recentPoints": 16.2,
+      "seasonMinutes": 30.4,
+      "recentMinutes": 33.8,
+      "seasonFGA": 11.1,
+      "recentFGA": 12,
+      "seasonFTA": 3,
+      "recentFTA": 5,
+      "recentEfficiency": 1.141,
+      "seasonEfficiency": 1.115,
+      "last5HitRate": 80,
+      "volatility": "MEDIUM",
+      "sportsProjection": 0,
+      "matchupAverage": 13,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:21.647Z"
+    },
+    "lockedVolumeProfile": {
+      "recentMinutes": 33.8,
+      "seasonMinutes": 30.4,
+      "recentFGA": 12,
+      "seasonFGA": 11.1,
+      "recentFTA": 5,
+      "seasonFTA": 3,
+      "recent3PA": 7,
+      "shotVolume": 14.2,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "MEDIUM",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 3.4,
+      "fgaDelta": 0.9,
+      "ftaDelta": 2,
+      "roleChangeScore": 74,
+      "roleChangeCertainty": 75
+    },
+    "resolveDebug": {
+      "player": "Bridget Carleton",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "resolvedSlateDate": "2026-07-09",
+      "slateDate": "2026-07-08",
+      "queryDates": [
+        "2026-07-09",
+        "2026-07-10"
+      ],
+      "batchQueryDates": [
+        "2026-07-09",
+        "2026-07-10"
+      ],
+      "playerFallbackAttempted": false,
+      "wnbaOfficialFallbackAttempted": false,
+      "espnFallbackAttempted": false,
+      "batchRowCount": 24,
+      "fallbackRowCount": 0,
+      "officialRowCount": 0,
+      "espnRowCount": 0,
+      "matchedPlayerRow": false,
+      "matchedSource": "",
+      "matchedDate": "",
+      "matchVerified": false,
+      "gameStarted": true,
+      "gameLikelyFinished": true,
+      "blockedByFutureGame": false,
+      "blockedByCommenceTime": false,
+      "blockedByGameNotStarted": false,
+      "gameStatus": "in",
+      "gameFinal": false,
+      "blockedByGameNotFinal": true,
+      "blockedByLiveGame": true,
+      "gameFinalVerifiedSource": "",
+      "blocked": true,
+      "pendingReason": "Game final, but player stat row unavailable from source",
+      "at": "2026-07-10T10:28:36.493Z"
+    },
+    "gradingNotes": "Game not final yet.",
+    "matchVerified": false,
+    "resultConfidence": null,
+    "matchedDate": "",
+    "matchedGameId": "",
+    "matchedSource": "",
+    "trackedLifecycleState": "ACTIVE_RESULTS"
+  },
+  {
+    "source": "AUTO_TRACKED",
+    "league": "WNBA",
+    "gameId": "803d077d9e5f6f5b156f4a2be5ad2ec5",
+    "gameLabel": "LASVEGASACES vs PORTLANDFIRE",
+    "gameDate": "2026-07-09",
+    "slateDate": "2026-07-08",
+    "commenceTime": "2026-07-10T02:00:00Z",
+    "startTimeDisplay": "",
+    "dayBucket": "TOMORROW",
+    "player": "Carla Leite",
+    "playerId": "",
+    "team": "portlandfire",
+    "opponent": "lasvegasaces",
+    "stat": "Points",
+    "line": 14.5,
+    "currentEngineSide": "Over",
+    "fairLineSide": "OVER",
+    "auditSideMatch": false,
+    "confidence": 81,
+    "riskLabel": "Medium Risk",
+    "tier": "WATCHLIST",
+    "signalStrength": "STRONG",
+    "supportScore": 57,
+    "resistanceScore": -22,
+    "netEdge": 79,
+    "supportDangerGap": 79,
+    "projection": 22.9,
+    "last5Average": 20,
+    "seasonAverage": 15.4,
+    "matchupAverage": 18,
+    "dataCoverage": 100,
+    "dataQuality": 77,
+    "evidenceReliability": 1,
+    "dangerPressure": 0,
+    "bookCount": 5,
+    "marketQuality": 43,
+    "lineSpread": 2,
+    "overOdds": -130,
+    "underOdds": 34,
+    "playerState": {
+      "player": "Carla Leite",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "lasvegasaces",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "bookLine": 14.5,
+      "bookCount": 2,
+      "marketQuality": 29,
+      "lineSpread": 1,
+      "overOdds": -102,
+      "underOdds": -128,
+      "seasonPoints": 15.368421052631579,
+      "recentPoints": 20,
+      "seasonMinutes": 25.5,
+      "recentMinutes": 30,
+      "seasonFGA": 10.5,
+      "recentFGA": 12.6,
+      "seasonFTA": 6.1,
+      "recentFTA": 9.2,
+      "recentEfficiency": 1.201,
+      "seasonEfficiency": 1.166,
+      "last5HitRate": 80,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 18,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:22.925Z"
+    },
+    "roleChange": {
+      "expectedMinutesDelta": 4.5,
+      "expectedFGADelta": 2.1,
+      "expectedFTADelta": 3.1,
+      "usageDelta": 3.46,
+      "roleChangeScore": 88,
+      "roleChangeCertainty": 75,
+      "roleChangeReasons": [
+        "Minutes trending up (+4.5 vs season)",
+        "Shot volume trending up (+2.1 FGA vs season)",
+        "Free throw attempts trending up (+3.1 FTA vs season)",
+        "Recent scoring above season (+4.6 PPG)"
+      ],
+      "roleRiskReasons": [],
+      "recentMinutesTrend": "UP",
+      "recentFGATrend": "UP",
+      "recentFTATrend": "UP",
+      "teammateOutBoost": null
+    },
+    "dataMode": "WNBA_FULL_DATA",
+    "fairLine": 22.6,
+    "fairLineEdge": 8.1,
+    "fairLineQuality": 95,
+    "fairLineConfidence": 92,
+    "expectedMinutes": 32.3,
+    "expectedFGA": 13.7,
+    "expectedFTA": 10.8,
+    "pointsPerFGA": 1.016,
+    "ftPercent": 0.78,
+    "supportReasons": [
+      "Projection gap 8.4 supports OVER",
+      "Star-line over with strong minutes+FGA",
+      "Last-5 avg 20 above line",
+      "Recent scoring backed by shot volume",
+      "Scoring trend up",
+      "Fair line 22.6 agrees with OVER",
+      "Role trend rising — volume path expanding"
+    ],
+    "dangerReasons": [],
+    "warningReasons": [
+      "Low book coverage",
+      "Weak line agreement"
+    ],
+    "confidenceAdjustmentReasons": [],
+    "tierReasons": [
+      "WNBA v2 reader decision: OFFICIAL",
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility"
+    ],
+    "fairLineReasons": [
+      "SportsData projection anchor at 22.9",
+      "Volume-first blend: 22.3 base + 22.9 anchor",
+      "Minutes elevated vs season (32.3 expected)",
+      "Recent FGA above season (12.6 vs 10.5)",
+      "Recent scoring above season (20 vs 15.368421052631579)",
+      "Fair line 22.6 is 8.1 above book 14.5"
+    ],
+    "fairLineRiskReasons": [],
+    "rank": 0,
+    "pickScore": 64.9,
+    "roleChangeScore": 88,
+    "confidenceBucket": "80+",
+    "marketQualityBucket": "Under 50",
+    "bookCountBucket": "1-2",
+    "fairLineEdgeBucket": "4+",
+    "supportDangerGapBucket": "20+",
+    "roleChangeScoreBucket": "80+",
+    "volumeProfile": {
+      "recentMinutes": 30,
+      "seasonMinutes": 25.5,
+      "recentFGA": 12.6,
+      "seasonFGA": 10.5,
+      "recentFTA": 9.2,
+      "seasonFTA": 6.1,
+      "recent3PA": 2.6,
+      "shotVolume": 16.6,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 4.5,
+      "fgaDelta": 2.1,
+      "ftaDelta": 3.1,
+      "roleChangeScore": 88,
+      "roleChangeCertainty": 75
+    },
+    "volumeDangerGates": {
+      "gates": [
+        "unstable_minutes"
+      ],
+      "dangerReasons": [
+        "Unstable minutes profile"
+      ],
+      "supportReasons": [],
+      "dangerPressure": 0.12,
+      "resistanceScore": 12,
+      "noPlay": false,
+      "noPlayReasons": []
+    },
+    "marketIntelligence": {
+      "openingLine": 14.5,
+      "currentLine": 14.5,
+      "consensusLine": 14.5,
+      "lineDelta": 0,
+      "consensusDelta": 0,
+      "bookCount": 5,
+      "consensusBookCount": 4,
+      "lineSpread": 2,
+      "marketQuality": 43,
+      "signals": [
+        "wide_line_spread"
+      ],
+      "supportReasons": [],
+      "dangerReasons": [
+        "Wide line spread (2) across books"
+      ],
+      "dangerPressure": 0.08,
+      "supportScore": 0,
+      "resistanceScore": 5,
+      "lineMovementAgainstSide": false,
+      "lineMovedAgainstSide": false,
+      "lineMovementDirection": "flat",
+      "lineMovedForPickSide": false,
+      "lineMovedAgainstPickSide": false,
+      "currentLineValueImproved": false,
+      "marketDirectionAgainstPick": false,
+      "lineMovementInterpretation": "No meaningful line movement"
+    },
+    "availabilityGate": {
+      "applicable": true,
+      "status": "active",
+      "statusLevel": "ACTIVE",
+      "statusLabel": "Active",
+      "availabilityStatus": "ACTIVE",
+      "availabilityDataMissing": false,
+      "availabilityRisk": false,
+      "availabilitySourceStatus": "OK",
+      "availabilityMessage": "Active — not on injury report",
+      "feedFetchOk": true,
+      "feedHttpStatus": 200,
+      "feedRowCount": 0,
+      "feedErrorReason": null,
+      "dangerPressure": 0,
+      "dangerReasons": [],
+      "noPlay": false,
+      "noPlayReasons": [],
+      "blocksOfficial": false,
+      "officialCapTier": null,
+      "injuryRow": null,
+      "source": "wnba-availability-active-v1"
+    },
+    "defenseResult": {
+      "defenseScore": 50,
+      "source": "default",
+      "opponentPPG": null,
+      "pace": null,
+      "reasons": [
+        "No recent BDL games for opponent lasvegasaces"
+      ],
+      "probeDisabled": true,
+      "proxyUsed": true,
+      "defenseAudit": {
+        "resolvedDefenseScore": 50,
+        "defenseSource": "default",
+        "proxyUsed": true,
+        "opponentPPG": null,
+        "unavailableReason": "WNBA opponent proxy defaulted"
+      }
+    },
+    "defenseScore": 50,
+    "scoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 22.9 vs line 14.5 (+8.4)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 20 vs line 14.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 88,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12.6 FGA / 30 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 22.6",
+        "explanation": "Fair edge +8.1 vs book 14.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 29,
+        "pressure": null,
+        "label": "Market quality 29%",
+        "explanation": "2 books, spread 1"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 60,
+        "pressure": null,
+        "label": "Opportunity 60",
+        "explanation": "Strong minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 77,
+        "pressure": null,
+        "label": "Data quality 77%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 41,
+        "pressure": null,
+        "label": "Net edge 8",
+        "explanation": "Support 41 vs resistance 33"
+      }
+    ],
+    "openingLine": 14.5,
+    "currentLine": 14.5,
+    "lineDelta": null,
+    "consensusLine": 14.5,
+    "trackingType": "OFFICIAL",
+    "recordType": "OFFICIAL",
+    "engineVersion": null,
+    "generatedAfterV1": null,
+    "officialEligible": false,
+    "excludedFromOfficialRecord": false,
+    "testReason": "Market quality 29 below WNBA official floor (40)",
+    "testReasons": [
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility",
+      "Market quality 29 below WNBA official floor (40)",
+      "Official tier cap WATCHLIST from WNBA v1 gates"
+    ],
+    "v1OfficialGatePassed": false,
+    "readerOfficialDemoted": true,
+    "officialDemotionReason": "Market quality 29 below WNBA official floor (40)",
+    "officialEligibilityFailReason": "Market quality 29 below WNBA official floor (40)",
+    "readerOutcome": "OFFICIAL",
+    "readerDecision": "OFFICIAL",
+    "trackingReason": "Market quality 29 below WNBA official floor (40)",
+    "readerConfidence": 95,
+    "winProbability": 65,
+    "finalConfidence": 81,
+    "confidenceBlendVersion": "v1-70-30",
+    "confidenceBlendFormula": "0.7*readerConfidence + 0.3*winProbability",
+    "underGap": null,
+    "underGapFloorUsed": null,
+    "underGapFloorPassed": null,
+    "limitedDataUnderPenaltyApplied": false,
+    "lineToRecentAvgRatio": 0.72,
+    "lineToSeasonAvgRatio": 0.94,
+    "absoluteLineBucket": "mid",
+    "playerContextLineBucket": "below_recent",
+    "sideSelectionDecision": "TEST",
+    "sideSelectionAudit": null,
+    "contradictions": [],
+    "noBetReasons": [],
+    "sideTrustScore": null,
+    "sideTrustable": null,
+    "controlledBestSixRank": 3,
+    "controlledBestSixVersion": "controlled-best-six-over-balance-v2",
+    "topPickRank": null,
+    "sourcePool": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingAdmissionSource": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingCohortSource": null,
+    "qualityGateVersion": "wnba-tracking-gate-v2-live",
+    "trackingEligibility": "SHADOW_ONLY",
+    "qualityGateScore": 96,
+    "trackingBlockReasons": [],
+    "trackingWarnings": [
+      "FAIR_LINE_AGREEMENT",
+      "THIN_MARKET",
+      "PARTIAL_DANGER_GATE_STACK",
+      "DANGER_STACK_EXTRA_EDGE_REQUIRED"
+    ],
+    "wnbaGateVersion": "wnba-tracking-gate-v2-live",
+    "wnbaTrackingDecision": "SHADOW_ONLY",
+    "wnbaTrackingReason": "MULTIPLE_WARNINGS_SHADOW",
+    "wnbaSideGate": "WNBA_OVER_GATE",
+    "sideGatePassed": true,
+    "dangerGateStack": [
+      "unstableMinutes",
+      "missingOpponentDefense"
+    ],
+    "dangerGateCount": 2,
+    "limitedDataPenalty": 0,
+    "underFragilityPenalty": 0,
+    "overVolumePenalty": 0,
+    "roleStabilityScore": 45,
+    "volumeStabilityScore": 72,
+    "minutesStabilityScore": 82,
+    "marketConfidenceScore": 31,
+    "projectionReliabilityScore": 73,
+    "fairLineReliabilityScore": 84,
+    "finalTrackScore": 96,
+    "riskCeilingReason": "DECISION_INTELLIGENCE_MEDIUM",
+    "riskBeforeCeiling": "High Risk",
+    "riskAfterCeiling": "Medium Risk",
+    "controlledBestSixApplied": true,
+    "decisionIntelligence": {
+      "version": "courtedge-decision-intelligence-v1",
+      "evidenceScore": 72,
+      "riskDebtScore": 32,
+      "repairScore": 100,
+      "finalQualityScore": 79,
+      "trueRisk": "MEDIUM",
+      "riskBeforeDecision": "High Risk",
+      "riskAfterDecision": "Medium Risk",
+      "trackEligibility": "SHADOW_ONLY",
+      "topPickEligibility": false,
+      "bestSixEligibility": false,
+      "riskDebts": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "MISSING_OPPONENT_DEFENSE",
+          "severity": "LOW",
+          "reason": "missing opponent defense flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        },
+        {
+          "code": "WEAK_MARKET_QUALITY",
+          "severity": "LOW",
+          "reason": "Market quality score is weak.",
+          "side": "BOTH",
+          "repairable": true
+        }
+      ],
+      "riskRepairs": [
+        {
+          "code": "ELITE_PROJECTION_GAP",
+          "reason": "Projection gap 8.4 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "ELITE_NET_EDGE",
+          "reason": "Net edge 79.0 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "ELITE_FAIR_LINE_EDGE",
+          "reason": "Fair line supports the chosen side with meaningful edge.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "PROJECTION_FAIR_LINE_AGREE",
+          "reason": "Projection and fair line agree on side.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Recent FGA 12.6 supports volume.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Recent minutes 30.0 are strong.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "EXPANDING_ROLE_FOR_OVER",
+          "reason": "Role is expanding in support of Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_RECENT_SCORING",
+          "reason": "Recent scoring supports Over.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_OPPORTUNITY_SCORE",
+          "reason": "Opportunity score is strong.",
+          "strength": "MODERATE"
+        }
+      ],
+      "killReasons": [],
+      "demotionReasons": [
+        "MULTIPLE_WARNINGS_SHADOW"
+      ],
+      "upgradeReasons": [],
+      "simpleExplanation": "SHADOW_ONLY — Multiple warnings; learning only. Main concern: unstable minutes flagged by danger gate..",
+      "whatWouldMakeItBetter": [
+        "Need stable minutes trend over last 5 games.",
+        "Need missing opponent defense flagged by danger gate..",
+        "Reduce danger gate stack below 2 before tracking."
+      ],
+      "gateVersion": "wnba-tracking-gate-v2-live",
+      "gateReason": "MULTIPLE_WARNINGS_SHADOW",
+      "repairable": true
+    },
+    "decisionIntelligenceVersion": "courtedge-decision-intelligence-v1",
+    "trueRisk": "MEDIUM",
+    "bestSixEligibility": false,
+    "topPickEligibility": false,
+    "sideRescue": {
+      "version": "side-rescue-v1.2",
+      "league": "WNBA",
+      "triggered": true,
+      "originalSide": "OVER",
+      "finalSide": "OVER",
+      "action": "KEEP_ORIGINAL",
+      "originalSideScore": 100,
+      "oppositeSideScore": 0,
+      "originalRiskAdjustedScore": 78,
+      "oppositeRiskAdjustedScore": 8,
+      "rescueScore": 0,
+      "flipConfidence": 0,
+      "flipMarginRequired": 7,
+      "flipScoreFloor": 52,
+      "triggerReasons": [
+        "UNSTABLE_MINUTES",
+        "FLIP_FIRST_CHECK_OPPOSITE"
+      ],
+      "originalSideWeaknesses": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "reason": "unstable minutes flagged by danger gate.",
+          "penalty": 18
+        }
+      ],
+      "oppositeSideEvidence": [
+        {
+          "code": "EFFICIENCY_REGRESSION",
+          "reason": "Efficiency regression risk."
+        }
+      ],
+      "oppositeKillDebts": [
+        "ROLE_TREND_CONTRADICTS_SIDE"
+      ],
+      "keepReasons": [
+        "Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -8.4)."
+      ],
+      "flipReasons": [],
+      "boardOnlyReasons": [],
+      "noBetReasons": [],
+      "riskDebtThatTriggeredReview": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        }
+      ],
+      "underFragility": {
+        "fragile": false,
+        "count": 0,
+        "factors": []
+      },
+      "simpleExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -8.4)."
+    },
+    "sideRescueVersion": "side-rescue-v1.2",
+    "sideRescueAction": "KEEP_ORIGINAL",
+    "sideRescueExplanation": "Side Rescue: KEEP ORIGINAL — Original OVER stronger after adjustment (78 vs 8). Opposite lacks projection support (gap -8.4).",
+    "initialSide": "OVER",
+    "flippedFromSide": null,
+    "flippedFromSideLabel": null,
+    "sideRescueFlipped": false,
+    "decisionDataIntelligence": {
+      "version": "flip-first-decision-data-intelligence-v1",
+      "roleStability": {
+        "version": "role-stability-intelligence-v1",
+        "score": 71,
+        "status": "GOOD",
+        "sideImpact": "OVER",
+        "roleTrend": "up",
+        "minutesVolatility": "unstable",
+        "hotShootingRisk": false,
+        "reasons": [
+          "Minutes profile unstable.",
+          "Strong recent minutes.",
+          "Stable FGA floor.",
+          "Expanding role supports Over."
+        ]
+      },
+      "usageShare": {
+        "version": "usage-share-intelligence-v1",
+        "score": 90,
+        "status": "GOOD",
+        "usageTrend": "UP",
+        "fgaShareTrend": "UP",
+        "threePointShareTrend": "UNKNOWN",
+        "ftaShareTrend": "UP",
+        "sideImpact": "OVER",
+        "reasons": [
+          "Minutes trend up.",
+          "FGA share trend up.",
+          "FTA trend up — paint pressure.",
+          "Usage + FGA rising supports Over."
+        ]
+      },
+      "sameTeamCollision": {
+        "version": "same-team-usage-collision-v1",
+        "detected": true,
+        "collisionScore": 37,
+        "teammatesInConflict": [
+          "Bridget Carleton"
+        ],
+        "combinedLineDemand": 28,
+        "impliedTeamTotal": null,
+        "combinedRecentAvg": 36.2,
+        "sideImpact": "NEUTRAL",
+        "recommendation": "REVIEW_UNDER",
+        "reasons": [
+          "Multiple high-minute scorers share usage zones.",
+          "Collision warning — monitor combined scoring demand."
+        ]
+      },
+      "marketIntelligence": {
+        "version": "market-movement-intelligence-v1",
+        "openingLine": 14.5,
+        "currentLine": 14.5,
+        "movement": "flat",
+        "lineDelta": 0,
+        "edgeAtOpen": 8.4,
+        "edgeNow": 8.4,
+        "marketWarning": true,
+        "staleLineSuspected": false,
+        "bookConsensus": "THIN",
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Low book count — market quality thin."
+        ]
+      },
+      "availabilityImpact": {
+        "version": "availability-impact-v1",
+        "playerStatus": "ACTIVE",
+        "teammateBoosts": [],
+        "teammateReductions": [],
+        "sourceStatus": "OK",
+        "uncertaintyAdded": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Player active."
+        ]
+      },
+      "opponentHistoryComparison": {
+        "version": "opponent-history-comparison-v1",
+        "recentForm": {
+          "gamesUsed": 5,
+          "pointsAvg": 20,
+          "minutesAvg": 30,
+          "fgaAvg": 12.6,
+          "threePaAvg": 2.6,
+          "ftaAvg": 9.2,
+          "hitRateVsLine": 80,
+          "hitRateOver": 80,
+          "hitRateUnder": 20,
+          "volatility": "high",
+          "sideSupport": "OVER",
+          "reasons": [
+            "Recent 20 pts avg over 5 games.",
+            "Recent form leans Over vs line."
+          ]
+        },
+        "opponentHistory": {
+          "gamesFound": 1,
+          "gamesUsed": 1,
+          "sampleStatus": "SMALL_SAMPLE",
+          "pointsAvg": 18,
+          "minutesAvg": 28,
+          "fgaAvg": 13,
+          "threePaAvg": 2,
+          "ftaAvg": 2,
+          "hitRateVsLine": 100,
+          "hitRateOver": 100,
+          "hitRateUnder": 0,
+          "volatility": null,
+          "sideSupport": "OVER",
+          "noHistory": false,
+          "reasons": [
+            "1 opponent game(s) found.",
+            "Small opponent sample — context only.",
+            "Opponent history leans Over vs line."
+          ]
+        },
+        "comparison": {
+          "agreement": "AGREES_WITH_RECENT",
+          "confidenceImpact": "NONE",
+          "riskImpact": "NONE",
+          "flipSignal": "NONE",
+          "finalImpact": "NEUTRAL",
+          "sideImpact": "NEUTRAL",
+          "weight": 0.25,
+          "reasons": [
+            "Agreement present but opponent sample too small for strong boost."
+          ]
+        },
+        "sideImpact": "NEUTRAL",
+        "status": "NEUTRAL",
+        "flipSignal": "NONE",
+        "reasons": [
+          "Recent 20 pts avg over 5 games.",
+          "Recent form leans Over vs line.",
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Over vs line.",
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "projectionQuality": {
+        "score": 69,
+        "status": "MIXED",
+        "supportedByUsage": true,
+        "supportedByMinutes": true,
+        "supportedByMarket": false,
+        "hotGameRisk": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Strong projection gap.",
+          "Projection contradicted by market movement."
+        ]
+      },
+      "flipFirstDecision": {
+        "version": "flip-first-side-selection-v1",
+        "originalSide": "OVER",
+        "oppositeSideChecked": true,
+        "originalSideScore": 100,
+        "oppositeSideScore": 0,
+        "flipRecommended": false,
+        "finalSide": "OVER",
+        "flipReason": "",
+        "noFlipReason": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "action": "CHECK_UNDER",
+        "flipTriggered": true,
+        "flipTriggerReasons": [
+          "SAME_TEAM_COLLISION_WARNING",
+          "MARKET_WARNING",
+          "UNSTABLE_MINUTES"
+        ],
+        "oppositeSideEvidence": [
+          "Thin UNDER gap."
+        ],
+        "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+        "flipFirstAudit": {
+          "flipTriggered": true,
+          "flipTriggerReasons": [
+            "SAME_TEAM_COLLISION_WARNING",
+            "MARKET_WARNING",
+            "UNSTABLE_MINUTES"
+          ],
+          "oppositeSideEvidence": [
+            "Thin UNDER gap."
+          ],
+          "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_UNDER.",
+          "oppositeSideChecked": true,
+          "originalSideScore": 100,
+          "oppositeSideScore": 0,
+          "flipRecommended": false
+        },
+        "originalProblems": [
+          {
+            "code": "SAME_TEAM_COLLISION_WARNING",
+            "reason": "Multiple high-minute scorers share usage zones."
+          },
+          {
+            "code": "MARKET_WARNING",
+            "reason": "Low book count — market quality thin."
+          },
+          {
+            "code": "UNSTABLE_MINUTES",
+            "reason": "Unstable or volatile minutes profile."
+          }
+        ],
+        "reasons": [
+          "Original problems: SAME_TEAM_COLLISION_WARNING, MARKET_WARNING, UNSTABLE_MINUTES.",
+          "Opposite blocked: ROLE_CONTRADICTS_UNDER."
+        ]
+      },
+      "finalInfluence": {
+        "confidenceAdjustment": -4,
+        "riskAdjustment": "MONITOR",
+        "decisionAdjustment": "KEEP",
+        "bestSixImpact": "NEUTRAL",
+        "resultsAdmissionImpact": "NEUTRAL",
+        "reasons": [
+          "Some data weakness — monitor risk."
+        ]
+      }
+    },
+    "decisionDataIntelligenceVersion": "flip-first-decision-data-intelligence-v1",
+    "flipFirstLabels": {
+      "usage": "GOOD",
+      "collision": "WARNING",
+      "market": "AGAINST",
+      "availability": "CONFIRMED",
+      "projectionQuality": "MIXED",
+      "opponentHistory": "Small sample, 1 game used",
+      "flipCheck": "CHECK_UNDER"
+    },
+    "opponentHistoryComparison": {
+      "version": "opponent-history-comparison-v1",
+      "recentForm": {
+        "gamesUsed": 5,
+        "pointsAvg": 20,
+        "minutesAvg": 30,
+        "fgaAvg": 12.6,
+        "threePaAvg": 2.6,
+        "ftaAvg": 9.2,
+        "hitRateVsLine": 80,
+        "hitRateOver": 80,
+        "hitRateUnder": 20,
+        "volatility": "high",
+        "sideSupport": "OVER",
+        "reasons": [
+          "Recent 20 pts avg over 5 games.",
+          "Recent form leans Over vs line."
+        ]
+      },
+      "opponentHistory": {
+        "gamesFound": 1,
+        "gamesUsed": 1,
+        "sampleStatus": "SMALL_SAMPLE",
+        "pointsAvg": 18,
+        "minutesAvg": 28,
+        "fgaAvg": 13,
+        "threePaAvg": 2,
+        "ftaAvg": 2,
+        "hitRateVsLine": 100,
+        "hitRateOver": 100,
+        "hitRateUnder": 0,
+        "volatility": null,
+        "sideSupport": "OVER",
+        "noHistory": false,
+        "reasons": [
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Over vs line."
+        ]
+      },
+      "comparison": {
+        "agreement": "AGREES_WITH_RECENT",
+        "confidenceImpact": "NONE",
+        "riskImpact": "NONE",
+        "flipSignal": "NONE",
+        "finalImpact": "NEUTRAL",
+        "sideImpact": "NEUTRAL",
+        "weight": 0.25,
+        "reasons": [
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "sideImpact": "NEUTRAL",
+      "status": "NEUTRAL",
+      "flipSignal": "NONE",
+      "reasons": [
+        "Recent 20 pts avg over 5 games.",
+        "Recent form leans Over vs line.",
+        "1 opponent game(s) found.",
+        "Small opponent sample — context only.",
+        "Opponent history leans Over vs line.",
+        "Agreement present but opponent sample too small for strong boost."
+      ]
+    },
+    "opponentHistoryComparisonVersion": "opponent-history-comparison-v1",
+    "opponentHistoryLabel": "Small sample, 1 game used",
+    "flipFirstAction": "CHECK_UNDER",
+    "flipFirstFlipped": false,
+    "signalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "SLIGHT_WEAK_RESISTANCE",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "weak_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "trackedId": "20260708-wnba-carlaleite-portlandfire-lasvegasaces-points-over",
+    "trackedKey": "20260708-wnba-carlaleite-portlandfire-lasvegasaces-points-over",
+    "trackingMode": "ALL_GENERATED_PROPS",
+    "officialLine": 14.5,
+    "pickLine": 14.5,
+    "lockedSide": "Over",
+    "latestLine": 14.5,
+    "lineHistory": [],
+    "lineMovement": null,
+    "generatedAt": "2026-07-09T02:05:27.392Z",
+    "lastSeenAt": "2026-07-10T01:04:00.423Z",
+    "timesSeen": 20,
+    "status": "pending",
+    "actualStat": null,
+    "result": null,
+    "resultMargin": null,
+    "gradedAt": null,
+    "pendingReason": "Game not final yet.",
+    "currentEngineResult": null,
+    "currentEngineWon": null,
+    "currentEngineMargin": null,
+    "fairLineShadowResult": null,
+    "fairLineShadowWon": null,
+    "fairLineShadowMargin": null,
+    "sideComparison": null,
+    "slateLocked": true,
+    "lockedScoreLedger": [
+      {
+        "category": "projection",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Projection clears line",
+        "explanation": "Projection 22.9 vs line 14.5 (+8.4)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "OVER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring above line",
+        "explanation": "Last-5 avg 20 vs line 14.5"
+      },
+      {
+        "category": "volume",
+        "side": "OVER",
+        "score": 88,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12.6 FGA / 30 MIN (EXPANDING role)"
+      },
+      {
+        "category": "fair line",
+        "side": "OVER",
+        "score": 15,
+        "pressure": null,
+        "label": "Fair line 22.6",
+        "explanation": "Fair edge +8.1 vs book 14.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 29,
+        "pressure": null,
+        "label": "Market quality 29%",
+        "explanation": "2 books, spread 1"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 60,
+        "pressure": null,
+        "label": "Opportunity 60",
+        "explanation": "Strong minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 77,
+        "pressure": null,
+        "label": "Data quality 77%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "OVER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "OVER",
+        "score": 41,
+        "pressure": null,
+        "label": "Net edge 8",
+        "explanation": "Support 41 vs resistance 33"
+      }
+    ],
+    "lockedSignalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "SLIGHT_WEAK_RESISTANCE",
+      "usageMinutesSignal": "minutes_up",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "weak_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "4+",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "OVER",
+      "auditSideMatch": false
+    },
+    "lockedPlayerState": {
+      "player": "Carla Leite",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "lasvegasaces",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "bookLine": 14.5,
+      "bookCount": 2,
+      "marketQuality": 29,
+      "lineSpread": 1,
+      "overOdds": -102,
+      "underOdds": -128,
+      "seasonPoints": 15.368421052631579,
+      "recentPoints": 20,
+      "seasonMinutes": 25.5,
+      "recentMinutes": 30,
+      "seasonFGA": 10.5,
+      "recentFGA": 12.6,
+      "seasonFTA": 6.1,
+      "recentFTA": 9.2,
+      "recentEfficiency": 1.201,
+      "seasonEfficiency": 1.166,
+      "last5HitRate": 80,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 18,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:22.925Z"
+    },
+    "lockedVolumeProfile": {
+      "recentMinutes": 30,
+      "seasonMinutes": 25.5,
+      "recentFGA": 12.6,
+      "seasonFGA": 10.5,
+      "recentFTA": 9.2,
+      "seasonFTA": 6.1,
+      "recent3PA": 2.6,
+      "shotVolume": 16.6,
+      "roleTrend": "EXPANDING",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": 4.5,
+      "fgaDelta": 2.1,
+      "ftaDelta": 3.1,
+      "roleChangeScore": 88,
+      "roleChangeCertainty": 75
+    },
+    "resolveDebug": {
+      "player": "Carla Leite",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T02:00:00Z",
+      "resolvedSlateDate": "2026-07-09",
+      "slateDate": "2026-07-08",
+      "queryDates": [
+        "2026-07-09",
+        "2026-07-10"
+      ],
+      "batchQueryDates": [
+        "2026-07-09",
+        "2026-07-10"
+      ],
+      "playerFallbackAttempted": false,
+      "wnbaOfficialFallbackAttempted": false,
+      "espnFallbackAttempted": false,
+      "batchRowCount": 24,
+      "fallbackRowCount": 0,
+      "officialRowCount": 0,
+      "espnRowCount": 0,
+      "matchedPlayerRow": false,
+      "matchedSource": "",
+      "matchedDate": "",
+      "matchVerified": false,
+      "gameStarted": true,
+      "gameLikelyFinished": true,
+      "blockedByFutureGame": false,
+      "blockedByCommenceTime": false,
+      "blockedByGameNotStarted": false,
+      "gameStatus": "in",
+      "gameFinal": false,
+      "blockedByGameNotFinal": true,
+      "blockedByLiveGame": true,
+      "gameFinalVerifiedSource": "",
+      "blocked": true,
+      "pendingReason": "Game final, but player stat row unavailable from source",
+      "at": "2026-07-10T10:28:36.493Z"
+    },
+    "gradingNotes": "Game not final yet.",
+    "matchVerified": false,
+    "resultConfidence": null,
+    "matchedDate": "",
+    "matchedGameId": "",
+    "matchedSource": "",
+    "trackedLifecycleState": "ACTIVE_RESULTS"
+  },
+  {
+    "source": "AUTO_TRACKED",
+    "league": "WNBA",
+    "gameId": "bbda183d9dc2a8ed43f79f82ef0ac320",
+    "gameLabel": "SEATTLESTORM vs ATLANTADREAM",
+    "gameDate": "2026-07-09",
+    "slateDate": "2026-07-08",
+    "commenceTime": "2026-07-10T00:00:00Z",
+    "startTimeDisplay": "",
+    "dayBucket": "TOMORROW",
+    "player": "Allisha Gray",
+    "playerId": "",
+    "team": "atlantadream",
+    "opponent": "seattlestorm",
+    "stat": "Points",
+    "line": 18.5,
+    "currentEngineSide": "Under",
+    "fairLineSide": "UNDER",
+    "auditSideMatch": false,
+    "confidence": 84,
+    "riskLabel": "Medium Risk",
+    "tier": "WATCHLIST",
+    "signalStrength": "STRONG",
+    "supportScore": 25,
+    "resistanceScore": -7,
+    "netEdge": 32,
+    "supportDangerGap": 32,
+    "projection": 16.8,
+    "last5Average": 15.2,
+    "seasonAverage": 18.5,
+    "matchupAverage": 15,
+    "dataCoverage": 100,
+    "dataQuality": 86,
+    "evidenceReliability": 1,
+    "dangerPressure": 0,
+    "bookCount": 4,
+    "marketQuality": 59,
+    "lineSpread": 1,
+    "overOdds": -105,
+    "underOdds": -125,
+    "playerState": {
+      "player": "Allisha Gray",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "atlantadream",
+      "opponent": "seattlestorm",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 18.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -109,
+      "underOdds": -120,
+      "seasonPoints": 18.476190476190474,
+      "recentPoints": 15.2,
+      "seasonMinutes": 33.2,
+      "recentMinutes": 33,
+      "seasonFGA": 14.2,
+      "recentFGA": 14.2,
+      "seasonFTA": 6.3,
+      "recentFTA": 7.2,
+      "recentEfficiency": 0.875,
+      "seasonEfficiency": 1.089,
+      "last5HitRate": 20,
+      "volatility": "MEDIUM",
+      "sportsProjection": 0,
+      "matchupAverage": 15,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:18.701Z"
+    },
+    "roleChange": {
+      "expectedMinutesDelta": -0.2,
+      "expectedFGADelta": 0,
+      "expectedFTADelta": 0.9,
+      "usageDelta": 0.4,
+      "roleChangeScore": 54,
+      "roleChangeCertainty": 75,
+      "roleChangeReasons": [
+        "Role profile stable vs season baseline"
+      ],
+      "roleRiskReasons": [],
+      "recentMinutesTrend": "FLAT",
+      "recentFGATrend": "FLAT",
+      "recentFTATrend": "FLAT",
+      "teammateOutBoost": null
+    },
+    "dataMode": "WNBA_FULL_DATA",
+    "fairLine": 16.9,
+    "fairLineEdge": -1.6,
+    "fairLineQuality": 95,
+    "fairLineConfidence": 90,
+    "expectedMinutes": 32.9,
+    "expectedFGA": 14.2,
+    "expectedFTA": 7.7,
+    "pointsPerFGA": 0.773,
+    "ftPercent": 0.78,
+    "supportReasons": [
+      "Last-5 avg 15.2 below line",
+      "Scoring trend down",
+      "Fair line 16.9 agrees with UNDER",
+      "Blowout risk supports under"
+    ],
+    "dangerReasons": [],
+    "warningReasons": [],
+    "confidenceAdjustmentReasons": [],
+    "tierReasons": [
+      "WNBA v2 reader decision: OFFICIAL",
+      "WNBA gap floor: Under gap 1.7 below 3 floor"
+    ],
+    "fairLineReasons": [
+      "SportsData projection anchor at 16.8",
+      "Volume-first blend: 17 base + 16.8 anchor",
+      "Fair line 16.9 is 1.6 below book 18.5"
+    ],
+    "fairLineRiskReasons": [
+      "Recent scoring below season (15.2 vs 18.476190476190474)"
+    ],
+    "rank": 0,
+    "pickScore": 53,
+    "roleChangeScore": 54,
+    "confidenceBucket": "80+",
+    "marketQualityBucket": "65-79",
+    "bookCountBucket": "3-4",
+    "fairLineEdgeBucket": "1.5-2.4",
+    "supportDangerGapBucket": "20+",
+    "roleChangeScoreBucket": "50-64",
+    "volumeProfile": {
+      "recentMinutes": 33,
+      "seasonMinutes": 33.2,
+      "recentFGA": 14.2,
+      "seasonFGA": 14.2,
+      "recentFTA": 7.2,
+      "seasonFTA": 6.3,
+      "recent3PA": 5,
+      "shotVolume": 17.4,
+      "roleTrend": "STABLE",
+      "volumeStability": "VOLATILE",
+      "volatility": "MEDIUM",
+      "efficiencyWarning": "Recent efficiency regression risk",
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": -0.2,
+      "fgaDelta": 0,
+      "ftaDelta": 0.9,
+      "roleChangeScore": 54,
+      "roleChangeCertainty": 75
+    },
+    "volumeDangerGates": {
+      "gates": [
+        "volatile_minutes",
+        "efficiency_only_scoring"
+      ],
+      "dangerReasons": [
+        "Some minutes volatility",
+        "Recent efficiency regression risk"
+      ],
+      "supportReasons": [],
+      "dangerPressure": 0.16,
+      "resistanceScore": 7,
+      "noPlay": false,
+      "noPlayReasons": []
+    },
+    "marketIntelligence": {
+      "openingLine": 18.5,
+      "currentLine": 18.5,
+      "consensusLine": 18.5,
+      "lineDelta": 0,
+      "consensusDelta": 0,
+      "bookCount": 4,
+      "consensusBookCount": 3,
+      "lineSpread": 1,
+      "marketQuality": 59,
+      "signals": [],
+      "supportReasons": [],
+      "dangerReasons": [],
+      "dangerPressure": 0,
+      "supportScore": 0,
+      "resistanceScore": 0,
+      "lineMovementAgainstSide": false,
+      "lineMovedAgainstSide": false,
+      "lineMovementDirection": "flat",
+      "lineMovedForPickSide": false,
+      "lineMovedAgainstPickSide": false,
+      "currentLineValueImproved": false,
+      "marketDirectionAgainstPick": false,
+      "lineMovementInterpretation": "No meaningful line movement"
+    },
+    "availabilityGate": {
+      "applicable": true,
+      "status": "active",
+      "statusLevel": "ACTIVE",
+      "statusLabel": "Active",
+      "availabilityStatus": "ACTIVE",
+      "availabilityDataMissing": false,
+      "availabilityRisk": false,
+      "availabilitySourceStatus": "OK",
+      "availabilityMessage": "Active — not on injury report",
+      "feedFetchOk": true,
+      "feedHttpStatus": 200,
+      "feedRowCount": 0,
+      "feedErrorReason": null,
+      "dangerPressure": 0,
+      "dangerReasons": [],
+      "noPlay": false,
+      "noPlayReasons": [],
+      "blocksOfficial": false,
+      "officialCapTier": null,
+      "injuryRow": null,
+      "source": "wnba-availability-active-v1"
+    },
+    "defenseResult": {
+      "defenseScore": 50,
+      "source": "default",
+      "opponentPPG": null,
+      "pace": null,
+      "reasons": [
+        "No recent BDL games for opponent seattlestorm"
+      ],
+      "probeDisabled": true,
+      "proxyUsed": true,
+      "defenseAudit": {
+        "resolvedDefenseScore": 50,
+        "defenseSource": "default",
+        "proxyUsed": true,
+        "opponentPPG": null,
+        "unavailableReason": "WNBA opponent proxy defaulted"
+      }
+    },
+    "defenseScore": 50,
+    "scoreLedger": [
+      {
+        "category": "projection",
+        "side": "NEUTRAL",
+        "score": 0,
+        "pressure": null,
+        "label": "Projection near line",
+        "explanation": "Projection 16.8 vs line 18.5 (-1.7)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring below line",
+        "explanation": "Last-5 avg 15.2 vs line 18.5"
+      },
+      {
+        "category": "volume",
+        "side": "NEUTRAL",
+        "score": 54,
+        "pressure": 0.16,
+        "label": "Volume volatile",
+        "explanation": "14.2 FGA / 33 MIN (STABLE role)"
+      },
+      {
+        "category": "fair line",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Fair line 16.9",
+        "explanation": "Fair edge -1.6 vs book 18.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "OVER",
+        "score": 69,
+        "pressure": null,
+        "label": "Opportunity 69",
+        "explanation": "Elite minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.16,
+        "label": "volatile minutes",
+        "explanation": "Volume danger gate triggered"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.16,
+        "label": "efficiency only scoring",
+        "explanation": "Recent efficiency regression risk"
+      },
+      {
+        "category": "risk comparison",
+        "side": "UNDER",
+        "score": 21,
+        "pressure": 0.15,
+        "label": "Net edge -1.9",
+        "explanation": "Support 21 vs resistance 22.9"
+      }
+    ],
+    "openingLine": 18.5,
+    "currentLine": 18.5,
+    "lineDelta": null,
+    "consensusLine": 18.5,
+    "trackingType": "OFFICIAL",
+    "recordType": "OFFICIAL",
+    "engineVersion": null,
+    "generatedAfterV1": null,
+    "officialEligible": false,
+    "excludedFromOfficialRecord": false,
+    "testReason": "Under gap 1.7 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "testReasons": [
+      "Under gap 1.7 below 3 floor",
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility",
+      "Official tier cap WATCHLIST from WNBA v1 gates"
+    ],
+    "v1OfficialGatePassed": false,
+    "readerOfficialDemoted": true,
+    "officialDemotionReason": "Under gap 1.7 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "officialEligibilityFailReason": "Under gap 1.7 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerOutcome": "OFFICIAL",
+    "readerDecision": "OFFICIAL",
+    "trackingReason": "Under gap 1.7 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerConfidence": 95,
+    "winProbability": 59,
+    "finalConfidence": 84,
+    "confidenceBlendVersion": "v1-70-30",
+    "confidenceBlendFormula": "0.7*readerConfidence + 0.3*winProbability",
+    "underGap": 1.6999999999999993,
+    "underGapFloorUsed": null,
+    "underGapFloorPassed": null,
+    "limitedDataUnderPenaltyApplied": false,
+    "lineToRecentAvgRatio": 1.22,
+    "lineToSeasonAvgRatio": 1,
+    "absoluteLineBucket": "high",
+    "playerContextLineBucket": "above_recent",
+    "sideSelectionDecision": "TEST",
+    "sideSelectionAudit": null,
+    "contradictions": [],
+    "noBetReasons": [],
+    "sideTrustScore": null,
+    "sideTrustable": null,
+    "controlledBestSixRank": 4,
+    "controlledBestSixVersion": "controlled-best-six-over-balance-v2",
+    "topPickRank": null,
+    "sourcePool": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingAdmissionSource": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingCohortSource": null,
+    "qualityGateVersion": "wnba-tracking-gate-v2-live",
+    "trackingEligibility": "BOARD_ONLY",
+    "qualityGateScore": 77,
+    "trackingBlockReasons": [],
+    "trackingWarnings": [
+      "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "FAIR_LINE_AGREEMENT",
+      "PARTIAL_DANGER_GATE_STACK"
+    ],
+    "wnbaGateVersion": "wnba-tracking-gate-v2-live",
+    "wnbaTrackingDecision": "BOARD_ONLY",
+    "wnbaTrackingReason": "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+    "wnbaSideGate": "WNBA_UNDER_GATE",
+    "sideGatePassed": false,
+    "dangerGateStack": [
+      "volatileMinutes",
+      "missingOpponentDefense",
+      "thinGap"
+    ],
+    "dangerGateCount": 3,
+    "limitedDataPenalty": 0,
+    "underFragilityPenalty": 0,
+    "overVolumePenalty": 0,
+    "roleStabilityScore": 75,
+    "volumeStabilityScore": 72,
+    "minutesStabilityScore": 82,
+    "marketConfidenceScore": 57,
+    "projectionReliabilityScore": 38,
+    "fairLineReliabilityScore": 65,
+    "finalTrackScore": 77,
+    "riskCeilingReason": "DECISION_INTELLIGENCE_MEDIUM",
+    "riskBeforeCeiling": "Medium Risk",
+    "riskAfterCeiling": "Medium Risk",
+    "controlledBestSixApplied": true,
+    "decisionIntelligence": {
+      "version": "courtedge-decision-intelligence-v1",
+      "evidenceScore": 56,
+      "riskDebtScore": 39,
+      "repairScore": 84,
+      "finalQualityScore": 59,
+      "trueRisk": "MEDIUM",
+      "riskBeforeDecision": "Medium Risk",
+      "riskAfterDecision": "Medium Risk",
+      "trackEligibility": "BOARD_ONLY",
+      "topPickEligibility": false,
+      "bestSixEligibility": false,
+      "riskDebts": [
+        {
+          "code": "VOLATILE_MINUTES",
+          "severity": "MEDIUM",
+          "reason": "volatile minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "MISSING_OPPONENT_DEFENSE",
+          "severity": "LOW",
+          "reason": "missing opponent defense flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        },
+        {
+          "code": "THIN_EDGE",
+          "severity": "HIGH",
+          "reason": "thin edge flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        }
+      ],
+      "riskRepairs": [
+        {
+          "code": "ELITE_NET_EDGE",
+          "reason": "Net edge 32.0 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "PROJECTION_FAIR_LINE_AGREE",
+          "reason": "Projection and fair line agree on side.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Recent FGA 14.2 supports volume.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Recent minutes 33.0 are strong.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STABLE_ROLE",
+          "reason": "Role trend is stable.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "MULTI_BOOK_COVERAGE",
+          "reason": "3 books cover this market.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_RECENT_SCORING",
+          "reason": "Recent scoring supports Under.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_OPPORTUNITY_SCORE",
+          "reason": "Opportunity score is strong.",
+          "strength": "MODERATE"
+        }
+      ],
+      "killReasons": [],
+      "demotionReasons": [
+        "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"
+      ],
+      "upgradeReasons": [],
+      "simpleExplanation": "BOARD_ONLY — Under has thin edge flagged by danger gate.. UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "whatWouldMakeItBetter": [
+        "Need stable minutes trend over last 5 games.",
+        "Need missing opponent defense flagged by danger gate..",
+        "Need a larger projection gap and fair-line agreement.",
+        "Reduce danger gate stack below 2 before tracking."
+      ],
+      "gateVersion": "wnba-tracking-gate-v2-live",
+      "gateReason": "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "repairable": true
+    },
+    "decisionIntelligenceVersion": "courtedge-decision-intelligence-v1",
+    "trueRisk": "MEDIUM",
+    "bestSixEligibility": false,
+    "topPickEligibility": false,
+    "sideRescue": {
+      "version": "side-rescue-v1.2",
+      "league": "WNBA",
+      "triggered": true,
+      "originalSide": "UNDER",
+      "finalSide": "UNDER",
+      "action": "KEEP_ORIGINAL",
+      "originalSideScore": 100,
+      "oppositeSideScore": 16,
+      "originalRiskAdjustedScore": 56,
+      "oppositeRiskAdjustedScore": 36,
+      "rescueScore": 0,
+      "flipConfidence": 0,
+      "flipMarginRequired": 7,
+      "flipScoreFloor": 52,
+      "triggerReasons": [
+        "VOLATILE_MINUTES",
+        "THIN_EDGE",
+        "UNDER_FRAGILITY_STACK",
+        "FLIP_FIRST_CHECK_OPPOSITE"
+      ],
+      "originalSideWeaknesses": [
+        {
+          "code": "VOLATILE_MINUTES",
+          "reason": "volatile minutes flagged by danger gate.",
+          "penalty": 14
+        },
+        {
+          "code": "THIN_EDGE",
+          "reason": "thin edge flagged by danger gate.",
+          "penalty": 12
+        },
+        {
+          "code": "UNDER_FRAGILITY_STACK",
+          "reason": "Under fragility (4 factors).",
+          "penalty": 14
+        }
+      ],
+      "oppositeSideEvidence": [
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Strong minutes for Over."
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Strong FGA for Over."
+        },
+        {
+          "code": "SEASON_NEAR_LINE",
+          "reason": "Season near line."
+        },
+        {
+          "code": "OPPORTUNITY",
+          "reason": "Opportunity supports Over."
+        }
+      ],
+      "oppositeKillDebts": [],
+      "keepReasons": [
+        "Original UNDER stronger after adjustment (56 vs 36). Opposite signals: STRONG_MINUTES, STRONG_FGA."
+      ],
+      "flipReasons": [],
+      "boardOnlyReasons": [],
+      "noBetReasons": [],
+      "riskDebtThatTriggeredReview": [
+        {
+          "code": "VOLATILE_MINUTES",
+          "severity": "MEDIUM",
+          "reason": "volatile minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "THIN_EDGE",
+          "severity": "HIGH",
+          "reason": "thin edge flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        }
+      ],
+      "underFragility": {
+        "fragile": true,
+        "count": 4,
+        "factors": [
+          "ROLE_NOT_DOWN",
+          "NEUTRAL_DEFENSE",
+          "THIN_PROJECTION_GAP",
+          "DANGER_STACK"
+        ]
+      },
+      "simpleExplanation": "Side Rescue: KEEP ORIGINAL — Original UNDER stronger after adjustment (56 vs 36). Opposite signals: STRONG_MINUTES, STRONG_FGA."
+    },
+    "sideRescueVersion": "side-rescue-v1.2",
+    "sideRescueAction": "KEEP_ORIGINAL",
+    "sideRescueExplanation": "Side Rescue: KEEP ORIGINAL — Original UNDER stronger after adjustment (56 vs 36). Opposite signals: STRONG_MINUTES, STRONG_FGA.",
+    "initialSide": "UNDER",
+    "flippedFromSide": null,
+    "flippedFromSideLabel": null,
+    "sideRescueFlipped": false,
+    "decisionDataIntelligence": {
+      "version": "flip-first-decision-data-intelligence-v1",
+      "roleStability": {
+        "version": "role-stability-intelligence-v1",
+        "score": 57,
+        "status": "PARTIAL",
+        "sideImpact": "OVER",
+        "roleTrend": "stable",
+        "minutesVolatility": "volatile",
+        "hotShootingRisk": true,
+        "reasons": [
+          "Minutes profile volatile.",
+          "Strong recent minutes.",
+          "Stable FGA floor.",
+          "Recent scoring driven by efficiency spike, not stable volume.",
+          "Volatile minutes create Over spike path."
+        ]
+      },
+      "usageShare": {
+        "version": "usage-share-intelligence-v1",
+        "score": 48,
+        "status": "PARTIAL",
+        "usageTrend": "UNKNOWN",
+        "fgaShareTrend": "UNKNOWN",
+        "threePointShareTrend": "UNKNOWN",
+        "ftaShareTrend": "UNKNOWN",
+        "sideImpact": "OVER",
+        "reasons": [
+          "High usage path weakens Under."
+        ]
+      },
+      "sameTeamCollision": {
+        "version": "same-team-usage-collision-v1",
+        "detected": false,
+        "collisionScore": 0,
+        "teammatesInConflict": [],
+        "combinedLineDemand": 18.5,
+        "impliedTeamTotal": null,
+        "combinedRecentAvg": 15.2,
+        "sideImpact": "NEUTRAL",
+        "recommendation": "KEEP_UNDER",
+        "reasons": [
+          "Not a same-team Over collision case."
+        ]
+      },
+      "marketIntelligence": {
+        "version": "market-movement-intelligence-v1",
+        "openingLine": 18.5,
+        "currentLine": 18.5,
+        "movement": "flat",
+        "lineDelta": 0,
+        "edgeAtOpen": 1.7,
+        "edgeNow": 1.7,
+        "marketWarning": false,
+        "staleLineSuspected": false,
+        "bookConsensus": "MODERATE",
+        "sideImpact": "NEUTRAL",
+        "reasons": []
+      },
+      "availabilityImpact": {
+        "version": "availability-impact-v1",
+        "playerStatus": "ACTIVE",
+        "teammateBoosts": [],
+        "teammateReductions": [],
+        "sourceStatus": "OK",
+        "uncertaintyAdded": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Player active."
+        ]
+      },
+      "opponentHistoryComparison": {
+        "version": "opponent-history-comparison-v1",
+        "recentForm": {
+          "gamesUsed": 5,
+          "pointsAvg": 15.2,
+          "minutesAvg": 33,
+          "fgaAvg": 14.2,
+          "threePaAvg": 5,
+          "ftaAvg": 7.2,
+          "hitRateVsLine": 80,
+          "hitRateOver": 20,
+          "hitRateUnder": 80,
+          "volatility": "moderate",
+          "sideSupport": "UNDER",
+          "reasons": [
+            "Recent 15.2 pts avg over 5 games.",
+            "Recent form leans Under vs line."
+          ]
+        },
+        "opponentHistory": {
+          "gamesFound": 1,
+          "gamesUsed": 1,
+          "sampleStatus": "SMALL_SAMPLE",
+          "pointsAvg": 15,
+          "minutesAvg": 35,
+          "fgaAvg": 16,
+          "threePaAvg": 7,
+          "ftaAvg": 4,
+          "hitRateVsLine": 100,
+          "hitRateOver": 0,
+          "hitRateUnder": 100,
+          "volatility": null,
+          "sideSupport": "UNDER",
+          "noHistory": false,
+          "reasons": [
+            "1 opponent game(s) found.",
+            "Small opponent sample — context only.",
+            "Opponent history leans Under vs line."
+          ]
+        },
+        "comparison": {
+          "agreement": "AGREES_WITH_RECENT",
+          "confidenceImpact": "NONE",
+          "riskImpact": "NONE",
+          "flipSignal": "NONE",
+          "finalImpact": "NEUTRAL",
+          "sideImpact": "NEUTRAL",
+          "weight": 0.25,
+          "reasons": [
+            "Agreement present but opponent sample too small for strong boost."
+          ]
+        },
+        "sideImpact": "NEUTRAL",
+        "status": "NEUTRAL",
+        "flipSignal": "NONE",
+        "reasons": [
+          "Recent 15.2 pts avg over 5 games.",
+          "Recent form leans Under vs line.",
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Under vs line.",
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "projectionQuality": {
+        "score": 35,
+        "status": "WEAK",
+        "supportedByUsage": false,
+        "supportedByMinutes": false,
+        "supportedByMarket": true,
+        "hotGameRisk": true,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Projection not supported by usage share.",
+          "Projection not supported by stable minutes.",
+          "Hot-game outlier may inflate line."
+        ]
+      },
+      "flipFirstDecision": {
+        "version": "flip-first-side-selection-v1",
+        "originalSide": "UNDER",
+        "oppositeSideChecked": true,
+        "originalSideScore": 79,
+        "oppositeSideScore": 3,
+        "flipRecommended": false,
+        "finalSide": "UNDER",
+        "flipReason": "",
+        "noFlipReason": "Opposite score 3 below floor 58.",
+        "action": "CHECK_OVER",
+        "flipTriggered": true,
+        "flipTriggerReasons": [
+          "SIDE_IMPACT",
+          "SIDE_IMPACT",
+          "MODULE_BAD",
+          "THIN_GAP"
+        ],
+        "oppositeSideEvidence": [
+          "Thin OVER gap."
+        ],
+        "whyRetainedFlippedOrPass": "Opposite score 3 below floor 58.",
+        "flipFirstAudit": {
+          "flipTriggered": true,
+          "flipTriggerReasons": [
+            "SIDE_IMPACT",
+            "SIDE_IMPACT",
+            "MODULE_BAD",
+            "THIN_GAP"
+          ],
+          "oppositeSideEvidence": [
+            "Thin OVER gap."
+          ],
+          "whyRetainedFlippedOrPass": "Opposite score 3 below floor 58.",
+          "oppositeSideChecked": true,
+          "originalSideScore": 79,
+          "oppositeSideScore": 3,
+          "flipRecommended": false
+        },
+        "originalProblems": [
+          {
+            "code": "SIDE_IMPACT",
+            "reason": "Minutes profile volatile."
+          },
+          {
+            "code": "SIDE_IMPACT",
+            "reason": "High usage path weakens Under."
+          },
+          {
+            "code": "MODULE_BAD",
+            "reason": "Projection not supported by usage share."
+          },
+          {
+            "code": "THIN_GAP",
+            "reason": "Projection gap 1.7 below 3.5 floor — opposite-side review."
+          }
+        ],
+        "reasons": [
+          "Original problems: SIDE_IMPACT, SIDE_IMPACT, MODULE_BAD, THIN_GAP.",
+          "Opposite score 3 below floor 58."
+        ]
+      },
+      "finalInfluence": {
+        "confidenceAdjustment": -4,
+        "riskAdjustment": "MONITOR",
+        "decisionAdjustment": "KEEP",
+        "bestSixImpact": "NEUTRAL",
+        "resultsAdmissionImpact": "NEUTRAL",
+        "reasons": [
+          "Some data weakness — monitor risk."
+        ]
+      }
+    },
+    "decisionDataIntelligenceVersion": "flip-first-decision-data-intelligence-v1",
+    "flipFirstLabels": {
+      "usage": "PARTIAL",
+      "collision": "CLEAR",
+      "market": "NEUTRAL",
+      "availability": "CONFIRMED",
+      "projectionQuality": "WEAK",
+      "opponentHistory": "Small sample, 1 game used",
+      "flipCheck": "CHECK_OVER"
+    },
+    "opponentHistoryComparison": {
+      "version": "opponent-history-comparison-v1",
+      "recentForm": {
+        "gamesUsed": 5,
+        "pointsAvg": 15.2,
+        "minutesAvg": 33,
+        "fgaAvg": 14.2,
+        "threePaAvg": 5,
+        "ftaAvg": 7.2,
+        "hitRateVsLine": 80,
+        "hitRateOver": 20,
+        "hitRateUnder": 80,
+        "volatility": "moderate",
+        "sideSupport": "UNDER",
+        "reasons": [
+          "Recent 15.2 pts avg over 5 games.",
+          "Recent form leans Under vs line."
+        ]
+      },
+      "opponentHistory": {
+        "gamesFound": 1,
+        "gamesUsed": 1,
+        "sampleStatus": "SMALL_SAMPLE",
+        "pointsAvg": 15,
+        "minutesAvg": 35,
+        "fgaAvg": 16,
+        "threePaAvg": 7,
+        "ftaAvg": 4,
+        "hitRateVsLine": 100,
+        "hitRateOver": 0,
+        "hitRateUnder": 100,
+        "volatility": null,
+        "sideSupport": "UNDER",
+        "noHistory": false,
+        "reasons": [
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only.",
+          "Opponent history leans Under vs line."
+        ]
+      },
+      "comparison": {
+        "agreement": "AGREES_WITH_RECENT",
+        "confidenceImpact": "NONE",
+        "riskImpact": "NONE",
+        "flipSignal": "NONE",
+        "finalImpact": "NEUTRAL",
+        "sideImpact": "NEUTRAL",
+        "weight": 0.25,
+        "reasons": [
+          "Agreement present but opponent sample too small for strong boost."
+        ]
+      },
+      "sideImpact": "NEUTRAL",
+      "status": "NEUTRAL",
+      "flipSignal": "NONE",
+      "reasons": [
+        "Recent 15.2 pts avg over 5 games.",
+        "Recent form leans Under vs line.",
+        "1 opponent game(s) found.",
+        "Small opponent sample — context only.",
+        "Opponent history leans Under vs line.",
+        "Agreement present but opponent sample too small for strong boost."
+      ]
+    },
+    "opponentHistoryComparisonVersion": "opponent-history-comparison-v1",
+    "opponentHistoryLabel": "Small sample, 1 game used",
+    "flipFirstAction": "CHECK_OVER",
+    "flipFirstFlipped": false,
+    "signalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "SLIGHT_STRONG_RESISTANCE",
+      "usageMinutesSignal": "stable",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "1.5-2.4",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "UNDER",
+      "auditSideMatch": false
+    },
+    "trackedId": "20260708-wnba-allishagray-atlantadream-seattlestorm-points-under",
+    "trackedKey": "20260708-wnba-allishagray-atlantadream-seattlestorm-points-under",
+    "trackingMode": "ALL_GENERATED_PROPS",
+    "officialLine": 18.5,
+    "pickLine": 18.5,
+    "lockedSide": "Under",
+    "latestLine": 18.5,
+    "lineHistory": [],
+    "lineMovement": null,
+    "generatedAt": "2026-07-09T02:05:27.393Z",
+    "lastSeenAt": "2026-07-09T06:11:18.076Z",
+    "timesSeen": 19,
+    "status": "loss",
+    "actualStat": 22,
+    "result": 22,
+    "resultMargin": -3.5,
+    "gradedAt": "2026-07-10T02:31:32.082Z",
+    "pendingReason": null,
+    "currentEngineResult": "loss",
+    "currentEngineWon": false,
+    "currentEngineMargin": -3.5,
+    "fairLineShadowResult": "loss",
+    "fairLineShadowWon": false,
+    "fairLineShadowMargin": -3.5,
+    "sideComparison": "BOTH_LOST",
+    "slateLocked": true,
+    "lockedScoreLedger": [
+      {
+        "category": "projection",
+        "side": "NEUTRAL",
+        "score": 0,
+        "pressure": null,
+        "label": "Projection near line",
+        "explanation": "Projection 16.8 vs line 18.5 (-1.7)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring below line",
+        "explanation": "Last-5 avg 15.2 vs line 18.5"
+      },
+      {
+        "category": "volume",
+        "side": "NEUTRAL",
+        "score": 54,
+        "pressure": 0.16,
+        "label": "Volume volatile",
+        "explanation": "14.2 FGA / 33 MIN (STABLE role)"
+      },
+      {
+        "category": "fair line",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Fair line 16.9",
+        "explanation": "Fair edge -1.6 vs book 18.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "OVER",
+        "score": 69,
+        "pressure": null,
+        "label": "Opportunity 69",
+        "explanation": "Elite minutes; Trusted high-minute rotation"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.16,
+        "label": "volatile minutes",
+        "explanation": "Volume danger gate triggered"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.16,
+        "label": "efficiency only scoring",
+        "explanation": "Recent efficiency regression risk"
+      },
+      {
+        "category": "risk comparison",
+        "side": "UNDER",
+        "score": 21,
+        "pressure": 0.15,
+        "label": "Net edge -1.9",
+        "explanation": "Support 21 vs resistance 22.9"
+      }
+    ],
+    "lockedSignalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "supports_side",
+      "opponentDefenseSignal": "SLIGHT_STRONG_RESISTANCE",
+      "usageMinutesSignal": "stable",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "80+",
+      "projectionEdgeBucket": "1.5-2.4",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "Medium Risk",
+      "fairLineSide": "UNDER",
+      "auditSideMatch": false
+    },
+    "lockedPlayerState": {
+      "player": "Allisha Gray",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "atlantadream",
+      "opponent": "seattlestorm",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 18.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -109,
+      "underOdds": -120,
+      "seasonPoints": 18.476190476190474,
+      "recentPoints": 15.2,
+      "seasonMinutes": 33.2,
+      "recentMinutes": 33,
+      "seasonFGA": 14.2,
+      "recentFGA": 14.2,
+      "seasonFTA": 6.3,
+      "recentFTA": 7.2,
+      "recentEfficiency": 0.875,
+      "seasonEfficiency": 1.089,
+      "last5HitRate": 20,
+      "volatility": "MEDIUM",
+      "sportsProjection": 0,
+      "matchupAverage": 15,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:18.701Z"
+    },
+    "lockedVolumeProfile": {
+      "recentMinutes": 33,
+      "seasonMinutes": 33.2,
+      "recentFGA": 14.2,
+      "seasonFGA": 14.2,
+      "recentFTA": 7.2,
+      "seasonFTA": 6.3,
+      "recent3PA": 5,
+      "shotVolume": 17.4,
+      "roleTrend": "STABLE",
+      "volumeStability": "VOLATILE",
+      "volatility": "MEDIUM",
+      "efficiencyWarning": "Recent efficiency regression risk",
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": -0.2,
+      "fgaDelta": 0,
+      "ftaDelta": 0.9,
+      "roleChangeScore": 54,
+      "roleChangeCertainty": 75
+    },
+    "resolveDebug": {
+      "gameStarted": false,
+      "gameLikelyFinished": false,
+      "blockedByFutureGame": false,
+      "blockedByCommenceTime": true,
+      "blockedByGameNotStarted": true,
+      "blocked": true,
+      "at": "2026-07-09T23:58:14.778Z"
+    },
+    "resolvedAt": "2026-07-10T02:31:32.082Z",
+    "gradingNotes": null,
+    "matchVerified": true,
+    "resultConfidence": "medium",
+    "matchedDate": "2026-07-10",
+    "matchedGameId": "24914",
+    "matchedSource": "BallDontLie",
+    "trackedLifecycleState": "ACTIVE_RESULTS"
+  },
+  {
+    "source": "AUTO_TRACKED",
+    "league": "WNBA",
+    "gameId": "bbda183d9dc2a8ed43f79f82ef0ac320",
+    "gameLabel": "SEATTLESTORM vs ATLANTADREAM",
+    "gameDate": "2026-07-09",
+    "slateDate": "2026-07-08",
+    "commenceTime": "2026-07-10T00:00:00Z",
+    "startTimeDisplay": "",
+    "dayBucket": "TOMORROW",
+    "player": "Dominique Malonga",
+    "playerId": "",
+    "team": "seattlestorm",
+    "opponent": "atlantadream",
+    "stat": "Points",
+    "line": 15.5,
+    "currentEngineSide": "Under",
+    "fairLineSide": "UNDER",
+    "auditSideMatch": false,
+    "confidence": 78,
+    "riskLabel": "High Risk",
+    "tier": "WATCHLIST",
+    "signalStrength": "STRONG",
+    "supportScore": 28,
+    "resistanceScore": -24,
+    "netEdge": 52,
+    "supportDangerGap": 52,
+    "projection": 13.4,
+    "last5Average": 13,
+    "seasonAverage": 15.9,
+    "matchupAverage": 16,
+    "dataCoverage": 100,
+    "dataQuality": 86,
+    "evidenceReliability": 1,
+    "dangerPressure": 0,
+    "bookCount": 3,
+    "marketQuality": 65,
+    "lineSpread": 0,
+    "overOdds": -119,
+    "underOdds": -110,
+    "playerState": {
+      "player": "Dominique Malonga",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "seattlestorm",
+      "opponent": "atlantadream",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 15.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -119,
+      "underOdds": -110,
+      "seasonPoints": 15.866666666666667,
+      "recentPoints": 13,
+      "seasonMinutes": 25.5,
+      "recentMinutes": 25,
+      "seasonFGA": 13.5,
+      "recentFGA": 12.6,
+      "seasonFTA": 3.7,
+      "recentFTA": 2.4,
+      "recentEfficiency": 0.952,
+      "seasonEfficiency": 1.049,
+      "last5HitRate": 60,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 16,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:16.371Z"
+    },
+    "roleChange": {
+      "expectedMinutesDelta": -0.5,
+      "expectedFGADelta": -0.9,
+      "expectedFTADelta": -1.3,
+      "usageDelta": -1.47,
+      "roleChangeScore": 60,
+      "roleChangeCertainty": 75,
+      "roleChangeReasons": [
+        "Role profile stable vs season baseline"
+      ],
+      "roleRiskReasons": [],
+      "recentMinutesTrend": "FLAT",
+      "recentFGATrend": "FLAT",
+      "recentFTATrend": "DOWN",
+      "teammateOutBoost": null
+    },
+    "dataMode": "WNBA_FULL_DATA",
+    "fairLine": 12.9,
+    "fairLineEdge": -2.6,
+    "fairLineQuality": 95,
+    "fairLineConfidence": 92,
+    "expectedMinutes": 24.8,
+    "expectedFGA": 12.2,
+    "expectedFTA": 1.8,
+    "pointsPerFGA": 0.911,
+    "ftPercent": 0.78,
+    "supportReasons": [
+      "Last-5 avg 13 below line",
+      "Fair line 12.9 agrees with UNDER",
+      "Blowout risk supports under",
+      "Role trend contracting"
+    ],
+    "dangerReasons": [],
+    "warningReasons": [],
+    "confidenceAdjustmentReasons": [],
+    "tierReasons": [
+      "WNBA v2 reader decision: OFFICIAL",
+      "WNBA gap floor: Under gap 2.1 below 3 floor"
+    ],
+    "fairLineReasons": [
+      "SportsData projection anchor at 13.4",
+      "Volume-first blend: 12.5 base + 13.4 anchor",
+      "Fair line 12.9 is 2.6 below book 15.5"
+    ],
+    "fairLineRiskReasons": [],
+    "rank": 0,
+    "pickScore": 56.45,
+    "roleChangeScore": 60,
+    "confidenceBucket": "75-79",
+    "marketQualityBucket": "65-79",
+    "bookCountBucket": "3-4",
+    "fairLineEdgeBucket": "2.5-3.9",
+    "supportDangerGapBucket": "20+",
+    "roleChangeScoreBucket": "50-64",
+    "volumeProfile": {
+      "recentMinutes": 25,
+      "seasonMinutes": 25.5,
+      "recentFGA": 12.6,
+      "seasonFGA": 13.5,
+      "recentFTA": 2.4,
+      "seasonFTA": 3.7,
+      "recent3PA": 2,
+      "shotVolume": 13.7,
+      "roleTrend": "DOWN",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": -0.5,
+      "fgaDelta": -0.9,
+      "ftaDelta": -1.3,
+      "roleChangeScore": 60,
+      "roleChangeCertainty": 75
+    },
+    "volumeDangerGates": {
+      "gates": [
+        "unstable_minutes"
+      ],
+      "dangerReasons": [
+        "Unstable minutes profile"
+      ],
+      "supportReasons": [],
+      "dangerPressure": 0.12,
+      "resistanceScore": 8,
+      "noPlay": false,
+      "noPlayReasons": []
+    },
+    "marketIntelligence": {
+      "openingLine": 15.5,
+      "currentLine": 15.5,
+      "consensusLine": 15.5,
+      "lineDelta": 0,
+      "consensusDelta": 0,
+      "bookCount": 3,
+      "consensusBookCount": 3,
+      "lineSpread": 0,
+      "marketQuality": 65,
+      "signals": [],
+      "supportReasons": [],
+      "dangerReasons": [],
+      "dangerPressure": 0,
+      "supportScore": 0,
+      "resistanceScore": 0,
+      "lineMovementAgainstSide": false,
+      "lineMovedAgainstSide": false,
+      "lineMovementDirection": "flat",
+      "lineMovedForPickSide": false,
+      "lineMovedAgainstPickSide": false,
+      "currentLineValueImproved": false,
+      "marketDirectionAgainstPick": false,
+      "lineMovementInterpretation": "No meaningful line movement"
+    },
+    "availabilityGate": {
+      "applicable": true,
+      "status": "active",
+      "statusLevel": "ACTIVE",
+      "statusLabel": "Active",
+      "availabilityStatus": "ACTIVE",
+      "availabilityDataMissing": false,
+      "availabilityRisk": false,
+      "availabilitySourceStatus": "OK",
+      "availabilityMessage": "Active — not on injury report",
+      "feedFetchOk": true,
+      "feedHttpStatus": 200,
+      "feedRowCount": 0,
+      "feedErrorReason": null,
+      "dangerPressure": 0,
+      "dangerReasons": [],
+      "noPlay": false,
+      "noPlayReasons": [],
+      "blocksOfficial": false,
+      "officialCapTier": null,
+      "injuryRow": null,
+      "source": "wnba-availability-active-v1"
+    },
+    "defenseResult": {
+      "defenseScore": 50,
+      "source": "default",
+      "opponentPPG": null,
+      "pace": null,
+      "reasons": [
+        "No recent BDL games for opponent atlantadream"
+      ],
+      "probeDisabled": true,
+      "proxyUsed": true,
+      "defenseAudit": {
+        "resolvedDefenseScore": 50,
+        "defenseSource": "default",
+        "proxyUsed": true,
+        "opponentPPG": null,
+        "unavailableReason": "WNBA opponent proxy defaulted"
+      }
+    },
+    "defenseScore": 50,
+    "scoreLedger": [
+      {
+        "category": "projection",
+        "side": "UNDER",
+        "score": 6,
+        "pressure": null,
+        "label": "Projection below line",
+        "explanation": "Projection 13.4 vs line 15.5 (-2.1)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring below line",
+        "explanation": "Last-5 avg 13 vs line 15.5"
+      },
+      {
+        "category": "volume",
+        "side": "UNDER",
+        "score": 60,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12.6 FGA / 25 MIN (DOWN role)"
+      },
+      {
+        "category": "fair line",
+        "side": "UNDER",
+        "score": 13,
+        "pressure": null,
+        "label": "Fair line 12.9",
+        "explanation": "Fair edge -2.6 vs book 15.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 41,
+        "pressure": null,
+        "label": "Opportunity 41",
+        "explanation": "Playable minutes; Good shot volume"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "UNDER",
+        "score": 11,
+        "pressure": 0.15,
+        "label": "Net edge -7.6",
+        "explanation": "Support 11 vs resistance 18.6"
+      }
+    ],
+    "openingLine": 15.5,
+    "currentLine": 15.5,
+    "lineDelta": null,
+    "consensusLine": 15.5,
+    "trackingType": "OFFICIAL",
+    "recordType": "OFFICIAL",
+    "engineVersion": null,
+    "generatedAfterV1": null,
+    "officialEligible": false,
+    "excludedFromOfficialRecord": false,
+    "testReason": "Under gap 2.1 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "testReasons": [
+      "Under gap 2.1 below 3 floor",
+      "WNBA_LIMITED_DATA — fairLineSide does not boost tier/confidence for official eligibility",
+      "Official tier cap WATCHLIST from WNBA v1 gates"
+    ],
+    "v1OfficialGatePassed": false,
+    "readerOfficialDemoted": true,
+    "officialDemotionReason": "Under gap 2.1 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "officialEligibilityFailReason": "Under gap 2.1 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerOutcome": "OFFICIAL",
+    "readerDecision": "OFFICIAL",
+    "trackingReason": "Under gap 2.1 below 3 floor; Official tier cap WATCHLIST from WNBA v1 gates",
+    "readerConfidence": 95,
+    "winProbability": 37,
+    "finalConfidence": 78,
+    "confidenceBlendVersion": "v1-70-30",
+    "confidenceBlendFormula": "0.7*readerConfidence + 0.3*winProbability",
+    "underGap": 2.0999999999999996,
+    "underGapFloorUsed": null,
+    "underGapFloorPassed": null,
+    "limitedDataUnderPenaltyApplied": false,
+    "lineToRecentAvgRatio": 1.19,
+    "lineToSeasonAvgRatio": 0.98,
+    "absoluteLineBucket": "mid",
+    "playerContextLineBucket": "above_recent",
+    "sideSelectionDecision": "TEST",
+    "sideSelectionAudit": null,
+    "contradictions": [],
+    "noBetReasons": [],
+    "sideTrustScore": null,
+    "sideTrustable": null,
+    "controlledBestSixRank": 5,
+    "controlledBestSixVersion": "controlled-best-six-over-balance-v2",
+    "topPickRank": null,
+    "sourcePool": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingAdmissionSource": "CONTROLLED_BEST_SIX_DISPLAY",
+    "trackingCohortSource": null,
+    "qualityGateVersion": "wnba-tracking-gate-v2-live",
+    "trackingEligibility": "BOARD_ONLY",
+    "qualityGateScore": 78,
+    "trackingBlockReasons": [],
+    "trackingWarnings": [
+      "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "FAIR_LINE_AGREEMENT",
+      "PARTIAL_DANGER_GATE_STACK"
+    ],
+    "wnbaGateVersion": "wnba-tracking-gate-v2-live",
+    "wnbaTrackingDecision": "BOARD_ONLY",
+    "wnbaTrackingReason": "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+    "wnbaSideGate": "WNBA_UNDER_GATE",
+    "sideGatePassed": false,
+    "dangerGateStack": [
+      "unstableMinutes",
+      "missingOpponentDefense",
+      "thinGap"
+    ],
+    "dangerGateCount": 3,
+    "limitedDataPenalty": 0,
+    "underFragilityPenalty": 0,
+    "overVolumePenalty": 0,
+    "roleStabilityScore": 55,
+    "volumeStabilityScore": 72,
+    "minutesStabilityScore": 62,
+    "marketConfidenceScore": 57,
+    "projectionReliabilityScore": 39,
+    "fairLineReliabilityScore": 68,
+    "finalTrackScore": 78,
+    "riskCeilingReason": "DECISION_INTELLIGENCE_HIGH",
+    "riskBeforeCeiling": "High Risk",
+    "riskAfterCeiling": "High Risk",
+    "controlledBestSixApplied": true,
+    "decisionIntelligence": {
+      "version": "courtedge-decision-intelligence-v1",
+      "evidenceScore": 53,
+      "riskDebtScore": 49,
+      "repairScore": 78,
+      "finalQualityScore": 52,
+      "trueRisk": "HIGH",
+      "riskBeforeDecision": "High Risk",
+      "riskAfterDecision": "High Risk",
+      "trackEligibility": "BOARD_ONLY",
+      "topPickEligibility": false,
+      "bestSixEligibility": false,
+      "riskDebts": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "MISSING_OPPONENT_DEFENSE",
+          "severity": "LOW",
+          "reason": "missing opponent defense flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        },
+        {
+          "code": "THIN_EDGE",
+          "severity": "HIGH",
+          "reason": "thin edge flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        }
+      ],
+      "riskRepairs": [
+        {
+          "code": "ELITE_NET_EDGE",
+          "reason": "Net edge 52.0 is elite.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "PROJECTION_FAIR_LINE_AGREE",
+          "reason": "Projection and fair line agree on side.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Recent FGA 12.6 supports volume.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Recent minutes 25.0 are strong.",
+          "strength": "STRONG"
+        },
+        {
+          "code": "CONTRACTING_ROLE_FOR_UNDER",
+          "reason": "Role is contracting in support of Under.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "MULTI_BOOK_COVERAGE",
+          "reason": "3 books cover this market.",
+          "strength": "MODERATE"
+        },
+        {
+          "code": "STRONG_RECENT_SCORING",
+          "reason": "Recent scoring supports Under.",
+          "strength": "MODERATE"
+        }
+      ],
+      "killReasons": [],
+      "demotionReasons": [
+        "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"
+      ],
+      "upgradeReasons": [],
+      "simpleExplanation": "BOARD_ONLY — Under has thin edge flagged by danger gate.. UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "whatWouldMakeItBetter": [
+        "Need stable minutes trend over last 5 games.",
+        "Need missing opponent defense flagged by danger gate..",
+        "Need a larger projection gap and fair-line agreement.",
+        "Reduce danger gate stack below 2 before tracking."
+      ],
+      "gateVersion": "wnba-tracking-gate-v2-live",
+      "gateReason": "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+      "repairable": false
+    },
+    "decisionIntelligenceVersion": "courtedge-decision-intelligence-v1",
+    "trueRisk": "HIGH",
+    "bestSixEligibility": false,
+    "topPickEligibility": false,
+    "sideRescue": {
+      "version": "side-rescue-v1.2",
+      "league": "WNBA",
+      "triggered": true,
+      "originalSide": "UNDER",
+      "finalSide": "UNDER",
+      "action": "BOARD_ONLY",
+      "originalSideScore": 100,
+      "oppositeSideScore": 11,
+      "originalRiskAdjustedScore": 52,
+      "oppositeRiskAdjustedScore": 30,
+      "rescueScore": 0,
+      "flipConfidence": 0,
+      "flipMarginRequired": 7,
+      "flipScoreFloor": 52,
+      "triggerReasons": [
+        "UNSTABLE_MINUTES",
+        "THIN_EDGE",
+        "UNDER_FRAGILITY_STACK",
+        "FLIP_FIRST_CHECK_OPPOSITE"
+      ],
+      "originalSideWeaknesses": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "reason": "unstable minutes flagged by danger gate.",
+          "penalty": 18
+        },
+        {
+          "code": "THIN_EDGE",
+          "reason": "thin edge flagged by danger gate.",
+          "penalty": 12
+        },
+        {
+          "code": "UNDER_FRAGILITY_STACK",
+          "reason": "Under fragility (3 factors).",
+          "penalty": 14
+        }
+      ],
+      "oppositeSideEvidence": [
+        {
+          "code": "STRONG_MINUTES",
+          "reason": "Strong minutes for Over."
+        },
+        {
+          "code": "STRONG_FGA",
+          "reason": "Strong FGA for Over."
+        },
+        {
+          "code": "SEASON_NEAR_LINE",
+          "reason": "Season near line."
+        }
+      ],
+      "oppositeKillDebts": [],
+      "keepReasons": [],
+      "flipReasons": [],
+      "boardOnlyReasons": [
+        "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+        "Opposite score 11 below floor 52."
+      ],
+      "noBetReasons": [],
+      "riskDebtThatTriggeredReview": [
+        {
+          "code": "UNSTABLE_MINUTES",
+          "severity": "HIGH",
+          "reason": "unstable minutes flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": true
+        },
+        {
+          "code": "THIN_EDGE",
+          "severity": "HIGH",
+          "reason": "thin edge flagged by danger gate.",
+          "side": "BOTH",
+          "repairable": false
+        }
+      ],
+      "underFragility": {
+        "fragile": true,
+        "count": 3,
+        "factors": [
+          "NEUTRAL_DEFENSE",
+          "THIN_PROJECTION_GAP",
+          "DANGER_STACK"
+        ]
+      },
+      "simpleExplanation": "Side Rescue: BOARD ONLY — UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"
+    },
+    "sideRescueVersion": "side-rescue-v1.2",
+    "sideRescueAction": "BOARD_ONLY",
+    "sideRescueExplanation": "Side Rescue: BOARD ONLY — UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR",
+    "initialSide": "UNDER",
+    "flippedFromSide": null,
+    "flippedFromSideLabel": null,
+    "sideRescueFlipped": false,
+    "decisionDataIntelligence": {
+      "version": "flip-first-decision-data-intelligence-v1",
+      "roleStability": {
+        "version": "role-stability-intelligence-v1",
+        "score": 65,
+        "status": "PARTIAL",
+        "sideImpact": "OVER",
+        "roleTrend": "down",
+        "minutesVolatility": "unstable",
+        "hotShootingRisk": false,
+        "reasons": [
+          "Minutes profile unstable.",
+          "Stable FGA floor.",
+          "Contracting role supports Under.",
+          "Volatile minutes create Over spike path."
+        ]
+      },
+      "usageShare": {
+        "version": "usage-share-intelligence-v1",
+        "score": 54,
+        "status": "PARTIAL",
+        "usageTrend": "UNKNOWN",
+        "fgaShareTrend": "UNKNOWN",
+        "threePointShareTrend": "UNKNOWN",
+        "ftaShareTrend": "DOWN",
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "FTA trend down."
+        ]
+      },
+      "sameTeamCollision": {
+        "version": "same-team-usage-collision-v1",
+        "detected": false,
+        "collisionScore": 0,
+        "teammatesInConflict": [],
+        "combinedLineDemand": 15.5,
+        "impliedTeamTotal": null,
+        "combinedRecentAvg": 13,
+        "sideImpact": "NEUTRAL",
+        "recommendation": "KEEP_UNDER",
+        "reasons": [
+          "Not a same-team Over collision case."
+        ]
+      },
+      "marketIntelligence": {
+        "version": "market-movement-intelligence-v1",
+        "openingLine": 15.5,
+        "currentLine": 15.5,
+        "movement": "flat",
+        "lineDelta": 0,
+        "edgeAtOpen": 2.1,
+        "edgeNow": 2.1,
+        "marketWarning": false,
+        "staleLineSuspected": false,
+        "bookConsensus": "MODERATE",
+        "sideImpact": "NEUTRAL",
+        "reasons": []
+      },
+      "availabilityImpact": {
+        "version": "availability-impact-v1",
+        "playerStatus": "ACTIVE",
+        "teammateBoosts": [],
+        "teammateReductions": [],
+        "sourceStatus": "OK",
+        "uncertaintyAdded": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Player active."
+        ]
+      },
+      "opponentHistoryComparison": {
+        "version": "opponent-history-comparison-v1",
+        "recentForm": {
+          "gamesUsed": 5,
+          "pointsAvg": 13,
+          "minutesAvg": 25,
+          "fgaAvg": 12.6,
+          "threePaAvg": 2,
+          "ftaAvg": 2.4,
+          "hitRateVsLine": 40,
+          "hitRateOver": 60,
+          "hitRateUnder": 40,
+          "volatility": "high",
+          "sideSupport": "UNDER",
+          "reasons": [
+            "Recent 13 pts avg over 5 games.",
+            "Recent form leans Under vs line."
+          ]
+        },
+        "opponentHistory": {
+          "gamesFound": 1,
+          "gamesUsed": 1,
+          "sampleStatus": "SMALL_SAMPLE",
+          "pointsAvg": 16,
+          "minutesAvg": 28,
+          "fgaAvg": 13,
+          "threePaAvg": 2,
+          "ftaAvg": 2,
+          "hitRateVsLine": 100,
+          "hitRateOver": 100,
+          "hitRateUnder": 0,
+          "volatility": null,
+          "sideSupport": "NEUTRAL",
+          "noHistory": false,
+          "reasons": [
+            "1 opponent game(s) found.",
+            "Small opponent sample — context only."
+          ]
+        },
+        "comparison": {
+          "agreement": "NEUTRAL",
+          "confidenceImpact": "NONE",
+          "riskImpact": "NONE",
+          "flipSignal": "NONE",
+          "finalImpact": "NEUTRAL",
+          "sideImpact": "NEUTRAL",
+          "weight": 0.25,
+          "reasons": []
+        },
+        "sideImpact": "NEUTRAL",
+        "status": "NEUTRAL",
+        "flipSignal": "NONE",
+        "reasons": [
+          "Recent 13 pts avg over 5 games.",
+          "Recent form leans Under vs line.",
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only."
+        ]
+      },
+      "projectionQuality": {
+        "score": 55,
+        "status": "MIXED",
+        "supportedByUsage": false,
+        "supportedByMinutes": true,
+        "supportedByMarket": true,
+        "hotGameRisk": false,
+        "sideImpact": "NEUTRAL",
+        "reasons": [
+          "Projection not supported by usage share."
+        ]
+      },
+      "flipFirstDecision": {
+        "version": "flip-first-side-selection-v1",
+        "originalSide": "UNDER",
+        "oppositeSideChecked": true,
+        "originalSideScore": 100,
+        "oppositeSideScore": 0,
+        "flipRecommended": false,
+        "finalSide": "UNDER",
+        "flipReason": "",
+        "noFlipReason": "Opposite blocked: ROLE_CONTRADICTS_OVER.",
+        "action": "CHECK_OVER",
+        "flipTriggered": true,
+        "flipTriggerReasons": [
+          "SIDE_IMPACT",
+          "THIN_GAP"
+        ],
+        "oppositeSideEvidence": [
+          "Thin OVER gap."
+        ],
+        "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_OVER.",
+        "flipFirstAudit": {
+          "flipTriggered": true,
+          "flipTriggerReasons": [
+            "SIDE_IMPACT",
+            "THIN_GAP"
+          ],
+          "oppositeSideEvidence": [
+            "Thin OVER gap."
+          ],
+          "whyRetainedFlippedOrPass": "Opposite blocked: ROLE_CONTRADICTS_OVER.",
+          "oppositeSideChecked": true,
+          "originalSideScore": 100,
+          "oppositeSideScore": 0,
+          "flipRecommended": false
+        },
+        "originalProblems": [
+          {
+            "code": "SIDE_IMPACT",
+            "reason": "Minutes profile unstable."
+          },
+          {
+            "code": "THIN_GAP",
+            "reason": "Projection gap 2.1 below 3.5 floor — opposite-side review."
+          }
+        ],
+        "reasons": [
+          "Original problems: SIDE_IMPACT, THIN_GAP.",
+          "Opposite blocked: ROLE_CONTRADICTS_OVER."
+        ]
+      },
+      "finalInfluence": {
+        "confidenceAdjustment": 0,
+        "riskAdjustment": "NEUTRAL",
+        "decisionAdjustment": "KEEP",
+        "bestSixImpact": "NEUTRAL",
+        "resultsAdmissionImpact": "NEUTRAL",
+        "reasons": []
+      }
+    },
+    "decisionDataIntelligenceVersion": "flip-first-decision-data-intelligence-v1",
+    "flipFirstLabels": {
+      "usage": "PARTIAL",
+      "collision": "CLEAR",
+      "market": "NEUTRAL",
+      "availability": "CONFIRMED",
+      "projectionQuality": "MIXED",
+      "opponentHistory": "Small sample, 1 game used",
+      "flipCheck": "CHECK_OVER"
+    },
+    "opponentHistoryComparison": {
+      "version": "opponent-history-comparison-v1",
+      "recentForm": {
+        "gamesUsed": 5,
+        "pointsAvg": 13,
+        "minutesAvg": 25,
+        "fgaAvg": 12.6,
+        "threePaAvg": 2,
+        "ftaAvg": 2.4,
+        "hitRateVsLine": 40,
+        "hitRateOver": 60,
+        "hitRateUnder": 40,
+        "volatility": "high",
+        "sideSupport": "UNDER",
+        "reasons": [
+          "Recent 13 pts avg over 5 games.",
+          "Recent form leans Under vs line."
+        ]
+      },
+      "opponentHistory": {
+        "gamesFound": 1,
+        "gamesUsed": 1,
+        "sampleStatus": "SMALL_SAMPLE",
+        "pointsAvg": 16,
+        "minutesAvg": 28,
+        "fgaAvg": 13,
+        "threePaAvg": 2,
+        "ftaAvg": 2,
+        "hitRateVsLine": 100,
+        "hitRateOver": 100,
+        "hitRateUnder": 0,
+        "volatility": null,
+        "sideSupport": "NEUTRAL",
+        "noHistory": false,
+        "reasons": [
+          "1 opponent game(s) found.",
+          "Small opponent sample — context only."
+        ]
+      },
+      "comparison": {
+        "agreement": "NEUTRAL",
+        "confidenceImpact": "NONE",
+        "riskImpact": "NONE",
+        "flipSignal": "NONE",
+        "finalImpact": "NEUTRAL",
+        "sideImpact": "NEUTRAL",
+        "weight": 0.25,
+        "reasons": []
+      },
+      "sideImpact": "NEUTRAL",
+      "status": "NEUTRAL",
+      "flipSignal": "NONE",
+      "reasons": [
+        "Recent 13 pts avg over 5 games.",
+        "Recent form leans Under vs line.",
+        "1 opponent game(s) found.",
+        "Small opponent sample — context only."
+      ]
+    },
+    "opponentHistoryComparisonVersion": "opponent-history-comparison-v1",
+    "opponentHistoryLabel": "Small sample, 1 game used",
+    "flipFirstAction": "CHECK_OVER",
+    "flipFirstFlipped": false,
+    "signalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "neutral",
+      "opponentDefenseSignal": "NEUTRAL",
+      "usageMinutesSignal": "stable",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "75-79",
+      "projectionEdgeBucket": "1.5-2.4",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "High Risk",
+      "fairLineSide": "UNDER",
+      "auditSideMatch": false
+    },
+    "trackedId": "20260708-wnba-dominiquemalonga-seattlestorm-atlantadream-points-under",
+    "trackedKey": "20260708-wnba-dominiquemalonga-seattlestorm-atlantadream-points-under",
+    "trackingMode": "ALL_GENERATED_PROPS",
+    "officialLine": 15.5,
+    "pickLine": 15.5,
+    "lockedSide": "Under",
+    "latestLine": 15.5,
+    "lineHistory": [],
+    "lineMovement": null,
+    "generatedAt": "2026-07-09T02:05:27.394Z",
+    "lastSeenAt": "2026-07-09T02:23:46.679Z",
+    "timesSeen": 5,
+    "status": "win",
+    "actualStat": 15,
+    "result": 15,
+    "resultMargin": 0.5,
+    "gradedAt": "2026-07-10T02:31:32.084Z",
+    "pendingReason": null,
+    "currentEngineResult": "win",
+    "currentEngineWon": true,
+    "currentEngineMargin": 0.5,
+    "fairLineShadowResult": "win",
+    "fairLineShadowWon": true,
+    "fairLineShadowMargin": 0.5,
+    "sideComparison": "BOTH_WON",
+    "slateLocked": true,
+    "lockedScoreLedger": [
+      {
+        "category": "projection",
+        "side": "UNDER",
+        "score": 6,
+        "pressure": null,
+        "label": "Projection below line",
+        "explanation": "Projection 13.4 vs line 15.5 (-2.1)"
+      },
+      {
+        "category": "recent scoring",
+        "side": "UNDER",
+        "score": 8,
+        "pressure": null,
+        "label": "Recent scoring below line",
+        "explanation": "Last-5 avg 13 vs line 15.5"
+      },
+      {
+        "category": "volume",
+        "side": "UNDER",
+        "score": 60,
+        "pressure": 0.12,
+        "label": "Volume unstable",
+        "explanation": "12.6 FGA / 25 MIN (DOWN role)"
+      },
+      {
+        "category": "fair line",
+        "side": "UNDER",
+        "score": 13,
+        "pressure": null,
+        "label": "Fair line 12.9",
+        "explanation": "Fair edge -2.6 vs book 15.5"
+      },
+      {
+        "category": "market quality",
+        "side": "NEUTRAL",
+        "score": 65,
+        "pressure": null,
+        "label": "Market quality 65%",
+        "explanation": "3 books, spread 0"
+      },
+      {
+        "category": "opportunity",
+        "side": "NEUTRAL",
+        "score": 41,
+        "pressure": null,
+        "label": "Opportunity 41",
+        "explanation": "Playable minutes; Good shot volume"
+      },
+      {
+        "category": "availability",
+        "side": "NEUTRAL",
+        "score": null,
+        "pressure": null,
+        "label": "Availability: ACTIVE",
+        "explanation": "Active"
+      },
+      {
+        "category": "data quality",
+        "side": "NEUTRAL",
+        "score": 86,
+        "pressure": null,
+        "label": "Data quality 86%",
+        "explanation": "WNBA limited-data mode"
+      },
+      {
+        "category": "danger gates",
+        "side": "UNDER",
+        "score": null,
+        "pressure": 0.12,
+        "label": "unstable minutes",
+        "explanation": "Unstable minutes profile"
+      },
+      {
+        "category": "risk comparison",
+        "side": "UNDER",
+        "score": 11,
+        "pressure": 0.15,
+        "label": "Net edge -7.6",
+        "explanation": "Support 11 vs resistance 18.6"
+      }
+    ],
+    "lockedSignalSnapshot": {
+      "last5Signal": "supports_side",
+      "seasonAverageSignal": "neutral",
+      "h2hSignal": "neutral",
+      "opponentDefenseSignal": "NEUTRAL",
+      "usageMinutesSignal": "stable",
+      "injuryAvailabilitySignal": "not enough data",
+      "homeAwaySignal": "not enough data",
+      "restTravelSignal": "not enough data",
+      "paceSignal": "not enough data",
+      "marketSignal": "adequate_market",
+      "supportDangerGapBucket": "20+",
+      "confidenceBucket": "75-79",
+      "projectionEdgeBucket": "1.5-2.4",
+      "tier": "WATCHLIST",
+      "signalStrength": "STRONG",
+      "riskLabel": "High Risk",
+      "fairLineSide": "UNDER",
+      "auditSideMatch": false
+    },
+    "lockedPlayerState": {
+      "player": "Dominique Malonga",
+      "playerId": "",
+      "league": "WNBA",
+      "team": "seattlestorm",
+      "opponent": "atlantadream",
+      "gameDate": "2026-07-09",
+      "commenceTime": "2026-07-10T00:00:00Z",
+      "bookLine": 15.5,
+      "bookCount": 3,
+      "marketQuality": 65,
+      "lineSpread": 0,
+      "overOdds": -119,
+      "underOdds": -110,
+      "seasonPoints": 15.866666666666667,
+      "recentPoints": 13,
+      "seasonMinutes": 25.5,
+      "recentMinutes": 25,
+      "seasonFGA": 13.5,
+      "recentFGA": 12.6,
+      "seasonFTA": 3.7,
+      "recentFTA": 2.4,
+      "recentEfficiency": 0.952,
+      "seasonEfficiency": 1.049,
+      "last5HitRate": 60,
+      "volatility": "HIGH",
+      "sportsProjection": 0,
+      "matchupAverage": 16,
+      "dataAvailability": 100,
+      "sourceConfidence": 100,
+      "dataMode": "WNBA_FULL_DATA",
+      "dataAvailabilityFlags": {
+        "hasLast5": true,
+        "hasSeasonStats": true,
+        "hasSeasonMinutes": true,
+        "hasSeasonFGA": true,
+        "hasMatchupHistory": true,
+        "hasSportsProjection": false,
+        "hasMarketData": true,
+        "league": "WNBA"
+      },
+      "stat": "Points",
+      "builtAt": "2026-07-09T02:05:16.371Z"
+    },
+    "lockedVolumeProfile": {
+      "recentMinutes": 25,
+      "seasonMinutes": 25.5,
+      "recentFGA": 12.6,
+      "seasonFGA": 13.5,
+      "recentFTA": 2.4,
+      "seasonFTA": 3.7,
+      "recent3PA": 2,
+      "shotVolume": 13.7,
+      "roleTrend": "DOWN",
+      "volumeStability": "UNSTABLE",
+      "volatility": "HIGH",
+      "efficiencyWarning": null,
+      "wnbaLimitedData": false,
+      "dataMode": "WNBA_FULL_DATA",
+      "minutesDelta": -0.5,
+      "fgaDelta": -0.9,
+      "ftaDelta": -1.3,
+      "roleChangeScore": 60,
+      "roleChangeCertainty": 75
+    },
+    "resolveDebug": {
+      "gameStarted": false,
+      "gameLikelyFinished": false,
+      "blockedByFutureGame": false,
+      "blockedByCommenceTime": true,
+      "blockedByGameNotStarted": true,
+      "blocked": true,
+      "at": "2026-07-09T23:58:14.778Z"
+    },
+    "resolvedAt": "2026-07-10T02:31:32.084Z",
+    "gradingNotes": null,
+    "matchVerified": true,
+    "resultConfidence": "medium",
+    "matchedDate": "2026-07-10",
+    "matchedGameId": "24914",
+    "matchedSource": "BallDontLie",
+    "trackedLifecycleState": "ACTIVE_RESULTS"
+  }
+]
