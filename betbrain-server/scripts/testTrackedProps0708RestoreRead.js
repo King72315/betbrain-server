@@ -161,6 +161,15 @@ test("envelope-shaped tracked store ({ props: [...] }) classifies without crash"
   );
 });
 
+test("GET /tracked-props and /diagnostics read paths do not throw", () => {
+  const { combined } = buildRestoreFixture();
+  assert.doesNotThrow(() => simulateTrackedPropsResponse(combined));
+  assert.doesNotThrow(() =>
+    simulateTrackedPropsResponse(combined, { includeLegacy: true })
+  );
+  assert.doesNotThrow(() => simulateDiagnosticsResponse(combined));
+});
+
 test("GET /diagnostics reports 07/08 tracked count = 5 and store total = 24", () => {
   const { combined } = buildRestoreFixture();
   const response = simulateDiagnosticsResponse(combined);

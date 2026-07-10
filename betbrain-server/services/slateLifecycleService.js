@@ -289,6 +289,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     reports = [],
     archives = [],
     lockedSlates = [],
+    trackedProps = [],
     quarantinedSlates = [],
     today = getTodayLocalDate(),
     activeResultsSlateDate = null,
@@ -434,6 +435,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     slateLifecycleMap,
     staleUnresolvedSlateDates,
     rotation,
+    trackedProps: normalizedTrackedProps,
   };
 
   const categories = {
