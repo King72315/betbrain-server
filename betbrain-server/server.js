@@ -2750,6 +2750,7 @@ app.delete("/saved-picks/:id", (req, res) => {
 });
 
 app.get("/tracked-props", (req, res) => {
+  try {
   const includeLegacy = String(req.query.includeLegacy || "").toLowerCase() === "true";
   const allStored = getTrackedProps();
   const rawReports = getRawDailySlateReports();
@@ -2820,6 +2821,14 @@ app.get("/tracked-props", (req, res) => {
   }
 
   res.json(payload);
+  } catch (error) {
+    console.error("GET /tracked-props error:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Tracked props read failed",
+      error: error.message,
+    });
+  }
 });
 
 app.get("/tracked-props/analytics", (req, res) => {
@@ -3187,6 +3196,7 @@ app.get("/admin/data-integrity-audit", requireAdminSecret, async (req, res) => {
 });
 
 app.get("/diagnostics", (req, res) => {
+  try {
   const tracked = getTrackedProps();
   const registry = getLockedSlatesRegistry();
   const dupes = countDuplicateStableKeys(tracked);
@@ -3393,6 +3403,14 @@ app.get("/diagnostics", (req, res) => {
     },
     time: new Date().toISOString(),
   });
+  } catch (error) {
+    console.error("GET /diagnostics error:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Diagnostics read failed",
+      error: error.message,
+    });
+  }
 });
 
 app.post("/admin/backup", (req, res) => {

@@ -10,10 +10,10 @@ import {
   isOnOrAfterCleanDataCutoff,
   isPastSlateDate,
   isQuarantinedSlateDate,
+  isResultsCohortProp,
   pickActiveResultsSlateDate,
 } from "./slateScopeService.js";
 import { getHistoryArchiveProps, isSlateLocked } from "./slateLockService.js";
-import { isOfficialResultsProp } from "./trackedPropService.js";
 import { BEST_SIX_LIMIT } from "../engines/topProps/controlledBestSixSelector.js";
 
 export const SLATE_LIFECYCLE_STATES = {
@@ -40,6 +40,22 @@ export const TRACKED_PROP_LIFECYCLE = {
 
 function isResolvedStatus(status = "") {
   return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
+}
+
+function asTrackedPropsArray(trackedProps) {
+  if (Array.isArray(trackedProps)) return trackedProps;
+  if (Array.isArray(trackedProps?.props)) return trackedProps.props;
+  return [];
+}
+
+function asStaleDateSet(staleUnresolvedSlateDates) {
+  if (staleUnresolvedSlateDates instanceof Set) {
+    return staleUnresolvedSlateDates;
+  }
+  if (Array.isArray(staleUnresolvedSlateDates)) {
+    return new Set(staleUnresolvedSlateDates);
+  }
+  return new Set();
 }
 
 export function resolveSlateLifecycleState(slateDate, context = {}) {
@@ -218,8 +234,8 @@ function collectStaleUnresolvedSlateDates(
   );
 
   const propsBySlate = {};
-  for (const prop of trackedProps) {
-    const slateDate = String(prop.slateDate || "");
+  for (const prop of asTrackedPropsArray(trackedProps)) {
+    const slateDate = getResultsPropSlateDate(prop);
     if (!slateDate) continue;
     if (!propsBySlate[slateDate]) propsBySlate[slateDate] = [];
     propsBySlate[slateDate].push(prop);
@@ -280,6 +296,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     staleUnresolvedSlateDates = new Set(),
     rotation = computeSlateRotation(reports),
   } = context;
+  const staleDates = asStaleDateSet(staleUnresolvedSlateDates);
 
   const slateDate = getResultsPropSlateDate(prop);
   if (!slateDate) {
@@ -308,7 +325,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     return TRACKED_PROP_LIFECYCLE.HOME_STAGED;
   }
 
-  if (staleUnresolvedSlateDates.has(slateDate)) {
+  if (staleDates.has(slateDate)) {
     return TRACKED_PROP_LIFECYCLE.STALE_UNRESOLVED;
   }
 
@@ -321,7 +338,7 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
     if (
       activeResultsSlateDate &&
       slateDate === activeResultsSlateDate &&
-      isOfficialResultsProp(prop) &&
+      isResultsCohortProp(prop) &&
       prop.homeStaged !== true
     ) {
       return TRACKED_PROP_LIFECYCLE.ACTIVE_RESULTS;
@@ -377,16 +394,17 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     quarantinedSlates = [],
     today = getTodayLocalDate(),
   } = context;
+  const normalizedTrackedProps = asTrackedPropsArray(trackedProps);
 
   const rotation = computeSlateRotation(reports, {
     archives,
     lockedSlates,
-    trackedProps,
+    trackedProps: normalizedTrackedProps,
     quarantinedSlates,
     today,
   });
   const slateLifecycleMap = buildSlateLifecycleMap({
-    trackedProps,
+    trackedProps: normalizedTrackedProps,
     reports,
     archives,
     lockedSlates,
@@ -394,13 +412,13 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     today,
   });
   const activeResultsSlateDate = pickActiveResultsSlateDate(
-    trackedProps,
+    normalizedTrackedProps,
     reports,
     today,
     lockedSlates
   );
   const staleUnresolvedSlateDates = collectStaleUnresolvedSlateDates(
-    trackedProps,
+    normalizedTrackedProps,
     reports,
     today,
     { activeResultsSlateDate, lockedSlates, archives, quarantinedSlates }
@@ -434,8 +452,8 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
     map[key] = Number(map[key] || 0) + 1;
   };
 
-  for (const prop of trackedProps) {
-    const slateDate = String(prop.slateDate || "unknown");
+  for (const prop of normalizedTrackedProps) {
+    const slateDate = getResultsPropSlateDate(prop) || "unknown";
     bump(trackedCountsBySlateDate, slateDate);
 
     const lifecycleState = resolveTrackedPropLifecycleState(prop, lifecycleContext);
@@ -487,7 +505,7 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
   const allStoredExceedCapButExcluded =
     storedLegacyCount > 0 &&
     activeResultsExcess === 0 &&
-    trackedProps.length > BEST_SIX_LIMIT * 2;
+    normalizedTrackedProps.length > BEST_SIX_LIMIT * 2;
 
   const historySlateDates = rotation.historySlates.map((report) =>
     String(report.slateDate || "")
@@ -495,8 +513,8 @@ export function classifyTrackedPropsByLifecycle(trackedProps = [], context = {})
 
   return {
     ...categories,
-    allStoredProps: trackedProps,
-    trackedStoreTotalCount: trackedProps.length,
+    allStoredProps: normalizedTrackedProps,
+    trackedStoreTotalCount: normalizedTrackedProps.length,
     activeResultsTrackedCount: categories.activeResultsProps.length,
     activeResultsWNBA: activeWnba,
     activeResultsNBA: activeNba,

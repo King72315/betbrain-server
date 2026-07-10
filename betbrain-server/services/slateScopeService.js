@@ -96,7 +96,8 @@ export function getResultsPropSlateDate(prop = {}) {
   return getSlateDateFromCommence(prop.commenceTime || prop.time);
 }
 
-function isResultsCohortProp(prop = {}) {
+/** Best 6 display + official Results cohort membership (shared server/client filter). */
+export function isResultsCohortProp(prop = {}) {
   if (isOfficialResultsProp(prop)) return true;
   return isBestSixDisplayResultsProp(prop);
 }

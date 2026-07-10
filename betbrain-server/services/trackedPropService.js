@@ -1011,6 +1011,11 @@ export function buildTrackingCohortDiagnostics(
   topProps = [],
   options = {}
 ) {
+  const trackedList = Array.isArray(tracked)
+    ? tracked
+    : Array.isArray(tracked?.props)
+      ? tracked.props
+      : [];
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
   const allCandidates = collectAllGeneratedCandidatesFromGames(gameCards);
   const cohortBundle = buildControlledTrackingCohort(
@@ -1021,10 +1026,14 @@ export function buildTrackingCohortDiagnostics(
   const cohort = cohortBundle.trackingCohort;
   const audit = cohortBundle.trackingCohortAudit;
   const trackedKeys = new Set(
-    tracked.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
+    trackedList.map((prop) => prop.trackedKey || getStableTrackedPropKey(prop))
   );
 
-  for (const entry of audit.trackingAudit) {
+  const trackingAuditEntries = Array.isArray(audit?.trackingAudit)
+    ? audit.trackingAudit
+    : [];
+
+  for (const entry of trackingAuditEntries) {
     if (!entry.eligibleForResultsTracking) continue;
     const match = cohort.find(
       (pick) =>
@@ -1041,7 +1050,7 @@ export function buildTrackingCohortDiagnostics(
   }
 
   const trackedPropsBySlate = {};
-  for (const prop of tracked) {
+  for (const prop of trackedList) {
     const slate = String(prop.slateDate || "unknown");
     trackedPropsBySlate[slate] = Number(trackedPropsBySlate[slate] || 0) + 1;
   }
@@ -1053,12 +1062,12 @@ export function buildTrackingCohortDiagnostics(
     topPropsBySlate[slate] = Number(topPropsBySlate[slate] || 0) + 1;
   }
 
-  const officialTrackedCount = tracked.filter(isOfficialResultsProp).length;
-  const testTrackedCount = tracked.filter(isTestTrackingPick).length;
-  const readerOfficialDemotedTrackedCount = tracked.filter(
+  const officialTrackedCount = trackedList.filter(isOfficialResultsProp).length;
+  const testTrackedCount = trackedList.filter(isTestTrackingPick).length;
+  const readerOfficialDemotedTrackedCount = trackedList.filter(
     (p) => p.readerOfficialDemoted === true
   ).length;
-  const readerUncertainTestTrackedCount = tracked.filter(
+  const readerUncertainTestTrackedCount = trackedList.filter(
     (p) =>
       isTestTrackingPick(p) && p.readerOfficialDemoted !== true
   ).length;
@@ -1072,15 +1081,15 @@ export function buildTrackingCohortDiagnostics(
   }
 
   const trackingQualityAudit = buildTrackingQualityAudit(allCandidates, cohort, {
-    tracked,
+    tracked: trackedList,
     getSlateDate: (item) =>
       item.slateDate || getSlateDateCT(item.commenceTime || item.time),
   });
 
-  const wnbaTrackedCount = tracked.filter(
+  const wnbaTrackedCount = trackedList.filter(
     (p) => String(p.league || "").toUpperCase() === "WNBA"
   ).length;
-  const nbaTrackedCount = tracked.filter(
+  const nbaTrackedCount = trackedList.filter(
     (p) => String(p.league || "").toUpperCase() === "NBA"
   ).length;
   const activeSlateDate =
@@ -1089,7 +1098,7 @@ export function buildTrackingCohortDiagnostics(
     todayLocalDate;
   const activeSlateTracked = Array.isArray(options.activeResultsProps)
     ? options.activeResultsProps
-    : tracked.filter((p) => String(p.slateDate || "") === String(activeSlateDate));
+    : trackedList.filter((p) => String(p.slateDate || "") === String(activeSlateDate));
   const activeWnbaTracked = activeSlateTracked.filter(
     (p) => String(p.league || "").toUpperCase() === "WNBA"
   ).length;
@@ -1154,10 +1163,16 @@ export function buildFlowValidationDiagnostics(
   tracked = [],
   picksSnapshot = {}
 ) {
-  const games = picksSnapshot.games || [];
-  const generatedProps =
-    picksSnapshot.generatedProps || collectAllGeneratedProps(games);
-  const topProps = picksSnapshot.topProps || [];
+  const trackedList = Array.isArray(tracked)
+    ? tracked
+    : Array.isArray(tracked?.props)
+      ? tracked.props
+      : [];
+  const games = Array.isArray(picksSnapshot.games) ? picksSnapshot.games : [];
+  const generatedProps = Array.isArray(picksSnapshot.generatedProps)
+    ? picksSnapshot.generatedProps
+    : collectAllGeneratedProps(games);
+  const topProps = Array.isArray(picksSnapshot.topProps) ? picksSnapshot.topProps : [];
   const league = String(picksSnapshot.league || "").toUpperCase() || null;
   const slateDateFilter = picksSnapshot.slateDate
     ? String(picksSnapshot.slateDate)
@@ -1187,7 +1202,7 @@ export function buildFlowValidationDiagnostics(
     return true;
   };
 
-  const scopedTracked = tracked.filter(filterByScope);
+  const scopedTracked = trackedList.filter(filterByScope);
   const scopedGenerated = generatedProps.filter(filterByScope);
   const scopedTop = topProps.filter((pick) => {
     const enriched = enrichForKey(pick);
@@ -2400,8 +2415,21 @@ export function getTrackedPropsForSlate(slateDate) {
   return getTrackedProps().filter((prop) => String(prop.slateDate || "") === date);
 }
 
+function normalizeTrackedPropsStore(stored) {
+  if (Array.isArray(stored)) return { props: stored, repaired: false };
+  if (Array.isArray(stored?.props)) {
+    return { props: stored.props, repaired: true };
+  }
+  return { props: [], repaired: !Array.isArray(stored) && stored != null };
+}
+
 export function getTrackedProps() {
-  return readJSON(TRACKED_FILE, []);
+  const stored = readJSON(TRACKED_FILE, []);
+  const { props: normalized, repaired } = normalizeTrackedPropsStore(stored);
+  if (repaired) {
+    writeJSON(TRACKED_FILE, normalized);
+  }
+  return normalized;
 }
 
 export function writeTrackedProps(props = []) {
@@ -2427,6 +2455,11 @@ export function getAnalyticsScopeProps(
   reports = [],
   archives = []
 ) {
+  const trackedList = Array.isArray(trackedProps)
+    ? trackedProps
+    : Array.isArray(trackedProps?.props)
+      ? trackedProps.props
+      : [];
   const today = getTodayLocalDate();
   const quarantined = getQuarantinedSlateDatesSet(getQuarantinedSlatesFromRegistry());
   const completedDates = new Set(
@@ -2460,7 +2493,7 @@ export function getAnalyticsScopeProps(
     }
 
     scoped.push(
-      ...trackedProps.filter((prop) => {
+      ...trackedList.filter((prop) => {
         const propDate = String(prop.slateDate || getPickSlateDate(prop) || "");
         return propDate === slateDate;
       })

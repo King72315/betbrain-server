@@ -314,12 +314,16 @@ export function getTopPickRankMap(slateDate = null) {
   return map;
 }
 
+function snapshotPicks(snapshot) {
+  return Array.isArray(snapshot?.picks) ? snapshot.picks : [];
+}
+
 export function getTopPickMetaMap(slateDate = null) {
   const snapshot = slateDate
     ? getTopPicksSnapshot(slateDate)
     : getActiveTopPicksSnapshot();
   const map = new Map();
-  for (const pick of snapshot?.picks || []) {
+  for (const pick of snapshotPicks(snapshot)) {
     if (pick.trackedKey) {
       map.set(pick.trackedKey, {
         topPickRank: pick.topPickRank,
