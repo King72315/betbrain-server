@@ -297,7 +297,6 @@ export function restoreActiveSlateBundle(slateDate, options = {}) {
     console.log("ACTIVE RESTORE BACKUP WARNING:", err.message);
   }
 
-  const existing = readJSON(TRACKED_FILE, []);
   const preserved = existing.filter((p) => String(p.slateDate || "") !== date);
   writeJSON(TRACKED_FILE, [...preserved, ...loaded.props]);
 
