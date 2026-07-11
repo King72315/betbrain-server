@@ -3,6 +3,7 @@ import {
   interpretLineMovement,
 } from "../marketIntelligenceEngine.js";
 import { evaluateWnbaOfficialEligibility } from "../wnbaOfficialEngine.js";
+import { WNBA_UNDER_GAP_FLOOR } from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -28,7 +29,9 @@ function isLowLineContext(line = 0) {
   return num(line) <= 8.5;
 }
 
-const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.0;
+function isWnbaDataMode(dataMode = "") {
+  return String(dataMode || "").toUpperCase().includes("WNBA");
+}
 
 function scoreVolumePath(side, card = {}) {
   const line = num(card.bookLine);
@@ -89,14 +92,14 @@ function scoreVolumePath(side, card = {}) {
 
   if (side === "UNDER") {
     underGap = edge;
-    if (dataMode === "WNBA_LIMITED_DATA") {
-      underGapFloorUsed = WNBA_LIMITED_UNDER_GAP_FLOOR;
+    if (isWnbaDataMode(dataMode)) {
+      underGapFloorUsed = WNBA_UNDER_GAP_FLOOR;
       underGapFloorPassed = underGap >= underGapFloorUsed;
       if (!underGapFloorPassed) {
         limitedDataUnderPenaltyApplied = true;
         score -= 14;
         disagrees.push(
-          `WNBA limited-data Under gap ${underGap.toFixed(1)} below floor ${underGapFloorUsed}`
+          `WNBA Under gap ${underGap.toFixed(1)} below floor ${underGapFloorUsed}`
         );
       }
     }
@@ -384,6 +387,12 @@ export function readWnbaProp(dataCard = {}) {
   const overCase = buildSideCase("OVER", dataCard);
   const underCase = buildSideCase("UNDER", dataCard);
 
+  if (isWnbaDataMode(dataCard.dataMode) && underCase.underGapFloorPassed === false) {
+    underCase.blocked = true;
+    underCase.score = -1;
+    reasonCodes.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+  }
+
   whyOver.push(...overCase.supports);
   whyUnder.push(...underCase.supports);
 
@@ -467,14 +476,13 @@ export function readWnbaProp(dataCard = {}) {
   if (
     finalSide === "UNDER" &&
     chosen.limitedDataUnderPenaltyApplied &&
-    String(dataCard.dataMode || "").toUpperCase() === "WNBA_LIMITED_DATA"
+    isWnbaDataMode(dataCard.dataMode)
   ) {
-    reasonCodes.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+    addUnique(reasonCodes, "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
     if (decision === "OFFICIAL") decision = "TEST";
-    if (chosen.score < 6) {
-      decision = "NO_BET";
-      reasonCodes.push("INSUFFICIENT_EDGE");
-    }
+    decision = "NO_BET";
+    reasonCodes.push("INSUFFICIENT_EDGE");
+    finalSide = null;
   }
 
   return {

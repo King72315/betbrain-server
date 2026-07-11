@@ -310,9 +310,23 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     reasons.push(...flipReasons);
   }
 
+  const underGapFloor = resolveWnbaGapFloors({ ...metrics, side: "UNDER" }).gapFloor;
+  const underGapFloorFail =
+    originalSide === "UNDER" &&
+    metrics.projectionGap > 0 &&
+    metrics.projectionGap < underGapFloor;
+
   let action = "KEPT_ORIGINAL";
   if (flipRecommended) action = finalSide === "OVER" ? "FLIPPED_TO_OVER" : "FLIPPED_TO_UNDER";
-  else if (originalScored.score < 42 && oppositeScored.score < 42) action = "BOTH_SIDES_WEAK";
+  else if (
+    underGapFloorFail &&
+    oppositeScored.score < FLIP_SCORE_FLOOR
+  ) {
+    action = "BOTH_SIDES_WEAK";
+    noFlipReasons.push(
+      `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — both sides weak.`
+    );
+  } else if (originalScored.score < 42 && oppositeScored.score < 42) action = "BOTH_SIDES_WEAK";
   else if (originalProblems.length > 0)
     action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
   else action = "KEPT_ORIGINAL";

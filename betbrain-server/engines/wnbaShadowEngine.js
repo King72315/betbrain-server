@@ -56,7 +56,10 @@ export function getProjectionGap(pick = {}, side = "") {
 }
 
 export function evaluateWnbaGapFloor(pick = {}, side = "") {
-  if (!isWnbaLimitedData(pick)) {
+  const isWnba = String(pick.league || "").toUpperCase() === "WNBA";
+  const limited = isWnbaLimitedData(pick);
+
+  if (!isWnba) {
     return { passes: true, gap: getProjectionGap(pick, side), reason: null };
   }
 
@@ -64,6 +67,9 @@ export function evaluateWnbaGapFloor(pick = {}, side = "") {
   const gap = getProjectionGap(pick, pickSide);
 
   if (gap === null) {
+    if (!limited) {
+      return { passes: true, gap: null, reason: null };
+    }
     return {
       passes: false,
       gap: null,
@@ -81,6 +87,10 @@ export function evaluateWnbaGapFloor(pick = {}, side = "") {
       shadowTierCap: "WATCHLIST",
       label: `Under gap ${gap} below ${WNBA_UNDER_GAP_FLOOR} floor`,
     };
+  }
+
+  if (!limited) {
+    return { passes: true, gap, reason: null };
   }
 
   if (pickSide === "OVER" && gap < WNBA_OVER_GAP_FLOOR) {

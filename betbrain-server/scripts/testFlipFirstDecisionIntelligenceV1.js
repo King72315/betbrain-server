@@ -199,6 +199,30 @@ tests.push({
 });
 
 tests.push({
+  name: "07b flip-first thin Under gap below floor → BOTH_SIDES_WEAK",
+  fn() {
+    const pick = makeWnbaPick({
+      side: "Under",
+      wnbaDataCard: baseCard({
+        dataMode: "WNBA_FULL_DATA",
+        bookLine: 18.5,
+        projection: { projection: 16.8, expectedMinutes: 33, expectedFGA: 14 },
+        last5: { points: 15.2, minutes: 33, fga: 14.2, games: 5 },
+        fairLine: { fairLineSide: "UNDER", fairLineEdge: 1.6, fairLineQuality: 90 },
+        minutesVolatility: "volatile",
+      }),
+      projection: 16.8,
+      netEdge: 32,
+      volumeDangerGates: { gates: ["volatile_minutes"] },
+      dangerGateStack: ["volatileMinutes", "thinGap"],
+    });
+    const ff = evaluateFlipFirstSideSelection(pick, { originalSide: "UNDER" });
+    assert.strictEqual(ff.action, "BOTH_SIDES_WEAK");
+    assert.strictEqual(ff.flipRecommended, false);
+  },
+});
+
+tests.push({
   name: "07 flip-first keeps clean Over without flip",
   fn() {
     const pick = makeWnbaPick({

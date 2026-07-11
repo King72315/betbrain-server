@@ -562,9 +562,9 @@ test("29 live 06/25 Dearica Hamby U15.5 BOARD_ONLY", () => {
 test("30 live 06/25 Ariel Atkins U10.5 BOARD_ONLY thin volatile", () => {
   const pick = live0625Pick("Ariel Atkins", "UNDER", 10.5, {
     minutesVolatility: "volatile",
-    projection: { projection: 7.2, expectedMinutes: 24, expectedFGA: 8 },
+    projection: { projection: 6.9, expectedMinutes: 24, expectedFGA: 8 },
     last5: { points: 8, minutes: 24, fga: 8, ptsPerFGA: 1.0, games: 5 },
-  }, { netEdge: 5, gap: 3.3 });
+  }, { netEdge: 5, gap: 3.6 });
   const gate = evaluateWnbaTrackingGateV2(pick);
   assert.strictEqual(gate.wnbaTrackingDecision, "BOARD_ONLY");
   assertRiskNotLow(pick, gate);
@@ -695,6 +695,26 @@ test("41 live FULL_DATA stable Over gap 3.6 fails 4.0 side gate floor", () => {
   const gate = evaluateWnbaTrackingGateV2(pick);
   assert.strictEqual(gate.wnbaTrackingDecision, "BOARD_ONLY");
   assert.ok(gate.trackingWarnings.includes("OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR"));
+});
+
+test("42 unstable minutes thin book Over fails side gate (0708 Carleton pattern)", () => {
+  const pick = live0625Pick("Bridget Carleton", "OVER", 13.5, {
+    minutesVolatility: "unstable",
+    dataMode: "WNBA_FULL_DATA",
+    bookCount: 2,
+    marketQuality: 29,
+    roleTrend: "expanding",
+    projection: { projection: 17.8, expectedMinutes: 35.5, expectedFGA: 12.4 },
+    last5: { points: 16.2, minutes: 33.8, fga: 12, ptsPerFGA: 1.14, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 4.1, fairLineQuality: 95 },
+    volumeDangerGates: { gates: ["unstable_minutes"] },
+  }, { netEdge: 8, gap: 4.3 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.sideGatePassed, false);
+  assert.ok(
+    gate.trackingWarnings.includes("OVER_UNSTABLE_THIN_BOOK") ||
+      (gate.wnbaTrackingReason || "").includes("OVER_UNSTABLE_THIN_BOOK")
+  );
 });
 
 let passed = 0;

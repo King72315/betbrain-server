@@ -360,6 +360,20 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
     }
   }
 
+  const unstableMinutes =
+    dangerStack.includes("unstableMinutes") || metrics.volatility === "unstable";
+  if (
+    side === "OVER" &&
+    unstableMinutes &&
+    metrics.bookCount <= 2 &&
+    !elite &&
+    !eliteEdge
+  ) {
+    boardOnlyReasons.push("OVER_UNSTABLE_THIN_BOOK");
+    sideGatePassed = false;
+    overVolumePenalty += 12;
+  }
+
   if (side === "OVER" && metrics.netEdge < 2.5 && metrics.projectionGap < 2.5) {
     boardOnlyReasons.push("OVER_EDGE_TOO_THIN");
     sideGatePassed = false;

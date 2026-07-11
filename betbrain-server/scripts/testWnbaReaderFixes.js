@@ -72,17 +72,17 @@ function testLimitedDataUnderGap26Penalty() {
       last5: { points: 10, minutes: 20, fga: 7, fta: 2, ptsPerFGA: 1.1, ftPath: true, games: 5 },
     })
   );
-  assert.strictEqual(reader.finalSide, "UNDER");
-  assert.ok(reader.limitedDataUnderPenaltyApplied);
-  assert.ok(reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
-  console.log("✓ 1 limited-data Under gap 2.6 triggers floor penalty");
+  assert.strictEqual(reader.decision, "NO_BET");
+  assert.strictEqual(reader.finalSide, null);
+  assert.ok(reader.limitedDataUnderPenaltyApplied || reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
+  console.log("✓ 1 limited-data Under gap 2.6 blocked — NO_BET");
 }
 
 function testLimitedDataUnderGap32CanPass() {
   const reader = readWnbaProp(
     baseCard({
       bookLine: 14.5,
-      projection: { projection: 11.2, expectedMinutes: 24, expectedFGA: 9, expectedFTA: 2.5, method: "volume-first-v2" },
+      projection: { projection: 10.9, expectedMinutes: 24, expectedFGA: 9, expectedFTA: 2.5, method: "volume-first-v2" },
       last5: { points: 11, minutes: 18, fga: 6, fta: 1.5, ptsPerFGA: 1.05, ftPath: true, games: 5 },
       fairLine: { fairLine: 13.5, fairLineSide: "UNDER", fairLineEdge: 1.2, fairLineQuality: 58 },
     })
@@ -90,7 +90,7 @@ function testLimitedDataUnderGap32CanPass() {
   assert.strictEqual(reader.finalSide, "UNDER");
   assert.strictEqual(reader.underGapFloorPassed, true);
   assert.strictEqual(reader.limitedDataUnderPenaltyApplied, false);
-  console.log("✓ 2 limited-data Under gap 3.2 passes floor");
+  console.log("✓ 2 limited-data Under gap 3.6 passes floor");
 }
 
 function testNbaUnderLogicProtected() {
@@ -322,6 +322,22 @@ function testTopPicksReviewWhenSnapshotExists() {
   console.log("✓ 15 Top Picks Review builds when snapshot exists");
 }
 
+function testFullDataUnderGap17NoBet() {
+  const reader = readWnbaProp(
+    baseCard({
+      dataMode: "WNBA_FULL_DATA",
+      bookLine: 18.5,
+      projection: { projection: 16.8, expectedMinutes: 33, expectedFGA: 14, expectedFTA: 7, method: "volume-first-v2" },
+      last5: { points: 15.2, minutes: 33, fga: 14.2, fta: 7.2, ptsPerFGA: 0.875, ftPath: true, games: 5 },
+      fairLine: { fairLine: 16.9, fairLineSide: "UNDER", fairLineEdge: 1.6, fairLineQuality: 95 },
+    })
+  );
+  assert.strictEqual(reader.decision, "NO_BET");
+  assert.strictEqual(reader.finalSide, null);
+  assert.ok(reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
+  console.log("✓ 19 WNBA_FULL_DATA Under gap 1.7 forces NO_BET");
+}
+
 function testNbaPathProtected() {
   assert.strictEqual(isCourteEdgeWnbaV2Enabled(), true);
   assert.strictEqual(WNBA_ENGINE_HANDLED, "WNBA_V2");
@@ -356,10 +372,11 @@ async function main() {
   testLabReportTopPicksMissingMessage();
   testNoDuplicateStableKeysInSample();
   testTopPicksReviewWhenSnapshotExists();
+  testFullDataUnderGap17NoBet();
   testNbaPathProtected();
   testTopPropSelectorSuite();
   testTopPicksLifecycleSuite();
-  console.log("\nAll 18 WNBA reader calibration tests passed.");
+  console.log("\nAll 19 WNBA reader calibration tests passed.");
 }
 
 main().catch((err) => {

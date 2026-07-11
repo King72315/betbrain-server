@@ -191,9 +191,9 @@ test("05 thin Over edge cannot enter Results", () => {
 test("06 thin Under edge cannot enter Results", () => {
   const pick = live0625Pick("Ariel Atkins", "UNDER", 10.5, {
     minutesVolatility: "volatile",
-    projection: { projection: 7.2, expectedMinutes: 24, expectedFGA: 8 },
+    projection: { projection: 6.9, expectedMinutes: 24, expectedFGA: 8 },
     last5: { points: 8, minutes: 24, fga: 8, ptsPerFGA: 1.0, games: 5 },
-  }, { netEdge: 5, gap: 3.3 });
+  }, { netEdge: 5, gap: 3.6 });
   const di = evaluateDi(pick);
   assert.strictEqual(di.trackEligibility, "BOARD_ONLY");
   assert.strictEqual(di.bestSixEligibility, false);
