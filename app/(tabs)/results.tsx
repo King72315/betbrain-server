@@ -333,8 +333,13 @@ export default function ResultsScreen() {
   );
 
   const slateRotation = useMemo(
-    () => computeSlateRotation(reports, lockedSlates),
-    [reports, lockedSlates]
+    () =>
+      computeSlateRotation(reports, {
+        lockedSlates,
+        trackedProps,
+        today: todayLocalDate,
+      }),
+    [reports, lockedSlates, trackedProps, todayLocalDate]
   );
 
   const bestSixCapStatus = useMemo(() => {
@@ -828,7 +833,7 @@ export default function ResultsScreen() {
             <Text style={styles.emptyText}>
               {activeResultsSummary.activeSlateDate
                 ? `Active slate ${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} has no tracked props yet.`
-                : `Today's slate (${formatResultsSlateLabel(todayLocalDate)}) is not admitted yet. Refresh the board when Best 6 picks are ready.`}
+                : `No active Results cohort for ${formatResultsSlateLabel(todayLocalDate)}. Today's slate is fully graded or not yet tracked — see Home for tomorrow's board and Prop Lab for completed slates.`}
               {" "}Legacy tracked props remain stored on the server but hidden from Results.
             </Text>
           </View>
