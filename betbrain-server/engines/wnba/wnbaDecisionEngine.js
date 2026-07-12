@@ -25,6 +25,7 @@ import {
   SIDE_RESCUE_VERSION,
 } from "../decisionIntelligence/sideRescueEngineV1.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
+import { finalizeCanonicalDecision } from "../decisionIntelligence/sideSelectionTrustV1.js";
 import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
@@ -74,6 +75,13 @@ function finalizeWnbaPickTracking(pick = {}, reader = {}) {
 function num(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeSide(side = "") {
+  const raw = String(side || "").toUpperCase();
+  if (raw === "OVER" || raw === "O" || raw.startsWith("OVER")) return "OVER";
+  if (raw === "UNDER" || raw === "U" || raw.startsWith("UNDER")) return "UNDER";
+  return raw;
 }
 
 function clamp(value, min, max) {
@@ -516,6 +524,11 @@ export async function evaluateWnbaPropDecision(context = {}) {
   if (typeof applyPickFinishers === "function") {
     pick = applyPickFinishers(pick) || pick;
   }
+
+  pick.readerSide = normalizeSide(reader.finalSide || pickSide);
+  pick.currentSide = normalizeSide(pick.side || pick.pick);
+  pick.finalSide = pick.currentSide;
+  pick = finalizeCanonicalDecision(pick);
 
   return {
     accepted: true,

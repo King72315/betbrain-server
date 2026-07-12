@@ -2,13 +2,13 @@
  * Flip-First Side Selection v1 — evaluate opposite side before downgrade/block.
  */
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
-import { resolveWnbaGapFloors } from "../wnba/wnbaGraduatedDataModeV1.js";
+import { resolveWnbaGapFloor } from "../wnba/wnbaGraduatedDataModeV1.js";
+import { countIndependentEvidenceCategories } from "./sideSelectionTrustV1.js";
 
 export const FLIP_FIRST_VERSION = "flip-first-side-selection-v1";
 
 const FLIP_SCORE_FLOOR = 58;
 const FLIP_MARGIN_DEFAULT = 8;
-const FLIP_MARGIN_THIN = 6;
 const MIN_OPPOSITE_EVIDENCE = 2;
 
 const EXPANDING = new Set(["up", "expanding", "rising"]);
@@ -98,7 +98,7 @@ function collectOriginalProblems(ddi = {}, originalSide = "") {
 
 function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "", ddi = {}) {
   const problems = [];
-  const { gapFloor } = resolveWnbaGapFloors({ ...metrics, side: originalSide });
+  const { gapFloorApplied: gapFloor } = resolveWnbaGapFloor({ ...metrics, side: originalSide });
   if (metrics.projectionGap > 0 && metrics.projectionGap < gapFloor) {
     problems.push({
       code: "THIN_GAP",
@@ -250,9 +250,12 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   const oppositeSideEvidence = oppositeScored.reasons.filter(Boolean);
 
   const thinEdge = metrics.projectionGap > 0 && metrics.projectionGap < 3;
-  const flipMargin = thinEdge ? FLIP_MARGIN_THIN : FLIP_MARGIN_DEFAULT;
+  const flipMargin = FLIP_MARGIN_DEFAULT;
   const oppositeKills = oppositeKillDebts(oppositeSide, metrics);
   const independentEvidence = oppositeScored.reasons.filter(Boolean);
+  const independentCategoryCount = countIndependentEvidenceCategories(
+  oppositeSideEvidence.map((reason) => ({ code: reason, category: null }))
+  );
 
   let flipRecommended = false;
   let finalSide = originalSide;
@@ -298,7 +301,11 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     noFlipReasons.push(
       `Opposite margin ${oppositeScored.score - originalScored.score} below ${flipMargin}.`
     );
-  } else if (independentEvidence.length < MIN_OPPOSITE_EVIDENCE && oppositeScored.score < 70) {
+  } else if (
+    independentCategoryCount < MIN_OPPOSITE_EVIDENCE &&
+    independentEvidence.length < MIN_OPPOSITE_EVIDENCE &&
+    oppositeScored.score < 70
+  ) {
     noFlipReasons.push("Opposite lacks independent evidence.");
   } else {
     flipRecommended = true;
@@ -310,7 +317,7 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     reasons.push(...flipReasons);
   }
 
-  const underGapFloor = resolveWnbaGapFloors({ ...metrics, side: "UNDER" }).gapFloor;
+  const underGapFloor = resolveWnbaGapFloor({ ...metrics, side: "UNDER" }).gapFloorApplied;
   const underGapFloorFail =
     originalSide === "UNDER" &&
     metrics.projectionGap > 0 &&
@@ -318,10 +325,7 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
 
   let action = "KEPT_ORIGINAL";
   if (flipRecommended) action = finalSide === "OVER" ? "FLIPPED_TO_OVER" : "FLIPPED_TO_UNDER";
-  else if (
-    underGapFloorFail &&
-    oppositeScored.score < FLIP_SCORE_FLOOR
-  ) {
+  else if (underGapFloorFail && !flipRecommended) {
     action = "BOTH_SIDES_WEAK";
     noFlipReasons.push(
       `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — both sides weak.`
@@ -346,6 +350,9 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     originalSideScore: originalScored.score,
     oppositeSideScore: oppositeScored.score,
     flipRecommended,
+    thinGapTriggeredReview: thinEdge,
+    flipMarginUsed: flipMargin,
+    independentEvidenceCategoryCount: independentCategoryCount,
   };
 
   return {
@@ -364,6 +371,9 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     oppositeSideEvidence,
     whyRetainedFlippedOrPass,
     flipFirstAudit,
+    thinGapTriggeredReview: thinEdge,
+    flipMarginUsed: flipMargin,
+    independentEvidenceCategoryCount: independentCategoryCount,
     originalProblems,
     reasons: reasons.slice(0, 8),
   };

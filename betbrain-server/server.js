@@ -247,7 +247,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-lab-signal-learning-v1";
+const SERVER_BUILD = "courteedge-side-selection-trust-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

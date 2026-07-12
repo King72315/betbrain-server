@@ -107,6 +107,32 @@ function normalizeGapSide(side = "") {
   return "";
 }
 
+/**
+ * Authoritative single-side gap floor resolver.
+ * Wraps resolveWnbaGapFloors with audit fields for side-selection trust.
+ */
+export function resolveWnbaGapFloor(metrics = {}, options = {}) {
+  const floors = resolveWnbaGapFloors(metrics, options);
+  const volatility = String(metrics.minutesStability ?? metrics.volatility ?? "stable").toLowerCase();
+  const stableMinutesEligibilitySatisfied =
+    volatility !== "volatile" && volatility !== "unstable";
+  const dataMode = metrics.dataMode || "";
+  const resolvedDataMode = isWnbaFullDataMode(dataMode)
+    ? "WNBA_FULL_DATA"
+    : isWnbaLimitedDataMode(dataMode)
+      ? "WNBA_LIMITED_DATA"
+      : dataMode || "WNBA_LIMITED_DATA";
+
+  return {
+    resolvedDataMode,
+    gapFloorApplied: floors.gapFloor,
+    gapFloorReason: floors.reasonCode,
+    stableMinutesEligibilitySatisfied,
+    scenario: floors.scenario,
+    retroFullDataStableFloor: floors.retroFullDataStableFloor,
+  };
+}
+
 /** Graduated Over/Under gap floors — live Over uses 4.0; retro FULL+stable may use 3.5. */
 export function resolveWnbaGapFloors(metrics = {}, options = {}) {
   const side = normalizeGapSide(metrics.side);

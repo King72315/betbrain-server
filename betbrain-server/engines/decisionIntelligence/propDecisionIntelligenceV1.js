@@ -21,6 +21,7 @@ import {
   resolveWnbaGapFloors,
 } from "../wnba/wnbaGraduatedDataModeV1.js";
 import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
+import { buildDebtLedger } from "./sideSelectionTrustV1.js";
 
 export const DECISION_INTELLIGENCE_VERSION = "courtedge-decision-intelligence-v1";
 
@@ -756,7 +757,12 @@ export function promoteBestSixCohortPick(pick = {}) {
   const di = pick.decisionIntelligence || {};
   const sr = pick.sideRescue || {};
   const originalEligibility = String(
-    di.trackEligibility || pick.trackingEligibility || pick.wnbaTrackingDecision || "TRACK"
+    pick.naturalDecision ||
+      di.originalGateEligibility ||
+      di.trackEligibility ||
+      pick.trackingEligibility ||
+      pick.wnbaTrackingDecision ||
+      "TRACK"
   ).toUpperCase();
   const sideRescueAction = String(sr.action || pick.sideRescueAction || "").toUpperCase();
 
@@ -789,6 +795,7 @@ export function promoteBestSixCohortPick(pick = {}) {
     bestSixEligibility: true,
     trueRisk,
     originalGateEligibility: originalEligibility,
+    naturalDecision: originalEligibility,
     bestSixPromoted: qualityFlags.length > 0,
     promotionReasons: qualityFlags,
     simpleExplanation,
@@ -797,6 +804,7 @@ export function promoteBestSixCohortPick(pick = {}) {
 
   return {
     ...pick,
+    naturalDecision: originalEligibility,
     decisionIntelligence: updatedDi,
     trackingEligibility: "TRACK",
     wnbaTrackingDecision: "TRACK",
@@ -839,6 +847,7 @@ function evaluateWnbaDecisionIntelligence(candidate = {}, options = {}) {
       candidate.controlledBestSixDisplay === true,
   });
   const whatWouldMakeItBetter = buildWhatWouldMakeItBetter(riskDebts, metrics, gate);
+  const debtLedger = buildDebtLedger(riskDebts);
 
   return {
     version: DECISION_INTELLIGENCE_VERSION,
@@ -850,6 +859,9 @@ function evaluateWnbaDecisionIntelligence(candidate = {}, options = {}) {
     ...eligibility,
     riskDebts,
     riskRepairs,
+    riskDebtReasons: debtLedger.appliedDebtIds,
+    riskRepairReasons: riskRepairs.map((r) => r.code),
+    debtLedger,
     simpleExplanation,
     whatWouldMakeItBetter,
     gateVersion: gate.wnbaGateVersion || gate.qualityGateVersion,
@@ -979,6 +991,9 @@ export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate
       bestSixEligibility: di.bestSixEligibility,
       riskDebts: di.riskDebts,
       riskRepairs: di.riskRepairs,
+      riskDebtReasons: (di.riskDebts || []).map((d) => d.code),
+      riskRepairReasons: (di.riskRepairs || []).map((r) => r.code),
+      debtLedger: di.debtLedger || buildDebtLedger(di.riskDebts || []),
       killReasons: di.killReasons,
       demotionReasons: di.demotionReasons,
       upgradeReasons: di.upgradeReasons,

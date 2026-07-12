@@ -37,6 +37,11 @@ import {
   applySlateCollisionAdjustments,
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
+import {
+  finalizeCanonicalDecision,
+  computeDecisionHash,
+  buildCanonicalDecisionBundle,
+} from "../decisionIntelligence/sideSelectionTrustV1.js";
 export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v2";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
@@ -324,10 +329,16 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
   const limit = Number(options.limit ?? BEST_SIX_LIMIT);
   const minMinority = Number(options.minMinority ?? SIDE_BALANCE_MINORITY);
   const margin = Number(options.swapMargin ?? SIDE_BALANCE_SWAP_MARGIN);
-  if (selected.length < 3 || selected.length < limit) return selected;
+  audit.sideBalanceEvaluated = true;
+
+  if (selected.length < 3 || selected.length < limit) {
+    audit.sideBalanceNoSwapReason = "INSUFFICIENT_BEST_SIX_SIZE";
+    return selected;
+  }
 
   let result = [...selected];
   const swaps = [];
+  let sideBalanceNoSwapReason = null;
 
   for (let attempt = 0; attempt < limit; attempt += 1) {
     const sideCounts = { OVER: 0, UNDER: 0 };
@@ -342,10 +353,22 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
         : sideCounts.UNDER >= limit - minMinority
           ? "UNDER"
           : null;
-    if (!dominantSide) break;
+    if (!dominantSide) {
+      sideBalanceNoSwapReason = "BALANCED_OR_ACCEPTABLE";
+      break;
+    }
 
     const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
-    if (sideCounts[minoritySide] >= minMinority) break;
+    audit.majoritySide = dominantSide;
+    audit.minoritySide = minoritySide;
+    audit.minorityCandidatesFound = sorted.filter(
+      (pick) => normalizeSide(pick.side || pick.pick) === minoritySide
+    ).length;
+
+    if (sideCounts[minoritySide] >= minMinority) {
+      sideBalanceNoSwapReason = "MINORITY_QUOTA_MET";
+      break;
+    }
 
     const selectedSet = new Set(result);
     let weakestIdx = -1;
@@ -358,14 +381,25 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
         weakestIdx = i;
       }
     }
-    if (weakestIdx < 0) break;
+    if (weakestIdx < 0) {
+      sideBalanceNoSwapReason = "NO_DOMINANT_SIDE_CANDIDATE";
+      break;
+    }
 
-    const alternative = sorted.find((pick) => {
+    const eligibleMinority = sorted.filter((pick) => {
       if (selectedSet.has(pick)) return false;
       if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
+      const di = pick.decisionIntelligence || {};
+      if ((di.killReasons || []).length > 0) return false;
       return computeSafetyScore(pick) >= weakestScore - margin;
     });
-    if (!alternative) break;
+    audit.eligibleMinorityCandidates = eligibleMinority.length;
+
+    const alternative = eligibleMinority[0];
+    if (!alternative) {
+      sideBalanceNoSwapReason = "NO_ELIGIBLE_MINORITY_CANDIDATE";
+      break;
+    }
 
     swaps.push({
       replaced: summarizePickForAudit(result[weakestIdx]),
@@ -377,6 +411,9 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
   }
 
   if (swaps.length) audit.sideBalanceSwaps = swaps;
+  if (!audit.sideBalanceNoSwapReason) {
+    audit.sideBalanceNoSwapReason = sideBalanceNoSwapReason || "NO_SWAP_NEEDED";
+  }
   return result;
 }
 
@@ -418,6 +455,22 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
   if (!isWnbaQualityGatePick(pick)) {
     return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
   }
+
+  const slateLevelRecompute =
+    options.forceRecompute === true ||
+    options.slateCollisionAdjusted === true ||
+    options.sideBalanceAdjusted === true;
+
+  if (pick.sideSelectionBundle?.version && pick.decisionHash && !slateLevelRecompute) {
+    return {
+      pick: pick.sideSelectionBundle.decisionRecomputed
+        ? pick
+        : { ...pick, decisionReused: true },
+      reusedCanonicalBundle: true,
+    };
+  }
+
+  const previousHash = pick.decisionHash || pick.sideSelectionBundle?.decisionHash || null;
 
   let enriched = syncWnbaDataModeOnPick(pick, pick.wnbaDataCard, pick.wnbaReader);
   const initialSide = normalizeSide(
@@ -476,7 +529,23 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
     }
   }
 
-  return { pick: enriched };
+  enriched = finalizeCanonicalDecision(enriched);
+  if (slateLevelRecompute) {
+    const newHash = enriched.decisionHash;
+    enriched.decisionRecomputed = previousHash && previousHash !== newHash;
+    enriched.decisionRecomputeReason = options.decisionRecomputeReason || "slate_level_context";
+    enriched.previousDecisionHash = previousHash;
+    enriched.newDecisionHash = newHash;
+    enriched.sideSelectionBundle = {
+      ...enriched.sideSelectionBundle,
+      decisionRecomputed: enriched.decisionRecomputed,
+      decisionRecomputeReason: enriched.decisionRecomputeReason,
+      previousDecisionHash: previousHash,
+      newDecisionHash: newHash,
+    };
+  }
+
+  return { pick: enriched, reusedCanonicalBundle: false };
 }
 
 function passesBaseCandidateFilters(pick = {}, audit = {}) {
@@ -516,7 +585,24 @@ function passesResultsEligibility(pick = {}) {
 }
 
 export function annotateResultsAdmission(pick = {}) {
-  const promoted = promoteBestSixCohortPick(pick);
+  const naturalDecision =
+    pick.naturalDecision ||
+    pick.sideSelectionBundle?.naturalDecision ||
+    pick.decisionIntelligence?.originalGateEligibility ||
+    pick.decisionIntelligence?.trackEligibility ||
+    pick.wnbaTrackingDecision ||
+    "TRACK";
+
+  const promoted = promoteBestSixCohortPick({
+    ...pick,
+    naturalDecision,
+    sideSelectionBundle: {
+      ...(pick.sideSelectionBundle || buildCanonicalDecisionBundle(pick)),
+      naturalDecision,
+      selectedForLearning: true,
+      resultsTracked: true,
+    },
+  });
   const di = promoted.decisionIntelligence || {};
   const qualityNote =
     promoted.bestSixQualityFlags?.length > 0
@@ -527,6 +613,9 @@ export function annotateResultsAdmission(pick = {}) {
 
   return {
     ...promoted,
+    naturalDecision,
+    selectedForLearning: true,
+    resultsTracked: true,
     resultsAdmissionEligible: true,
     resultsDecisionLabel: "TRACK",
     resultsTrackingWarning: qualityNote,
@@ -631,7 +720,17 @@ export function selectControlledBestSix(candidates = [], league = "", options = 
   audit.afterInvalidFilter = valid.length;
 
   const collisionAdjusted =
-    leagueCode === "WNBA" ? applySlateCollisionLayer(valid, audit) : valid;
+    leagueCode === "WNBA"
+      ? applySlateCollisionLayer(valid, audit).map((pick) => {
+          if (!pick.decisionRecomputed && pick.sideSelectionBundle) return pick;
+          return {
+            ...pick,
+            decisionRecomputed: true,
+            decisionRecomputeReason: "same_team_collision",
+            previousDecisionHash: pick.decisionHash,
+          };
+        })
+      : valid;
 
   const scored = collisionAdjusted.map(scoreCandidate);
   scored.sort(compareByScore);
@@ -671,7 +770,17 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
   audit.afterInvalidFilter = valid.length;
 
   const collisionAdjusted =
-    leagueCode === "WNBA" ? applySlateCollisionLayer(valid, audit) : valid;
+    leagueCode === "WNBA"
+      ? applySlateCollisionLayer(valid, audit).map((pick) => {
+          if (!pick.decisionRecomputed && pick.sideSelectionBundle) return pick;
+          return {
+            ...pick,
+            decisionRecomputed: true,
+            decisionRecomputeReason: "same_team_collision",
+            previousDecisionHash: pick.decisionHash,
+          };
+        })
+      : valid;
 
   const scored = collisionAdjusted.map(scoreCandidate);
   scored.sort(compareBySafetyScore);

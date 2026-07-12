@@ -328,9 +328,15 @@ function buildSideCase(side, card = {}) {
     env.score +
     role.score;
 
+  const rawScore = Number(totalScore.toFixed(1));
   return {
     side,
-    score: Number(totalScore.toFixed(1)),
+    score: rawScore,
+    rawScore,
+    adjustedScore: rawScore,
+    eligible: !role.blocked,
+    blockReasons: role.blocked ? ["ROLE_BLOCKED"] : [],
+    notScoredReason: null,
     edge: volume.edge,
     supports: [
       ...volume.supports,
@@ -389,14 +395,26 @@ export function readWnbaProp(dataCard = {}) {
 
   if (isWnbaDataMode(dataCard.dataMode) && underCase.underGapFloorPassed === false) {
     underCase.blocked = true;
-    underCase.score = -1;
+    underCase.eligible = false;
+    underCase.blockReasons = ["UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"];
     reasonCodes.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
   }
 
   whyOver.push(...overCase.supports);
   whyUnder.push(...underCase.supports);
 
-  let finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
+  const overEligible = overCase.eligible !== false && !overCase.blocked;
+  const underEligible = underCase.eligible !== false && !underCase.blocked;
+  let finalSide = "OVER";
+  if (overEligible && underEligible) {
+    finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
+  } else if (overEligible) {
+    finalSide = "OVER";
+  } else if (underEligible) {
+    finalSide = "UNDER";
+  } else {
+    finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
+  }
   const chosen = finalSide === "OVER" ? overCase : underCase;
   const other = finalSide === "OVER" ? underCase : overCase;
   const margin = Math.abs(overCase.score - underCase.score);

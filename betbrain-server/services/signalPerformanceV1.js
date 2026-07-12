@@ -3,7 +3,11 @@
  * Per-slate signal bucket performance with helped/hurt/neutral classification.
  */
 
-export const SIGNAL_PERFORMANCE_VERSION = "signal-performance-v1";
+import {
+  buildCounterfactualSideLearning,
+} from "../engines/decisionIntelligence/sideSelectionTrustV1.js";
+
+export const SIGNAL_PERFORMANCE_VERSION = "signal-performance-v1.1";
 export const SMALL_SAMPLE_THRESHOLD = 3;
 
 /** Win-rate / margin thresholds for objective helped/hurt/neutral. */
@@ -167,6 +171,7 @@ function getFairLineEdgeBucket(edge) {
 }
 
 function buildRawRecord(prop = {}) {
+  const counterfactual = buildCounterfactualSideLearning(prop);
   return {
     trackedId: prop.trackedId || prop.trackedKey || null,
     player: prop.player || null,
@@ -176,6 +181,9 @@ function buildRawRecord(prop = {}) {
     status: prop.status || null,
     resultMargin: prop.resultMargin ?? prop.currentEngineMargin ?? null,
     confidence: prop.confidence ?? null,
+    naturalDecision: prop.naturalDecision || counterfactual.naturalDecision || null,
+    riskDebtReasons: counterfactual.riskDebtReasons || [],
+    counterfactualSideLearning: counterfactual,
   };
 }
 
