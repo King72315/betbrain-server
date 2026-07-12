@@ -352,6 +352,69 @@ function testControlledCohortUsesDisplayBestSix() {
   );
 }
 
+function testControlledCohortAdmitsTodayWhenDisplayIsTomorrow() {
+  const todayPick = makePick({
+    player: "Today Star",
+    dayBucket: "TODAY",
+    dateLabel: "Today",
+    commenceTime: "2026-07-12T23:00:00Z",
+    gameDate: "2026-07-12",
+    pickScore: 88,
+    trackingType: "TEST",
+    controlledBestSixDisplay: true,
+    controlledBestSixDisplayTracked: true,
+    resultsAdmissionEligible: true,
+  });
+  const tomorrowPick = makePick({
+    player: "Tomorrow Star",
+    dayBucket: "TOMORROW",
+    dateLabel: "Tomorrow",
+    commenceTime: "2026-07-13T23:00:00Z",
+    gameDate: "2026-07-13",
+    pickScore: 99,
+    trackingType: "TEST",
+    controlledBestSixDisplay: true,
+    controlledBestSixDisplayTracked: true,
+    resultsAdmissionEligible: true,
+  });
+  const todayGame = makeGame([todayPick], [todayPick], {
+    dayBucket: "TODAY",
+    dateLabel: "Today",
+    date: "2026-07-12",
+    commenceTime: "2026-07-12T23:00:00Z",
+  });
+  const tomorrowGame = makeGame([tomorrowPick], [tomorrowPick], {
+    dayBucket: "TOMORROW",
+    dateLabel: "Tomorrow",
+    date: "2026-07-13",
+    commenceTime: "2026-07-13T23:00:00Z",
+  });
+
+  const bundle = buildControlledTrackingCohort(
+    { gameCards: [todayGame, tomorrowGame] },
+    {
+      todayLocalDate: "2026-07-12",
+      controlledSelection: {
+        bestSixDisplayWNBA: [tomorrowPick],
+        bestSixDisplayNBA: [],
+        bestSixWNBA: [tomorrowPick],
+        bestSixNBA: [],
+      },
+    }
+  );
+
+  assert.strictEqual(bundle.audit.slateDate, "2026-07-12");
+  assert.ok(bundle.trackingCohort.length >= 1);
+  assert.ok(
+    bundle.trackingCohort.some((pick) => pick.player === "Today Star"),
+    "Results cohort should admit today's Best 6 even when display board is tomorrow-only"
+  );
+  assert.ok(
+    !bundle.trackingCohort.some((pick) => pick.player === "Tomorrow Star"),
+    "tomorrow display picks must not be stamped into today's Results cohort"
+  );
+}
+
 const tests = [
   ["1 controlled Best 6 cap limits cohort", testTopPropsLimitDoesNotReduceCohort],
   ["2 top pick references do not inflate cohort logic", testTopPickReferencesDoNotIncreaseCount],
@@ -370,6 +433,10 @@ const tests = [
   ["14 promoted display Best 6 tracked as TRACK", testPromotedDisplayBestSixTracked],
   ["15 NO_BET eligibility display Best 6 tracked", testNoBetEligibilityDisplayBestSixTracked],
   ["16 controlled cohort uses display Best 6", testControlledCohortUsesDisplayBestSix],
+  [
+    "17 today cohort admitted when display is tomorrow-only",
+    testControlledCohortAdmitsTodayWhenDisplayIsTomorrow,
+  ],
 ];
 
 let passed = 0;

@@ -54,6 +54,7 @@ import {
 import { runFlipFirstDecisionPipeline } from "../engines/decisionIntelligence/decisionDataIntelligenceV1.js";
 import {
   selectControlledBestSixCombined,
+  selectBestSixDisplay,
   CONTROLLED_BEST_SIX_VERSION,
   BEST_SIX_LIMIT,
 } from "../engines/topProps/controlledBestSixSelector.js";
@@ -976,12 +977,35 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     selection.bestSixDisplayWNBA || selection.bestSixWNBA || [];
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
-  const bestSixWNBA = bestSixDisplayWNBA;
-  const bestSixNBA = bestSixDisplayNBA;
-  const bestSixCohort = filterTodayResultsTrackingPicks(
-    [...bestSixDisplayWNBA, ...bestSixDisplayNBA],
+
+  // Home/Top boards are tomorrow-scoped; Results must always admit today's Best 6.
+  const todayCandidates = filterTodayResultsTrackingPicks(
+    fullGeneratedCandidates,
     todayLocalDate
   );
+  let bestSixWNBA = filterTodayResultsTrackingPicks(
+    bestSixDisplayWNBA,
+    todayLocalDate
+  );
+  let bestSixNBA = filterTodayResultsTrackingPicks(
+    bestSixDisplayNBA,
+    todayLocalDate
+  );
+  if (!bestSixWNBA.length && todayCandidates.length) {
+    bestSixWNBA = selectBestSixDisplay(
+      todayCandidates,
+      "WNBA",
+      options.selectorOptions || {}
+    ).bestSix;
+  }
+  if (!bestSixNBA.length && todayCandidates.length) {
+    bestSixNBA = selectBestSixDisplay(
+      todayCandidates,
+      "NBA",
+      options.selectorOptions || {}
+    ).bestSix;
+  }
+  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
     buildResultsTrackingCohort(bestSixCohort, {

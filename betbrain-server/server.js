@@ -247,7 +247,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-side-selection-trust-v1";
+const SERVER_BUILD = "courteedge-results-today-cohort-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -410,7 +410,10 @@ function syncTrackedFromCache() {
   if (!picksCache?.games?.length) return;
 
   const hasCachedBestSix =
-    picksCache.bestSixWNBA?.length || picksCache.bestSixNBA?.length;
+    picksCache.bestSixDisplayWNBA?.length ||
+    picksCache.bestSixDisplayNBA?.length ||
+    picksCache.bestSixWNBA?.length ||
+    picksCache.bestSixNBA?.length;
 
   const cohortBundle = buildControlledTrackingCohort(
     { gameCards: picksCache.games },
@@ -421,6 +424,10 @@ function syncTrackedFromCache() {
       trackedProps: getTrackedProps(),
       controlledSelection: hasCachedBestSix
         ? {
+            bestSixDisplayWNBA:
+              picksCache.bestSixDisplayWNBA || picksCache.bestSixWNBA || [],
+            bestSixDisplayNBA:
+              picksCache.bestSixDisplayNBA || picksCache.bestSixNBA || [],
             bestSixWNBA: picksCache.bestSixWNBA || [],
             bestSixNBA: picksCache.bestSixNBA || [],
             topProps: picksCache.topProps || [],
