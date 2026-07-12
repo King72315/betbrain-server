@@ -237,4 +237,39 @@ console.log("testActiveResultsSlate: Home→Results→Lab flow");
   assert.equal(active, "2026-07-08", "Results shows today's cohort only");
 }
 
+// Test 8 — stale locked ACTIVE slate (4+ days) does not block today's Results
+{
+  const tracked = [
+    makeProp("2026-07-08", "pending", {
+      player: "Carla Leite",
+      controlledBestSixDisplayTracked: true,
+    }),
+    makeProp("2026-07-08", "pending", {
+      player: "Bridget Carleton",
+      controlledBestSixDisplayTracked: true,
+    }),
+    makeProp("2026-07-12", "pending", {
+      player: "Today Pick",
+      controlledBestSixDisplayTracked: true,
+    }),
+  ];
+  const lockedSlates = [makeLockedEntry("2026-07-08")];
+  const today = "2026-07-12";
+
+  const blocking = getBlockingActiveResultsSlateDate(
+    tracked,
+    lockedSlates,
+    [],
+    today
+  );
+  assert.equal(
+    blocking,
+    null,
+    "stale locked ACTIVE slate does not block today's Results"
+  );
+
+  const active = pickActiveResultsSlateDate(tracked, [], today, lockedSlates);
+  assert.equal(active, "2026-07-12", "Results shows today's open cohort");
+}
+
 console.log("testActiveResultsSlate: all passed");

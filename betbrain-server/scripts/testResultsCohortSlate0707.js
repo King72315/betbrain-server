@@ -130,7 +130,7 @@ test("buildControlledTrackingCohort uses blocking slate for cohort date", () => 
   assert.strictEqual(bundle.trackingCohort[0]?.slateDate, "2026-07-07");
 });
 
-test("getBlockingActiveResultsSlateDate finds prior unresolved cohort without lock", () => {
+test("getBlockingActiveResultsSlateDate ignores unlocked prior unresolved cohort", () => {
   const blocking = getBlockingActiveResultsSlateDate(
     [
       {
@@ -152,10 +152,10 @@ test("getBlockingActiveResultsSlateDate finds prior unresolved cohort without lo
     [],
     "2026-07-08"
   );
-  assert.strictEqual(blocking, "2026-07-07");
+  assert.strictEqual(blocking, null);
 });
 
-test("resolveResultsCohortSlateDate uses prior unresolved when not locked", () => {
+test("resolveResultsCohortSlateDate uses calendar today when prior cohort is unlocked", () => {
   const slate = resolveResultsCohortSlateDate({
     todayLocalDate: "2026-07-08",
     lockedSlates: [],
@@ -169,7 +169,7 @@ test("resolveResultsCohortSlateDate uses prior unresolved when not locked", () =
     ],
     reports: [],
   });
-  assert.strictEqual(slate, "2026-07-07");
+  assert.strictEqual(slate, "2026-07-08");
 });
 
 console.log(`\n${passed} passed, ${failed} failed\n`);

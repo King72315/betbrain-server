@@ -386,7 +386,18 @@ export function getSlateDateCT(commenceTime) {
   });
 }
 
-/** Active Results cohort slate — blocking unresolved slate wins over calendar today. */
+function filterTodayResultsTrackingPicks(picks = [], today = getTodayLocalDate()) {
+  return (picks || []).filter((pick) => {
+    const dayBucket = String(pick.dayBucket || "").toUpperCase();
+    if (dayBucket === "TODAY") return true;
+    if (String(pick.dateLabel || "").toLowerCase() === "today") return true;
+    const slate =
+      pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time);
+    return slate === today;
+  });
+}
+
+/** Active Results cohort slate — rollover blocking slate wins; otherwise calendar today. */
 export function resolveResultsCohortSlateDate(options = {}) {
   const today = options.todayLocalDate || getTodayLocalDate();
   const lockedSlates = options.lockedSlates || getLockedSlatesRegistry().slates || [];
@@ -967,7 +978,10 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
   const bestSixWNBA = bestSixDisplayWNBA;
   const bestSixNBA = bestSixDisplayNBA;
-  const bestSixCohort = [...bestSixDisplayWNBA, ...bestSixDisplayNBA];
+  const bestSixCohort = filterTodayResultsTrackingPicks(
+    [...bestSixDisplayWNBA, ...bestSixDisplayNBA],
+    todayLocalDate
+  );
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
     buildResultsTrackingCohort(bestSixCohort, {

@@ -119,6 +119,28 @@ export function isPastSlateDate(slateDate, today = getTodayLocalDate()) {
   return value < today;
 }
 
+/** Calendar yesterday in America/Chicago (noon UTC avoids DST edge cases). */
+export function getYesterdayLocalDate(today = getTodayLocalDate()) {
+  const value = String(today || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const [year, month, day] = value.split("-").map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  anchor.setUTCDate(anchor.getUTCDate() - 1);
+  return anchor.toISOString().slice(0, 10);
+}
+
+/** Only today/yesterday locked ACTIVE slates block Results rollover. */
+export function isRolloverBlockingResultsSlate(
+  slateDate,
+  today = getTodayLocalDate()
+) {
+  const blocking = String(slateDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(blocking)) return false;
+  if (blocking > today) return false;
+  if (blocking === today) return true;
+  return blocking === getYesterdayLocalDate(today);
+}
+
 export function filterReportsOnOrAfterCutoff(reports = []) {
   return reports.filter((report) => isOnOrAfterCleanDataCutoff(report?.slateDate));
 }
@@ -359,7 +381,9 @@ export function getBlockingActiveResultsSlateDate(
     reports,
     today
   );
-  return unresolved[0] || null;
+  const blocking = unresolved[0] || null;
+  if (!blocking) return null;
+  return isRolloverBlockingResultsSlate(blocking, today) ? blocking : null;
 }
 
 function getTodayOfficialResultsCohortProps(trackedProps = [], today = getTodayLocalDate()) {
