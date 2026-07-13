@@ -239,6 +239,67 @@ Thin-gap Over (Olivia Miles O edge 3.6) dropped from Best 6. Side balance still 
 
 ---
 
+## Jul 13 2026 — Gate Demotion, Honest Opposite Scores & Flip-First Viability
+
+**Date:** 2026-07-13  
+**Branch:** `betbrain-v2-rebuild`  
+**SERVER_BUILD:** `courteedge-side-selection-gate-v1`
+
+### Prod Inspection (Jul 13 07:18Z, before this fix)
+
+Home Tomorrow Best 6: **6O/0U** — all `CHECK_UNDER` + `KEEP_ORIGINAL`, Side Rescue `78 vs 8` or `78 vs 0`, natural gate `BOARD_ONLY` / `OVER_UNSTABLE_THIN_BOOK` on 5/6 picks.
+
+| Prop | Flip-First | Side Rescue | Natural Gate |
+|------|------------|-------------|--------------|
+| Marina Mabrey O22.5 | CHECK_UNDER | 78 vs 8 | BOARD_ONLY / OVER_UNSTABLE_THIN_BOOK |
+| Sonia Citron O17.5 | CHECK_UNDER | 78 vs 0 | BOARD_ONLY / OVER_UNSTABLE_THIN_BOOK |
+| Kiki Iriafen O14.5 | CHECK_UNDER | 78 vs 0 | BOARD_ONLY / OVER_UNSTABLE_THIN_BOOK |
+| Olivia Nelson-Ododa O10.5 | CHECK_UNDER | 74 vs 8 | BOARD_ONLY / DANGER_GATE_STACK |
+| Carla Leite O14.5 | CHECK_UNDER | 70 vs 8 | BOARD_ONLY / OVER_UNSTABLE_THIN_BOOK |
+| Megan Gustafson O12.5 | CHECK_UNDER | 70 vs 8 | BOARD_ONLY / OVER_UNSTABLE_THIN_BOOK |
+
+Side balance: `NO_ELIGIBLE_MINORITY_CANDIDATE` (0 viable Unders in tomorrow pool).
+
+### Root Cause
+
+1. **Display Best 6 ranked unstable thin-book Overs above safer BOARD_ONLY picks** — `OVER_UNSTABLE_THIN_BOOK` props kept high safety scores despite natural `bestSixEligibility: false`; promotion to TRACK for learning masked gate quality in ranking.
+2. **Side Rescue inflated opposite audit to 8** via evidence floor when Under failed gap floor — violated evidence-preservation spec (`78 vs 8` when Under `underGapFloorPassed: false`).
+3. **Flip-First emitted `CHECK_UNDER` when opposite Under was not gap-viable** (`preGapPenaltyScore < 0`, `underGapFloorPassed: false`) — misleading review label.
+4. **Naz Hillmon U excluded from Tomorrow view correctly** — she is on **TODAY** slate (`dayBucket: TODAY`), not tomorrow. Only viable Under on full slate; not eligible for tomorrow Best 6.
+5. **6O/0U vs prior 4O/0U** — prod refresh after reader fix admitted more tomorrow Overs (6 reader-eligible vs 4); all tomorrow props remain BOARD_ONLY with zero gap-viable Unders.
+
+### Changes
+
+| File | Fix |
+|------|-----|
+| `controlledBestSixSelector.js` | Gate-reason demotion penalties (`OVER_UNSTABLE_THIN_BOOK` −110); viable-minority candidate check uses reader pre-gap + gap floor; version `controlled-best-six-over-balance-v3` |
+| `flipFirstSideSelectionV1.js` | `oppositeSideViable()` — `BOTH_SIDES_WEAK` when opposite fails gap floor / negative pre-gap |
+| `sideRescueEngineV1.js` | Opposite scoring uses `preGapPenaltyScore`; no evidence-floor inflation when gap floor fails; version `side-rescue-v1.3` |
+| `testOverBalanceSideRescueV1.js` | +3 regression tests (gate demotion, BOTH_SIDES_WEAK, honest opposite) |
+| `server.js` | `SERVER_BUILD=courteedge-side-selection-gate-v1` |
+
+### Simulated Tomorrow Best 6 (prod boardCapped, fresh pipeline)
+
+| | Before (07:18Z prod) | After (local re-pipeline) |
+|--|--|--|
+| O/U | 6O/0U | 6O/0U |
+| #1 rank | Marina Mabrey (thin-book) | Olivia Nelson-Ododa (danger-stack, not thin-book) |
+| Flip-First | CHECK_UNDER (all) | BOTH_SIDES_WEAK (all) |
+| Side Rescue opposite | 8 or 0 (inflated) | 0 (honest — Under gap-ineligible) |
+| Side balance | NO_ELIGIBLE_MINORITY_CANDIDATE | NO_ELIGIBLE_MINORITY_CANDIDATE |
+
+**Props reordered:** unstable thin-book Overs (Mabrey, Citron, Iriafen, Leite, Gustafson) demoted below Nelson-Ododa. No artificial Under swaps — tomorrow pool has **0** gap-viable Unders.
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| testOverBalanceSideRescueV1.js | **12/12 PASS** |
+| testSideSelectionTrustAccuracyV1.js | **37/37 PASS** |
+| testWnbaReaderFixes.js | **22/22 PASS** |
+
+---
+
 ## Audit Scripts
 
 - `scripts/auditSideSelectionPhase1.js` — tracking population, side ratios, Side Rescue counts

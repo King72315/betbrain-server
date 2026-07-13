@@ -42,13 +42,63 @@ import {
   computeDecisionHash,
   buildCanonicalDecisionBundle,
 } from "../decisionIntelligence/sideSelectionTrustV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v2";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v3";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
 export const MAX_GAME_IN_BEST_SIX = 3;
 const SIDE_BALANCE_SWAP_MARGIN = 24;
 const SIDE_BALANCE_MINORITY = 3;
+
+const BEST_SIX_GATE_DEMOTION_PENALTIES = {
+  OVER_UNSTABLE_THIN_BOOK: 110,
+  OVER_THIN_GAP_VOLATILE: 90,
+  OVER_VOLATILE_WEAK_EDGE: 75,
+  OVER_GAP_BELOW: 95,
+  READER_UNCERTAIN: 70,
+  DANGER_STACK_INSUFFICIENT_EDGE: 15,
+};
+
+function resolveGateReason(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  return String(
+    pick.wnbaTrackingReason ||
+      di.gateReason ||
+      di.originalGateEligibility ||
+      pick.naturalDecision ||
+      ""
+  ).toUpperCase();
+}
+
+function gateDemotionPenalty(pick = {}) {
+  const reason = resolveGateReason(pick);
+  let penalty = 0;
+  for (const [key, weight] of Object.entries(BEST_SIX_GATE_DEMOTION_PENALTIES)) {
+    if (reason.includes(key)) penalty += weight;
+  }
+  return penalty;
+}
+
+function isViableMinorityCandidate(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const sr = pick.sideRescue || {};
+  if ((di.killReasons || []).length > 0) return false;
+  if (sr.action === "NO_BET") return false;
+
+  const side = normalizeSide(pick.side || pick.pick);
+  const reader = pick.wnbaReader || {};
+  const caseRef = side === "UNDER" ? reader.underCase : reader.overCase;
+  if (!caseRef) return false;
+  if (side === "UNDER" && caseRef.underGapFloorPassed === false) return false;
+  if (side === "OVER" && caseRef.overGapFloorPassed === false) return false;
+
+  const pre = num(caseRef.preGapPenaltyScore ?? caseRef.rawScore ?? caseRef.score);
+  if (pre < 4) return false;
+
+  const reason = resolveGateReason(pick);
+  if (reason.includes("OVER_GAP_BELOW") || reason.includes("READER_UNCERTAIN")) return false;
+  return true;
+}
 
 function clean(value = "") {
   return String(value)
@@ -176,6 +226,7 @@ export function computeSafetyScore(pick = {}) {
   const promotedPenalty =
     (pick.bestSixQualityFlags?.length || di.promotionReasons?.length || 0) * 8 +
     (di.bestSixPromoted ? 8 : 0);
+  const gatePenalty = gateDemotionPenalty(pick);
   return (
     score +
     confidence * 0.4 +
@@ -186,7 +237,8 @@ export function computeSafetyScore(pick = {}) {
     dangerPenalty -
     debtPenalty -
     killPenalty -
-    promotedPenalty
+    promotedPenalty -
+    gatePenalty
   );
 }
 
@@ -389,8 +441,7 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
     const eligibleMinority = sorted.filter((pick) => {
       if (selectedSet.has(pick)) return false;
       if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
-      const di = pick.decisionIntelligence || {};
-      if ((di.killReasons || []).length > 0) return false;
+      if (!isViableMinorityCandidate(pick)) return false;
       return computeSafetyScore(pick) >= weakestScore - margin;
     });
     audit.eligibleMinorityCandidates = eligibleMinority.length;

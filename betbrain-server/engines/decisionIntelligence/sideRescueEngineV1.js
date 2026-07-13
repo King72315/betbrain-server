@@ -8,7 +8,7 @@ import {
 } from "./propDecisionIntelligenceV1.js";
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 
-export const SIDE_RESCUE_VERSION = "side-rescue-v1.2";
+export const SIDE_RESCUE_VERSION = "side-rescue-v1.3";
 
 const EXPANDING_ROLE = new Set(["up", "expanding", "rising"]);
 const CONTRACTING_ROLE = new Set(["down", "contracting", "declining"]);
@@ -249,15 +249,48 @@ function hasMajorContradiction(oppositeSide = "", metrics = {}) {
   return false;
 }
 
-function scoreSide(side = "", reader = {}, metrics = {}, evidence = []) {
+function oppositeGapFloorFailed(side = "", reader = {}) {
+  const caseRef = side === "OVER" ? reader.overCase : reader.underCase;
+  if (!caseRef) return false;
+  if (side === "UNDER") {
+    if (caseRef.underGapFloorPassed === false) return true;
+    if (
+      caseRef.underGap != null &&
+      caseRef.underGapFloorUsed != null &&
+      num(caseRef.underGap) < num(caseRef.underGapFloorUsed)
+    ) {
+      return true;
+    }
+    return false;
+  }
+  if (side === "OVER") {
+    if (caseRef.overGapFloorPassed === false) return true;
+    if (
+      caseRef.overGap != null &&
+      caseRef.overGapFloorUsed != null &&
+      num(caseRef.overGap) < num(caseRef.overGapFloorUsed)
+    ) {
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+function scoreSide(side = "", reader = {}, metrics = {}, evidence = [], options = {}) {
   const readerCase = side === "OVER" ? reader.overCase : reader.underCase;
-  const rawReaderScore = num(readerCase?.score);
-  let score = normalizeReaderScore(rawReaderScore);
+  const rawReaderScore = num(
+    readerCase?.preGapPenaltyScore ?? readerCase?.rawScore ?? readerCase?.score
+  );
+  let score = normalizeReaderScore(Math.max(0, rawReaderScore));
+  const gapFailed = options.gapFloorFailed === true || oppositeGapFloorFailed(side, reader);
   const edge = projectionEdgeForSide(side, metrics);
-  if (edge >= 4) score += 8;
-  else if (edge >= 2.5) score += 4;
-  else if (edge >= 1.5 && rawReaderScore < 6) score += 6;
-  else if (edge <= 1) score -= 10;
+  if (!gapFailed) {
+    if (edge >= 4) score += 8;
+    else if (edge >= 2.5) score += 4;
+    else if (edge >= 1.5 && rawReaderScore < 6) score += 6;
+    else if (edge <= 1) score -= 10;
+  }
 
   const boosts = {
     READER_CASE_STRONG: 12, READER_CASE_MODERATE: 6, EXPANDING_ROLE: 10, CONTRACTING_ROLE: 10,
@@ -266,22 +299,32 @@ function scoreSide(side = "", reader = {}, metrics = {}, evidence = []) {
     FAIR_LINE_OVER: 8, FAIR_LINE_UNDER: 8, OPPORTUNITY: 5, LOW_MINUTES: 6, LOW_FGA: 6,
     LOW_FTA: 5, RECENT_BELOW_LINE: 7, SEASON_BELOW_LINE: 5, EFFICIENCY_REGRESSION: 10,
   };
-  for (const ev of evidence) score += boosts[ev.code] || 4;
-  if (metrics.fairLineSide === side && Math.abs(metrics.fairLineEdge) >= 3.5) score += 6;
+  if (!gapFailed) {
+    for (const ev of evidence) score += boosts[ev.code] || 4;
+    if (metrics.fairLineSide === side && Math.abs(metrics.fairLineEdge) >= 3.5) score += 6;
+  }
   return clamp(Math.round(score), 0, 100);
 }
 
 function auditOppositeDisplayScore(
   oppositeSideScore = 0,
   oppositeRiskAdjusted = 0,
-  oppositeEvidence = []
+  oppositeEvidence = [],
+  options = {}
 ) {
   const independent = oppositeEvidence.filter((e) => !String(e.code || "").startsWith("READER_CASE"));
-  const evidenceFloor = independent.length
-    ? Math.min(36, independent.length * 8 + (independent.length >= 2 ? 6 : 0))
-    : 0;
+  const gapFloorFailed = options.gapFloorFailed === true;
+  const preGapPenaltyScore = num(options.preGapPenaltyScore);
+  const preGapDisplay =
+    preGapPenaltyScore > 0 ? normalizeReaderScore(preGapPenaltyScore) : 0;
+  const evidenceFloor =
+    !gapFloorFailed && preGapPenaltyScore > 0 && independent.length
+      ? Math.min(36, independent.length * 8 + (independent.length >= 2 ? 6 : 0))
+      : 0;
   return clamp(
-    Math.round(Math.max(oppositeRiskAdjusted, oppositeSideScore, evidenceFloor)),
+    Math.round(
+      Math.max(oppositeRiskAdjusted, oppositeSideScore, evidenceFloor, preGapDisplay)
+    ),
     0,
     100
   );
@@ -294,11 +337,13 @@ function formatKeepOriginalReason({
   oppositeSideScore = 0,
   oppositeEvidence = [],
   metrics = {},
+  auditOptions = {},
 }) {
   const oppositeAudit = auditOppositeDisplayScore(
     oppositeSideScore,
     oppositeRiskAdjusted,
-    oppositeEvidence
+    oppositeEvidence,
+    auditOptions
   );
   const edge = projectionEdgeForSide(
     originalSide === "OVER" ? "UNDER" : "OVER",
@@ -380,8 +425,17 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   }
 
   const oppositeEvidence = buildOppositeEvidence(oppositeSide, metrics, reader, dataCard);
+  const oppositeCase = oppositeSide === "OVER" ? reader.overCase : reader.underCase;
+  const oppositeAuditOptions = {
+    gapFloorFailed: oppositeGapFloorFailed(oppositeSide, reader),
+    preGapPenaltyScore: num(
+      oppositeCase?.preGapPenaltyScore ?? oppositeCase?.rawScore ?? oppositeCase?.score
+    ),
+  };
   const originalSideScore = scoreSide(originalSide, reader, metrics, []);
-  const oppositeSideScore = scoreSide(oppositeSide, reader, metrics, oppositeEvidence);
+  const oppositeSideScore = scoreSide(oppositeSide, reader, metrics, oppositeEvidence, {
+    gapFloorFailed: oppositeAuditOptions.gapFloorFailed,
+  });
   let originalRiskAdjusted = originalSideScore;
   for (const w of originalSideWeaknesses) originalRiskAdjusted -= w.penalty;
   if (metrics.dataMode === "WNBA_LIMITED_DATA") originalRiskAdjusted -= 6;
@@ -442,6 +496,7 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
         oppositeSideScore,
         oppositeEvidence,
         metrics,
+        auditOptions: oppositeAuditOptions,
       })
     );
   } else if (
@@ -470,7 +525,8 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
     oppositeRiskAdjustedScore: auditOppositeDisplayScore(
       oppositeSideScore,
       oppositeRiskAdjusted,
-      oppositeEvidence
+      oppositeEvidence,
+      oppositeAuditOptions
     ),
     rescueScore: clamp(Math.round(oppositeRiskAdjusted - originalRiskAdjusted + independentEvidence.length * 5), 0, 100),
     flipConfidence: action === "FLIP_SIDE" ? clamp(Math.round((oppositeRiskAdjusted - originalRiskAdjusted) * 2 + independentEvidence.length * 8), 0, 100) : 0,

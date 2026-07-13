@@ -11,6 +11,7 @@ import { evaluateFlipFirstSideSelection } from "../engines/decisionIntelligence/
 import {
   selectControlledBestSixCombined,
   CONTROLLED_BEST_SIX_VERSION,
+  computeSafetyScore,
 } from "../engines/topProps/controlledBestSixSelector.js";
 import { collectAllGeneratedCandidates } from "../engines/topProps/topPropSelector.js";
 import { readWnbaProp } from "../engines/wnba/wnbaReaderEngine.js";
@@ -119,7 +120,7 @@ test("03 promotion does not duplicate SIDE_RESCUE_BOARD_ONLY flag", () => {
 });
 
 test("04 controlled selector version bumped", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v2");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v3");
 });
 
 test("05 Jul 7 trust-inspect slate exposes flip-first on best six", () => {
@@ -151,7 +152,7 @@ test("07 summary boardTrack counts natural TRACK only", () => {
   assert.ok(summary.highRisk >= 0);
 });
 
-test("08 keep reason uses audit opposite score when evidence exists", () => {
+test("08 keep reason avoids inflated opposite when gap floor fails", () => {
   const pick = makePick({
     wnbaDataCard: baseCard({
       player: "Audit Over",
@@ -164,7 +165,7 @@ test("08 keep reason uses audit opposite score when evidence exists", () => {
   const sr = evaluateSideRescue(pick, { originalSide: "OVER", flipFirstDecision: { action: "CHECK_UNDER" } });
   assert.ok(sr.triggered);
   const keep = (sr.keepReasons || [])[0] || "";
-  assert.ok(!keep.includes("vs 0)"), `expected non-zero audit opposite in keep reason, got: ${keep}`);
+  assert.ok(!keep.includes("vs 8)"), `unexpected inflated opposite audit score: ${keep}`);
 });
 
 test("09 tomorrow view balances unders in display board", () => {
@@ -181,6 +182,64 @@ test("09 tomorrow view balances unders in display board", () => {
   assert.ok(unders.length >= 2, `tomorrow Best 6 should include >=2 Unders, got ${unders.length}`);
   const overs = board.bestSixCards.length - unders.length;
   assert.ok(overs <= 4, `tomorrow Best 6 should not exceed 4 Overs, got ${overs}`);
+});
+
+test("10 unstable thin-book overs rank below danger-stack overs", () => {
+  const thinBook = {
+    player: "Thin Book Over",
+    league: "WNBA",
+    wnbaTrackingReason: "OVER_UNSTABLE_THIN_BOOK",
+    decisionIntelligence: { trackEligibility: "BOARD_ONLY", trueRisk: "MEDIUM" },
+    bestPropScore: 70,
+    confidence: 60,
+  };
+  const dangerStack = {
+    player: "Danger Stack Over",
+    league: "WNBA",
+    wnbaTrackingReason: "DANGER_GATE_STACK_BOARD_ONLY",
+    decisionIntelligence: { trackEligibility: "BOARD_ONLY", trueRisk: "MEDIUM" },
+    bestPropScore: 68,
+    confidence: 58,
+  };
+  assert.ok(
+    computeSafetyScore(dangerStack) > computeSafetyScore(thinBook),
+    "danger-stack board pick should outrank unstable thin-book over"
+  );
+});
+
+test("11 flip-first uses BOTH_SIDES_WEAK when opposite under fails gap floor", () => {
+  const pick = makePick({
+    wnbaDataCard: baseCard({
+      player: "Gap Fail Over",
+      bookLine: 18.5,
+      minutesVolatility: "unstable",
+      bookCount: 1,
+      projection: { projection: 20.5, expectedMinutes: 24, expectedFGA: 9 },
+      last5: { points: 19, minutes: 22, fga: 8, fta: 2, ptsPerFGA: 1.05, games: 5 },
+      roleTrend: "stable",
+    }),
+  });
+  const ff = evaluateFlipFirstSideSelection(pick, { originalSide: "OVER" });
+  assert.strictEqual(ff.action, "BOTH_SIDES_WEAK");
+});
+
+test("12 side rescue does not inflate opposite when under gap floor fails", () => {
+  const pick = makePick({
+    wnbaDataCard: baseCard({
+      player: "Rescue Gap Fail",
+      bookLine: 18.5,
+      projection: { projection: 20.5, expectedMinutes: 24, expectedFGA: 9 },
+      last5: { points: 19, minutes: 22, fga: 8, fta: 2, ptsPerFGA: 1.05, games: 5 },
+      season: { points: 12, minutes: 24, fga: 8, fta: 2, ptsPerFGA: 1.05 },
+    }),
+  });
+  const sr = evaluateSideRescue(pick, {
+    originalSide: "OVER",
+    flipFirstDecision: { action: "BOTH_SIDES_WEAK" },
+  });
+  assert.ok(sr.oppositeRiskAdjustedScore <= sr.originalRiskAdjustedScore);
+  const keep = (sr.keepReasons || [])[0] || "";
+  assert.ok(!keep.includes("vs 8)"), `unexpected inflated opposite score: ${keep}`);
 });
 
 console.log(`\nOver-balance side-rescue: ${passed}/${passed} passed`);

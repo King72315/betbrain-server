@@ -215,6 +215,21 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
   return { score: clamp(Math.round(score), 0, 100), reasons };
 }
 
+function oppositeSideViable(reader = {}, oppositeSide = "", metrics = {}) {
+  const caseRef = oppositeSide === "OVER" ? reader.overCase : reader.underCase;
+  if (!caseRef) return false;
+  const pre = num(caseRef.preGapPenaltyScore ?? caseRef.rawScore ?? caseRef.score);
+  if (pre < 0) return false;
+  if (oppositeSide === "UNDER" && caseRef.underGapFloorPassed === false) return false;
+  if (oppositeSide === "OVER" && caseRef.overGapFloorPassed === false) return false;
+  const edge =
+    oppositeSide === "OVER"
+      ? num(metrics.projection) - num(metrics.line)
+      : num(metrics.line) - num(metrics.projection);
+  if (edge < 1.5 && pre < 6) return false;
+  return true;
+}
+
 function oppositeKillDebts(side = "", metrics = {}) {
   const kills = [];
   if (side === "OVER") {
@@ -333,9 +348,14 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
       `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — both sides weak.`
     );
   } else if (originalScored.score < 42 && oppositeScored.score < 42) action = "BOTH_SIDES_WEAK";
-  else if (originalProblems.length > 0)
-    action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
-  else action = "KEPT_ORIGINAL";
+  else if (originalProblems.length > 0) {
+    if (!oppositeSideViable(reader, oppositeSide, metrics)) {
+      action = "BOTH_SIDES_WEAK";
+      noFlipReasons.push(`Opposite ${oppositeSide} not gap-viable for review.`);
+    } else {
+      action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
+    }
+  } else action = "KEPT_ORIGINAL";
 
   if (!flipRecommended) reasons.push(...noFlipReasons);
 
