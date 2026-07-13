@@ -224,6 +224,19 @@ Bias introduced at **Reader**, not Side Rescue or Best 6 ranking. Side balance c
 | testSideSelectionTrustAccuracyV1.js | **37/37 PASS** (core) |
 | testFlipFirstDecisionIntelligenceV1.js | 12/17 (5 nested baseline failures pre-existing) |
 
+### Prod After Refresh (Jul 13, `courteedge-reader-side-balance-v1`)
+
+| Stage | All WNBA | Tomorrow Best 6 |
+|-------|----------|-----------------|
+| Reader (before) | 12O/1U | 7O/0U |
+| Reader (after) | 7O/1U | 6O/0U |
+| bestSixDisplay (before) | 5O/1U | 3O/0U |
+| bestSixDisplay (after) | 5O/1U | 4O/0U |
+
+Thin-gap Over (Olivia Miles O edge 3.6) dropped from Best 6. Side balance still `NO_ELIGIBLE_MINORITY_CANDIDATE` — only 1 Under passes 3.5 gap floor on slate (Naz Hillmon U). Remaining Over-heavy pool is projection-driven, not Reader default bias.
+
+**Commit:** `aea55f1`
+
 ---
 
 ## Audit Scripts
