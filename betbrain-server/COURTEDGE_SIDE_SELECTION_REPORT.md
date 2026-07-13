@@ -298,6 +298,8 @@ Side balance: `NO_ELIGIBLE_MINORITY_CANDIDATE` (0 viable Unders in tomorrow pool
 | testSideSelectionTrustAccuracyV1.js | **37/37 PASS** |
 | testWnbaReaderFixes.js | **22/22 PASS** |
 
+**Commit:** `8b2ad0a` — pushed to `orgin/betbrain-v2-rebuild`. Prod `/refresh-picks` run after push; Render deploy required for `courteedge-side-selection-gate-v1` to take effect (refresh response still showed prior `CHECK_UNDER` / `78 vs 8` bundle).
+
 ---
 
 ## Audit Scripts
