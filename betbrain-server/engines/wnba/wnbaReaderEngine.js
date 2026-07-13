@@ -3,7 +3,10 @@ import {
   interpretLineMovement,
 } from "../marketIntelligenceEngine.js";
 import { evaluateWnbaOfficialEligibility } from "../wnbaOfficialEngine.js";
-import { WNBA_UNDER_GAP_FLOOR } from "./wnbaGraduatedDataModeV1.js";
+import {
+  resolveWnbaGapFloor,
+  WNBA_UNDER_GAP_FLOOR,
+} from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -50,6 +53,10 @@ function scoreVolumePath(side, card = {}) {
   let underGapFloorUsed = null;
   let underGapFloorPassed = null;
   let limitedDataUnderPenaltyApplied = false;
+  let overGap = null;
+  let overGapFloorUsed = null;
+  let overGapFloorPassed = null;
+  let limitedDataOverPenaltyApplied = false;
 
   if (edge >= 4) {
     score += 12;
@@ -63,6 +70,7 @@ function scoreVolumePath(side, card = {}) {
   }
 
   if (side === "OVER") {
+    overGap = edge;
     if (lowLine) {
       if (minutes >= 20 && fga >= 6) {
         score += 8;
@@ -92,17 +100,6 @@ function scoreVolumePath(side, card = {}) {
 
   if (side === "UNDER") {
     underGap = edge;
-    if (isWnbaDataMode(dataMode)) {
-      underGapFloorUsed = WNBA_UNDER_GAP_FLOOR;
-      underGapFloorPassed = underGap >= underGapFloorUsed;
-      if (!underGapFloorPassed) {
-        limitedDataUnderPenaltyApplied = true;
-        score -= 14;
-        disagrees.push(
-          `WNBA Under gap ${underGap.toFixed(1)} below floor ${underGapFloorUsed}`
-        );
-      }
-    }
     if (minutes > 0 && minutes < 22) {
       score += 5;
       supports.push("Limited minutes support under");
@@ -113,8 +110,41 @@ function scoreVolumePath(side, card = {}) {
     }
   }
 
+  const preGapPenaltyScore = score;
+
+  if (side === "OVER" && isWnbaDataMode(dataMode)) {
+    const gapAudit = resolveWnbaGapFloor({
+      side: "OVER",
+      dataMode,
+      volatility: card.minutesVolatility,
+      projectionGap: overGap,
+    });
+    overGapFloorUsed = gapAudit.gapFloorApplied;
+    overGapFloorPassed = overGap >= overGapFloorUsed;
+    if (!overGapFloorPassed) {
+      limitedDataOverPenaltyApplied = true;
+      score -= 14;
+      disagrees.push(
+        `WNBA Over gap ${overGap.toFixed(1)} below floor ${overGapFloorUsed}`
+      );
+    }
+  }
+
+  if (side === "UNDER" && isWnbaDataMode(dataMode)) {
+    underGapFloorUsed = WNBA_UNDER_GAP_FLOOR;
+    underGapFloorPassed = underGap >= underGapFloorUsed;
+    if (!underGapFloorPassed) {
+      limitedDataUnderPenaltyApplied = true;
+      score -= 14;
+      disagrees.push(
+        `WNBA Under gap ${underGap.toFixed(1)} below floor ${underGapFloorUsed}`
+      );
+    }
+  }
+
   return {
     score,
+    preGapPenaltyScore,
     supports,
     disagrees,
     edge,
@@ -122,6 +152,10 @@ function scoreVolumePath(side, card = {}) {
     underGapFloorUsed,
     underGapFloorPassed,
     limitedDataUnderPenaltyApplied,
+    overGap,
+    overGapFloorUsed,
+    overGapFloorPassed,
+    limitedDataOverPenaltyApplied,
   };
 }
 
@@ -328,12 +362,24 @@ function buildSideCase(side, card = {}) {
     env.score +
     role.score;
 
-  const rawScore = Number(totalScore.toFixed(1));
+  const preGapPenaltyScore = Number(
+    (
+      volume.preGapPenaltyScore +
+      recent.score +
+      fair.score +
+      market.score +
+      env.score +
+      role.score
+    ).toFixed(1)
+  );
+  const rawScore = preGapPenaltyScore;
+  const adjustedScore = Number(totalScore.toFixed(1));
   return {
     side,
-    score: rawScore,
+    score: adjustedScore,
     rawScore,
-    adjustedScore: rawScore,
+    adjustedScore,
+    preGapPenaltyScore,
     eligible: !role.blocked,
     blockReasons: role.blocked ? ["ROLE_BLOCKED"] : [],
     notScoredReason: null,
@@ -360,6 +406,10 @@ function buildSideCase(side, card = {}) {
     underGapFloorUsed: volume.underGapFloorUsed,
     underGapFloorPassed: volume.underGapFloorPassed,
     limitedDataUnderPenaltyApplied: volume.limitedDataUnderPenaltyApplied,
+    overGap: volume.overGap,
+    overGapFloorUsed: volume.overGapFloorUsed,
+    overGapFloorPassed: volume.overGapFloorPassed,
+    limitedDataOverPenaltyApplied: volume.limitedDataOverPenaltyApplied,
     lineMovement: market.lineMovement,
   };
 }
@@ -400,12 +450,19 @@ export function readWnbaProp(dataCard = {}) {
     reasonCodes.push("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
   }
 
+  if (isWnbaDataMode(dataCard.dataMode) && overCase.overGapFloorPassed === false) {
+    overCase.blocked = true;
+    overCase.eligible = false;
+    overCase.blockReasons = ["OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"];
+    reasonCodes.push("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+  }
+
   whyOver.push(...overCase.supports);
   whyUnder.push(...underCase.supports);
 
   const overEligible = overCase.eligible !== false && !overCase.blocked;
   const underEligible = underCase.eligible !== false && !underCase.blocked;
-  let finalSide = "OVER";
+  let finalSide = null;
   if (overEligible && underEligible) {
     finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
   } else if (overEligible) {
@@ -413,7 +470,19 @@ export function readWnbaProp(dataCard = {}) {
   } else if (underEligible) {
     finalSide = "UNDER";
   } else {
-    finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
+    const overPre = overCase.preGapPenaltyScore ?? overCase.rawScore ?? overCase.score;
+    const underPre = underCase.preGapPenaltyScore ?? underCase.rawScore ?? underCase.score;
+    if (overPre > underPre && overCase.overGapFloorPassed !== false) {
+      finalSide = "OVER";
+    } else if (underPre > overPre && underCase.underGapFloorPassed !== false) {
+      finalSide = "UNDER";
+    } else if (overPre === underPre) {
+      finalSide = null;
+      reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL");
+    } else {
+      finalSide = null;
+      reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL");
+    }
   }
   const chosen = finalSide === "OVER" ? overCase : underCase;
   const other = finalSide === "OVER" ? underCase : overCase;
@@ -492,6 +561,18 @@ export function readWnbaProp(dataCard = {}) {
   }
 
   if (
+    finalSide === "OVER" &&
+    chosen.limitedDataOverPenaltyApplied &&
+    isWnbaDataMode(dataCard.dataMode)
+  ) {
+    addUnique(reasonCodes, "OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
+    if (decision === "OFFICIAL") decision = "TEST";
+    decision = "NO_BET";
+    reasonCodes.push("INSUFFICIENT_EDGE");
+    finalSide = null;
+  }
+
+  if (
     finalSide === "UNDER" &&
     chosen.limitedDataUnderPenaltyApplied &&
     isWnbaDataMode(dataCard.dataMode)
@@ -516,10 +597,14 @@ export function readWnbaProp(dataCard = {}) {
     overCase,
     underCase,
     margin,
-    underGap: chosen.underGap,
-    underGapFloorUsed: chosen.underGapFloorUsed,
-    underGapFloorPassed: chosen.underGapFloorPassed,
+    underGap: chosen.underGap ?? underCase.underGap,
+    underGapFloorUsed: chosen.underGapFloorUsed ?? underCase.underGapFloorUsed,
+    underGapFloorPassed: chosen.underGapFloorPassed ?? underCase.underGapFloorPassed,
     limitedDataUnderPenaltyApplied: chosen.limitedDataUnderPenaltyApplied,
+    overGap: chosen.overGap ?? overCase.overGap,
+    overGapFloorUsed: chosen.overGapFloorUsed ?? overCase.overGapFloorUsed,
+    overGapFloorPassed: chosen.overGapFloorPassed ?? overCase.overGapFloorPassed,
+    limitedDataOverPenaltyApplied: chosen.limitedDataOverPenaltyApplied,
     lineMovement: chosen.lineMovement,
     readerVersion: "wnba-reader-v2-calibration",
   };

@@ -171,6 +171,61 @@ Regression suites:
 
 ---
 
+## Jul 13 2026 — Reader Over-Default & Gap-Floor Symmetry Fix
+
+**Date:** 2026-07-13  
+**Branch:** `betbrain-v2-rebuild`  
+**SERVER_BUILD:** `courteedge-reader-side-balance-v1`
+
+### Prod Inspection (Jul 13 CT, before fix)
+
+| Stage | All WNBA | Tomorrow |
+|-------|----------|----------|
+| Reader | 12O/1U | 7O/0U |
+| Post-flip | 12O/1U | 7O/0U |
+| bestSixDisplayWNBA | 5O/1U (full slate) | 3O/0U |
+| Under eligible (reader) | 1/13 | — |
+| Under gap-blocked | 12/13 | — |
+
+Side balance audit: `NO_ELIGIBLE_MINORITY_CANDIDATE` — only 1 viable Under in pool.
+
+### Root Cause
+
+1. **Reader defaulted `finalSide = "OVER"`** before side comparison — when Under was gap-ineligible, Over won by default even with thin projection gap.
+2. **Asymmetric gap floors in Reader** — Under gap < 3.5 blocked eligibility + −14 penalty; Over had no equivalent `resolveWnbaGapFloor()` enforcement in `scoreVolumePath`.
+3. **Flip-First used post-penalty Under scores** — opposite-side review scored penalized Under cases, suppressing viable flips (`CHECK_UNDER` on all 5 Over Best 6 picks, zero flips).
+
+Bias introduced at **Reader**, not Side Rescue or Best 6 ranking. Side balance correctly refused artificial swaps.
+
+### Changes
+
+| File | Fix |
+|------|-----|
+| `wnbaReaderEngine.js` | Symmetric Over gap floor via `resolveWnbaGapFloor()`; `preGapPenaltyScore` preserved; removed Over default; `BOTH_SIDES_GAP_FLOOR_FAIL` when neither side eligible |
+| `flipFirstSideSelectionV1.js` | Opposite-side scoring uses `preGapPenaltyScore` for honest Under review |
+| `sideSelectionTrustV1.js` | Over gap floor in `buildSideEvidenceFromCase` |
+| `testWnbaReaderFixes.js` | +3 tests (thin Over NO_BET, valid Over wins, preGapPenalty preserved) |
+| `server.js` | `SERVER_BUILD=courteedge-reader-side-balance-v1` |
+
+### Simulated Impact (prod boardCapped, local re-read)
+
+| | Reader O/U/NO_BET |
+|--|--|
+| Before | 12O/1U/0N |
+| After | 7O/1U/5N |
+
+5 thin-gap Overs correctly demoted to NO_BET. Under pool unchanged (1 viable Under — projections genuinely favor Over on most props).
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| testWnbaReaderFixes.js | **22/22 PASS** |
+| testSideSelectionTrustAccuracyV1.js | **37/37 PASS** (core) |
+| testFlipFirstDecisionIntelligenceV1.js | 12/17 (5 nested baseline failures pre-existing) |
+
+---
+
 ## Audit Scripts
 
 - `scripts/auditSideSelectionPhase1.js` — tracking population, side ratios, Side Rescue counts

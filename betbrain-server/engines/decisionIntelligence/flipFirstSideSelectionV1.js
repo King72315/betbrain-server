@@ -154,7 +154,9 @@ function collectMetricsGateProblems(pick = {}, metrics = {}, originalSide = "", 
 
 function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
   const readerCase = side === "OVER" ? reader.overCase : reader.underCase;
-  const rawReaderScore = num(readerCase?.score);
+  const rawReaderScore = num(
+    readerCase?.preGapPenaltyScore ?? readerCase?.rawScore ?? readerCase?.score
+  );
   let score = clamp(Math.round(Math.max(0, rawReaderScore) * 4.5), 0, 100);
   const reasons = [];
 

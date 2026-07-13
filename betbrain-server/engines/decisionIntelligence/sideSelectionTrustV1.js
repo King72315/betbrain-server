@@ -91,12 +91,16 @@ export function buildSideEvidenceFromCase(sideCase = {}, side = "", metrics = {}
   if (eligible === undefined) {
     eligible = !sideCase.blocked;
     if (side === "UNDER" && sideCase.underGapFloorPassed === false) eligible = false;
+    if (side === "OVER" && sideCase.overGapFloorPassed === false) eligible = false;
     if (sideCase.blocked) eligible = false;
   }
 
   const blockReasons = [...(sideCase.blockReasons || [])];
   if (!eligible && sideCase.underGapFloorPassed === false && !blockReasons.length) {
     blockReasons.push(gapAudit.gapFloorReason || "UNDER_GAP_BELOW_FLOOR");
+  }
+  if (!eligible && sideCase.overGapFloorPassed === false && !blockReasons.length) {
+    blockReasons.push(gapAudit.gapFloorReason || "OVER_GAP_BELOW_FLOOR");
   }
   if (sideCase.blocked && !blockReasons.length) {
     blockReasons.push("SIDE_BLOCKED");

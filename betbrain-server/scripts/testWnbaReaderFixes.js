@@ -356,6 +356,48 @@ function testTopPicksLifecycleSuite() {
   console.log("✓ 18 existing Top Picks lifecycle tests pass");
 }
 
+function testThinOverGapBelowFloorNoBet() {
+  const reader = readWnbaProp(
+    baseCard({
+      bookLine: 14.5,
+      projection: { projection: 17.8, expectedMinutes: 24, expectedFGA: 9, expectedFTA: 2.5, method: "volume-first-v2" },
+      last5: { points: 15, minutes: 24, fga: 9, fta: 2, ptsPerFGA: 1.05, ftPath: true, games: 5 },
+      fairLine: { fairLine: 15.5, fairLineSide: "OVER", fairLineEdge: 1.2, fairLineQuality: 58 },
+    })
+  );
+  assert.strictEqual(reader.overGapFloorPassed, false);
+  assert.strictEqual(reader.finalSide, null);
+  assert.strictEqual(reader.decision, "NO_BET");
+  assert.ok(reader.reasonCodes.includes("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
+  console.log("✓ 20 thin Over gap 3.3 below 4.0 floor — NO_BET (no Over default)");
+}
+
+function testOverDefaultRemovedWhenUnderBlocked() {
+  const reader = readWnbaProp(
+    baseCard({
+      bookLine: 16.5,
+      projection: { projection: 21.0, expectedMinutes: 28, expectedFGA: 12, expectedFTA: 4, method: "volume-first-v2" },
+      last5: { points: 18, minutes: 28, fga: 12, fta: 4, ptsPerFGA: 1.1, ftPath: true, games: 5 },
+    })
+  );
+  assert.strictEqual(reader.underCase.underGapFloorPassed, false);
+  assert.strictEqual(reader.overCase.overGapFloorPassed, true);
+  assert.strictEqual(reader.finalSide, "OVER");
+  console.log("✓ 21 Over with valid gap still wins when Under gap-blocked");
+}
+
+function testPreGapPenaltyScorePreserved() {
+  const reader = readWnbaProp(
+    baseCard({
+      bookLine: 12.5,
+      projection: { projection: 9.9, expectedMinutes: 22, expectedFGA: 8, expectedFTA: 2, method: "volume-first-v2" },
+    })
+  );
+  assert.ok(reader.underCase.preGapPenaltyScore > reader.underCase.score);
+  assert.strictEqual(reader.underCase.rawScore, reader.underCase.preGapPenaltyScore);
+  console.log("✓ 22 preGapPenaltyScore preserved on Under gap-blocked case");
+}
+
 async function main() {
   testLimitedDataUnderGap26Penalty();
   testLimitedDataUnderGap32CanPass();
@@ -373,10 +415,13 @@ async function main() {
   testNoDuplicateStableKeysInSample();
   testTopPicksReviewWhenSnapshotExists();
   testFullDataUnderGap17NoBet();
+  testThinOverGapBelowFloorNoBet();
+  testOverDefaultRemovedWhenUnderBlocked();
+  testPreGapPenaltyScorePreserved();
   testNbaPathProtected();
   testTopPropSelectorSuite();
   testTopPicksLifecycleSuite();
-  console.log("\nAll 19 WNBA reader calibration tests passed.");
+  console.log("\nAll 22 WNBA reader calibration tests passed.");
 }
 
 main().catch((err) => {
