@@ -301,5 +301,5 @@ Refresh artifact: `.poll-refresh-role-profile-v1.json`
 
 - **SERVER_BUILD:** `courteedge-player-role-profile-v1` (unchanged this phase — report/scripts/fixtures only)
 - **Prior tip:** `6093c0f2a4119245a6d816d1df4f642402e93568`
-- **Phase 11 commit:** _(filled after commit)_
+- **Phase 11 commit:** `d37268a46c6325c1ba0f4c1a9a25ab6b4de2c1ae`
 - **Push target:** `orgin/betbrain-v2-rebuild`
