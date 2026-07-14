@@ -72,10 +72,17 @@ function testLimitedDataUnderGap26Penalty() {
       last5: { points: 10, minutes: 20, fga: 7, fta: 2, ptsPerFGA: 1.1, ftPath: true, games: 5 },
     })
   );
-  assert.strictEqual(reader.decision, "NO_BET");
-  assert.strictEqual(reader.finalSide, null);
-  assert.ok(reader.limitedDataUnderPenaltyApplied || reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
-  console.log("✓ 1 limited-data Under gap 2.6 blocked — NO_BET");
+  // Soft gap-floor board fill keeps a learning side when dual floors fail.
+  assert.strictEqual(reader.underGapFloorPassed, false);
+  assert.ok(reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
+  assert.ok(
+    reader.softGapFloorBoardPick === true ||
+      reader.reasonCodes.includes("GAP_FLOOR_BOARD_SOFT_PICK") ||
+      reader.reasonCodes.includes("BOTH_SIDES_GAP_FLOOR_FAIL_SOFT_UNDER")
+  );
+  assert.strictEqual(reader.finalSide, "UNDER");
+  assert.notStrictEqual(reader.decision, "OFFICIAL");
+  console.log("✓ 1 limited-data Under gap 2.6 soft-board (not hard NO_BET wipe)");
 }
 
 function testLimitedDataUnderGap32CanPass() {
@@ -332,10 +339,13 @@ function testFullDataUnderGap17NoBet() {
       fairLine: { fairLine: 16.9, fairLineSide: "UNDER", fairLineEdge: 1.6, fairLineQuality: 95 },
     })
   );
-  assert.strictEqual(reader.decision, "NO_BET");
-  assert.strictEqual(reader.finalSide, null);
+  assert.strictEqual(reader.underGapFloorPassed, false);
   assert.ok(reader.reasonCodes.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
-  console.log("✓ 19 WNBA_FULL_DATA Under gap 1.7 forces NO_BET");
+  // Soft board fill: keeps Under for learning; tracking gate still demotes.
+  assert.strictEqual(reader.softGapFloorBoardPick, true);
+  assert.strictEqual(reader.finalSide, "UNDER");
+  assert.strictEqual(reader.decision, "TEST");
+  console.log("✓ 19 WNBA_FULL_DATA Under gap 1.7 soft-boards Under (not hard NO_BET wipe)");
 }
 
 function testNbaPathProtected() {
@@ -366,10 +376,12 @@ function testThinOverGapBelowFloorNoBet() {
     })
   );
   assert.strictEqual(reader.overGapFloorPassed, false);
-  assert.strictEqual(reader.finalSide, null);
-  assert.strictEqual(reader.decision, "NO_BET");
+  // Soft board fill preserves Over when it is the stronger directional side.
+  assert.strictEqual(reader.softGapFloorBoardPick, true);
+  assert.strictEqual(reader.finalSide, "OVER");
+  assert.strictEqual(reader.decision, "TEST");
   assert.ok(reader.reasonCodes.includes("OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR"));
-  console.log("✓ 20 thin Over gap 3.3 below 4.0 floor — NO_BET (no Over default)");
+  console.log("✓ 20 thin Over gap 3.3 soft-boards Over (no hard NO_BET / no forced wipe)");
 }
 
 function testOverDefaultRemovedWhenUnderBlocked() {

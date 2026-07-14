@@ -260,6 +260,22 @@ function oppositeKillDebts(side = "", metrics = {}) {
   return kills;
 }
 
+/**
+ * True when the original side still has real projection support.
+ * Used so mild profile dampening / near-floor soft fills do not
+ * collapse into BOTH_SIDES_WEAK when one side is honestly viable.
+ * Soft-board alone is not enough if the gap is still thin.
+ */
+function originalHasHonestProjectionSupport(metrics = {}, originalSide = "", reader = {}) {
+  const gapFloor = resolveWnbaGapFloor({ ...metrics, side: originalSide }).gapFloorApplied;
+  const gap = num(metrics.projectionGap);
+  if (gap >= gapFloor) return true;
+  const nearFloor = Math.max(2.25, gapFloor - 1.0);
+  if (gap >= nearFloor) return true;
+  if (reader.softGapFloorBoardPick === true && gap >= nearFloor) return true;
+  return false;
+}
+
 export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   const ddi = options.decisionDataIntelligence || pick.decisionDataIntelligence || {};
   const reader = options.reader || pick.wnbaReader || {};
@@ -356,19 +372,41 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     metrics.projectionGap < underGapFloor;
 
   let action = "KEPT_ORIGINAL";
+  const honestOriginal = originalHasHonestProjectionSupport(metrics, originalSide, reader);
+  // Dual-weak floor softened (35): mild profile dampening must not alone stamp BOTH_SIDES_WEAK.
+  const DUAL_WEAK_SCORE_FLOOR = 35;
   if (flipRecommended) action = finalSide === "OVER" ? "FLIPPED_TO_OVER" : "FLIPPED_TO_UNDER";
   else if (underGapFloorFail && !flipRecommended) {
+    if (honestOriginal || oppositeSideViable(reader, oppositeSide, metrics)) {
+      action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
+      noFlipReasons.push(
+        honestOriginal
+          ? `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor, but original side still has projection support — check opposite.`
+          : `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — opposite remains viable for review.`
+      );
+    } else {
+      action = "BOTH_SIDES_WEAK";
+      noFlipReasons.push(
+        `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — both sides weak.`
+      );
+    }
+  } else if (
+    originalScored.score < DUAL_WEAK_SCORE_FLOOR &&
+    oppositeScored.score < DUAL_WEAK_SCORE_FLOOR &&
+    !honestOriginal
+  ) {
     action = "BOTH_SIDES_WEAK";
-    noFlipReasons.push(
-      `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — both sides weak.`
-    );
-  } else if (originalScored.score < 42 && oppositeScored.score < 42) action = "BOTH_SIDES_WEAK";
-  else if (originalProblems.length > 0) {
-    if (!oppositeSideViable(reader, oppositeSide, metrics)) {
+  } else if (originalProblems.length > 0) {
+    if (!oppositeSideViable(reader, oppositeSide, metrics) && !honestOriginal) {
       action = "BOTH_SIDES_WEAK";
       noFlipReasons.push(`Opposite ${oppositeSide} not gap-viable for review.`);
     } else {
       action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
+      if (!oppositeSideViable(reader, oppositeSide, metrics) && honestOriginal) {
+        noFlipReasons.push(
+          `Opposite ${oppositeSide} not fully gap-viable, but original retains honest projection support.`
+        );
+      }
     }
   } else action = "KEPT_ORIGINAL";
 

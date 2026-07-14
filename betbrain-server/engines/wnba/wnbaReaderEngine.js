@@ -715,6 +715,7 @@ export function readWnbaProp(dataCard = {}) {
     overGapFloorPassed: chosen.overGapFloorPassed ?? overCase.overGapFloorPassed,
     limitedDataOverPenaltyApplied: chosen.limitedDataOverPenaltyApplied,
     lineMovement: chosen.lineMovement,
+    softGapFloorBoardPick,
     readerVersion: "wnba-reader-v2-calibration",
   };
 }

@@ -4,7 +4,7 @@
  */
 import { resolveQualityGateInputs, isWnbaQualityGatePick } from "./wnbaGateInputs.js";
 import { resolveWnbaGapFloors } from "./wnbaGraduatedDataModeV1.js";
-import { resolveProfileGateEdgeAdjustments } from "../playerRoleProfileV1.js";
+import { resolveProfileGateEdgeAdjustments, MATERIAL_PROFILE_EDGE_BUMP } from "../playerRoleProfileV1.js";
 
 export const WNBA_TRACKING_GATE_VERSION = "wnba-tracking-gate-v2-live";
 export const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.5;
@@ -263,24 +263,35 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = [], profileGate
 
   if (side === "UNDER") {
     const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
-    // Live gap-floor values unchanged; profile can only raise evidence bar
+    // Base WNBA floor always hard-demotes. Mild profile bumps soft-warn only when
+    // the raw gap already clears the floor (courteedge-profile-risk-recal-v1).
     const requiredGap = gapFloor + underEdgeBump;
-    if (metrics.projectionGap < requiredGap) {
-      boardOnlyReasons.push(
-        underEdgeBump > 0 ? "UNDER_GAP_BELOW_PROFILE_ADJ" : reasonCode
-      );
+    if (metrics.projectionGap < gapFloor) {
+      boardOnlyReasons.push(reasonCode);
       sideGatePassed = false;
+    } else if (metrics.projectionGap < requiredGap && underEdgeBump > 0) {
+      if (underEdgeBump >= MATERIAL_PROFILE_EDGE_BUMP) {
+        boardOnlyReasons.push("UNDER_GAP_BELOW_PROFILE_ADJ");
+        sideGatePassed = false;
+      } else {
+        warnings.push("UNDER_GAP_PROFILE_SOFT_RAISE");
+      }
     }
   }
 
   if (side === "OVER") {
     const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
     const requiredGap = gapFloor + overEdgeBump;
-    if (metrics.projectionGap < requiredGap && !elite) {
-      boardOnlyReasons.push(
-        overEdgeBump > 0 ? "OVER_GAP_BELOW_PROFILE_ADJ" : reasonCode
-      );
+    if (metrics.projectionGap < gapFloor && !elite) {
+      boardOnlyReasons.push(reasonCode);
       sideGatePassed = false;
+    } else if (metrics.projectionGap < requiredGap && overEdgeBump > 0 && !elite) {
+      if (overEdgeBump >= MATERIAL_PROFILE_EDGE_BUMP) {
+        boardOnlyReasons.push("OVER_GAP_BELOW_PROFILE_ADJ");
+        sideGatePassed = false;
+      } else {
+        warnings.push("OVER_GAP_PROFILE_SOFT_RAISE");
+      }
     }
   }
 

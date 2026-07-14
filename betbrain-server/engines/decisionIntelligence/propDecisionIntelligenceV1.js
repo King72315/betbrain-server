@@ -638,46 +638,73 @@ function isCleanLowRiskProfile(metrics = {}, riskDebts = [], gate = {}) {
   if (hasKillDebt(riskDebts)) return false;
   if (countHighDebts(riskDebts) > 0) return false;
   if ((gate.dangerGateCount ?? 0) > 1) return false;
-  if (metrics.projectionGap < gapFloorForSide(metrics.side, metrics) + 1) return false;
+  if (metrics.projectionGap < gapFloorForSide(metrics.side, metrics) + 0.5) return false;
   if (
     metrics.fairLineSide !== metrics.side ||
-    Math.abs(metrics.fairLineEdge) < 3.5 ||
-    metrics.fairLineQuality < 50
+    Math.abs(metrics.fairLineEdge) < 3 ||
+    metrics.fairLineQuality < 45
   ) {
     return false;
   }
-  if (metrics.side === "OVER" && metrics.fga < 9) return false;
-  if (metrics.minutes > 0 && metrics.minutes < 24) return false;
-  if (metrics.bookCount < 3) return false;
-  return riskDebts.length <= 1;
+  if (metrics.side === "OVER" && metrics.fga < 8) return false;
+  if (metrics.minutes > 0 && metrics.minutes < 22) return false;
+  if (metrics.bookCount < 2) return false;
+  return riskDebts.length <= 2;
 }
 
+/**
+ * True risk (courteedge-profile-risk-recal-v1):
+ * LOW = clean stronger-edge profiles; MEDIUM = default working bucket;
+ * HIGH = riskiest only (kills, NO_BET, stacked HIGH debts) — never the TRACK default.
+ *
+ * Removed prior inverted TRACK path (clean TRACK without repairs → HIGH) and the
+ * `riskDebts.length >= 5` farm that stamped HIGH from mild debt stacks.
+ */
 function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepairs = [], gate = {}) {
   const riskBefore = candidate.riskLabel || gate.riskBeforeCeiling || "Medium Risk";
   let trueRisk = "MEDIUM";
+  const highDebts = countHighDebts(riskDebts);
+  const dangerCount = gate.dangerGateCount ?? gate.dangerGateStack?.length ?? 0;
+  const flipAction = String(
+    candidate.decisionDataIntelligence?.flipFirstDecision?.action ||
+      candidate.decisionIntelligence?.flipFirstDecision?.action ||
+      candidate.flipFirstAction ||
+      ""
+  ).toUpperCase();
+  const bothSidesWeak = flipAction === "BOTH_SIDES_WEAK";
 
   if (hasKillDebt(riskDebts) || gate.trackingEligibility === "NO_BET") {
     trueRisk = "HIGH";
-  } else if (countHighDebts(riskDebts) >= 3 || riskDebts.length >= 5) {
+  } else if (highDebts >= 3) {
     trueRisk = "HIGH";
   } else if (
     gate.trackingEligibility === "BOARD_ONLY" ||
     gate.trackingEligibility === "SHADOW_ONLY"
   ) {
-    trueRisk = countHighDebts(riskDebts) >= 2 ? "HIGH" : "MEDIUM";
+    // Board/shadow HIGH only when truly stacked — not every soft gap-floor prop.
+    // BOTH_SIDES_WEAK with any HIGH debt counts as riskiest cohort.
+    if (
+      highDebts >= 2 ||
+      (metrics.bookCount <= 1 && highDebts >= 1) ||
+      (bothSidesWeak && highDebts >= 1) ||
+      dangerCount >= 3
+    ) {
+      trueRisk = "HIGH";
+    } else {
+      trueRisk = "MEDIUM";
+    }
   } else if (isCleanLowRiskProfile(metrics, riskDebts, gate)) {
     trueRisk = "LOW";
   } else if (gate.trackingEligibility === "TRACK") {
     if (
-      metrics.volatility === "unstable" ||
-      metrics.volatility === "volatile" ||
-      countHighDebts(riskDebts) >= 1
+      highDebts >= 2 ||
+      dangerCount >= 3 ||
+      (metrics.bookCount <= 1 &&
+        metrics.projectionGap < gapFloorForSide(metrics.side, metrics) + 1)
     ) {
-      trueRisk = "MEDIUM";
-    } else if (isRepairableProfile(riskDebts, riskRepairs) && riskRepairs.length >= 3) {
-      trueRisk = "MEDIUM";
-    } else {
       trueRisk = "HIGH";
+    } else {
+      trueRisk = "MEDIUM";
     }
   }
 

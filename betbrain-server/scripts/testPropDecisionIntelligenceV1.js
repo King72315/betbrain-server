@@ -547,6 +547,91 @@ test("29 applyDecisionIntelligence syncs dataMode from card", () => {
   assert.strictEqual(enriched.wnbaTrackingDecision, enriched.trackingEligibility);
 });
 
+test("30 TRACK working props default to MEDIUM (HIGH not default)", () => {
+  // Unstable minutes = one HIGH debt → previously could be inverted; now MEDIUM.
+  const pick = live0625Pick("Working Track", "OVER", 14.5, {
+    dataMode: "WNBA_LIMITED_DATA",
+    minutesVolatility: "unstable",
+    bookCount: 4,
+    marketQuality: 70,
+    projection: { projection: 19.5, expectedMinutes: 28, expectedFGA: 11 },
+    last5: { points: 18, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 4.5, fairLineQuality: 65 },
+  }, { netEdge: 8 });
+  const di = evaluateDi(pick);
+  assert.strictEqual(di.trackEligibility, "TRACK");
+  assert.strictEqual(di.trueRisk, "MEDIUM");
+  assert.ok(
+    (di.riskDebts || []).filter((d) => d.severity === "HIGH" || d.severity === "KILL").length < 2
+  );
+});
+
+test("31 single HIGH debt TRACK stays MEDIUM", () => {
+  const pick = live0625Pick("Single Debt Track", "OVER", 15.5, {
+    minutesVolatility: "unstable",
+    bookCount: 4,
+    marketQuality: 70,
+    projection: { projection: 20.5, expectedMinutes: 28, expectedFGA: 11 },
+    last5: { points: 18, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 4, fairLineQuality: 60 },
+  }, { netEdge: 8 });
+  const di = evaluateDi(pick);
+  if (di.trackEligibility === "TRACK") {
+    const highs = (di.riskDebts || []).filter(
+      (d) => d.severity === "HIGH" || d.severity === "KILL"
+    ).length;
+    if (highs < 2) assert.strictEqual(di.trueRisk, "MEDIUM");
+  }
+});
+
+test("32 healthy slate risk mix — HIGH rarer than MEDIUM+LOW", () => {
+  const cohort = [
+    live0625Pick("A", "OVER", 14.5, {
+      minutesVolatility: "stable",
+      bookCount: 4,
+      projection: { projection: 19, expectedMinutes: 28, expectedFGA: 11 },
+      last5: { points: 17, minutes: 28, fga: 11, ptsPerFGA: 1.05, games: 5 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 4, fairLineQuality: 60 },
+    }, { netEdge: 8 }),
+    live0625Pick("B", "OVER", 13.5, {
+      minutesVolatility: "stable",
+      bookCount: 5,
+      dataMode: "WNBA_FULL_DATA",
+      projection: { projection: 18, expectedMinutes: 27, expectedFGA: 10 },
+      last5: { points: 16, minutes: 27, fga: 10, ptsPerFGA: 1.05, games: 5 },
+      fairLine: { fairLineSide: "OVER", fairLineEdge: 5, fairLineQuality: 65 },
+    }, { netEdge: 7 }),
+    live0625Pick("C", "UNDER", 16.5, {
+      minutesVolatility: "stable",
+      bookCount: 4,
+      projection: { projection: 12, expectedMinutes: 26, expectedFGA: 9 },
+      last5: { points: 13, minutes: 26, fga: 9, ptsPerFGA: 1.0, games: 5 },
+      fairLine: { fairLineSide: "UNDER", fairLineEdge: 4, fairLineQuality: 60 },
+    }, { netEdge: 6 }),
+    live0625Pick("D", "OVER", 12.5, {
+      minutesVolatility: "volatile",
+      bookCount: 3,
+      projection: { projection: 16.5, expectedMinutes: 24, expectedFGA: 9 },
+      last5: { points: 15, minutes: 24, fga: 9, ptsPerFGA: 1.05, games: 5 },
+    }, { netEdge: 5 }),
+    live0625Pick("E", "OVER", 11.5, {
+      minutesVolatility: "unstable",
+      bookCount: 1,
+      projection: { projection: 13, expectedMinutes: 17, expectedFGA: 5 },
+      last5: { points: 12, minutes: 17, fga: 5, ptsPerFGA: 1.1, games: 5 },
+    }, { netEdge: 4 }),
+  ].map((p) => evaluateDi(p));
+
+  const counts = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const di of cohort) {
+    counts[di.trueRisk] = (counts[di.trueRisk] || 0) + 1;
+  }
+  assert.ok(
+    counts.HIGH < counts.MEDIUM + counts.LOW,
+    `HIGH (${counts.HIGH}) should be rarer than MEDIUM+LOW (${counts.MEDIUM + counts.LOW})`
+  );
+});
+
 let passed = 0;
 let failed = 0;
 

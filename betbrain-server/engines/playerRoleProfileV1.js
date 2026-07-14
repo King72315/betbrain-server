@@ -5,22 +5,30 @@
  */
 
 export const PLAYER_ROLE_PROFILE_VERSION = "player-role-profile-v1";
-export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1";
+export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1.1";
 
 const MIN_FAVORABLE_SAMPLE = 5;
 const MAX_RECENT_GAMES = 10;
 const PREFERRED_RECENT_GAMES = 5;
 
-/** Safety caps (Phase 4) */
+/**
+ * Safety caps (Phase 4) — courteedge-profile-risk-recal-v1.
+ * Prior caps (esp. maxRequiredEdgeUp=1.0) raised gap floors so hard that mild
+ * role dampening erased honest edges → Flip-First BOTH_SIDES_WEAK / BOARD_ONLY.
+ * Caps stay real but no longer dominate side selection.
+ */
 export const CALIBRATION_CAPS = Object.freeze({
-  maxProjectionMovement: 1.5,
-  maxExpandingShift: 1.25,
-  maxContractingShift: -1.25,
-  maxConfidenceAdj: 8,
-  maxRequiredEdgeUp: 1.0,
-  maxRequiredEdgeDown: -0.25,
-  maxRankingAdj: 8,
+  maxProjectionMovement: 1.0,
+  maxExpandingShift: 0.85,
+  maxContractingShift: -0.85,
+  maxConfidenceAdj: 6,
+  maxRequiredEdgeUp: 0.45,
+  maxRequiredEdgeDown: -0.15,
+  maxRankingAdj: 6,
 });
+
+/** Bumps below this soft-warn at tracking gate; do not hard board-kill. */
+export const MATERIAL_PROFILE_EDGE_BUMP = 0.3;
 
 /** Starting classification thresholds (Phase 3) — WNBA-tuned */
 export const ROLE_THRESHOLDS = Object.freeze({
@@ -617,30 +625,30 @@ export function buildPlayerProfileCalibration(profile = {}, options = {}) {
     if (favorable) {
       seasonWeightAdjustment += 0.04;
       recentWeightAdjustment -= 0.02;
-      minutesTrustMultiplier = 1.06;
-      projectionUncertaintyAdjustment -= 0.35;
-      confidenceAdjustment += 3;
-      rankingAdjustment += 4;
+      minutesTrustMultiplier = 1.05;
+      projectionUncertaintyAdjustment -= 0.25;
+      confidenceAdjustment += 2;
+      rankingAdjustment += 3;
       riskRepairIds.push("STABLE_ROLE_PROFILE");
       reasons.push("STABLE role — trust season blend and minutes");
     } else {
       reasons.push("STABLE indicated but sample/confidence blocks favorable adj");
     }
   } else if (rs === "MODERATE") {
-    projectionUncertaintyAdjustment += 0.25;
-    overRequiredEdgeAdjustment += 0.15;
-    underRequiredEdgeAdjustment += 0.1;
+    projectionUncertaintyAdjustment += 0.15;
+    overRequiredEdgeAdjustment += 0.08;
+    underRequiredEdgeAdjustment += 0.05;
     confidenceAdjustment -= 1;
     reasons.push("MODERATE role — slight uncertainty uplift");
   } else if (rs === "UNSTABLE") {
-    recentWeightAdjustment -= 0.06;
-    seasonWeightAdjustment += 0.03;
-    minutesTrustMultiplier = 0.88;
-    projectionUncertaintyAdjustment += 0.75;
-    overRequiredEdgeAdjustment += 0.55;
-    underRequiredEdgeAdjustment += 0.4;
-    confidenceAdjustment -= 5;
-    rankingAdjustment -= 5;
+    recentWeightAdjustment -= 0.04;
+    seasonWeightAdjustment += 0.02;
+    minutesTrustMultiplier = 0.92;
+    projectionUncertaintyAdjustment += 0.4;
+    overRequiredEdgeAdjustment += 0.28;
+    underRequiredEdgeAdjustment += 0.2;
+    confidenceAdjustment -= 3;
+    rankingAdjustment -= 3;
     riskDebtIds.push("UNSTABLE_ROLE");
     reasons.push("UNSTABLE role — higher evidence bar, canonical UNSTABLE_ROLE debt");
   }
@@ -652,43 +660,43 @@ export function buildPlayerProfileCalibration(profile = {}, options = {}) {
       rankingAdjustment += 2;
       reasons.push("HIGH volume + STABLE + LOW vol — reliable scorer profile");
     } else if (rs === "UNSTABLE") {
-      overRequiredEdgeAdjustment += 0.25;
-      underRequiredEdgeAdjustment += 0.15;
+      overRequiredEdgeAdjustment += 0.12;
+      underRequiredEdgeAdjustment += 0.08;
       reasons.push("HIGH volume + UNSTABLE — stronger edge required");
     } else {
       reasons.push("HIGH volume — descriptive only, not auto Over");
     }
   } else if (sv === "LOW") {
-    overRequiredEdgeAdjustment += 0.35;
+    overRequiredEdgeAdjustment += 0.18;
     reasons.push("LOW volume — Overs need volume proof");
     if (dir === "EXPANDING") {
-      underRequiredEdgeAdjustment += 0.2;
-      confidenceAdjustment -= 2;
+      underRequiredEdgeAdjustment += 0.1;
+      confidenceAdjustment -= 1;
       reasons.push("EXPANDING + LOW volume weakens Under confidence");
     }
   }
 
   // --- Shot-volume stability ---
   if (shotStab === "UNSTABLE") {
-    projectionUncertaintyAdjustment += 0.3;
-    overRequiredEdgeAdjustment += 0.2;
+    projectionUncertaintyAdjustment += 0.15;
+    overRequiredEdgeAdjustment += 0.1;
     reasons.push("Unstable shot volume");
   } else if (shotStab === "STABLE" && favorable) {
     riskRepairIds.push("STABLE_SHOT_VOLUME");
-    projectionUncertaintyAdjustment -= 0.15;
+    projectionUncertaintyAdjustment -= 0.1;
   }
 
   // --- Scoring volatility ---
   if (vol === "HIGH") {
-    projectionUncertaintyAdjustment += 0.45;
-    confidenceAdjustment -= 3;
-    rankingAdjustment -= 3;
-    overRequiredEdgeAdjustment += 0.2;
-    underRequiredEdgeAdjustment += 0.15;
+    projectionUncertaintyAdjustment += 0.25;
+    confidenceAdjustment -= 2;
+    rankingAdjustment -= 2;
+    overRequiredEdgeAdjustment += 0.1;
+    underRequiredEdgeAdjustment += 0.08;
     reasons.push("HIGH scoring volatility");
   } else if (vol === "LOW" && favorable) {
-    confidenceAdjustment += 2;
-    projectionUncertaintyAdjustment -= 0.2;
+    confidenceAdjustment += 1;
+    projectionUncertaintyAdjustment -= 0.15;
     riskRepairIds.push("LOW_SCORING_VOLATILITY");
     reasons.push("LOW scoring volatility supports confidence");
   }
@@ -696,35 +704,36 @@ export function buildPlayerProfileCalibration(profile = {}, options = {}) {
   // --- Role direction (capped shifts; require opportunity already validated in profile) ---
   if (dir === "EXPANDING") {
     const shift = clamp(
-      0.55 + (sv === "LOW" ? 0.35 : 0.2),
+      0.4 + (sv === "LOW" ? 0.2 : 0.12),
       0,
       CALIBRATION_CAPS.maxExpandingShift
     );
     expectedMinutesAdjustment += round(shift * 0.6, 2);
     expectedFgaAdjustment += round(shift * 0.45, 2);
     expectedFtaAdjustment += round(shift * 0.15, 2);
-    projectionAdjustment += clamp(shift * 0.7, 0, CALIBRATION_CAPS.maxExpandingShift);
+    projectionAdjustment += clamp(shift * 0.45, 0, CALIBRATION_CAPS.maxExpandingShift);
     if (options.side === "OVER" && favorable) {
       confidenceAdjustment += 1;
       riskRepairIds.push("EXPANDING_ROLE_PROFILE");
     }
     if (options.side === "UNDER") {
-      confidenceAdjustment -= 2;
-      underRequiredEdgeAdjustment += 0.2;
+      confidenceAdjustment -= 1;
+      underRequiredEdgeAdjustment += 0.1;
     }
     reasons.push(`EXPANDING role — bounded opp shift +${shift}`);
   } else if (dir === "CONTRACTING") {
     const shift = CALIBRATION_CAPS.maxContractingShift;
     expectedMinutesAdjustment += round(shift * 0.6, 2);
     expectedFgaAdjustment += round(shift * 0.45, 2);
-    projectionAdjustment += clamp(shift * 0.7, CALIBRATION_CAPS.maxContractingShift, 0);
+    expectedFtaAdjustment += round(shift * 0.15, 2);
+    projectionAdjustment += clamp(shift * 0.45, CALIBRATION_CAPS.maxContractingShift, 0);
     if (options.side === "UNDER" && favorable) {
       confidenceAdjustment += 1;
       riskRepairIds.push("CONTRACTING_ROLE_PROFILE");
     }
     if (options.side === "OVER") {
-      confidenceAdjustment -= 2;
-      overRequiredEdgeAdjustment += 0.25;
+      confidenceAdjustment -= 1;
+      overRequiredEdgeAdjustment += 0.12;
     }
     reasons.push("CONTRACTING role — bounded negative opp shift");
   }
@@ -755,7 +764,8 @@ export function buildPlayerProfileCalibration(profile = {}, options = {}) {
     if (projectionAdjustment > 0) projectionAdjustment = 0;
     if (projectionUncertaintyAdjustment < 0) projectionUncertaintyAdjustment = 0;
     if (minutesTrustMultiplier > 1) minutesTrustMultiplier = 1;
-    overRequiredEdgeAdjustment = Math.max(overRequiredEdgeAdjustment, 0.1);
+    // Mild floor only — do not force BOTH_SIDES_WEAK via large gap bump
+    overRequiredEdgeAdjustment = Math.max(overRequiredEdgeAdjustment, 0.05);
     reasons.push("Weak/missing profile — no favorable adjustments");
     if ((profile.profileConfidence || 0) < 40) {
       riskDebtIds.push("LOW_PROFILE_CONFIDENCE");

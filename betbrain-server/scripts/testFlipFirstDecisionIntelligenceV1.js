@@ -333,6 +333,46 @@ tests.push({
 });
 
 tests.push({
+  name: "10b honest near-floor Over support is not BOTH_SIDES_WEAK from mild dampening",
+  fn() {
+    const pick = makeWnbaPick({
+      side: "Over",
+      wnbaDataCard: baseCard({
+        dataMode: "WNBA_LIMITED_DATA",
+        bookLine: 17.5,
+        // Gap 3.3 clears soft honest threshold (floor 4.0 - 1.25) but not hard floor
+        projection: { projection: 20.8, expectedMinutes: 28, expectedFGA: 11 },
+        last5: { points: 19, minutes: 28, fga: 11, games: 5 },
+        fairLine: { fairLineSide: "OVER", fairLineEdge: 2.5, fairLineQuality: 55 },
+        roleTrend: "up",
+        minutesVolatility: "stable",
+        playerProfileCalibration: {
+          overRequiredEdgeAdjustment: 0.08,
+          underRequiredEdgeAdjustment: 0.05,
+          calibrationReasons: ["MODERATE role — slight uncertainty uplift"],
+        },
+      }),
+      projection: 20.8,
+      netEdge: 5,
+      wnbaReader: null,
+    });
+    // Soft-board style reader: original Over selected despite dual gap-floor
+    const reader = readWnbaProp(pick.wnbaDataCard);
+    reader.softGapFloorBoardPick = true;
+    const ff = evaluateFlipFirstSideSelection(pick, {
+      originalSide: "OVER",
+      reader,
+      decisionDataIntelligence: evaluateDecisionDataIntelligence(pick, { originalSide: "OVER" }),
+    });
+    assert.notStrictEqual(
+      ff.action,
+      "BOTH_SIDES_WEAK",
+      `honest Over support should not be BOTH_SIDES_WEAK, got ${ff.action}`
+    );
+  },
+});
+
+tests.push({
   name: "11 controlled best six regression",
   fn() {
     runScript("testControlledBestSix.js");

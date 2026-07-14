@@ -339,7 +339,7 @@ test("11) Missing profile data → fallbackUsed, no favorable", () => {
   assert.ok(cal.calibrationReasons.some((r) => /Weak\/missing|no favorable/i.test(r)));
 });
 
-test("12) Calibration safety caps (±1.5 proj, ±8 conf, edge +1.0/-0.25)", () => {
+test("12) Calibration safety caps (±1.0 proj, ±8 conf, edge +0.45/-0.2)", () => {
   const profile = buildPlayerRoleProfile({
     last5: UNSTABLE,
     seasonGames: UNSTABLE,
@@ -357,12 +357,54 @@ test("12) Calibration safety caps (±1.5 proj, ±8 conf, edge +1.0/-0.25)", () =
   assert.equal(cal.cannotForceSideFlip, true);
   assert.equal(cal.cannotCreateTrack, true);
   assert.equal(cal.cannotOverrideHardKill, true);
+  assert.ok(CALIBRATION_CAPS.maxRequiredEdgeUp <= 0.45);
+  assert.ok(CALIBRATION_CAPS.maxProjectionMovement <= 1.0);
 
   const applied = applyProfileCalibrationToProjection(
     { projection: 15, expectedMinutes: 24, expectedFGA: 9, expectedFTA: 2 },
     { ...cal, projectionAdjustment: 5 }
   );
-  assert.ok(Math.abs(applied.profileProjectionDelta) <= 1.5);
+  assert.ok(Math.abs(applied.profileProjectionDelta) <= CALIBRATION_CAPS.maxProjectionMovement);
+});
+
+test("15) Mild MODERATE dampening stays below material bump (no hard PROFILE_ADJ)", () => {
+  const profile = buildPlayerRoleProfile({
+    last5: MODERATE,
+    seasonGames: MODERATE,
+    seasonMinutes: 24,
+    seasonFga: 9,
+    seasonPoints: 12,
+    expectedFga: 9,
+    bookCount: 4,
+  });
+  const cal = buildPlayerProfileCalibration(
+    { ...profile, roleStability: "MODERATE", scoringVolume: "HIGH", scoringVolatility: "MEDIUM" },
+    { side: "OVER" }
+  );
+  assert.ok(
+    cal.overRequiredEdgeAdjustment < 0.3,
+    `mild overReq ${cal.overRequiredEdgeAdjustment} should stay soft`
+  );
+  assert.ok(cal.overRequiredEdgeAdjustment <= CALIBRATION_CAPS.maxRequiredEdgeUp);
+});
+
+test("16) UNSTABLE still raises bar but stays under recalibrated cap", () => {
+  const cal = buildPlayerProfileCalibration(
+    {
+      roleStability: "UNSTABLE",
+      scoringVolume: "LOW",
+      scoringVolatility: "HIGH",
+      shotVolumeStability: "UNSTABLE",
+      roleDirection: "STABLE",
+      profileSampleSize: 8,
+      profileConfidence: 60,
+      fallbackUsed: false,
+    },
+    { side: "OVER" }
+  );
+  assert.ok(cal.overRequiredEdgeAdjustment >= 0.28);
+  assert.ok(cal.overRequiredEdgeAdjustment <= CALIBRATION_CAPS.maxRequiredEdgeUp);
+  assert.ok(cal.riskDebtIds.includes("UNSTABLE_ROLE"));
 });
 
 test("13) Profile alone does not flip side / auto vote", () => {
