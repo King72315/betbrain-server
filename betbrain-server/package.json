@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test-keys": "node testKeys.js"
+    "test-keys": "node testKeys.js",
+    "test:anonymous-access": "node scripts/testAnonymousCoreAccess.js"
   },
   "engines": {
     "node": ">=18"

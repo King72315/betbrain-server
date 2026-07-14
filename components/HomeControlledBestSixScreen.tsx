@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   RefreshControl,
@@ -66,7 +67,7 @@ function LeagueDateSection({
     <View style={styles.leagueSection}>
       <View style={[styles.leagueHeader, { borderColor: theme.headerBorder }]}>
         <Text style={[styles.leagueTitle, { color: theme.titleColor }]}>
-          {league} — {viewLabel}
+          {league} -- {viewLabel}
         </Text>
         <Text style={styles.leagueSubtext}>
           Controlled Best 6 · Top 2 on Top tab · All 6 → Results
@@ -101,7 +102,7 @@ function LeagueDateSection({
       {!loading && !loadError && bestSixCards.length > 0 ? (
         <View style={styles.bestSixSection}>
           <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
-            {viewLabel} — {league} Best 6
+            {viewLabel} -- {league} Best 6
           </Text>
           <Text style={styles.sectionSubtext}>
             Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
@@ -168,31 +169,42 @@ export default function HomeControlledBestSixScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  const loadPicks = async () => {
+  // Core slate loads anonymously -- no login / token required (GET /picks).
+  const loadPicks = useCallback(async (mode: "full" | "quiet" = "full") => {
     try {
-      setLoading(true);
+      if (mode === "full") setLoading(true);
       const data = await fetchSavedPicks();
       setPicksData(data);
       setLoadError(formatApiLoadError(data));
+      hasLoadedRef.current = true;
     } catch (err) {
       console.log("LOAD HOME PROPS ERROR:", err);
-      setPicksData(null);
+      if (mode === "full") setPicksData(null);
       setLoadError(String(err));
     } finally {
-      setLoading(false);
+      if (mode === "full") setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadPicks();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadPicks(hasLoadedRef.current ? "quiet" : "full");
+    }, [loadPicks])
+  );
+
+  const handleDateViewChange = (next: HomeDateView) => {
+    setDateView(next);
+    // Soft re-read so Today/Tomorrow boards stay fresh without a login wall.
+    void loadPicks("quiet");
+  };
 
   const runRefresh = async () => {
     try {
       setRefreshing(true);
       await refreshSavedPicks();
-      await loadPicks();
+      await loadPicks("full");
     } catch (err) {
       setLoadError(String(err));
     } finally {
@@ -339,7 +351,7 @@ export default function HomeControlledBestSixScreen() {
             return (
               <TouchableOpacity
                 key={tab.key}
-                onPress={() => setDateView(tab.key)}
+                onPress={() => handleDateViewChange(tab.key)}
                 style={[
                   styles.dateTabButton,
                   isActive && {
@@ -364,7 +376,7 @@ export default function HomeControlledBestSixScreen() {
 
         <View style={styles.homeDateBanner}>
           <Text style={styles.homeDateTitle}>
-            {viewLabel} — {activeLeague}
+            {viewLabel} -- {activeLeague}
           </Text>
           <Text style={styles.homeDateSubtext}>
             Controlled Best 6 for {activeLeague} · Switch Today / Tomorrow above · Top 2 on Top tab

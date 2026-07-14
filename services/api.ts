@@ -1,3 +1,10 @@
+/**
+ * CourtEdge public API client.
+ *
+ * Core product reads (Home Controlled Best 6, Top props, league boards, Results
+ * tracking displays) use unauthenticated GET/POST -- no JWT / login required.
+ * Admin /scheduler endpoints are gated server-side separately and are not used here.
+ */
 const LIVE_RENDER_URL = "https://betbrain-server-1.onrender.com";
 
 export function resolveApiBaseUrl(): string {
