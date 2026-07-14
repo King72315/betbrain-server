@@ -54,6 +54,45 @@ Or set `COURTEDGE_HISTORY_REBUILD_V1=true` in Render env (replaces `COURTEDGE_AR
 
 **Does NOT** call `/clear-tracked-props`. ACTIVE Results registry rows and tracked props for 07/07 are preserved.
 
+### Live re-inspect (2026-07-08 ~03:35 CT) — repair NOT applied
+
+| Field | Prod now | Healthy target |
+|-------|----------|----------------|
+| `serverBuild` | `courteedge-history-rebuild-v1` | same (code shipped) |
+| `currentLabSlateDate` | `2026-06-21` | `null` or newer graded slate |
+| `historySlateDates` | `[]` | includes `2026-06-21` once phase ARCHIVED |
+| `activeResultsSlateDate` | `null` | 07/07 or 07/08 when Results cohort exists |
+| `/history-archives` 06/21 | **phase LAB**, 14 props, `archivedAt` 08:29:22Z | phase **ARCHIVED** |
+| Tracked by slate | 06/14:11, 06/15:8 (quarantined), 06/21:14 | + active Results cohort |
+| 07/07 tracked | **0** | expected if Results slate was tracked |
+| `lastBackup` | `2026-07-08T08-29-22Z` **`pre-lab-restore-2026-06-21`** | should be `pre-history-archives-reset-v1` or similar |
+
+**Verdict: FAIL — will-not-stuck-again not confirmed.** Build is deployed, but data is still stuck Lab. Last backup reason shows a **lab restore** re-wrote 06/21 as `phase: LAB` after (or instead of) History rebuild.
+
+**Recurrence prevention that works once 06/21 is ARCHIVED:**
+
+1. `getArchivedHistoryDates` only counts `phase === "ARCHIVED"` → Lab stops selecting 06/21.
+2. `rotateStaleLabArchives` (on every report build) archives any LAB bundle that is **not** `currentLabSlateDate`.
+3. `promoteSlateToLab` requires final report + no unresolved grades — no auto-promote without grading.
+4. Empty Lab does **not** block Results → Lab; Results is independent (`activeResultsSlateDate`).
+5. `prop-lab.tsx` only displays server `currentLabSlateDate` (no local picker that can re-stick).
+
+**Remaining holes:**
+
+- `restoreCompletedLabSlate` / `POST /admin/restore-official-slate` `mode: "lab"` always writes **LAB** phase — **can re-stick** (observed tonight).
+- `COURTEDGE_HISTORY_REBUILD_V1=true` in `render.yaml` only helps on startup; a later lab restore undoes it. Leaving the flag permanently true also re-wipes History archives every boot.
+- `rotateStaleLabArchives` will **not** self-archive the current Lab slate — a lone graded LAB slate with no newer Lab candidate stays stuck until repair or a newer final slate promotes+.
+
+**Action (Render shell):**
+
+```bash
+cd betbrain-server
+node scripts/resetHistoryArchives.js --dry-run
+node scripts/resetHistoryArchives.js
+```
+
+Then **do not** re-run lab restore for 06/21. After healthy verify, set `COURTEDGE_HISTORY_REBUILD_V1=false` (or remove) so boots do not keep erasing History.
+
 ---
 
 ## Update: Home tab NBA / WNBA switcher (2026-07-06)

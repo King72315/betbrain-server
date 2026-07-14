@@ -39,12 +39,14 @@ function LeagueTomorrowSection({
   loading,
   loadError,
   onSavePick,
+  alternateLeagueHasProps = false,
 }: {
   league: SupportedLeague;
   board: ReturnType<typeof buildLeagueBestSixBoard>;
   loading: boolean;
   loadError: string | null;
   onSavePick: (pick: any, league: SupportedLeague) => void;
+  alternateLeagueHasProps?: boolean;
 }) {
   const theme = LEAGUE_THEME[league];
   const { bestSixCards, summary } = board;
@@ -111,7 +113,11 @@ function LeagueTomorrowSection({
           <Text style={styles.emptyTitle}>
             No {league} Controlled Best 6 for Tomorrow.
           </Text>
-          <Text style={styles.emptyText}>Refresh picks to generate tomorrow&apos;s slate.</Text>
+          <Text style={styles.emptyText}>
+            {alternateLeagueHasProps
+              ? `No ${league} lines for tomorrow. Switch to the other league tab — WNBA has tomorrow props right now.`
+              : "Refresh picks to generate tomorrow's slate."}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -119,7 +125,7 @@ function LeagueTomorrowSection({
 }
 
 export default function HomeControlledBestSixScreen() {
-  const [activeLeague, setActiveLeague] = useState<SupportedLeague>("NBA");
+  const [activeLeague, setActiveLeague] = useState<SupportedLeague>("WNBA");
   const [picksData, setPicksData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -321,6 +327,11 @@ export default function HomeControlledBestSixScreen() {
           loading={loading}
           loadError={loadError}
           onSavePick={handleSavePick}
+          alternateLeagueHasProps={
+            activeLeague === "NBA"
+              ? boards.WNBA.bestSixCards.length > 0
+              : boards.NBA.bestSixCards.length > 0
+          }
         />
       </ScrollView>
     </SafeAreaView>

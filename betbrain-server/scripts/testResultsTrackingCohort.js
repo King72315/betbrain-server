@@ -353,18 +353,21 @@ function testControlledCohortUsesDisplayBestSix() {
 }
 
 function testControlledCohortAdmitsTodayWhenDisplayIsTomorrow() {
-  const todayPick = makePick({
-    player: "Today Star",
-    dayBucket: "TODAY",
-    dateLabel: "Today",
-    commenceTime: "2026-07-12T23:00:00Z",
-    gameDate: "2026-07-12",
-    pickScore: 88,
-    trackingType: "TEST",
-    controlledBestSixDisplay: true,
-    controlledBestSixDisplayTracked: true,
-    resultsAdmissionEligible: true,
-  });
+  const todayCandidates = Array.from({ length: 6 }, (_, i) =>
+    makePick({
+      player: `Today ${i + 1}`,
+      team: `Team${i + 1}`,
+      dayBucket: "TODAY",
+      dateLabel: "Today",
+      commenceTime: "2026-07-12T23:00:00Z",
+      gameDate: "2026-07-12",
+      pickScore: 90 - i,
+      trackingType: "TEST",
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      resultsAdmissionEligible: true,
+    })
+  );
   const tomorrowPick = makePick({
     player: "Tomorrow Star",
     dayBucket: "TOMORROW",
@@ -377,7 +380,7 @@ function testControlledCohortAdmitsTodayWhenDisplayIsTomorrow() {
     controlledBestSixDisplayTracked: true,
     resultsAdmissionEligible: true,
   });
-  const todayGame = makeGame([todayPick], [todayPick], {
+  const todayGame = makeGame(todayCandidates.slice(0, 4), todayCandidates, {
     dayBucket: "TODAY",
     dateLabel: "Today",
     date: "2026-07-12",
@@ -406,7 +409,7 @@ function testControlledCohortAdmitsTodayWhenDisplayIsTomorrow() {
   assert.strictEqual(bundle.audit.slateDate, "2026-07-12");
   assert.ok(bundle.trackingCohort.length >= 1);
   assert.ok(
-    bundle.trackingCohort.some((pick) => pick.player === "Today Star"),
+    bundle.trackingCohort.some((pick) => String(pick.player || "").startsWith("Today")),
     "Results cohort should admit today's Best 6 even when display board is tomorrow-only"
   );
   assert.ok(
