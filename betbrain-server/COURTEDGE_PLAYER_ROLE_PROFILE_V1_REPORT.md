@@ -224,8 +224,6 @@ Output: `betbrain-server/.player-role-profile-before-after.json`
 
 ## Commit / push
 
-(filled after commit)
-
 - **SERVER_BUILD:** `courteedge-player-role-profile-v1`
-- **Commit hash:** _pending_
+- **Commit hash:** `4eec9918dd7a36fa6484774773d522da16f66b7b`
 - **Push target:** `orgin/betbrain-v2-rebuild`
