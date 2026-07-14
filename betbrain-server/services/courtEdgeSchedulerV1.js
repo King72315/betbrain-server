@@ -33,8 +33,10 @@ export const JOB_STATUS = Object.freeze({
 });
 
 /**
- * Proposed America/Chicago windows — no prior locked env times existed.
- * Morning same-day, evening pregame, night Tomorrow (preserved cadence intent).
+ * America/Chicago windows.
+ * Morning same-day + night Tomorrow remain fixed clock windows.
+ * Pregame is game-time aware (90–120m before earliest unstarted tip);
+ * 17:00 CT is only a documented fallback when no valid tip times exist.
  */
 export const SCHEDULER_CONFIG = Object.freeze({
   timezone: process.env.COURTEDGE_TIMEZONE || CONFIG.TIMEZONE || "America/Chicago",
@@ -55,11 +57,20 @@ export const SCHEDULER_CONFIG = Object.freeze({
       label: "morning same-day refresh",
     }),
     TODAY_PREGAME_REFRESH: Object.freeze({
+      mode: "game_time_aware",
+      dayOffset: 0,
+      minMinutesBeforeTip: 90,
+      maxMinutesBeforeTip: 120,
+      // Documented fallback when the Today slate has no parseable tip times.
+      fallbackHour: 17,
+      fallbackMinute: 0,
+      fallbackWindowMinutes: 120,
+      // Aliases kept for status/report readers that expect hour/minute shape.
       hour: 17,
       minute: 0,
       windowMinutes: 120,
-      dayOffset: 0,
-      label: "evening pregame refresh",
+      label:
+        "pregame refresh (90–120m before earliest unstarted tip; 17:00 CT fallback)",
     }),
     TOMORROW_NIGHT_REFRESH: Object.freeze({
       hour: 22,
@@ -250,6 +261,211 @@ function windowContains(minutesOfDay, windowCfg) {
   return minutesOfDay >= start && minutesOfDay < end;
 }
 
+function fallbackWindowContains(minutesOfDay, windowCfg) {
+  const start =
+    Number(windowCfg.fallbackHour ?? windowCfg.hour) * 60 +
+    Number(windowCfg.fallbackMinute ?? windowCfg.minute ?? 0);
+  const end =
+    start + Number(windowCfg.fallbackWindowMinutes ?? windowCfg.windowMinutes ?? 120);
+  return minutesOfDay >= start && minutesOfDay < end;
+}
+
+/** Parse a scheduled tip Instant from a game or nested pick fields. */
+export function parseGameStartMs(game = {}) {
+  const candidates = [
+    game.commenceTime,
+    game.time,
+    game.commence_time,
+    game.startTime,
+    game.scheduledTip,
+  ];
+  if (Array.isArray(game.picks)) {
+    for (const pick of game.picks) {
+      candidates.push(pick?.commenceTime, pick?.time, pick?.commence_time);
+    }
+  }
+  for (const raw of candidates) {
+    if (raw == null || raw === "") continue;
+    const ms = Date.parse(raw);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return null;
+}
+
+export function isTodaySlateGame(game, slateDate) {
+  if (!game || typeof game !== "object") return false;
+  const bucket = String(game.dayBucket || game.dateLabel || "").toUpperCase();
+  if (bucket === "TODAY" || bucket === "TODAY'S" || bucket === "TODAYS") {
+    return true;
+  }
+  const date = String(game.date || game.gameDate || game.slateDate || "").slice(
+    0,
+    10
+  );
+  return Boolean(slateDate) && date === slateDate;
+}
+
+export function collectTodaySlateGames(games, slateDate) {
+  if (!Array.isArray(games)) return [];
+  return games.filter((g) => isTodaySlateGame(g, slateDate));
+}
+
+/**
+ * Resolve pregame tip timing from the active Today slate.
+ * - earliestUnstartedTipMs: soonest scheduled tip still in the future
+ * - hasValidStartTimes: at least one parseable tip on the slate
+ * - allKnownTipsStarted: every parseable tip is already in the past
+ */
+export function resolvePregameTipTiming(games = [], now = new Date()) {
+  const nowMs = now instanceof Date ? now.getTime() : Date.parse(now);
+  const tips = [];
+  for (const game of games) {
+    const tipMs = parseGameStartMs(game);
+    if (tipMs != null) tips.push(tipMs);
+  }
+  tips.sort((a, b) => a - b);
+  const hasValidStartTimes = tips.length > 0;
+  const unstarted = tips.filter((ms) => ms > nowMs);
+  const earliestUnstartedTipMs = unstarted.length ? unstarted[0] : null;
+  const earliestTipMs = tips.length ? tips[0] : null;
+  const allKnownTipsStarted = hasValidStartTimes && unstarted.length === 0;
+  return {
+    hasValidStartTimes,
+    allKnownTipsStarted,
+    earliestTipMs,
+    earliestUnstartedTipMs,
+    tipCount: tips.length,
+    unstartedCount: unstarted.length,
+  };
+}
+
+/**
+ * Decide whether TODAY_PREGAME_REFRESH is due.
+ * Game-time path: once when earliest unstarted tip is ~90–120 minutes away.
+ * Fallback path: fixed 17:00 CT window ONLY when no valid tip times exist.
+ * Never falls back to 17:00 merely because games already started.
+ */
+export function evaluatePregameRefreshDue({
+  now = new Date(),
+  local = null,
+  slateDate = null,
+  games = [],
+  job = null,
+  force = false,
+  windowCfg = SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH,
+} = {}) {
+  const parts = local || getCourtEdgeLocalParts(now);
+  const targetSlate = slateDate || parts.slateDate;
+  const todayGames = collectTodaySlateGames(games, targetSlate);
+  const timing = resolvePregameTipTiming(todayGames, now);
+
+  if (force) {
+    return {
+      due: true,
+      reason: "forced",
+      slateDate: targetSlate,
+      timing,
+      trigger: "force",
+    };
+  }
+
+  if (job && alreadySucceededToday(job, targetSlate, parts)) {
+    return {
+      due: false,
+      reason: "already_succeeded_today",
+      slateDate: targetSlate,
+      timing,
+      trigger: null,
+    };
+  }
+
+  if (timing.earliestUnstartedTipMs != null) {
+    const minutesUntil =
+      (timing.earliestUnstartedTipMs - now.getTime()) / (60 * 1000);
+    const minBefore = Number(windowCfg.minMinutesBeforeTip ?? 90);
+    const maxBefore = Number(windowCfg.maxMinutesBeforeTip ?? 120);
+    if (minutesUntil >= minBefore && minutesUntil <= maxBefore) {
+      return {
+        due: true,
+        reason: "within_pregame_tip_window",
+        slateDate: targetSlate,
+        timing,
+        minutesUntilTip: minutesUntil,
+        trigger: "earliest_unstarted_tip",
+        nextEligibleLocal: null,
+      };
+    }
+    const tipLocal = getCourtEdgeLocalParts(
+      new Date(timing.earliestUnstartedTipMs)
+    );
+    return {
+      due: false,
+      reason:
+        minutesUntil > maxBefore
+          ? "too_early_for_pregame_tip_window"
+          : "too_late_for_pregame_tip_window",
+      slateDate: targetSlate,
+      timing,
+      minutesUntilTip: minutesUntil,
+      trigger: null,
+      nextEligibleLocal: `${String(tipLocal.hour).padStart(2, "0")}:${String(
+        tipLocal.minute
+      ).padStart(2, "0")} CT tip (−${maxBefore}..−${minBefore}m)`,
+    };
+  }
+
+  // Valid tip times exist but every known tip already started — do NOT use 5 PM fallback.
+  if (timing.hasValidStartTimes && timing.allKnownTipsStarted) {
+    return {
+      due: false,
+      reason: "all_known_tips_started",
+      slateDate: targetSlate,
+      timing,
+      trigger: null,
+      nextEligibleLocal: null,
+    };
+  }
+
+  // No parseable scheduled tip times → documented 17:00 CT fallback only.
+  const inFallback = fallbackWindowContains(parts.minutesOfDay, windowCfg);
+  if (inFallback) {
+    return {
+      due: true,
+      reason: "fallback_1700_ct_no_valid_tip_times",
+      slateDate: targetSlate,
+      timing,
+      trigger: "fallback_1700_ct",
+    };
+  }
+
+  const fbHour = Number(windowCfg.fallbackHour ?? 17);
+  const fbMinute = Number(windowCfg.fallbackMinute ?? 0);
+  return {
+    due: false,
+    reason: "outside_fallback_window_no_valid_tip_times",
+    slateDate: targetSlate,
+    timing,
+    trigger: null,
+    nextEligibleLocal: `${String(fbHour).padStart(2, "0")}:${String(
+      fbMinute
+    ).padStart(2, "0")} CT fallback`,
+  };
+}
+
+function resolveTodayGamesForEvaluation(slateDate, options = {}) {
+  if (typeof options.getTodaySlateGames === "function") {
+    return collectTodaySlateGames(
+      options.getTodaySlateGames(slateDate) || [],
+      slateDate
+    );
+  }
+  const board =
+    typeof options.getBoard === "function"
+      ? options.getBoard()
+      : loadBoardCache();
+  return collectTodaySlateGames(board?.games || [], slateDate);
+}
+
 export function classifyProviderError(error, extras = {}) {
   const status = Number(
     extras.status ??
@@ -436,6 +652,51 @@ export function evaluateDueJobs(now = new Date(), state = loadSchedulerState(), 
   for (const [jobId, windowCfg] of Object.entries(SCHEDULER_CONFIG.windows)) {
     const slateDate = addLocalDays(local.slateDate, windowCfg.dayOffset);
     const job = state.jobs[jobId];
+
+    if (jobId === JOB_IDS.TODAY_PREGAME_REFRESH || windowCfg.mode === "game_time_aware") {
+      const todayGames = resolveTodayGamesForEvaluation(slateDate, options);
+      const pregame = evaluatePregameRefreshDue({
+        now,
+        local,
+        slateDate,
+        games: todayGames,
+        job,
+        force,
+        windowCfg,
+      });
+      if (!pregame.due) {
+        skipped.push({
+          jobId,
+          slateDate,
+          reason: pregame.reason,
+          nextEligibleLocal: pregame.nextEligibleLocal || undefined,
+          trigger: pregame.trigger,
+          minutesUntilTip: pregame.minutesUntilTip,
+        });
+        continue;
+      }
+      if (
+        !force &&
+        options.boardIsCurrentFor?.(jobId, slateDate, state)
+      ) {
+        skipped.push({
+          jobId,
+          slateDate,
+          reason: "board_already_current",
+        });
+        continue;
+      }
+      due.push({
+        jobId,
+        slateDate,
+        kind: "refresh",
+        window: windowCfg,
+        trigger: pregame.trigger,
+        minutesUntilTip: pregame.minutesUntilTip,
+      });
+      continue;
+    }
+
     const inWindow = windowContains(local.minutesOfDay, windowCfg);
     if (!force && !inWindow) {
       skipped.push({
@@ -592,6 +853,20 @@ export async function runScheduledJobs(options = {}) {
     force,
     boardIsCurrentFor: (jobId, slateDate) =>
       Boolean(handlers.isBoardCurrent?.(jobId, slateDate, state)),
+    getBoard: () =>
+      typeof handlers.getPreviousBoard === "function"
+        ? handlers.getPreviousBoard()
+        : loadBoardCache(),
+    getTodaySlateGames: (slateDate) => {
+      if (typeof handlers.getTodaySlateGames === "function") {
+        return handlers.getTodaySlateGames(slateDate);
+      }
+      const board =
+        typeof handlers.getPreviousBoard === "function"
+          ? handlers.getPreviousBoard()
+          : loadBoardCache();
+      return board?.games || [];
+    },
   });
 
   const jobsChecked = [
@@ -820,7 +1095,31 @@ export function getSchedulerStatus(options = {}) {
     const job = state.jobs[id];
     const windowCfg = SCHEDULER_CONFIG.windows[id];
     let nextEligible = null;
-    if (windowCfg) {
+    if (id === JOB_IDS.TODAY_PREGAME_REFRESH || windowCfg?.mode === "game_time_aware") {
+      const todayGames = resolveTodayGamesForEvaluation(local.slateDate, {
+        getBoard: () => board,
+      });
+      const pregame = evaluatePregameRefreshDue({
+        now,
+        local,
+        slateDate: local.slateDate,
+        games: todayGames,
+        job,
+        windowCfg,
+      });
+      if (pregame.due) {
+        nextEligible = "due_now";
+      } else if (pregame.nextEligibleLocal) {
+        nextEligible = pregame.nextEligibleLocal;
+      } else if (pregame.reason === "all_known_tips_started") {
+        nextEligible = "n/a (all known tips started)";
+      } else if (pregame.reason === "already_succeeded_today") {
+        nextEligible = "done_for_slate";
+      } else {
+        nextEligible =
+          "90–120m before earliest unstarted tip (17:00 CT fallback if no tip times)";
+      }
+    } else if (windowCfg) {
       nextEligible = `${String(windowCfg.hour).padStart(2, "0")}:${String(
         windowCfg.minute
       ).padStart(2, "0")} CT (${windowCfg.label})`;

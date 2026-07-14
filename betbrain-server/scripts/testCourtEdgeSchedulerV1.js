@@ -18,11 +18,14 @@ import {
   classifyProviderError,
   configureSchedulerPaths,
   evaluateDueJobs,
+  evaluatePregameRefreshDue,
   getCourtEdgeLocalParts,
   getSchedulerStatus,
   loadBoardCache,
   loadSchedulerState,
+  parseGameStartMs,
   resetSchedulerPaths,
+  resolvePregameTipTiming,
   runScheduledJobs,
   saveBoardCache,
   saveSchedulerState,
@@ -88,7 +91,7 @@ function chicagoAt({ hour, minute = 0, slateDate = "2026-07-13" }) {
   return guess;
 }
 
-function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY") {
+function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY", extras = {}) {
   return {
     ok: true,
     lastUpdated: new Date().toISOString(),
@@ -99,8 +102,12 @@ function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY") {
         league: "WNBA",
         date: slateDate,
         dayBucket,
+        commenceTime: extras.commenceTime,
+        time: extras.time,
         picks: [{ player: "A", side: "Over", line: 15 }],
+        ...extras.gameExtras,
       },
+      ...(extras.extraGames || []),
     ],
     bestSixWNBA: Array.from({ length: 6 }, (_, i) => ({
       player: `P${i}`,
@@ -111,6 +118,25 @@ function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY") {
       { player: "P0", side: "Over", line: 10 },
       { player: "P1", side: "Under", line: 11 },
     ],
+  };
+}
+
+function todayGame({
+  slateDate = "2026-07-13",
+  tipHour,
+  tipMinute = 0,
+  gameId = "g-tip",
+  commenceTime,
+} = {}) {
+  return {
+    gameId,
+    league: "WNBA",
+    date: slateDate,
+    dayBucket: "TODAY",
+    commenceTime:
+      commenceTime ||
+      chicagoAt({ hour: tipHour, minute: tipMinute, slateDate }).toISOString(),
+    picks: [{ player: "A", side: "Over", line: 15 }],
   };
 }
 
@@ -127,7 +153,10 @@ test("scheduler version + job ids exported", () => {
 
 test("proposed Chicago windows documented in config", () => {
   assert.equal(SCHEDULER_CONFIG.windows.TODAY_MORNING_REFRESH.hour, 8);
-  assert.equal(SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH.hour, 17);
+  assert.equal(SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH.mode, "game_time_aware");
+  assert.equal(SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH.minMinutesBeforeTip, 90);
+  assert.equal(SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH.maxMinutesBeforeTip, 120);
+  assert.equal(SCHEDULER_CONFIG.windows.TODAY_PREGAME_REFRESH.fallbackHour, 17);
   assert.equal(SCHEDULER_CONFIG.windows.TOMORROW_NIGHT_REFRESH.hour, 22);
   assert.equal(SCHEDULER_CONFIG.timezone, "America/Chicago");
 });
@@ -520,6 +549,178 @@ test("status endpoint shape has required fields", () => {
   assert.ok(status.courtEdgeLocalTime);
   assert.ok(status.jobs[JOB_IDS.TODAY_MORNING_REFRESH]);
   assert.ok(status.proposedWindows);
+});
+
+test("pregame afternoon tip fires mid-day (not waiting for 5 PM)", () => {
+  makeTempDir("pregame-afternoon");
+  // Earliest tip 1:00 PM CT → pregame window 11:00–11:30 CT.
+  const games = [todayGame({ tipHour: 13, tipMinute: 0 })];
+  const midDay = chicagoAt({ hour: 11, minute: 15, slateDate: "2026-07-13" });
+  const fivePm = chicagoAt({ hour: 17, minute: 10, slateDate: "2026-07-13" });
+
+  const dueMid = evaluatePregameRefreshDue({
+    now: midDay,
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(dueMid.due, true);
+  assert.equal(dueMid.trigger, "earliest_unstarted_tip");
+  assert.ok(dueMid.minutesUntilTip >= 90 && dueMid.minutesUntilTip <= 120);
+
+  // After tip window closed and tip not yet started, must NOT use 5 PM fallback.
+  const dueFive = evaluatePregameRefreshDue({
+    now: fivePm,
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(dueFive.due, false);
+  assert.ok(
+    dueFive.reason === "too_late_for_pregame_tip_window" ||
+      dueFive.reason === "all_known_tips_started" ||
+      dueFive.reason === "too_early_for_pregame_tip_window"
+  );
+});
+
+test("pregame evening tip fires ~90–120 minutes before tip", () => {
+  makeTempDir("pregame-evening");
+  // Tip 7:00 PM CT → window 5:00–5:30 PM CT.
+  const games = [todayGame({ tipHour: 19, tipMinute: 0 })];
+  const inWindow = chicagoAt({ hour: 17, minute: 15, slateDate: "2026-07-13" });
+  const tooEarly = chicagoAt({ hour: 16, minute: 0, slateDate: "2026-07-13" });
+
+  const due = evaluatePregameRefreshDue({
+    now: inWindow,
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(due.due, true);
+  assert.equal(due.trigger, "earliest_unstarted_tip");
+  assert.ok(due.minutesUntilTip >= 90 && due.minutesUntilTip <= 120);
+
+  const early = evaluatePregameRefreshDue({
+    now: tooEarly,
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(early.due, false);
+  assert.equal(early.reason, "too_early_for_pregame_tip_window");
+});
+
+test("pregame missing start times uses 5 PM CT fallback", () => {
+  makeTempDir("pregame-fallback");
+  const games = [
+    {
+      gameId: "g-no-time",
+      league: "WNBA",
+      date: "2026-07-13",
+      dayBucket: "TODAY",
+      picks: [{ player: "A", side: "Over", line: 12 }],
+    },
+  ];
+  assert.equal(parseGameStartMs(games[0]), null);
+
+  const atNoon = evaluatePregameRefreshDue({
+    now: chicagoAt({ hour: 12, minute: 0 }),
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(atNoon.due, false);
+  assert.equal(atNoon.reason, "outside_fallback_window_no_valid_tip_times");
+
+  const atFive = evaluatePregameRefreshDue({
+    now: chicagoAt({ hour: 17, minute: 10 }),
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(atFive.due, true);
+  assert.equal(atFive.trigger, "fallback_1700_ct");
+});
+
+test("pregame already-started slate does not refetch via 5 PM fallback", () => {
+  makeTempDir("pregame-started");
+  // Tip was 1:00 PM; now 5:15 PM — games started; must not fall back to 17:00.
+  const games = [todayGame({ tipHour: 13, tipMinute: 0 })];
+  const now = chicagoAt({ hour: 17, minute: 15, slateDate: "2026-07-13" });
+  const timing = resolvePregameTipTiming(games, now);
+  assert.equal(timing.hasValidStartTimes, true);
+  assert.equal(timing.allKnownTipsStarted, true);
+
+  const decision = evaluatePregameRefreshDue({
+    now,
+    games,
+    job: loadSchedulerState().jobs[JOB_IDS.TODAY_PREGAME_REFRESH],
+  });
+  assert.equal(decision.due, false);
+  assert.equal(decision.reason, "all_known_tips_started");
+});
+
+await testAsync("pregame idempotent once succeeded for slateDate", async () => {
+  makeTempDir("pregame-idem");
+  const tipHour = 19;
+  const games = [todayGame({ tipHour, tipMinute: 0 })];
+  const board = validBoard("2026-07-13", "TODAY", {
+    commenceTime: games[0].commenceTime,
+  });
+  saveBoardCache(board);
+
+  const now = chicagoAt({ hour: 17, minute: 15, slateDate: "2026-07-13" });
+  let refreshes = 0;
+  const handlers = {
+    getPreviousBoard: () => loadBoardCache(),
+    getTodaySlateGames: () => games,
+    refreshBoard: async () => {
+      refreshes += 1;
+      return board;
+    },
+    gradeTracked: async () => ({ summary: {} }),
+    runLifecycle: async () => ({ summary: {} }),
+  };
+
+  const first = await runScheduledJobs({ now, handlers });
+  assert.ok(
+    first.jobsRun.some(
+      (j) =>
+        j.jobId === JOB_IDS.TODAY_PREGAME_REFRESH &&
+        j.status === JOB_STATUS.SUCCEEDED
+    )
+  );
+  assert.equal(refreshes, 1);
+
+  // Simulate next 15-min dispatcher tick still inside tip window.
+  const second = await runScheduledJobs({
+    now: chicagoAt({ hour: 17, minute: 20, slateDate: "2026-07-13" }),
+    handlers,
+  });
+  assert.equal(refreshes, 1);
+  assert.ok(
+    second.jobsSkipped.some(
+      (s) =>
+        s.jobId === JOB_IDS.TODAY_PREGAME_REFRESH &&
+        s.reason === "already_succeeded_today"
+    )
+  );
+
+  const state = loadSchedulerState();
+  assert.equal(
+    state.jobs[JOB_IDS.TODAY_PREGAME_REFRESH].lastCompletedSlateDate,
+    "2026-07-13"
+  );
+});
+
+test("evaluateDueJobs wires pregame game-time path", () => {
+  makeTempDir("pregame-due-jobs");
+  const games = [todayGame({ tipHour: 13, tipMinute: 0 })];
+  const now = chicagoAt({ hour: 11, minute: 10, slateDate: "2026-07-13" });
+  const state = loadSchedulerState();
+  const evaluation = evaluateDueJobs(now, state, {
+    getTodaySlateGames: () => games,
+  });
+  assert.ok(
+    evaluation.due.some((d) => d.jobId === JOB_IDS.TODAY_PREGAME_REFRESH)
+  );
+  assert.ok(
+    !evaluation.due.some((d) => d.jobId === JOB_IDS.TODAY_MORNING_REFRESH)
+  );
 });
 
 resetSchedulerPaths();
