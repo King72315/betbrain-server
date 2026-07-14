@@ -285,17 +285,18 @@ Test **#16**: restart + persisted state prevents re-run.
 
 ## 23. Final commit hash
 
-`3af8f10` (`3af8f10126759b963c2755a9579b84274e8bc9d3`)
+Feature: `3af8f10`  
+Branch tip: `6fc01d2`
 
 ---
 
 ## 24. Remote branch tip
 
-`orgin/betbrain-v2-rebuild` → `3af8f10`
+`orgin/betbrain-v2-rebuild` → `6fc01d2`
 
 ---
 
 ## 25. Push confirmation
 
-Pushed to **`orgin/betbrain-v2-rebuild`**.  
+Pushed to **`orgin/betbrain-v2-rebuild`** (`3af8f10` scheduler + `6fc01d2` report hash fill).  
 Render Cron: **awaiting manual dashboard setup** (YAML ready; not claimed live).
