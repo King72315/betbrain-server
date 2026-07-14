@@ -7,7 +7,7 @@ import {
   buildCounterfactualSideLearning,
 } from "../engines/decisionIntelligence/sideSelectionTrustV1.js";
 
-export const SIGNAL_PERFORMANCE_VERSION = "signal-performance-v1.1";
+export const SIGNAL_PERFORMANCE_VERSION = "signal-performance-v1.2";
 export const SMALL_SAMPLE_THRESHOLD = 3;
 
 /** Win-rate / margin thresholds for objective helped/hurt/neutral. */
@@ -260,6 +260,71 @@ export function classifySignalImpact({ winRate = null, avgMargin = null, decided
   return { status: "neutral", reason: "mixed_or_inconclusive" };
 }
 
+function bucketProfileConfidence(prop = {}) {
+  const c = num(
+    prop.playerRoleProfile?.profileConfidence ??
+      prop.profileConfidence ??
+      prop.signalSnapshot?.profileConfidence
+  );
+  if (!c) return "not enough data";
+  if (c >= 70) return "70+";
+  if (c >= 50) return "50-69";
+  if (c >= 35) return "35-49";
+  return "<35";
+}
+
+function bucketRoleField(prop = {}, field = "") {
+  const profile = prop.playerRoleProfile || {};
+  const value = profile[field] || prop.signalSnapshot?.[field];
+  return value ? String(value) : "not enough data";
+}
+
+function bucketProjectionDependency(prop = {}) {
+  const method =
+    prop.wnbaDataCard?.projection?.method ||
+    prop.projectionMethod ||
+    prop.signalSnapshot?.projectionDependencyType;
+  return method ? String(method) : "not enough data";
+}
+
+function bucketProfileCalibrationReason(prop = {}) {
+  const reasons =
+    prop.profileCalibrationReasons ||
+    prop.playerProfileCalibration?.calibrationReasons ||
+    [];
+  if (!reasons.length) return "none";
+  return String(reasons[0]).slice(0, 80);
+}
+
+function bucketProfileAdjustedProjection(prop = {}) {
+  const before = num(prop.projectionBeforeProfileCalibration);
+  const after = num(prop.projectionAfterProfileCalibration ?? prop.projection);
+  if (!before || !after) return "not enough data";
+  const delta = after - before;
+  if (Math.abs(delta) < 0.05) return "unchanged";
+  if (delta > 0) return "raised";
+  return "lowered";
+}
+
+function bucketRoleCombo(prop = {}) {
+  const profile = prop.playerRoleProfile || {};
+  const side = String(prop.currentEngineSide || prop.side || prop.pick || "").toUpperCase();
+  const rs = profile.roleStability || "UNK";
+  const sv = profile.scoringVolume || "UNK";
+  const vol = profile.scoringVolatility || "UNK";
+  const dir = profile.roleDirection || "UNK";
+  const top =
+    prop.isTopPick || prop.topPickRank || prop.topPickLabel ? "Top" : "NonTop";
+  if (rs === "STABLE" && sv === "LOW") return `STABLE+LOW_VOLUME+${side || "UNK"}`;
+  if (rs === "UNSTABLE" && sv === "HIGH" && side === "OVER") return "UNSTABLE+HIGH_VOLUME+Over";
+  if (dir === "EXPANDING") return `EXPANDING+${side || "UNK"}`;
+  if (dir === "CONTRACTING" && side === "UNDER") return "CONTRACTING+Under";
+  if (vol === "HIGH" && top === "Top") return "HIGH_VOLATILITY+Top";
+  const conf = num(profile.profileConfidence);
+  if (conf > 0 && conf < 40) return "LOW_PROFILE_CONFIDENCE";
+  return `${rs}+${sv}+${vol}+${dir}`;
+}
+
 /** Signal dimension extractors: category → (prop) => bucket value */
 export const SIGNAL_DIMENSIONS = [
   { category: "projectionEdgeBucket", extract: (p) => p.signalSnapshot?.projectionEdgeBucket || p.projectionEdgeBucket || "not enough data" },
@@ -288,6 +353,17 @@ export const SIGNAL_DIMENSIONS = [
   { category: "pace", extract: (p) => p.signalSnapshot?.paceSignal || "not enough data" },
   { category: "bookCount", extract: (p) => p.bookCountBucket || "not enough data" },
   { category: "marketQuality", extract: (p) => p.marketQualityBucket || "not enough data" },
+  { category: "roleStability", extract: (p) => bucketRoleField(p, "roleStability") },
+  { category: "minutesLevel", extract: (p) => bucketRoleField(p, "minutesLevel") },
+  { category: "scoringVolume", extract: (p) => bucketRoleField(p, "scoringVolume") },
+  { category: "shotVolumeStability", extract: (p) => bucketRoleField(p, "shotVolumeStability") },
+  { category: "scoringVolatility", extract: (p) => bucketRoleField(p, "scoringVolatility") },
+  { category: "roleDirection", extract: (p) => bucketRoleField(p, "roleDirection") },
+  { category: "profileConfidence", extract: bucketProfileConfidence },
+  { category: "projectionDependencyType", extract: bucketProjectionDependency },
+  { category: "profileCalibrationReason", extract: bucketProfileCalibrationReason },
+  { category: "profileAdjustedProjection", extract: bucketProfileAdjustedProjection },
+  { category: "roleProfileCombo", extract: bucketRoleCombo },
 ];
 
 function groupPropsByDimension(props, dimension) {

@@ -314,8 +314,17 @@ export async function evaluateWnbaPropDecision(context = {}) {
   const winProbability = num(
     bestPick.rawWinProbability ?? bestPick.winProbability
   );
-  const finalConfidence = clamp(
+  const confidenceBeforeProfile = clamp(
     Math.round(readerConfidence * 0.7 + winProbability * 0.3),
+    30,
+    92
+  );
+  const profileConfAdj = num(
+    dataCard.playerProfileCalibration?.confidenceAdjustment,
+    0
+  );
+  const finalConfidence = clamp(
+    Math.round(confidenceBeforeProfile + profileConfAdj),
     30,
     92
   );
@@ -424,6 +433,30 @@ export async function evaluateWnbaPropDecision(context = {}) {
     dataIntegrityVersion: dataCard.dataIntegrityVersion,
     dataIntegrityOverall: dataCard.dataIntegrityOverall,
     dataIntegrityCompact: dataCard.dataIntegrityCompact,
+    playerRoleProfile: dataCard.playerRoleProfile || null,
+    playerProfileCalibration: dataCard.playerProfileCalibration || null,
+    playerRoleProfileAudit: dataCard.playerRoleProfileAudit || null,
+    projectionBeforeProfileCalibration:
+      dataCard.playerRoleProfileAudit?.projectionBeforeProfileCalibration ??
+      dataCard.projection?.projectionBeforeProfileCalibration ??
+      null,
+    projectionAfterProfileCalibration:
+      dataCard.playerRoleProfileAudit?.projectionAfterProfileCalibration ??
+      dataCard.projection?.projectionAfterProfileCalibration ??
+      projection,
+    profileProjectionDelta:
+      dataCard.playerRoleProfileAudit?.profileProjectionDelta ??
+      dataCard.projection?.profileProjectionDelta ??
+      null,
+    profileDebtIds: dataCard.playerProfileCalibration?.riskDebtIds || [],
+    profileRepairIds: dataCard.playerProfileCalibration?.riskRepairIds || [],
+    profileCalibrationApplied: Boolean(
+      dataCard.playerProfileCalibration?.profileCalibrationApplied
+    ),
+    profileCalibrationReasons:
+      dataCard.playerProfileCalibration?.calibrationReasons || [],
+    confidenceBeforeProfileCalibration: confidenceBeforeProfile,
+    confidenceAfterProfileCalibration: finalConfidence,
     wnbaReader: reader,
     underGap: reader.underGap,
     underGapFloorUsed: reader.underGapFloorUsed,

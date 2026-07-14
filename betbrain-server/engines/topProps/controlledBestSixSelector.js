@@ -165,6 +165,10 @@ function num(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function applySlateCollisionLayer(candidates = [], audit = {}) {
   const evaluation = evaluateSlateSameTeamCollisions(candidates);
   audit.slateSameTeamCollision = {
@@ -227,13 +231,20 @@ export function computeSafetyScore(pick = {}) {
     (pick.bestSixQualityFlags?.length || di.promotionReasons?.length || 0) * 8 +
     (di.bestSixPromoted ? 8 : 0);
   const gatePenalty = gateDemotionPenalty(pick);
+  // Bounded ranking preference for reliable role profiles (no force into Top)
+  const rankingAdj = clamp(
+    num(pick.playerProfileCalibration?.rankingAdjustment, 0),
+    -8,
+    8
+  );
   return (
     score +
     confidence * 0.4 +
     riskBonus +
     gateBonus +
     repairBonus +
-    stabilityBonus -
+    stabilityBonus +
+    rankingAdj -
     dangerPenalty -
     debtPenalty -
     killPenalty -

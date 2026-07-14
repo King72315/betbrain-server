@@ -4,6 +4,7 @@
  */
 import { resolveQualityGateInputs, isWnbaQualityGatePick } from "./wnbaGateInputs.js";
 import { resolveWnbaGapFloors } from "./wnbaGraduatedDataModeV1.js";
+import { resolveProfileGateEdgeAdjustments } from "../playerRoleProfileV1.js";
 
 export const WNBA_TRACKING_GATE_VERSION = "wnba-tracking-gate-v2-live";
 export const WNBA_LIMITED_UNDER_GAP_FLOOR = 3.5;
@@ -244,7 +245,7 @@ function computeReliabilityScores(metrics = {}, dangerCount = 0) {
   return { projectionReliabilityScore, fairLineReliabilityScore, marketConfidenceScore };
 }
 
-function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
+function evaluateSideGate(metrics = {}, side = "", dangerStack = [], profileGateAdj = null) {
   const limited = metrics.dataMode === "WNBA_LIMITED_DATA";
   const blockReasons = [];
   const boardOnlyReasons = [];
@@ -256,19 +257,29 @@ function evaluateSideGate(metrics = {}, side = "", dangerStack = []) {
   const elite = isEliteLimitedDataProfile(metrics);
   const eliteEdge = hasEliteEdgeOverride({ ...metrics, side });
   const volatileMinutes = hasMinutesVolatility(metrics);
+  const edgeAdj = profileGateAdj || {};
+  const overEdgeBump = Math.max(0, num(edgeAdj.overRequiredEdgeAdjustment));
+  const underEdgeBump = Math.max(0, num(edgeAdj.underRequiredEdgeAdjustment));
 
   if (side === "UNDER") {
     const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
-    if (metrics.projectionGap < gapFloor) {
-      boardOnlyReasons.push(reasonCode);
+    // Live gap-floor values unchanged; profile can only raise evidence bar
+    const requiredGap = gapFloor + underEdgeBump;
+    if (metrics.projectionGap < requiredGap) {
+      boardOnlyReasons.push(
+        underEdgeBump > 0 ? "UNDER_GAP_BELOW_PROFILE_ADJ" : reasonCode
+      );
       sideGatePassed = false;
     }
   }
 
   if (side === "OVER") {
     const { gapFloor, reasonCode } = resolveWnbaGapFloors({ ...metrics, side });
-    if (metrics.projectionGap < gapFloor && !elite) {
-      boardOnlyReasons.push(reasonCode);
+    const requiredGap = gapFloor + overEdgeBump;
+    if (metrics.projectionGap < requiredGap && !elite) {
+      boardOnlyReasons.push(
+        overEdgeBump > 0 ? "OVER_GAP_BELOW_PROFILE_ADJ" : reasonCode
+      );
       sideGatePassed = false;
     }
   }
@@ -640,7 +651,27 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
   }
 
   const dangerGateStack = resolveDangerGateStack(pick, metrics, side);
-  const sideGate = evaluateSideGate(metrics, side, dangerGateStack);
+  const profile =
+    pick.playerRoleProfile ||
+    dataCard?.playerRoleProfile ||
+    pick.wnbaDataCard?.playerRoleProfile ||
+    {};
+  const calibration =
+    pick.playerProfileCalibration ||
+    dataCard?.playerProfileCalibration ||
+    pick.wnbaDataCard?.playerProfileCalibration ||
+    {};
+  const profileGateAdj = resolveProfileGateEdgeAdjustments(profile, calibration);
+  // Prefer profile roleDirection over legacy roleTrend labels when present
+  if (profile.roleDirection === "EXPANDING") metrics.roleTrend = "up";
+  else if (profile.roleDirection === "CONTRACTING") metrics.roleTrend = "down";
+  else if (profile.roleDirection === "STABLE" && !metrics.roleTrend) {
+    metrics.roleTrend = "stable";
+  }
+  if (profile.scoringVolume === "LOW" && side === "OVER") {
+    warnings.push("LOW_VOLUME_OVER_NEEDS_PROOF");
+  }
+  const sideGate = evaluateSideGate(metrics, side, dangerGateStack, profileGateAdj);
   blockReasons.push(...sideGate.blockReasons);
   warnings.push(...sideGate.boardOnlyReasons, ...sideGate.warnings);
 
@@ -743,8 +774,24 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
       gapFloorApplied: pick.wnbaDataModeAudit?.gapFloorApplied ?? null,
       defenseAudit: pick.defenseAudit || metrics.defenseAudit || null,
       impliedTeamTotalAudit: pick.impliedTeamTotalAudit || null,
+      profileConfidence: profile.profileConfidence ?? null,
+      roleStability: profile.roleStability ?? null,
+      scoringVolume: profile.scoringVolume ?? null,
+      roleDirection: profile.roleDirection ?? null,
+      profileEdgeAdj: {
+        over: overEdgeBumpFromAdj(profileGateAdj),
+        under: underEdgeBumpFromAdj(profileGateAdj),
+      },
     },
+    profileGateAdj,
   };
+}
+
+function overEdgeBumpFromAdj(adj = {}) {
+  return Math.max(0, num(adj.overRequiredEdgeAdjustment));
+}
+function underEdgeBumpFromAdj(adj = {}) {
+  return Math.max(0, num(adj.underRequiredEdgeAdjustment));
 }
 
 export function applyWnbaTrackingGateV2ToPick(pick = {}, gate = {}) {

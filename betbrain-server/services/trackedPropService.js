@@ -1755,6 +1755,29 @@ function mapPickToTrackedFields(pick = {}) {
     ),
     volumeProfile: pick.volumeProfile || null,
     volumeDangerGates: pick.volumeDangerGates || null,
+    playerRoleProfile: pick.playerRoleProfile || pick.wnbaDataCard?.playerRoleProfile || null,
+    playerProfileCalibration:
+      pick.playerProfileCalibration ||
+      pick.wnbaDataCard?.playerProfileCalibration ||
+      null,
+    playerRoleProfileAudit: pick.playerRoleProfileAudit || null,
+    projectionBeforeProfileCalibration:
+      pick.projectionBeforeProfileCalibration ?? null,
+    projectionAfterProfileCalibration:
+      pick.projectionAfterProfileCalibration ?? null,
+    profileProjectionDelta: pick.profileProjectionDelta ?? null,
+    confidenceBeforeProfileCalibration:
+      pick.confidenceBeforeProfileCalibration ?? null,
+    confidenceAfterProfileCalibration:
+      pick.confidenceAfterProfileCalibration ?? null,
+    profileDebtIds: pick.profileDebtIds || [],
+    profileRepairIds: pick.profileRepairIds || [],
+    profileCalibrationApplied: pick.profileCalibrationApplied ?? false,
+    profileCalibrationReasons: pick.profileCalibrationReasons || [],
+    profileConfidence:
+      pick.profileConfidence ??
+      pick.playerRoleProfile?.profileConfidence ??
+      null,
     marketIntelligence: pick.marketIntelligence || null,
     availabilityGate: pick.availabilityGate || null,
     defenseResult: pick.defenseResult || null,

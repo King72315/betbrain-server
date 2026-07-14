@@ -148,6 +148,45 @@ function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
     );
   }
 
+  // Player Role Profile v1 debts — UNSTABLE_ROLE is canonical over UNSTABLE_MINUTES
+  const profile = candidate.playerRoleProfile || candidate.wnbaDataCard?.playerRoleProfile || {};
+  const calibration =
+    candidate.playerProfileCalibration ||
+    candidate.wnbaDataCard?.playerProfileCalibration ||
+    {};
+  const profileDebts = calibration.riskDebtIds || [];
+  if (profileDebts.includes("UNSTABLE_ROLE") || profile.roleStability === "UNSTABLE") {
+    const existingIdx = debts.findIndex((d) => d.code === "UNSTABLE_MINUTES");
+    if (existingIdx >= 0) debts.splice(existingIdx, 1);
+    if (!debts.some((d) => d.code === "UNSTABLE_ROLE")) {
+      debts.push(
+        debtItem({
+          code: "UNSTABLE_ROLE",
+          severity: "HIGH",
+          reason: "Player role profile is UNSTABLE (canonical role debt).",
+          side: "BOTH",
+          repairable: true,
+        })
+      );
+    }
+  }
+  if (
+    profileDebts.includes("LOW_PROFILE_CONFIDENCE") ||
+    (num(profile.profileConfidence) > 0 && num(profile.profileConfidence) < 40)
+  ) {
+    if (!debts.some((d) => d.code === "LOW_PROFILE_CONFIDENCE")) {
+      debts.push(
+        debtItem({
+          code: "LOW_PROFILE_CONFIDENCE",
+          severity: "MEDIUM",
+          reason: "Role profile confidence is too low for favorable trust.",
+          side: "BOTH",
+          repairable: true,
+        })
+      );
+    }
+  }
+
   if (metrics.minutes > 0 && metrics.minutes < 20) {
     const exists = debts.some((d) => d.code === "LOW_MINUTES_FLOOR");
     if (!exists) {
@@ -513,6 +552,20 @@ function collectWnbaRiskRepairs(candidate = {}, metrics = {}, gate = {}) {
         code: "OPPONENT_HISTORY_AGREES",
         reason: "Opponent history agrees with recent form.",
         strength: cmp.weight >= 1 ? "STRONG" : "MODERATE",
+      })
+    );
+  }
+
+  const profileCal =
+    candidate.playerProfileCalibration ||
+    candidate.wnbaDataCard?.playerProfileCalibration ||
+    {};
+  for (const code of profileCal.riskRepairIds || []) {
+    repairs.push(
+      repairItem({
+        code,
+        reason: `Role profile repair: ${String(code).replace(/_/g, " ").toLowerCase()}.`,
+        strength: "MODERATE",
       })
     );
   }
@@ -1002,6 +1055,11 @@ export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate
       gateVersion: di.gateVersion,
       gateReason: di.gateReason,
       repairable: di.repairable,
+      profileConfidence:
+        enriched.playerRoleProfile?.profileConfidence ??
+        pick.playerRoleProfile?.profileConfidence ??
+        null,
+      naturalDecision: di.trackEligibility,
     },
     trackingEligibility: di.trackEligibility,
     wnbaTrackingDecision: di.trackEligibility || di.gateDecision || enriched.wnbaTrackingDecision,
@@ -1017,6 +1075,14 @@ export function applyDecisionIntelligenceToPick(pick = {}, decision = null, gate
     impliedTeamTotalAudit: synced.impliedTeamTotalAudit || pick.impliedTeamTotalAudit || null,
     flipFirstAudit: synced.flipFirstAudit || pick.flipFirstAudit || null,
     slateCollisionAudit: synced.slateCollisionAudit || pick.slateCollisionAudit || null,
+    profileConfidence:
+      enriched.playerRoleProfile?.profileConfidence ??
+      pick.playerRoleProfile?.profileConfidence ??
+      null,
+    naturalDecision:
+      enriched.naturalDecision ||
+      pick.naturalDecision ||
+      di.trackEligibility,
   };
 }
 

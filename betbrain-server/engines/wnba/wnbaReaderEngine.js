@@ -325,6 +325,43 @@ function scoreRoleAndUsage(side, card = {}) {
     supports.push("Teammate-out usage shift boosts over case");
   }
 
+  // Player Role Profile v1 — soft evidence only (not auto side vote)
+  const profile = card.playerRoleProfile || {};
+  const calib = card.playerProfileCalibration || {};
+  if (profile.scoringVolume === "LOW" && side === "OVER") {
+    score -= 3;
+    disagrees.push("Low scoring volume — Over needs volume proof");
+  }
+  if (profile.roleDirection === "EXPANDING" && side === "OVER") {
+    score += 2;
+    supports.push("Expanding role opportunity supports Over case");
+  }
+  if (profile.roleDirection === "EXPANDING" && side === "UNDER") {
+    score -= 2;
+    disagrees.push("Expanding role weakens Under case");
+  }
+  if (profile.roleDirection === "CONTRACTING" && side === "UNDER") {
+    score += 2;
+    supports.push("Contracting role supports Under case");
+  }
+  if (profile.roleDirection === "CONTRACTING" && side === "OVER") {
+    score -= 2;
+    disagrees.push("Contracting role conflicts with Over");
+  }
+  if (profile.roleStability === "UNSTABLE") {
+    score -= 2;
+    disagrees.push("Unstable role profile raises evidence bar");
+  }
+  if (
+    profile.roleStability === "STABLE" &&
+    profile.scoringVolatility === "LOW" &&
+    (profile.profileConfidence || 0) >= 50 &&
+    !(calib.fallbackUsed || profile.fallbackUsed)
+  ) {
+    score += 1;
+    supports.push("Stable low-volatility role profile");
+  }
+
   const avail = card.injuryAvailability || {};
   if (avail.level === "OUT" || avail.blocksPlay) {
     return {

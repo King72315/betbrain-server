@@ -15,6 +15,11 @@ import {
 import { resolveStableWnbaPlayerId } from "./wnbaPlayerIdResolver.js";
 import { evaluateWnbaAvailability } from "../../services/wnbaAvailabilityService.js";
 import { resolveWnbaGraduatedDataMode } from "./wnbaGraduatedDataModeV1.js";
+import {
+  buildPlayerRoleProfile,
+  buildPlayerProfileCalibration,
+  buildPlayerRoleProfileAudit,
+} from "../playerRoleProfileV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -147,7 +152,8 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       }
     : { active: false, fgaBoost: 0, minutesBoost: 0, reasons: [] };
 
-  const projectionResult = projectWnbaPoints({
+  // Provisional uncalibrated projection (finalized after recovery + role profile)
+  let projectionResult = projectWnbaPoints({
     seasonMinutes,
     recentMinutes,
     seasonFGA,
@@ -160,7 +166,7 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     teammateUsageShift,
   });
 
-  const fairLine = buildFairLine({
+  let fairLine = buildFairLine({
     playerState: {
       ...playerState,
       sportsProjection: projectionResult.projection,
@@ -168,6 +174,10 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     roleChange,
     prop,
   });
+
+  let playerRoleProfile = null;
+  let playerProfileCalibration = null;
+  let playerRoleProfileAudit = null;
 
   const line = num(prop.line);
   const openingLine = num(marketSnapshot.openingLine ?? prop.openingLine);
@@ -318,6 +328,78 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     ? summarizeRecoveryForDisplay(dataRecovery)
     : null;
 
+  // Phase 7: role profile BEFORE final projection; calibrate then re-project
+  const uncalibratedProjection = projectWnbaPoints({
+    seasonMinutes: effectiveSeasonMinutes,
+    recentMinutes: effectiveRecentMinutes,
+    seasonFGA: effectiveSeasonFGA,
+    recentFGA: effectiveRecentFGA,
+    seasonFTA: effectiveSeasonFTA,
+    recentFTA: effectiveRecentFTA,
+    seasonPoints: effectiveSeasonPoints,
+    recentPoints: effectiveRecentPoints,
+    roleChange,
+    teammateUsageShift,
+  });
+
+  playerRoleProfile = buildPlayerRoleProfile({
+    last5: effectiveLast5,
+    seasonGames: bdlSeasonGames,
+    seasonMinutes: effectiveSeasonMinutes,
+    seasonFga: effectiveSeasonFGA,
+    seasonFta: effectiveSeasonFTA,
+    seasonPoints: effectiveSeasonPoints,
+    expectedMinutes: uncalibratedProjection.expectedMinutes,
+    expectedFga: uncalibratedProjection.expectedFGA,
+    expectedFta: uncalibratedProjection.expectedFTA,
+    bookCount: num(prop.bookCount),
+    roleChange,
+    availabilityContext: {
+      teammateOut: Boolean(roleChange?.teammateOutBoost),
+    },
+    gamesPlayed: bdlSeasonGames?.length || effectiveLast5.length,
+  });
+
+  playerProfileCalibration = buildPlayerProfileCalibration(playerRoleProfile, {});
+
+  projectionResult = projectWnbaPoints({
+    seasonMinutes: effectiveSeasonMinutes,
+    recentMinutes: effectiveRecentMinutes,
+    seasonFGA: effectiveSeasonFGA,
+    recentFGA: effectiveRecentFGA,
+    seasonFTA: effectiveSeasonFTA,
+    recentFTA: effectiveRecentFTA,
+    seasonPoints: effectiveSeasonPoints,
+    recentPoints: effectiveRecentPoints,
+    roleChange,
+    teammateUsageShift,
+    profileCalibration: playerProfileCalibration,
+  });
+
+  fairLine = buildFairLine({
+    playerState: {
+      ...playerState,
+      seasonPoints: effectiveSeasonPoints,
+      seasonMinutes: effectiveSeasonMinutes,
+      seasonFGA: effectiveSeasonFGA,
+      seasonFTA: effectiveSeasonFTA,
+      recentPoints: effectiveRecentPoints,
+      recentMinutes: effectiveRecentMinutes,
+      recentFGA: effectiveRecentFGA,
+      recentFTA: effectiveRecentFTA,
+      sportsProjection: projectionResult.projection,
+    },
+    roleChange,
+    prop,
+  });
+
+  playerRoleProfileAudit = buildPlayerRoleProfileAudit({
+    profile: playerRoleProfile,
+    calibration: playerProfileCalibration,
+    projectionBefore: uncalibratedProjection.projection,
+    projectionAfter: projectionResult.projection,
+  });
+
   return {
     version: "wnba-data-card-v2",
     dataMode: resolveWnbaGraduatedDataMode({ league: "WNBA", dataMissingFlags }),
@@ -405,6 +487,9 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     },
     projection: projectionResult,
     fairLine,
+    playerRoleProfile,
+    playerProfileCalibration,
+    playerRoleProfileAudit,
     dataMissingFlags,
     dataConfidenceScore,
     dataIntegrity,
