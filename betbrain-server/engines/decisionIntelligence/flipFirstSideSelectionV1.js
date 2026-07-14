@@ -264,15 +264,22 @@ function oppositeKillDebts(side = "", metrics = {}) {
  * True when the original side still has real projection support.
  * Used so mild profile dampening / near-floor soft fills do not
  * collapse into BOTH_SIDES_WEAK when one side is honestly viable.
- * Soft-board alone is not enough if the gap is still thin.
  */
 function originalHasHonestProjectionSupport(metrics = {}, originalSide = "", reader = {}) {
   const gapFloor = resolveWnbaGapFloor({ ...metrics, side: originalSide }).gapFloorApplied;
   const gap = num(metrics.projectionGap);
   if (gap >= gapFloor) return true;
-  const nearFloor = Math.max(2.25, gapFloor - 1.0);
+  // Soft gap-floor board fills keep a directional Over for learning boards.
+  // Soft-board Unders that remain below the live Under floor stay weak.
+  if (
+    reader.softGapFloorBoardPick === true &&
+    gap >= 1.5 &&
+    !(originalSide === "UNDER" && gap < gapFloor)
+  ) {
+    return true;
+  }
+  const nearFloor = Math.max(2.0, gapFloor - 1.25);
   if (gap >= nearFloor) return true;
-  if (reader.softGapFloorBoardPick === true && gap >= nearFloor) return true;
   return false;
 }
 
@@ -377,12 +384,12 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   const DUAL_WEAK_SCORE_FLOOR = 35;
   if (flipRecommended) action = finalSide === "OVER" ? "FLIPPED_TO_OVER" : "FLIPPED_TO_UNDER";
   else if (underGapFloorFail && !flipRecommended) {
-    if (honestOriginal || oppositeSideViable(reader, oppositeSide, metrics)) {
+    // Preserve BOTH_SIDES_WEAK for true under-gap collapses. Only skip when the
+    // original Under still has honest near-floor / soft-board projection support.
+    if (honestOriginal) {
       action = originalSide === "OVER" ? "CHECK_UNDER" : "CHECK_OVER";
       noFlipReasons.push(
-        honestOriginal
-          ? `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor, but original side still has projection support — check opposite.`
-          : `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor — opposite remains viable for review.`
+        `Under gap ${metrics.projectionGap.toFixed(1)} below ${underGapFloor} floor, but original side still has projection support — check opposite.`
       );
     } else {
       action = "BOTH_SIDES_WEAK";

@@ -632,6 +632,30 @@ test("32 healthy slate risk mix — HIGH rarer than MEDIUM+LOW", () => {
   );
 });
 
+test("33 soft-board THIN_EDGE + one unstable stays MEDIUM not HIGH", () => {
+  const pick = live0625Pick("Soft Board Thin", "OVER", 16.5, {
+    minutesVolatility: "unstable",
+    bookCount: 4,
+    marketQuality: 55,
+    projection: { projection: 18.2, expectedMinutes: 26, expectedFGA: 9 },
+    last5: { points: 17, minutes: 26, fga: 9, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 2, fairLineQuality: 50 },
+  }, { netEdge: 3, gap: 1.7 });
+  pick.wnbaReader = {
+    ...(pick.wnbaReader || {}),
+    softGapFloorBoardPick: true,
+    reasonCodes: ["GAP_FLOOR_BOARD_SOFT_PICK", "READER_TEST_PLAY"],
+    finalSide: "OVER",
+    decision: "TEST",
+  };
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  // Force BOARD_ONLY path like soft gap-floor survivors
+  gate.trackingEligibility = "BOARD_ONLY";
+  gate.wnbaTrackingDecision = "BOARD_ONLY";
+  const di = evaluatePropDecisionIntelligenceV1(pick, { gate });
+  assert.strictEqual(di.trueRisk, "MEDIUM");
+});
+
 let passed = 0;
 let failed = 0;
 

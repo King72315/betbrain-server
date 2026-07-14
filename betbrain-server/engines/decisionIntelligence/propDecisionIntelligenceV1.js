@@ -622,6 +622,27 @@ function countHighDebts(riskDebts = []) {
   return riskDebts.filter((d) => d.severity === "HIGH" || d.severity === "KILL").length;
 }
 
+/**
+ * Soft gap-floor board fills are thin by construction. Counting THIN_EDGE as a
+ * HIGH debt there made HIGH the default Best 6 bucket. Exclude it only for
+ * soft-board risk calibration — kill/unstable/danger stacks still escalate.
+ */
+function isSoftGapFloorBoardFill(candidate = {}) {
+  if (candidate?.wnbaReader?.softGapFloorBoardPick === true) return true;
+  if (candidate?.softGapFloorBoardPick === true) return true;
+  const codes = candidate?.wnbaReader?.reasonCodes || candidate?.readerReasonCodes || [];
+  return codes.includes("GAP_FLOOR_BOARD_SOFT_PICK");
+}
+
+function countMaterialHighDebts(riskDebts = [], candidate = {}) {
+  const soft = isSoftGapFloorBoardFill(candidate);
+  return riskDebts.filter((d) => {
+    if (!(d.severity === "HIGH" || d.severity === "KILL")) return false;
+    if (soft && d.code === "THIN_EDGE") return false;
+    return true;
+  }).length;
+}
+
 function isRepairableProfile(riskDebts = [], riskRepairs = []) {
   if (hasKillDebt(riskDebts)) return false;
   if (riskDebts.length >= 3) {
@@ -659,11 +680,12 @@ function isCleanLowRiskProfile(metrics = {}, riskDebts = [], gate = {}) {
  *
  * Removed prior inverted TRACK path (clean TRACK without repairs → HIGH) and the
  * `riskDebts.length >= 5` farm that stamped HIGH from mild debt stacks.
+ * Soft-board THIN_EDGE is excluded from HIGH stacking (thin by design).
  */
 function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepairs = [], gate = {}) {
   const riskBefore = candidate.riskLabel || gate.riskBeforeCeiling || "Medium Risk";
   let trueRisk = "MEDIUM";
-  const highDebts = countHighDebts(riskDebts);
+  const highDebts = countMaterialHighDebts(riskDebts, candidate);
   const dangerCount = gate.dangerGateCount ?? gate.dangerGateStack?.length ?? 0;
   const flipAction = String(
     candidate.decisionDataIntelligence?.flipFirstDecision?.action ||
@@ -682,11 +704,10 @@ function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepair
     gate.trackingEligibility === "SHADOW_ONLY"
   ) {
     // Board/shadow HIGH only when truly stacked — not every soft gap-floor prop.
-    // BOTH_SIDES_WEAK with any HIGH debt counts as riskiest cohort.
     if (
       highDebts >= 2 ||
       (metrics.bookCount <= 1 && highDebts >= 1) ||
-      (bothSidesWeak && highDebts >= 1) ||
+      (bothSidesWeak && highDebts >= 2) ||
       dangerCount >= 3
     ) {
       trueRisk = "HIGH";
