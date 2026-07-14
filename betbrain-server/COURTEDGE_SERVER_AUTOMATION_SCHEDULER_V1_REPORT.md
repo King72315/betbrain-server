@@ -285,17 +285,17 @@ Test **#16**: restart + persisted state prevents re-run.
 
 ## 23. Final commit hash
 
-*(filled after commit)*
+`3af8f10` (`3af8f10126759b963c2755a9579b84274e8bc9d3`)
 
 ---
 
 ## 24. Remote branch tip
 
-`orgin/betbrain-v2-rebuild` *(filled after push)*
+`orgin/betbrain-v2-rebuild` → `3af8f10`
 
 ---
 
 ## 25. Push confirmation
 
-Target: **`orgin/betbrain-v2-rebuild`**  
+Pushed to **`orgin/betbrain-v2-rebuild`**.  
 Render Cron: **awaiting manual dashboard setup** (YAML ready; not claimed live).
