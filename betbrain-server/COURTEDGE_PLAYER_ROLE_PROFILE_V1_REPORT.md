@@ -180,9 +180,13 @@ Output: `betbrain-server/.player-role-profile-before-after.json`
 
 ## Phase 12 — Live refresh safety
 
-**Status at report time:** Code + unit tests + offline same-snapshot compare complete.  
-**Next (post commit/push + health `SERVER_BUILD=courteedge-player-role-profile-v1`):** one `POST /refresh-picks` for Tomorrow Home/Top only.  
-**Forbidden:** `/clear-tracked-props`, wipe/restore prod JSON, duplicate tracks, grade edits, multiple refreshes.
+**Status:** Complete.
+
+1. Pushed to `orgin/betbrain-v2-rebuild`
+2. Waited for Render health `serverBuild: courteedge-player-role-profile-v1` (observed `2026-07-14T01:12:08Z`)
+3. Ran **one** `POST /refresh-picks` only (no clear/wipe/restore)
+
+Refresh artifact: `.poll-refresh-role-profile-v1.json`
 
 ---
 
