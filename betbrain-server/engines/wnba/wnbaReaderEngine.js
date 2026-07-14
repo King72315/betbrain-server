@@ -526,6 +526,7 @@ export function readWnbaProp(dataCard = {}) {
   const overEligible = overCase.eligible !== false && !overCase.blocked;
   const underEligible = underCase.eligible !== false && !underCase.blocked;
   let finalSide = null;
+  let softGapFloorBoardPick = false;
   // Side symmetry: equal scores do NOT default to Over.
   if (overEligible && underEligible) {
     if (overCase.score > underCase.score) finalSide = "OVER";
@@ -539,15 +540,22 @@ export function readWnbaProp(dataCard = {}) {
   } else if (underEligible) {
     finalSide = "UNDER";
   } else {
+    // Both blocked (usually dual gap-floor). Soft-select the stronger
+    // pre-floor side so Controlled Best 6 / board learning stay populated;
+    // tracking gate still demotes to BOARD_ONLY. Require a real directional
+    // gap so flat line/proj ties stay NO_BET (no Over default).
     const overPre = overCase.preGapPenaltyScore ?? overCase.rawScore ?? overCase.score;
     const underPre = underCase.preGapPenaltyScore ?? underCase.rawScore ?? underCase.score;
-    if (overPre > underPre && overCase.overGapFloorPassed !== false) {
+    const overGapMag = Math.max(0, num(overCase.overGap ?? overCase.edge));
+    const underGapMag = Math.max(0, num(underCase.underGap ?? underCase.edge));
+    if (overPre > underPre && overGapMag >= 0.75) {
       finalSide = "OVER";
-    } else if (underPre > overPre && underCase.underGapFloorPassed !== false) {
+      softGapFloorBoardPick = true;
+      reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL_SOFT_OVER");
+    } else if (underPre > overPre && underGapMag >= 0.75) {
       finalSide = "UNDER";
-    } else if (overPre === underPre) {
-      finalSide = null;
-      reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL");
+      softGapFloorBoardPick = true;
+      reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL_SOFT_UNDER");
     } else {
       finalSide = null;
       reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL");
@@ -559,7 +567,7 @@ export function readWnbaProp(dataCard = {}) {
     finalSide === "OVER" ? underCase : finalSide === "UNDER" ? overCase : underCase;
   const margin = Math.abs(overCase.score - underCase.score);
 
-  if (finalSide && chosen.blocked) {
+  if (finalSide && chosen.blocked && !softGapFloorBoardPick) {
     finalSide = null;
     reasonCodes.push("SIDE_BLOCKED");
   } else if (finalSide && margin < 3 && overEligible && underEligible) {
@@ -573,10 +581,17 @@ export function readWnbaProp(dataCard = {}) {
   const disagrees = [...chosen.disagrees];
   const supports = [...chosen.supports];
 
+  const confidenceCaseScore =
+    softGapFloorBoardPick ||
+    chosen.limitedDataOverPenaltyApplied ||
+    chosen.limitedDataUnderPenaltyApplied
+      ? num(chosen.preGapPenaltyScore ?? chosen.score)
+      : num(chosen.score);
+
   let readerConfidence = clamp(
     Math.round(
       num(dataCard.dataConfidenceScore) * 0.45 +
-        chosen.score * 3 +
+        confidenceCaseScore * 3 +
         margin * 2
     ),
     0,
@@ -608,17 +623,28 @@ export function readWnbaProp(dataCard = {}) {
   }
 
   let decision = "TEST";
+  // Gap-floor soft board picks keep a side for display; edge check uses
+  // pre-floor score so the −14 gap penalty does not hard-kill the prop.
+  const edgeScoreForDecision =
+    softGapFloorBoardPick ||
+    chosen.limitedDataOverPenaltyApplied ||
+    chosen.limitedDataUnderPenaltyApplied
+      ? num(chosen.preGapPenaltyScore ?? chosen.score)
+      : num(chosen.score);
 
-  if (!finalSide || chosen.score < 4 || readerConfidence < 25) {
+  if (!finalSide || edgeScoreForDecision < 4 || readerConfidence < 25) {
     decision = "NO_BET";
     reasonCodes.push("INSUFFICIENT_EDGE");
   } else if (
+    !softGapFloorBoardPick &&
+    !chosen.limitedDataOverPenaltyApplied &&
+    !chosen.limitedDataUnderPenaltyApplied &&
     readerConfidence >= 62 &&
     chosen.score >= 10 &&
     margin >= 5 &&
     num(dataCard.dataConfidenceScore) >= 55 &&
-    !strongFairDisagree &&
-    reasonCodes.length === 0
+    reasonCodes.length === 0 &&
+    !strongFairDisagree
   ) {
     decision = "OFFICIAL";
     reasonCodes.push("STRONG_READER_CASE");
@@ -628,6 +654,9 @@ export function readWnbaProp(dataCard = {}) {
     if (num(dataCard.dataConfidenceScore) < 55) {
       reasonCodes.push("DATA_TEST_ONLY");
     }
+    if (softGapFloorBoardPick) {
+      reasonCodes.push("GAP_FLOOR_BOARD_SOFT_PICK");
+    }
   }
 
   if (chosen.edge > 0 && chosen.edge < 2.5 && finalSide === "OVER") {
@@ -635,6 +664,9 @@ export function readWnbaProp(dataCard = {}) {
     if (decision === "OFFICIAL") decision = "TEST";
   }
 
+  // Thin gap floors demote OFFICIAL → TEST and flag for BOARD_ONLY tracking.
+  // Do NOT null finalSide / force NO_BET — that emptied Controlled Best 6 after
+  // projection repair (honest thin gaps still need a board learning slate).
   if (
     finalSide === "OVER" &&
     chosen.limitedDataOverPenaltyApplied &&
@@ -642,9 +674,10 @@ export function readWnbaProp(dataCard = {}) {
   ) {
     addUnique(reasonCodes, "OVER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
     if (decision === "OFFICIAL") decision = "TEST";
-    decision = "NO_BET";
-    reasonCodes.push("INSUFFICIENT_EDGE");
-    finalSide = null;
+    if (decision !== "NO_BET") {
+      addUnique(reasonCodes, "READER_TEST_PLAY");
+      addUnique(reasonCodes, "GAP_FLOOR_BOARD_SOFT_PICK");
+    }
   }
 
   if (
@@ -654,9 +687,10 @@ export function readWnbaProp(dataCard = {}) {
   ) {
     addUnique(reasonCodes, "UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR");
     if (decision === "OFFICIAL") decision = "TEST";
-    decision = "NO_BET";
-    reasonCodes.push("INSUFFICIENT_EDGE");
-    finalSide = null;
+    if (decision !== "NO_BET") {
+      addUnique(reasonCodes, "READER_TEST_PLAY");
+      addUnique(reasonCodes, "GAP_FLOOR_BOARD_SOFT_PICK");
+    }
   }
 
   return {

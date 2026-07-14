@@ -23,6 +23,7 @@ import { formatApiLoadError } from "../utils/apiLoadError";
 import {
   BEST_SIX_LIMIT,
   HOME_DATE_VIEW,
+  HOME_SECONDARY_DATE_VIEW,
   SUPPORTED_LEAGUES,
   buildHomeControlledBestSixReportText,
   buildLeagueBestSixBoard,
@@ -33,8 +34,16 @@ import {
 import { getTodayLocalDate } from "../utils/slateRotation";
 import { formatSlateMessageDate } from "../utils/slateMessages";
 
-function LeagueTomorrowSection({
+type HomeDateView = "today" | "tomorrow";
+
+const HOME_DATE_TABS: { key: HomeDateView; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "tomorrow", label: "Tomorrow" },
+];
+
+function LeagueDateSection({
   league,
+  dateView,
   board,
   loading,
   loadError,
@@ -42,6 +51,7 @@ function LeagueTomorrowSection({
   alternateLeagueHasProps = false,
 }: {
   league: SupportedLeague;
+  dateView: HomeDateView;
   board: ReturnType<typeof buildLeagueBestSixBoard>;
   loading: boolean;
   loadError: string | null;
@@ -50,12 +60,13 @@ function LeagueTomorrowSection({
 }) {
   const theme = LEAGUE_THEME[league];
   const { bestSixCards, summary } = board;
+  const viewLabel = formatDateViewLabel(dateView);
 
   return (
     <View style={styles.leagueSection}>
       <View style={[styles.leagueHeader, { borderColor: theme.headerBorder }]}>
         <Text style={[styles.leagueTitle, { color: theme.titleColor }]}>
-          {league} — Tomorrow
+          {league} — {viewLabel}
         </Text>
         <Text style={styles.leagueSubtext}>
           Controlled Best 6 · Top 2 on Top tab · All 6 → Results
@@ -64,9 +75,7 @@ function LeagueTomorrowSection({
 
       {!loading && !loadError ? (
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>
-            {formatDateViewLabel(HOME_DATE_VIEW)} Summary
-          </Text>
+          <Text style={styles.summaryTitle}>{viewLabel} Summary</Text>
           <View style={styles.summaryRow}>
             <SummaryMetric
               label="Best 6"
@@ -81,7 +90,10 @@ function LeagueTomorrowSection({
               value={`${summary.topPicks}/${summary.topPickLimit}`}
             />
             <SummaryMetric label="Candidates" value={summary.boardCandidates} />
-            <SummaryMetric label="Natural Track" value={summary.boardTrack ?? summary.track ?? 0} />
+            <SummaryMetric
+              label="Natural Track"
+              value={summary.boardTrack ?? summary.track ?? 0}
+            />
           </View>
         </View>
       ) : null}
@@ -89,7 +101,7 @@ function LeagueTomorrowSection({
       {!loading && !loadError && bestSixCards.length > 0 ? (
         <View style={styles.bestSixSection}>
           <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
-            Tomorrow — {league} Best 6
+            {viewLabel} — {league} Best 6
           </Text>
           <Text style={styles.sectionSubtext}>
             Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
@@ -97,7 +109,7 @@ function LeagueTomorrowSection({
           </Text>
           {bestSixCards.map((pick, index) => (
             <PropCard
-              key={`home-${league}-${pick.player}-${pick.line}-${index}`}
+              key={`home-${league}-${dateView}-${pick.player}-${pick.line}-${index}`}
               pick={pick}
               index={index}
               onSave={() => onSavePick(pick, league)}
@@ -111,12 +123,14 @@ function LeagueTomorrowSection({
       {!loading && !loadError && bestSixCards.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>
-            No {league} Controlled Best 6 for Tomorrow.
+            No {league} Controlled Best 6 for {viewLabel}.
           </Text>
           <Text style={styles.emptyText}>
             {alternateLeagueHasProps
-              ? `No ${league} lines for tomorrow. Switch to the other league tab — WNBA has tomorrow props right now.`
-              : "Refresh picks to generate tomorrow's slate."}
+              ? `No ${league} lines for ${viewLabel.toLowerCase()}. Switch league tab or date.`
+              : dateView === "today"
+                ? "Refresh picks to generate today's slate, or check Tomorrow."
+                : "Refresh picks to generate tomorrow's slate, or check Today."}
           </Text>
         </View>
       ) : null}
@@ -124,8 +138,32 @@ function LeagueTomorrowSection({
   );
 }
 
+function buildBoardForView(
+  picksData: any,
+  league: SupportedLeague,
+  dateView: HomeDateView,
+  bestSixLimit: number
+) {
+  if (!picksData) {
+    return buildLeagueBestSixBoard({ league, dateView, bestSixLimit });
+  }
+  const payload = resolveLeaguePicksPayload(picksData, league);
+  return buildLeagueBestSixBoard({
+    league,
+    bestSix: payload.bestSix,
+    bestSixDisplay: payload.bestSixDisplay,
+    topProps: payload.topProps,
+    games: payload.games,
+    dateView,
+    bestSixLimit,
+  });
+}
+
 export default function HomeControlledBestSixScreen() {
   const [activeLeague, setActiveLeague] = useState<SupportedLeague>("WNBA");
+  const [dateView, setDateView] = useState<HomeDateView>(
+    resolveHomeControlledDateView() as HomeDateView
+  );
   const [picksData, setPicksData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,43 +201,30 @@ export default function HomeControlledBestSixScreen() {
   };
 
   const bestSixLimit = picksData?.bestSixLimit ?? BEST_SIX_LIMIT;
-  const boards = useMemo(() => {
-    if (!picksData) {
-      return {
-        WNBA: buildLeagueBestSixBoard({
-          league: "WNBA",
-          dateView: HOME_DATE_VIEW,
-          bestSixLimit,
-        }),
-        NBA: buildLeagueBestSixBoard({
-          league: "NBA",
-          dateView: HOME_DATE_VIEW,
-          bestSixLimit,
-        }),
-      };
-    }
 
-    return SUPPORTED_LEAGUES.reduce<Record<SupportedLeague, ReturnType<typeof buildLeagueBestSixBoard>>>(
-      (acc, league) => {
-        const payload = resolveLeaguePicksPayload(picksData, league);
-        const dateView = resolveHomeControlledDateView();
-        acc[league as SupportedLeague] = buildLeagueBestSixBoard({
-          league,
-          bestSix: payload.bestSix,
-          bestSixDisplay: payload.bestSixDisplay,
-          topProps: payload.topProps,
-          games: payload.games,
-          dateView,
-          bestSixLimit,
-        });
-        return acc;
+  const boardsByView = useMemo(() => {
+    const views: HomeDateView[] = ["today", "tomorrow"];
+    const out: Record<
+      HomeDateView,
+      Record<SupportedLeague, ReturnType<typeof buildLeagueBestSixBoard>>
+    > = {
+      today: {
+        WNBA: buildBoardForView(picksData, "WNBA", "today", bestSixLimit),
+        NBA: buildBoardForView(picksData, "NBA", "today", bestSixLimit),
       },
-      {} as Record<SupportedLeague, ReturnType<typeof buildLeagueBestSixBoard>>
-    );
+      tomorrow: {
+        WNBA: buildBoardForView(picksData, "WNBA", "tomorrow", bestSixLimit),
+        NBA: buildBoardForView(picksData, "NBA", "tomorrow", bestSixLimit),
+      },
+    };
+    void views;
+    return out;
   }, [picksData, bestSixLimit]);
 
+  const boards = boardsByView[dateView];
   const todayLabel = useMemo(() => formatSlateMessageDate(getTodayLocalDate()), []);
   const activeTheme = LEAGUE_THEME[activeLeague];
+  const viewLabel = formatDateViewLabel(dateView);
 
   const handleSavePick = async (pick: any, league: SupportedLeague) => {
     const saved = await savePick({
@@ -225,20 +250,32 @@ export default function HomeControlledBestSixScreen() {
 
   const getReportText = () =>
     buildHomeControlledBestSixReportText({
-      dateView: HOME_DATE_VIEW,
+      dateView,
       lastUpdated: picksData?.lastUpdated || null,
       loading,
-      wnba: {
-        bestSixCards: boards.WNBA.bestSixCards,
-        summary: boards.WNBA.summary,
+      wnbaToday: {
+        bestSixCards: boardsByView.today.WNBA.bestSixCards,
+        summary: boardsByView.today.WNBA.summary,
         games: resolveLeaguePicksPayload(picksData || {}, "WNBA").games,
-        dateView: boards.WNBA.summary.dateView,
+        dateView: "today",
       },
-      nba: {
-        bestSixCards: boards.NBA.bestSixCards,
-        summary: boards.NBA.summary,
+      wnbaTomorrow: {
+        bestSixCards: boardsByView.tomorrow.WNBA.bestSixCards,
+        summary: boardsByView.tomorrow.WNBA.summary,
+        games: resolveLeaguePicksPayload(picksData || {}, "WNBA").games,
+        dateView: "tomorrow",
+      },
+      nbaToday: {
+        bestSixCards: boardsByView.today.NBA.bestSixCards,
+        summary: boardsByView.today.NBA.summary,
         games: resolveLeaguePicksPayload(picksData || {}, "NBA").games,
-        dateView: boards.NBA.summary.dateView,
+        dateView: "today",
+      },
+      nbaTomorrow: {
+        bestSixCards: boardsByView.tomorrow.NBA.bestSixCards,
+        summary: boardsByView.tomorrow.NBA.summary,
+        games: resolveLeaguePicksPayload(picksData || {}, "NBA").games,
+        dateView: "tomorrow",
       },
     });
 
@@ -296,10 +333,42 @@ export default function HomeControlledBestSixScreen() {
           })}
         </View>
 
-        <View style={styles.homeTomorrowBanner}>
-          <Text style={styles.homeTomorrowTitle}>Tomorrow — {activeLeague}</Text>
-          <Text style={styles.homeTomorrowSubtext}>
-            Controlled Best 6 for {activeLeague} · Top 2 on Top tab · Rollover → Results → Lab →
+        <View style={styles.dateTabRow}>
+          {HOME_DATE_TABS.map((tab) => {
+            const isActive = dateView === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => setDateView(tab.key)}
+                style={[
+                  styles.dateTabButton,
+                  isActive && {
+                    borderColor: activeTheme.activeFilterBorder,
+                    backgroundColor: activeTheme.activeFilterBg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dateTabText,
+                    isActive && { color: activeTheme.activeFilterText },
+                  ]}
+                >
+                  {tab.label}
+                  {tab.key === HOME_DATE_VIEW ? " · live" : ""}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.homeDateBanner}>
+          <Text style={styles.homeDateTitle}>
+            {viewLabel} — {activeLeague}
+          </Text>
+          <Text style={styles.homeDateSubtext}>
+            Controlled Best 6 for {activeLeague} · Switch Today / Tomorrow above · Top 2 on Top tab
+            ({formatDateViewLabel(HOME_SECONDARY_DATE_VIEW)} look-ahead) · Rollover → Results → Lab →
             History
           </Text>
         </View>
@@ -320,9 +389,10 @@ export default function HomeControlledBestSixScreen() {
 
         <LoadErrorBanner message={loadError} />
 
-        <LeagueTomorrowSection
-          key={activeLeague}
+        <LeagueDateSection
+          key={`${activeLeague}-${dateView}`}
           league={activeLeague}
+          dateView={dateView}
           board={boards[activeLeague]}
           loading={loading}
           loadError={loadError}
@@ -365,7 +435,7 @@ const styles = StyleSheet.create({
   dateLine: { color: "#fbbf24", fontSize: 14, fontWeight: "800", marginTop: 10 },
   lastUpdated: { color: "#64748b", fontSize: 12, fontWeight: "700", marginTop: 12 },
   versionLine: { color: "#64748b", fontSize: 11, fontWeight: "700", marginTop: 4 },
-  leagueTabRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  leagueTabRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   leagueTabButton: {
     flex: 1,
     paddingVertical: 12,
@@ -375,7 +445,17 @@ const styles = StyleSheet.create({
     borderColor: "#334155",
   },
   leagueTabText: { color: "#94a3b8", textAlign: "center", fontWeight: "900", fontSize: 14 },
-  homeTomorrowBanner: {
+  dateTabRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  dateTabButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  dateTabText: { color: "#94a3b8", textAlign: "center", fontWeight: "900", fontSize: 13 },
+  homeDateBanner: {
     backgroundColor: "#052e16",
     borderRadius: 16,
     borderWidth: 1,
@@ -383,8 +463,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
   },
-  homeTomorrowTitle: { color: "#86efac", fontSize: 18, fontWeight: "900" },
-  homeTomorrowSubtext: {
+  homeDateTitle: { color: "#86efac", fontSize: 18, fontWeight: "900" },
+  homeDateSubtext: {
     color: "#bbf7d0",
     fontSize: 12,
     fontWeight: "700",
@@ -436,8 +516,8 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: "#1f2937",
   },
-  emptyTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 6 },
-  emptyText: { color: "#94a3b8", fontSize: 13, fontWeight: "700" },
+  emptyTitle: { color: "#f8fafc", fontSize: 16, fontWeight: "900", marginBottom: 8 },
+  emptyText: { color: "#94a3b8", fontSize: 13, fontWeight: "700", lineHeight: 20 },
 });

@@ -10,13 +10,19 @@ export const DISPLAY_SIDE_BALANCE_MINORITY = 3;
 export const DISPLAY_SIDE_BALANCE_SWAP_MARGIN = 24;
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
-/** Home + Top tabs show tomorrow slate only (America/Chicago). */
-export const HOME_DATE_VIEW = "tomorrow";
+/**
+ * Home default = Today (live grading slate). Tomorrow remains selectable on Home
+ * and is still the Top-tab default look-ahead board (America/Chicago).
+ */
+export const HOME_DATE_VIEW = "today";
+export const HOME_SECONDARY_DATE_VIEW = "tomorrow";
 export const TOP_DATE_VIEW = "tomorrow";
 
-/** Home/Top always target tomorrow — empty state when no tomorrow lines exist. */
-export function resolveHomeControlledDateView() {
-  return HOME_DATE_VIEW;
+/** Home defaults to Today so live games are not hidden behind tomorrow-only. */
+export function resolveHomeControlledDateView(requested = null) {
+  const raw = String(requested || HOME_DATE_VIEW).toLowerCase();
+  if (raw === "tomorrow" || raw === "full_board") return raw;
+  return "today";
 }
 
 export function resolveTopControlledDateView() {
@@ -448,13 +454,19 @@ export function collectLeagueCandidatesFromGames(games = [], league = "WNBA") {
   const leagueCode = normalizeLeagueCode(league);
   const candidates = [];
   for (const game of games) {
+    const gameLeague = normalizeLeagueCode(game.league || "");
+    // Skip opposite-league cards (mixed /picks payloads must not fill NBA from WNBA).
+    if (game.league && gameLeague !== leagueCode) continue;
+
     const pool = game.allGeneratedCandidates?.length
       ? game.allGeneratedCandidates
       : game.picks || [];
     for (const pick of pool) {
+      const pickLeague = normalizeLeagueCode(pick.league || game.league || leagueCode);
+      if (pickLeague !== leagueCode) continue;
       candidates.push({
         ...pick,
-        league: pick.league || game.league || leagueCode,
+        league: leagueCode,
         game: pick.game || game.game,
         gameId: pick.gameId || game.gameId,
         dateLabel: pick.dateLabel || game.dateLabel,
@@ -774,10 +786,51 @@ export function buildWnbaControlledBestSixReportText(input = {}) {
 export function buildHomeControlledBestSixReportText({
   wnba = {},
   nba = {},
+  wnbaToday = null,
+  wnbaTomorrow = null,
+  nbaToday = null,
+  nbaTomorrow = null,
   lastUpdated = null,
   loading = false,
   dateView = HOME_DATE_VIEW,
 } = {}) {
+  const hasDualSlate =
+    wnbaToday || wnbaTomorrow || nbaToday || nbaTomorrow;
+
+  if (hasDualSlate) {
+    const blocks = [];
+    for (const league of SUPPORTED_LEAGUES) {
+      const todayPayload =
+        league === "WNBA" ? wnbaToday || wnba : nbaToday || nba;
+      const tomorrowPayload =
+        league === "WNBA" ? wnbaTomorrow || wnba : nbaTomorrow || nba;
+      blocks.push(
+        buildLeagueControlledBestSixReportText({
+          league,
+          dateView: "today",
+          lastUpdated: league === "WNBA" ? lastUpdated : null,
+          loading: league === "WNBA" ? loading : false,
+          ...todayPayload,
+        })
+      );
+      blocks.push(
+        buildLeagueControlledBestSixReportText({
+          league,
+          dateView: "tomorrow",
+          ...tomorrowPayload,
+        })
+      );
+    }
+    return [
+      "CourtEdge Home — Today + Tomorrow Controlled Best 6",
+      lastUpdated ? `Last updated: ${lastUpdated}` : null,
+      "",
+      blocks.join("\n\n---\n\n"),
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
   const sections = SUPPORTED_LEAGUES.map((league) => {
     const payload = league === "WNBA" ? wnba : nba;
     return buildLeagueControlledBestSixReportText({
@@ -789,8 +842,9 @@ export function buildHomeControlledBestSixReportText({
     });
   });
 
+  const titleView = formatDateViewLabel(dateView);
   return [
-    "CourtEdge Home — Tomorrow Controlled Best 6",
+    `CourtEdge Home — ${titleView} Controlled Best 6`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
     sections.join("\n\n---\n\n"),

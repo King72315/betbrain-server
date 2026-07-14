@@ -606,4 +606,51 @@ function pass(name) {
   pass(name);
 }
 
-console.log("\nAll WNBA side-symmetry cases 01–25 passed.");
+// 26. Dual thin gaps soft-select stronger pre-floor side (full-slate board)
+{
+  const name = "26 dual gap-floor fail soft-selects stronger side for board";
+  // Proj 16.5 vs line 15.5 → Over gap +1 (below floor 4); Under gap −1 (below 3.5)
+  const reader = readWnbaProp(
+    baseCard({
+      bookLine: 15.5,
+      projection: { projection: 16.5 },
+      last5: { minutes: 28, fga: 12, fta: 3, points: 16.5, ptsPerFGA: 1.1 },
+      season: { minutes: 26, fga: 11, fta: 2.5, points: 15, ptsPerFGA: 1.05 },
+      fairLine: { fairLine: 16.5, fairLineEdge: 1.0, fairLineQuality: 40 },
+    })
+  );
+  assert.strictEqual(reader.finalSide, "OVER");
+  assert.strictEqual(reader.decision, "TEST");
+  assert.ok(
+    reader.reasonCodes.some((c) =>
+      String(c).includes("BOTH_SIDES_GAP_FLOOR_FAIL_SOFT") ||
+      String(c).includes("GAP_FLOOR_BOARD_SOFT_PICK") ||
+      String(c).includes("OVER_GAP_BELOW")
+    )
+  );
+  pass(name);
+}
+
+// 27. Thin Under gap keeps Under side as TEST (not hard NO_BET null)
+{
+  const name = "27 thin Under gap keeps board side instead of hard NO_BET wipe";
+  // Proj 12.5 vs line 15.5 → Under gap +3.0 (below floor 3.5) but Over deeply negative
+  const reader = readWnbaProp(
+    baseCard({
+      bookLine: 15.5,
+      projection: { projection: 12.5 },
+      last5: { minutes: 20, fga: 7, fta: 1, points: 12, ptsPerFGA: 1.0 },
+      season: { minutes: 22, fga: 8, fta: 1.5, points: 13, ptsPerFGA: 1.05 },
+      fairLine: { fairLine: 12.8, fairLineEdge: 2.7, fairLineQuality: 55, fairLineSide: "UNDER" },
+    })
+  );
+  assert.strictEqual(reader.finalSide, "UNDER");
+  assert.notStrictEqual(reader.decision, "NO_BET");
+  assert.ok(
+    reader.reasonCodes.some((c) => String(c).includes("UNDER_GAP_BELOW")) ||
+      reader.underCase?.underGapFloorPassed === false
+  );
+  pass(name);
+}
+
+console.log("\nAll WNBA side-symmetry cases 01–27 passed.");

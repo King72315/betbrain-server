@@ -621,11 +621,13 @@ test("35 TRACK pick visible in prepared display cards", () => {
   assert.strictEqual(cards[0].bestSixRank, 1);
 });
 
-test("36 HOME_DATE_VIEW is tomorrow for Home tab", () => {
-  assert.strictEqual(HOME_DATE_VIEW, "tomorrow");
+test("36 HOME_DATE_VIEW defaults to today for Home tab", () => {
+  assert.strictEqual(HOME_DATE_VIEW, "today");
+  assert.strictEqual(resolveHomeControlledDateView(), "today");
+  assert.strictEqual(resolveHomeControlledDateView("tomorrow"), "tomorrow");
   const filtered = filterBestSixByDateView([todayPick, tomorrowPick], HOME_DATE_VIEW);
   assert.strictEqual(filtered.length, 1);
-  assert.strictEqual(filtered[0].player, "Caitlin Clark");
+  assert.strictEqual(filtered[0].player, "A'ja Wilson");
 });
 
 test("37 prepareBestSixDisplayCards respects date filter before rank enrichment", () => {
@@ -688,9 +690,39 @@ test("40 home report includes both leagues", () => {
       games: [],
     },
   });
-  assert.match(report, /CourtEdge Home — Tomorrow Controlled Best 6/);
+  assert.match(report, /CourtEdge Home — Today Controlled Best 6/);
   assert.match(report, /WNBA Props — Controlled Best 6/);
   assert.match(report, /NBA Props — Controlled Best 6/);
+});
+
+test("40b home dual-slate report includes Today and Tomorrow", () => {
+  const report = buildHomeControlledBestSixReportText({
+    wnbaToday: {
+      bestSixCards: [todayPick],
+      summary: { bestSixLimit: 6, topPickLimit: 2, controlledBestSixTotal: 1 },
+      games: [],
+    },
+    wnbaTomorrow: {
+      bestSixCards: [tomorrowPick],
+      summary: { bestSixLimit: 6, topPickLimit: 2, controlledBestSixTotal: 1 },
+      games: [],
+    },
+    nbaToday: {
+      bestSixCards: [],
+      summary: { bestSixLimit: 6, topPickLimit: 2, controlledBestSixTotal: 0 },
+      games: [],
+    },
+    nbaTomorrow: {
+      bestSixCards: [],
+      summary: { bestSixLimit: 6, topPickLimit: 2, controlledBestSixTotal: 0 },
+      games: [],
+    },
+  });
+  assert.match(report, /CourtEdge Home — Today \+ Tomorrow Controlled Best 6/);
+  assert.match(report, /View: Today/);
+  assert.match(report, /View: Tomorrow/);
+  assert.match(report, /A'ja Wilson/);
+  assert.match(report, /Caitlin Clark/);
 });
 
 test("41 tomorrow display fills to 6 from board candidates", () => {
@@ -867,21 +899,21 @@ test("44 home tomorrow board matches summary row count", () => {
     bestSix: display.filter((_, i) => i === 0),
     bestSixDisplay: display,
     games,
-    dateView: HOME_DATE_VIEW,
+    dateView: "tomorrow",
   });
 
   assert.strictEqual(board.summary.controlledBestSixTotal, board.bestSixCards.length);
   assert.strictEqual(board.bestSixCards.length, 6);
 });
 
-test("45 tomorrow-only Home keeps empty board when tomorrow bucket is empty", () => {
-  const todayDisplayPicks = [1, 2, 3, 4, 5, 6].map((rank) => ({
+test("45 home today default still allows empty when today bucket empty", () => {
+  const tomorrowOnly = [1, 2, 3, 4, 5, 6].map((rank) => ({
     player: `Player ${rank}`,
     team: "TST",
     line: 10 + rank,
     side: rank % 2 === 0 ? "Under" : "Over",
-    dayBucket: "TODAY",
-    dateLabel: "Today",
+    dayBucket: "TOMORROW",
+    dateLabel: "Tomorrow",
     league: "WNBA",
     decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW" },
     controlledBestSixRank: rank,
@@ -895,7 +927,8 @@ test("45 tomorrow-only Home keeps empty board when tomorrow bucket is empty", ()
       dayBucket: "TODAY",
       dateLabel: "Today",
       isStarted: false,
-      allGeneratedCandidates: todayDisplayPicks,
+      allGeneratedCandidates: [],
+      picks: [],
     },
     {
       league: "WNBA",
@@ -903,26 +936,32 @@ test("45 tomorrow-only Home keeps empty board when tomorrow bucket is empty", ()
       dayBucket: "TOMORROW",
       dateLabel: "Tomorrow",
       isStarted: false,
-      allGeneratedCandidates: [],
-      picks: [],
+      allGeneratedCandidates: tomorrowOnly,
+      picks: tomorrowOnly,
     },
   ];
 
   const view = resolveHomeControlledDateView();
-  assert.strictEqual(view, "tomorrow");
+  assert.strictEqual(view, "today");
 
-  const board = buildLeagueBestSixBoard({
+  const todayBoard = buildLeagueBestSixBoard({
     league: "WNBA",
-    bestSixDisplay: todayDisplayPicks,
+    bestSixDisplay: tomorrowOnly,
     games,
     dateView: view,
   });
-  assert.strictEqual(board.bestSixCards.length, 0);
-  assert.strictEqual(board.summary.controlledBestSixTotal, 0);
-  assert.strictEqual(board.summary.boardCandidates, 0);
+  assert.strictEqual(todayBoard.bestSixCards.length, 0);
+
+  const tomorrowBoard = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSixDisplay: tomorrowOnly,
+    games,
+    dateView: "tomorrow",
+  });
+  assert.strictEqual(tomorrowBoard.bestSixCards.length, 6);
 });
 
-test("46 tomorrow bucket wins when both today and tomorrow have content", () => {
+test("46 tomorrow bucket wins when tomorrow dateView selected", () => {
   const tomorrowPick = {
     player: "Caitlin Clark",
     team: "IND",
@@ -934,7 +973,7 @@ test("46 tomorrow bucket wins when both today and tomorrow have content", () => 
     decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "LOW" },
     controlledBestSixDisplay: true,
   };
-  const todayPick = {
+  const todayPickLocal = {
     ...tomorrowPick,
     player: "A'ja Wilson",
     dayBucket: "TODAY",
@@ -945,7 +984,7 @@ test("46 tomorrow bucket wins when both today and tomorrow have content", () => 
       league: "WNBA",
       dayBucket: "TODAY",
       isStarted: false,
-      allGeneratedCandidates: [todayPick],
+      allGeneratedCandidates: [todayPickLocal],
     },
     {
       league: "WNBA",
@@ -955,17 +994,26 @@ test("46 tomorrow bucket wins when both today and tomorrow have content", () => 
     },
   ];
 
-  const view = resolveHomeControlledDateView();
-  assert.strictEqual(view, "tomorrow");
+  const homeDefault = resolveHomeControlledDateView();
+  assert.strictEqual(homeDefault, "today");
 
-  const board = buildLeagueBestSixBoard({
+  const todayBoard = buildLeagueBestSixBoard({
     league: "WNBA",
-    bestSixDisplay: [todayPick, tomorrowPick],
+    bestSixDisplay: [todayPickLocal, tomorrowPick],
     games,
-    dateView: view,
+    dateView: homeDefault,
   });
-  assert.strictEqual(board.bestSixCards.length, 1);
-  assert.strictEqual(board.bestSixCards[0].player, "Caitlin Clark");
+  assert.strictEqual(todayBoard.bestSixCards.length, 1);
+  assert.strictEqual(todayBoard.bestSixCards[0].player, "A'ja Wilson");
+
+  const tomorrowBoard = buildLeagueBestSixBoard({
+    league: "WNBA",
+    bestSixDisplay: [todayPickLocal, tomorrowPick],
+    games,
+    dateView: "tomorrow",
+  });
+  assert.strictEqual(tomorrowBoard.bestSixCards.length, 1);
+  assert.strictEqual(tomorrowBoard.bestSixCards[0].player, "Caitlin Clark");
 });
 
 test("47 Top tab date view is tomorrow-only", () => {
