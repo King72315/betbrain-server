@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# CourtEdge scheduler runtime state (persisted on server disk)
+betbrain-server/board-cache.json
+betbrain-server/board-cache.json.tmp
+betbrain-server/courtedge-scheduler-state-v1.json
+betbrain-server/courtedge-scheduler-state-v1.json.tmp

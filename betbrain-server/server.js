@@ -247,7 +247,18 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-wnba-side-symmetry-over-bias-fix-v1";
+import {
+  classifyProviderError,
+  getSchedulerStatus,
+  loadBoardCache,
+  runScheduledJobs,
+  saveBoardCache,
+  shouldPreserveExistingBoard,
+  verifySchedulerToken,
+  JOB_IDS,
+} from "./services/courtEdgeSchedulerV1.js";
+
+const SERVER_BUILD = "courteedge-server-automation-scheduler-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -311,6 +322,34 @@ let lastRefreshTime = 0;
 let cachedSelectorVersion = null;
 let refreshesTodayCount = 0;
 let refreshesTodayDate = "";
+const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
+let autoResolveRunning = false;
+
+function hydratePicksCacheFromDisk() {
+  if (picksCache?.games?.length) return picksCache;
+  const cached = loadBoardCache();
+  if (cached && typeof cached === "object") {
+    picksCache = cached;
+    if (cached.lastUpdated) {
+      const ts = Date.parse(cached.lastUpdated);
+      if (Number.isFinite(ts)) lastRefreshTime = ts;
+    }
+  }
+  return picksCache;
+}
+
+function getReadOnlyBoard() {
+  return hydratePicksCacheFromDisk();
+}
+
+function persistBoardAfterRefresh(result) {
+  if (!result || result.ok === false) return null;
+  const previous = loadBoardCache();
+  if (shouldPreserveExistingBoard(previous, result, false)) {
+    return previous;
+  }
+  return saveBoardCache(result);
+}
 
 function cacheFresh() {
   if (!picksCache) return false;
@@ -2442,6 +2481,7 @@ async function refreshAllPicks() {
   picksCache = result;
   lastRefreshTime = Date.now();
   cachedSelectorVersion = CONTROLLED_BEST_SIX_VERSION;
+  persistBoardAfterRefresh(result);
   const refreshDay = getTodayLocalDate();
   if (refreshesTodayDate !== refreshDay) {
     refreshesTodayDate = refreshDay;
@@ -2479,13 +2519,26 @@ app.get("/test-ball-teams", async (req, res) => {
 
 app.get("/picks", async (req, res) => {
   try {
-    if (cacheFresh()) {
-      syncTrackedFromCache();
-      return res.json(picksCache);
+    // Read-only: do not fetch providers / mutate tracking on screen open.
+    const board = getReadOnlyBoard();
+    if (!board) {
+      return res.json({
+        ok: true,
+        message: "No saved board yet — waiting for scheduled or manual refresh",
+        serverBuild: SERVER_BUILD,
+        readOnly: true,
+        games: [],
+        nbaGames: [],
+        wnbaGames: [],
+        topProps: [],
+        bestSixWNBA: [],
+        bestSixNBA: [],
+        bestSixDisplayWNBA: [],
+        bestSixDisplayNBA: [],
+        lastUpdated: null,
+      });
     }
-
-    const result = await refreshAllPicks();
-    res.json(result);
+    return res.json({ ...board, readOnly: true, serverBuild: SERVER_BUILD });
   } catch (error) {
     console.log("GET PICKS ERROR:", error.message);
 
@@ -2502,14 +2555,29 @@ app.get("/picks", async (req, res) => {
 
 app.get("/top-props", async (req, res) => {
   try {
-    if (!cacheFresh()) {
-      await refreshAllPicks();
-    } else {
-      syncTrackedFromCache();
+    const board = getReadOnlyBoard();
+    if (!board) {
+      return res.json({
+        ok: true,
+        readOnly: true,
+        serverBuild: SERVER_BUILD,
+        message: "No saved board yet — waiting for scheduled or manual refresh",
+        lastUpdated: null,
+        topProps: [],
+        topNBAProps: [],
+        topWNBAProps: [],
+        bestSixWNBA: [],
+        bestSixNBA: [],
+        bestSixDisplayWNBA: [],
+        bestSixDisplayNBA: [],
+      });
     }
+    picksCache = board;
 
     res.json({
       ok: true,
+      readOnly: true,
+      serverBuild: SERVER_BUILD,
       lastUpdated: picksCache.lastUpdated,
       topProps: (picksCache.topProps || []).slice(0, CONFIG.TOP_PROP_COMBINED_LIMIT),
       topOfficialProps: (picksCache.topOfficialProps || []).slice(
@@ -2612,14 +2680,26 @@ app.get("/picks/:league", async (req, res) => {
       });
     }
 
-    if (!cacheFresh()) {
-      await refreshAllPicks();
-    } else {
-      syncTrackedFromCache();
+    const board = getReadOnlyBoard();
+    if (!board) {
+      return res.json({
+        ok: true,
+        readOnly: true,
+        serverBuild: SERVER_BUILD,
+        league,
+        lastUpdated: null,
+        games: [],
+        topProps: [],
+        trackingMode: TRACKING_MODE,
+        generatedPropCount: 0,
+      });
     }
+    picksCache = board;
 
     res.json({
       ok: true,
+      readOnly: true,
+      serverBuild: SERVER_BUILD,
       league,
       lastUpdated: picksCache.lastUpdated,
       games: league === "NBA" ? picksCache.nbaGames : picksCache.wnbaGames,
@@ -2645,14 +2725,128 @@ app.post("/refresh-picks", async (req, res) => {
     res.json(result);
   } catch (error) {
     console.log("REFRESH PICKS ERROR:", error.message);
+    const classified = classifyProviderError(error);
 
     res.status(500).json({
       ok: false,
       message: "Refresh failed",
       error: error.message,
+      errorType: classified.type,
       config: checkConfig(),
+      preservedBoard: Boolean(getReadOnlyBoard()?.games?.length),
     });
   }
+});
+
+function requireSchedulerToken(req, res, next) {
+  const provided =
+    req.headers["x-courtedge-scheduler-token"] ||
+    req.headers["x-scheduler-token"] ||
+    req.headers.authorization?.replace(/^Bearer\s+/i, "") ||
+    "";
+  const auth = verifySchedulerToken(provided);
+  if (!auth.ok) {
+    return res.status(auth.status).json({
+      ok: false,
+      message: auth.message,
+    });
+  }
+  return next();
+}
+
+function buildSchedulerHandlers() {
+  return {
+    getPreviousBoard: () => getReadOnlyBoard(),
+    persistBoard: (board) => {
+      picksCache = board;
+      lastRefreshTime = Date.now();
+      persistBoardAfterRefresh(board);
+    },
+    isBoardCurrent: (jobId, slateDate) => {
+      const board = getReadOnlyBoard();
+      if (!board?.games?.length) return false;
+      const updated = Date.parse(board.lastUpdated || board.cachedAt || 0);
+      if (!Number.isFinite(updated)) return false;
+      // Only skip when a very recent manual/scheduled refresh already rebuilt the board.
+      if (Date.now() - updated > CONFIG.CACHE_MINUTES * 60 * 1000) {
+        return false;
+      }
+      if (jobId === JOB_IDS.TOMORROW_NIGHT_REFRESH) {
+        return (board.games || []).some(
+          (g) =>
+            g.dayBucket === "TOMORROW" ||
+            String(g.date || g.gameDate || "").slice(0, 10) === slateDate
+        );
+      }
+      return (board.games || []).some(
+        (g) =>
+          g.dayBucket === "TODAY" ||
+          String(g.date || g.gameDate || "").slice(0, 10) === slateDate
+      );
+    },
+    refreshBoard: async () => refreshAllPicks(),
+    gradeTracked: async () => {
+      const { props, summary } = await resolveTrackedProps({
+        requireLikelyFinished: true,
+      });
+      return { props, summary, providerStatus: "ok" };
+    },
+    runLifecycle: async () => {
+      const props = getTrackedProps();
+      const dailyReport = attemptDailySlateReportBuild(props);
+      return dailyReport;
+    },
+  };
+}
+
+app.post(
+  "/internal/courtedge/run-scheduled-jobs",
+  requireSchedulerToken,
+  async (req, res) => {
+    try {
+      const result = await runScheduledJobs({
+        source: String(req.body?.source || "internal"),
+        force: Boolean(req.body?.force),
+        serverBuild: SERVER_BUILD,
+        handlers: buildSchedulerHandlers(),
+      });
+      res.json({
+        ...result,
+        serverBuild: SERVER_BUILD,
+      });
+    } catch (error) {
+      console.log("SCHEDULER RUN ERROR:", error.message);
+      res.status(500).json({
+        ok: false,
+        serverBuild: SERVER_BUILD,
+        message: "Scheduler run failed",
+        error: error.message,
+        errorType: classifyProviderError(error).type,
+      });
+    }
+  }
+);
+
+app.get(
+  "/internal/courtedge/scheduler-status",
+  requireSchedulerToken,
+  (req, res) => {
+    const status = getSchedulerStatus();
+    res.json({
+      ...status,
+      serverBuild: SERVER_BUILD,
+      autoResolveIntervalMinutes: AUTO_RESOLVE_INTERVAL_MS / 60000,
+    });
+  }
+);
+
+app.get("/admin/courtedge-scheduler-status", requireAdminSecret, (req, res) => {
+  const status = getSchedulerStatus();
+  res.json({
+    ...status,
+    serverBuild: SERVER_BUILD,
+    autoResolveIntervalMinutes: AUTO_RESOLVE_INTERVAL_MS / 60000,
+  });
 });
 
 app.get("/saved-picks", (req, res) => {
@@ -4052,9 +4246,6 @@ app.post("/admin/restore-official-slate", requireAdminSecret, (req, res) => {
   }
 });
 
-const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
-let autoResolveRunning = false;
-
 async function resolvePendingPicks(options = {}) {
   const requireLikelyFinished = Boolean(options.requireLikelyFinished);
   const isReadyToGrade = requireLikelyFinished
@@ -4339,6 +4530,16 @@ if (process.env.RUN_AUDIT === "1") {
     app.listen(CONFIG.PORT, () => {
     console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
     console.log("CONFIG:", checkConfig());
+    console.log("SERVER_BUILD:", SERVER_BUILD);
+
+    hydratePicksCacheFromDisk();
+    if (picksCache?.games?.length) {
+      console.log(
+        `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`
+      );
+    } else {
+      console.log("BOARD CACHE empty — waiting for scheduler or manual refresh");
+    }
 
     if (rehydrateResult.results?.length) {
       console.log(

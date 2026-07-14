@@ -19,7 +19,37 @@ services:
         sync: false
       - key: ADMIN_SECRET
         sync: false
+      - key: COURTEDGE_SCHEDULER_TOKEN
+        sync: false
+      - key: COURTEDGE_TIMEZONE
+        value: America/Chicago
+      - key: COURTEDGE_SCHEDULER_ENABLED
+        value: "true"
       - key: COURTEDGE_LAB_WIPE_V1
         value: "false"
       - key: COURTEDGE_HISTORY_REBUILD_V1
         value: "false"
+
+  # Dispatcher only — server decides which jobs are due.
+  # Render Cron Job must be created in dashboard if Blueprint cron is unavailable on plan.
+  - type: cron
+    name: courtedge-scheduler-cron
+    env: node
+    plan: starter
+    branch: betbrain-v2-rebuild
+    rootDir: betbrain-server
+    buildCommand: npm install
+    startCommand: node scripts/runCourtEdgeSchedulerCron.js
+    schedule: "*/15 * * * *"
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COURTEDGE_SERVER_URL
+        value: https://betbrain-server-1.onrender.com
+      - key: COURTEDGE_SCHEDULER_TOKEN
+        sync: false
+      - key: COURTEDGE_TIMEZONE
+        value: America/Chicago
+      - key: COURTEDGE_SCHEDULER_TIMEOUT_MS
+        value: "120000"

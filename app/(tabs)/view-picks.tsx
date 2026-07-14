@@ -60,10 +60,16 @@ export default function ViewPicksScreen() {
 
     try {
       setLoading(true);
-      const resolved = await resolvePicks({ force: forceResolve });
-      const resolvedPicks =
-        resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
-      await loadPicks(resolvedPicks, loadId);
+      // Focus/open is read-only. Grading/lifecycle is server-scheduled.
+      // Explicit manual refresh still may force resolve.
+      if (forceResolve) {
+        const resolved = await resolvePicks({ force: true });
+        const resolvedPicks =
+          resolved.ok && Array.isArray(resolved.picks) ? resolved.picks : null;
+        await loadPicks(resolvedPicks, loadId);
+      } else {
+        await loadPicks(null, loadId);
+      }
     } catch (err) {
       console.log("LOAD SAVED PICKS ERROR:", err);
     } finally {
@@ -78,6 +84,7 @@ export default function ViewPicksScreen() {
       loadAndResolve(false);
 
       intervalRef.current = setInterval(() => {
+        // Periodic re-read only — do not mutate server state on interval.
         loadAndResolve(false);
       }, 300000);
 
