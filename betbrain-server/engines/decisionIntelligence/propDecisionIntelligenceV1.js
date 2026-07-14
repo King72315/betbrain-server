@@ -686,7 +686,12 @@ function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepair
   const riskBefore = candidate.riskLabel || gate.riskBeforeCeiling || "Medium Risk";
   let trueRisk = "MEDIUM";
   const highDebts = countMaterialHighDebts(riskDebts, candidate);
-  const dangerCount = gate.dangerGateCount ?? gate.dangerGateStack?.length ?? 0;
+  const softBoard = isSoftGapFloorBoardFill(candidate);
+  // Soft boards always carry thinGap in the danger stack — don't let that
+  // alone push dangerCount to the HIGH threshold.
+  const dangerCount = softBoard
+    ? (gate.dangerGateStack || []).filter((k) => k !== "thinGap").length
+    : gate.dangerGateCount ?? gate.dangerGateStack?.length ?? 0;
   const flipAction = String(
     candidate.decisionDataIntelligence?.flipFirstDecision?.action ||
       candidate.decisionIntelligence?.flipFirstDecision?.action ||
