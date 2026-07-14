@@ -1,0 +1,729 @@
+{
+  "ok": true,
+  "slateDate": "2026-07-14",
+  "league": "WNBA",
+  "sourceFile": "C:\\Users\\nicho\\BetBrain\\.tmp-poll-picks-0713-after.json",
+  "capturedAt": "2026-07-14T01:20:28.605Z",
+  "sourceLastUpdated": "2026-07-13T07:16:09.076Z",
+  "note": "Compact same-snapshot fixture for offline playerRoleProfile before/after. No live mutation.",
+  "originalBestSixDisplay": [
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5
+    },
+    {
+      "player": "Kiki Iriafen",
+      "side": "Over",
+      "line": 14.5
+    },
+    {
+      "player": "Olivia Nelson-Ododa",
+      "side": "Over",
+      "line": 10.5
+    }
+  ],
+  "originalTop2": [
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5
+    }
+  ],
+  "candidateCount": 6,
+  "candidates": [
+    {
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "connecticutsun",
+      "game": "PORTLANDFIRE vs CONNECTICUTSUN",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T15:10:00Z",
+      "bookCount": 1,
+      "confidence": 83,
+      "projection": 20.7,
+      "bestPropScore": 564.54,
+      "pickScore": 564.54,
+      "winProbability": 54,
+      "dangerGateCount": 3,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 100,
+        "riskDebts": [
+          {
+            "code": "UNSTABLE_MINUTES",
+            "severity": "HIGH",
+            "reason": "unstable minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "LOW_BOOK_COUNT",
+            "severity": "MEDIUM",
+            "reason": "low book count flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 2.7,
+        "expectedFGADelta": 1.3,
+        "expectedFTADelta": 3.2,
+        "usageDelta": 2.71,
+        "roleChangeScore": 77,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Free throw attempts trending up (+3.2 FTA vs season)",
+          "Recent scoring above season (+4.1 PPG)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "FLAT",
+        "recentFTATrend": "UP",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 15.142857142857142,
+        "recentPoints": 19.2,
+        "seasonMinutes": 25.3,
+        "recentMinutes": 28,
+        "seasonFGA": 10.1,
+        "recentFGA": 11.4,
+        "seasonFTA": 6.4,
+        "recentFTA": 9.6,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 28,
+      "recentFGA": 11.4,
+      "recentFTA": 9.6,
+      "last5Average": 19.2,
+      "seasonAverage": 15.1,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 19.2,
+          "pointsList": [
+            13,
+            13,
+            20,
+            32,
+            18
+          ],
+          "minutes": 28,
+          "fga": 11.4,
+          "fta": 9.6,
+          "ptsPerFGA": 1.684,
+          "ftPath": true,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": false,
+      "inTopProps": false
+    },
+    {
+      "player": "Olivia Nelson-Ododa",
+      "side": "Over",
+      "line": 10.5,
+      "league": "WNBA",
+      "team": "connecticutsun",
+      "opponent": "portlandfire",
+      "game": "PORTLANDFIRE vs CONNECTICUTSUN",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T15:10:00Z",
+      "bookCount": 1,
+      "confidence": 84,
+      "projection": 14.8,
+      "bestPropScore": 507.54,
+      "pickScore": 507.54,
+      "winProbability": 57,
+      "dangerGateCount": 3,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 88,
+        "riskDebts": [
+          {
+            "code": "VOLATILE_MINUTES",
+            "severity": "MEDIUM",
+            "reason": "volatile minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "LOW_BOOK_COUNT",
+            "severity": "MEDIUM",
+            "reason": "low book count flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 6.8,
+        "expectedFGADelta": 3.4,
+        "expectedFTADelta": 0.7,
+        "usageDelta": 3.71,
+        "roleChangeScore": 96,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Minutes trending up (+6.8 vs season)",
+          "Shot volume trending up (+3.4 FGA vs season)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "UP",
+        "recentFTATrend": "FLAT",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 9,
+        "recentPoints": 11.8,
+        "seasonMinutes": 20.2,
+        "recentMinutes": 27,
+        "seasonFGA": 5.8,
+        "recentFGA": 9.2,
+        "seasonFTA": 3.5,
+        "recentFTA": 4.2,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 27,
+      "recentFGA": 9.2,
+      "recentFTA": 4.2,
+      "last5Average": 11.8,
+      "seasonAverage": 9,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 11.8,
+          "pointsList": [
+            12,
+            14,
+            10,
+            11,
+            12
+          ],
+          "minutes": 27,
+          "fga": 9.2,
+          "fta": 4.2,
+          "ptsPerFGA": 1.283,
+          "ftPath": true,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": true,
+      "inTopProps": false
+    },
+    {
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "league": "WNBA",
+      "team": "portlandfire",
+      "opponent": "connecticutsun",
+      "game": "PORTLANDFIRE vs CONNECTICUTSUN",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T15:10:00Z",
+      "bookCount": 1,
+      "confidence": 79,
+      "projection": 17.2,
+      "bestPropScore": 504.96,
+      "pickScore": 504.96,
+      "winProbability": 42,
+      "dangerGateCount": 3,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 76,
+        "riskDebts": [
+          {
+            "code": "UNSTABLE_MINUTES",
+            "severity": "HIGH",
+            "reason": "unstable minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "LOW_BOOK_COUNT",
+            "severity": "MEDIUM",
+            "reason": "low book count flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 8.4,
+        "expectedFGADelta": 1.5,
+        "expectedFTADelta": -0.3,
+        "usageDelta": 1.37,
+        "roleChangeScore": 92,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Minutes trending up (+8.4 vs season)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "UP",
+        "recentFTATrend": "FLAT",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 12.08695652173913,
+        "recentPoints": 14.2,
+        "seasonMinutes": 22.6,
+        "recentMinutes": 31,
+        "seasonFGA": 8.7,
+        "recentFGA": 10.2,
+        "seasonFTA": 1.7,
+        "recentFTA": 1.4,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 31,
+      "recentFGA": 10.2,
+      "recentFTA": 1.4,
+      "last5Average": 14.2,
+      "seasonAverage": 12.1,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 14.2,
+          "pointsList": [
+            17,
+            11,
+            10,
+            20,
+            13
+          ],
+          "minutes": 31,
+          "fga": 10.2,
+          "fta": 1.4,
+          "ptsPerFGA": 1.392,
+          "ftPath": false,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": false,
+      "inTopProps": false
+    },
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "league": "WNBA",
+      "team": "torontotempo",
+      "opponent": "washingtonmystics",
+      "game": "WASHINGTONMYSTICS vs TORONTOTEMPO",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T23:10:00Z",
+      "bookCount": 2,
+      "confidence": 84,
+      "projection": 30.4,
+      "bestPropScore": 606.62,
+      "pickScore": 606.62,
+      "winProbability": 59,
+      "dangerGateCount": 2,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 100,
+        "riskDebts": [
+          {
+            "code": "MISSING_MATCHUP",
+            "severity": "LOW",
+            "reason": "No opponent matchup history",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "UNSTABLE_MINUTES",
+            "severity": "HIGH",
+            "reason": "unstable minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 2.7,
+        "expectedFGADelta": 2.7,
+        "expectedFTADelta": 3.7,
+        "usageDelta": 4.33,
+        "roleChangeScore": 85,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Shot volume trending up (+2.7 FGA vs season)",
+          "Free throw attempts trending up (+3.7 FTA vs season)",
+          "Recent scoring above season (+7.8 PPG)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "UP",
+        "recentFTATrend": "UP",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 21.636363636363637,
+        "recentPoints": 29.4,
+        "seasonMinutes": 29.1,
+        "recentMinutes": 31.8,
+        "seasonFGA": 15.7,
+        "recentFGA": 18.4,
+        "seasonFTA": 4.5,
+        "recentFTA": 8.2,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 31.8,
+      "recentFGA": 18.4,
+      "recentFTA": 8.2,
+      "last5Average": 29.4,
+      "seasonAverage": 21.6,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 29.4,
+          "pointsList": [
+            30,
+            34,
+            11,
+            19,
+            53
+          ],
+          "minutes": 31.8,
+          "fga": 18.4,
+          "fta": 8.2,
+          "ptsPerFGA": 1.598,
+          "ftPath": true,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": true,
+      "inTopProps": true
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "league": "WNBA",
+      "team": "washingtonmystics",
+      "opponent": "torontotempo",
+      "game": "WASHINGTONMYSTICS vs TORONTOTEMPO",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T23:10:00Z",
+      "bookCount": 2,
+      "confidence": 86,
+      "projection": 23.1,
+      "bestPropScore": 605.82,
+      "pickScore": 605.82,
+      "winProbability": 64,
+      "dangerGateCount": 2,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 100,
+        "riskDebts": [
+          {
+            "code": "MISSING_MATCHUP",
+            "severity": "LOW",
+            "reason": "No opponent matchup history",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "UNSTABLE_MINUTES",
+            "severity": "HIGH",
+            "reason": "unstable minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 2.2,
+        "expectedFGADelta": 2.3,
+        "expectedFTADelta": 1.1,
+        "usageDelta": 2.78,
+        "roleChangeScore": 74,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Shot volume trending up (+2.3 FGA vs season)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "UP",
+        "recentFTATrend": "UP",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 18.666666666666668,
+        "recentPoints": 22.2,
+        "seasonMinutes": 34.6,
+        "recentMinutes": 36.8,
+        "seasonFGA": 11.7,
+        "recentFGA": 14,
+        "seasonFTA": 6.9,
+        "recentFTA": 8,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 36.8,
+      "recentFGA": 14,
+      "recentFTA": 8,
+      "last5Average": 22.2,
+      "seasonAverage": 18.7,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 22.2,
+          "pointsList": [
+            19,
+            32,
+            11,
+            28,
+            21
+          ],
+          "minutes": 36.8,
+          "fga": 14,
+          "fta": 8,
+          "ptsPerFGA": 1.586,
+          "ftPath": true,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": true,
+      "inTopProps": true
+    },
+    {
+      "player": "Kiki Iriafen",
+      "side": "Over",
+      "line": 14.5,
+      "league": "WNBA",
+      "team": "washingtonmystics",
+      "opponent": "torontotempo",
+      "game": "WASHINGTONMYSTICS vs TORONTOTEMPO",
+      "gameDate": "2026-07-14",
+      "commenceTime": "2026-07-14T23:10:00Z",
+      "bookCount": 2,
+      "confidence": 78,
+      "projection": 18.8,
+      "bestPropScore": 545.6,
+      "pickScore": 545.6,
+      "winProbability": 37,
+      "dangerGateCount": 2,
+      "minutesStabilityScore": 82,
+      "volumeStabilityScore": 72,
+      "trackingEligibility": "BOARD_ONLY",
+      "decisionIntelligence": {
+        "dangerGateCount": null,
+        "repairScore": 68,
+        "riskDebts": [
+          {
+            "code": "MISSING_MATCHUP",
+            "severity": "LOW",
+            "reason": "No opponent matchup history",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "UNSTABLE_MINUTES",
+            "severity": "HIGH",
+            "reason": "unstable minutes flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": true
+          },
+          {
+            "code": "MISSING_OPPONENT_DEFENSE",
+            "severity": "LOW",
+            "reason": "missing opponent defense flagged by danger gate.",
+            "side": "BOTH",
+            "repairable": false
+          },
+          {
+            "code": "WEAK_MARKET_QUALITY",
+            "severity": "LOW",
+            "reason": "Market quality score is weak.",
+            "side": "BOTH",
+            "repairable": true
+          }
+        ],
+        "killReasons": [],
+        "minutesStabilityScore": null,
+        "volumeStabilityScore": null,
+        "trackEligibility": "BOARD_ONLY",
+        "bestSixPromoted": false,
+        "promotionReasons": []
+      },
+      "roleChange": {
+        "expectedMinutesDelta": 5.5,
+        "expectedFGADelta": 2.1,
+        "expectedFTADelta": -0.9,
+        "usageDelta": 1.7,
+        "roleChangeScore": 85,
+        "roleChangeCertainty": 75,
+        "roleChangeReasons": [
+          "Minutes trending up (+5.5 vs season)",
+          "Shot volume trending up (+2.1 FGA vs season)"
+        ],
+        "roleRiskReasons": [],
+        "recentMinutesTrend": "UP",
+        "recentFGATrend": "UP",
+        "recentFTATrend": "FLAT",
+        "teammateOutBoost": null
+      },
+      "playerState": {
+        "seasonPoints": 15.11111111111111,
+        "recentPoints": 15.2,
+        "seasonMinutes": 28.3,
+        "recentMinutes": 33.8,
+        "seasonFGA": 11.1,
+        "recentFGA": 13.2,
+        "seasonFTA": 5.3,
+        "recentFTA": 4.4,
+        "gameDate": "2026-07-14"
+      },
+      "recentMinutes": 33.8,
+      "recentFGA": 13.2,
+      "recentFTA": 4.4,
+      "last5Average": 15.2,
+      "seasonAverage": 15.1,
+      "wnbaDataCard": {
+        "last5": {
+          "points": 15.2,
+          "pointsList": [
+            12,
+            12,
+            14,
+            27,
+            11
+          ],
+          "minutes": 33.8,
+          "fga": 13.2,
+          "fta": 4.4,
+          "ptsPerFGA": 1.152,
+          "ftPath": true,
+          "games": 5
+        }
+      },
+      "inBestSixDisplay": true,
+      "inTopProps": false
+    }
+  ]
+}

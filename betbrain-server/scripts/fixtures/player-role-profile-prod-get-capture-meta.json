@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "capturedAt": "2026-07-14T01:21:24.253Z",
+  "health": {
+    "serverBuild": "courteedge-player-role-profile-v1",
+    "time": "2026-07-14T01:15:50.212Z"
+  },
+  "lastUpdated": "2026-07-14T01:16:13.116Z",
+  "candidateCount": 11,
+  "bestSixDisplayWNBA": [
+    {
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "gameDate": "2026-07-14",
+      "projection": 17.5,
+      "confidence": 77,
+      "before": 17.3,
+      "after": 17.5,
+      "delta": 0.2,
+      "roleStability": "UNSTABLE",
+      "roleDirection": "EXPANDING"
+    },
+    {
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "gameDate": "2026-07-14",
+      "projection": 19.2,
+      "confidence": 77,
+      "before": 20.7,
+      "after": 19.2,
+      "delta": -1.5,
+      "roleStability": "UNSTABLE",
+      "roleDirection": "STABLE"
+    }
+  ],
+  "topWNBAProps": [
+    {
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5
+    }
+  ],
+  "note": "GET /picks at capture time — board shrank vs earlier frozen 6; prefer frozen fixture for full Best6 before/after."
+}

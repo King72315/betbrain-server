@@ -1,0 +1,636 @@
+{
+  "ok": true,
+  "snapshotFile": "C:\\Users\\nicho\\BetBrain\\betbrain-server\\scripts\\fixtures\\player-role-profile-wnba-2026-07-14-snapshot.json",
+  "slateDate": "2026-07-14",
+  "sourceLastUpdated": "2026-07-13T07:16:09.076Z",
+  "candidateCount": 6,
+  "generatedAt": "2026-07-14T01:20:28.720Z",
+  "note": "Offline same-snapshot before/after: applyPlayerRoleProfile false vs true. Not a live refresh.",
+  "toggle": {
+    "before": "applyPlayerRoleProfile=false (profileCalibration omitted — old path)",
+    "after": "applyPlayerRoleProfile=true (calibration applied, ±1.5 hard cap)",
+    "liveDefaultUnchanged": true
+  },
+  "originalSnapshotMembership": {
+    "bestSixDisplay": [
+      {
+        "player": "Marina Mabrey",
+        "side": "Over",
+        "line": 22.5
+      },
+      {
+        "player": "Sonia Citron",
+        "side": "Over",
+        "line": 17.5
+      },
+      {
+        "player": "Kiki Iriafen",
+        "side": "Over",
+        "line": 14.5
+      },
+      {
+        "player": "Olivia Nelson-Ododa",
+        "side": "Over",
+        "line": 10.5
+      }
+    ],
+    "top2": [
+      {
+        "player": "Marina Mabrey",
+        "side": "Over",
+        "line": 22.5
+      },
+      {
+        "player": "Sonia Citron",
+        "side": "Over",
+        "line": 17.5
+      }
+    ]
+  },
+  "candidateTable": [
+    {
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "team": "portlandfire",
+      "gameDate": "2026-07-14",
+      "bookCount": 1,
+      "roleStability": "STABLE",
+      "minutesLevel": "MEDIUM",
+      "scoringVolume": "HIGH",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 20.7,
+      "projectionAfter": 22.2,
+      "profileProjectionDelta": 1.5,
+      "confidenceBefore": 83,
+      "confidenceAfter": 87,
+      "gapBefore": 6.2,
+      "gapAfter": 7.7,
+      "rankingAdjustment": 4,
+      "overRequiredEdgeAdj": 0,
+      "underRequiredEdgeAdj": 0,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME",
+        "EXPANDING_ROLE_PROFILE"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "EXPANDING role — bounded opp shift +0.75"
+      ],
+      "safetyBefore": 646,
+      "safetyAfter": 651.6,
+      "safetyDelta": 5.6,
+      "inOriginalBestSixDisplay": false,
+      "inOriginalTopProps": false,
+      "maxProjCap": 1.5
+    },
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "team": "torontotempo",
+      "gameDate": "2026-07-14",
+      "bookCount": 2,
+      "roleStability": "STABLE",
+      "minutesLevel": "HIGH",
+      "scoringVolume": "HIGH",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "HIGH",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 30.4,
+      "projectionAfter": 31.9,
+      "profileProjectionDelta": 1.5,
+      "confidenceBefore": 84,
+      "confidenceAfter": 85,
+      "gapBefore": 7.9,
+      "gapAfter": 9.4,
+      "rankingAdjustment": 1,
+      "overRequiredEdgeAdj": 0.2,
+      "underRequiredEdgeAdj": 0.15,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME",
+        "EXPANDING_ROLE_PROFILE"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ],
+      "safetyBefore": 694.5,
+      "safetyAfter": 695.9,
+      "safetyDelta": 1.4,
+      "inOriginalBestSixDisplay": true,
+      "inOriginalTopProps": true,
+      "maxProjCap": 1.5
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "team": "washingtonmystics",
+      "gameDate": "2026-07-14",
+      "bookCount": 2,
+      "roleStability": "STABLE",
+      "minutesLevel": "HIGH",
+      "scoringVolume": "HIGH",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "HIGH",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 23.1,
+      "projectionAfter": 24.6,
+      "profileProjectionDelta": 1.5,
+      "confidenceBefore": 86,
+      "confidenceAfter": 87,
+      "gapBefore": 5.6,
+      "gapAfter": 7.1,
+      "rankingAdjustment": 1,
+      "overRequiredEdgeAdj": 0.2,
+      "underRequiredEdgeAdj": 0.15,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME",
+        "EXPANDING_ROLE_PROFILE"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ],
+      "safetyBefore": 694.5,
+      "safetyAfter": 695.9,
+      "safetyDelta": 1.4,
+      "inOriginalBestSixDisplay": true,
+      "inOriginalTopProps": true,
+      "maxProjCap": 1.5
+    },
+    {
+      "player": "Kiki Iriafen",
+      "side": "Over",
+      "line": 14.5,
+      "team": "washingtonmystics",
+      "gameDate": "2026-07-14",
+      "bookCount": 2,
+      "roleStability": "STABLE",
+      "minutesLevel": "HIGH",
+      "scoringVolume": "HIGH",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 18.8,
+      "projectionAfter": 20.3,
+      "profileProjectionDelta": 1.5,
+      "confidenceBefore": 78,
+      "confidenceAfter": 82,
+      "gapBefore": 4.3,
+      "gapAfter": 5.8,
+      "rankingAdjustment": 4,
+      "overRequiredEdgeAdj": 0,
+      "underRequiredEdgeAdj": 0,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME",
+        "EXPANDING_ROLE_PROFILE"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "EXPANDING role — bounded opp shift +0.75"
+      ],
+      "safetyBefore": 627.9,
+      "safetyAfter": 633.5,
+      "safetyDelta": 5.6,
+      "inOriginalBestSixDisplay": true,
+      "inOriginalTopProps": false,
+      "maxProjCap": 1.5
+    },
+    {
+      "player": "Olivia Nelson-Ododa",
+      "side": "Over",
+      "line": 10.5,
+      "team": "connecticutsun",
+      "gameDate": "2026-07-14",
+      "bookCount": 1,
+      "roleStability": "STABLE",
+      "minutesLevel": "MEDIUM",
+      "scoringVolume": "MEDIUM",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "LOW",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 14.8,
+      "projectionAfter": 15.5,
+      "profileProjectionDelta": 0.7,
+      "confidenceBefore": 84,
+      "confidenceAfter": 91,
+      "gapBefore": 4.3,
+      "gapAfter": 5,
+      "rankingAdjustment": 6,
+      "overRequiredEdgeAdj": 0,
+      "underRequiredEdgeAdj": 0,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME",
+        "LOW_SCORING_VOLATILITY",
+        "EXPANDING_ROLE_PROFILE"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes",
+        "LOW scoring volatility supports confidence",
+        "EXPANDING role — bounded opp shift +0.75",
+        "STABLE+LOW_VOL reliable combination"
+      ],
+      "safetyBefore": 588.2,
+      "safetyAfter": 597,
+      "safetyDelta": 8.8,
+      "inOriginalBestSixDisplay": true,
+      "inOriginalTopProps": false,
+      "maxProjCap": 1.5
+    },
+    {
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "team": "portlandfire",
+      "gameDate": "2026-07-14",
+      "bookCount": 1,
+      "roleStability": "STABLE",
+      "minutesLevel": "HIGH",
+      "scoringVolume": "MEDIUM",
+      "shotVolumeStability": "STABLE",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "STABLE",
+      "profileConfidence": 70,
+      "profileSampleSize": 5,
+      "fallbackUsed": false,
+      "projectionBefore": 17.2,
+      "projectionAfter": 17.1,
+      "profileProjectionDelta": -0.1,
+      "confidenceBefore": 79,
+      "confidenceAfter": 82,
+      "gapBefore": 4.7,
+      "gapAfter": 4.6,
+      "rankingAdjustment": 4,
+      "overRequiredEdgeAdj": 0,
+      "underRequiredEdgeAdj": 0,
+      "riskDebtIds": [],
+      "riskRepairIds": [
+        "STABLE_ROLE_PROFILE",
+        "STABLE_SHOT_VOLUME"
+      ],
+      "calibrationReasons": [
+        "STABLE role — trust season blend and minutes"
+      ],
+      "safetyBefore": 582.5,
+      "safetyAfter": 587.7,
+      "safetyDelta": 5.2,
+      "inOriginalBestSixDisplay": false,
+      "inOriginalTopProps": false,
+      "maxProjCap": 1.5
+    }
+  ],
+  "bestSixBefore": [
+    {
+      "rank": 1,
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "team": "torontotempo",
+      "safety": 694.5,
+      "projection": 30.4,
+      "confidence": 84,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 2,
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "team": "washingtonmystics",
+      "safety": 694.5,
+      "projection": 23.1,
+      "confidence": 86,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 3,
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "team": "portlandfire",
+      "safety": 646,
+      "projection": 20.7,
+      "confidence": 83,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 4,
+      "player": "Kiki Iriafen",
+      "side": "Over",
+      "line": 14.5,
+      "team": "washingtonmystics",
+      "safety": 627.9,
+      "projection": 18.8,
+      "confidence": 78,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 5,
+      "player": "Olivia Nelson-Ododa",
+      "side": "Over",
+      "line": 10.5,
+      "team": "connecticutsun",
+      "safety": 588.2,
+      "projection": 14.8,
+      "confidence": 84,
+      "role": "STABLE/MEDIUM/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 6,
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "team": "portlandfire",
+      "safety": 582.5,
+      "projection": 17.2,
+      "confidence": 79,
+      "role": "STABLE/MEDIUM/STABLE",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    }
+  ],
+  "bestSixAfter": [
+    {
+      "rank": 1,
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "team": "torontotempo",
+      "safety": 695.9,
+      "projection": 31.9,
+      "confidence": 85,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 1,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    },
+    {
+      "rank": 2,
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "team": "washingtonmystics",
+      "safety": 695.9,
+      "projection": 24.6,
+      "confidence": 87,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 1,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    },
+    {
+      "rank": 3,
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "team": "portlandfire",
+      "safety": 651.6,
+      "projection": 22.2,
+      "confidence": 87,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 4,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    },
+    {
+      "rank": 4,
+      "player": "Kiki Iriafen",
+      "side": "Over",
+      "line": 14.5,
+      "team": "washingtonmystics",
+      "safety": 633.5,
+      "projection": 20.3,
+      "confidence": 82,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 4,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    },
+    {
+      "rank": 5,
+      "player": "Olivia Nelson-Ododa",
+      "side": "Over",
+      "line": 10.5,
+      "team": "connecticutsun",
+      "safety": 597,
+      "projection": 15.5,
+      "confidence": 91,
+      "role": "STABLE/MEDIUM/EXPANDING",
+      "profileProjectionDelta": 0.7,
+      "rankingAdjustment": 6,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "LOW scoring volatility supports confidence",
+        "EXPANDING role — bounded opp shift +0.75",
+        "STABLE+LOW_VOL reliable combination"
+      ]
+    },
+    {
+      "rank": 6,
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "team": "portlandfire",
+      "safety": 587.7,
+      "projection": 17.1,
+      "confidence": 82,
+      "role": "STABLE/MEDIUM/STABLE",
+      "profileProjectionDelta": -0.1,
+      "rankingAdjustment": 4,
+      "reasons": [
+        "STABLE role — trust season blend and minutes"
+      ]
+    }
+  ],
+  "bestSixDiff": {
+    "membershipUnchanged": true,
+    "orderUnchanged": true,
+    "dropped": [],
+    "added": [],
+    "beforeKeys": [
+      "Marina Mabrey|Over|22.5",
+      "Sonia Citron|Over|17.5",
+      "Carla Leite|Over|14.5",
+      "Kiki Iriafen|Over|14.5",
+      "Olivia Nelson-Ododa|Over|10.5",
+      "Megan Gustafson|Over|12.5"
+    ],
+    "afterKeys": [
+      "Marina Mabrey|Over|22.5",
+      "Sonia Citron|Over|17.5",
+      "Carla Leite|Over|14.5",
+      "Kiki Iriafen|Over|14.5",
+      "Olivia Nelson-Ododa|Over|10.5",
+      "Megan Gustafson|Over|12.5"
+    ]
+  },
+  "top2Before": [
+    {
+      "rank": 1,
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "team": "torontotempo",
+      "safety": 694.5,
+      "projection": 30.4,
+      "confidence": 84,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    },
+    {
+      "rank": 2,
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "team": "washingtonmystics",
+      "safety": 694.5,
+      "projection": 23.1,
+      "confidence": 86,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "reasons": [
+        "applyPlayerRoleProfile=false — calibration skipped"
+      ]
+    }
+  ],
+  "top2After": [
+    {
+      "rank": 1,
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 22.5,
+      "team": "torontotempo",
+      "safety": 695.9,
+      "projection": 31.9,
+      "confidence": 85,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 1,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    },
+    {
+      "rank": 2,
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "team": "washingtonmystics",
+      "safety": 695.9,
+      "projection": 24.6,
+      "confidence": 87,
+      "role": "STABLE/HIGH/EXPANDING",
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 1,
+      "reasons": [
+        "STABLE role — trust season blend and minutes",
+        "HIGH volume — descriptive only, not auto Over",
+        "HIGH scoring volatility",
+        "EXPANDING role — bounded opp shift +0.75"
+      ]
+    }
+  ],
+  "top2Diff": {
+    "membershipUnchanged": true,
+    "orderUnchanged": true,
+    "dropped": [],
+    "added": [],
+    "beforeKeys": [
+      "Marina Mabrey|Over|22.5",
+      "Sonia Citron|Over|17.5"
+    ],
+    "afterKeys": [
+      "Marina Mabrey|Over|22.5",
+      "Sonia Citron|Over|17.5"
+    ]
+  }
+}

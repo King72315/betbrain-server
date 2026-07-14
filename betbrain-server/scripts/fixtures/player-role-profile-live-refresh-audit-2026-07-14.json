@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "source": ".poll-refresh-role-profile-v1.json",
+  "lastUpdated": "2026-07-14T01:13:13.276Z",
+  "serverBuild": "courteedge-player-role-profile-v1",
+  "note": "Live post-refresh Best6 display audit fields (profile already applied). Not a fabricated slate. Full 12-candidate pool not returned by /picks — only display props carry full profile objects.",
+  "candidateCountReported": 12,
+  "displayCount": 4,
+  "topWNBA": [
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 23.5,
+      "delta": 1.5
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "delta": 0
+    }
+  ],
+  "rows": [
+    {
+      "player": "Marina Mabrey",
+      "side": "Over",
+      "line": 23.5,
+      "gameDate": "2026-07-14",
+      "roleStability": "STABLE",
+      "scoringVolume": "HIGH",
+      "scoringVolatility": "HIGH",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 88,
+      "profileSampleSize": 10,
+      "projectionBefore": 30.4,
+      "projectionAfter": 31.9,
+      "profileProjectionDelta": 1.5,
+      "rankingAdjustment": 1,
+      "calibrationReasons": "STABLE role — trust season blend and minutes HIGH volume — descriptive only, not auto Over Unstable shot volume HIGH scoring volatility EXPANDING role — bounded opp shift +0.75"
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "Over",
+      "line": 17.5,
+      "gameDate": "2026-07-14",
+      "roleStability": "MODERATE",
+      "scoringVolume": "HIGH",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "STABLE",
+      "profileConfidence": 88,
+      "profileSampleSize": 10,
+      "projectionBefore": 23.2,
+      "projectionAfter": 23.2,
+      "profileProjectionDelta": 0,
+      "rankingAdjustment": 0,
+      "calibrationReasons": "MODERATE role — slight uncertainty uplift HIGH volume — descriptive only, not auto Over"
+    },
+    {
+      "player": "Megan Gustafson",
+      "side": "Over",
+      "line": 12.5,
+      "gameDate": "2026-07-14",
+      "roleStability": "UNSTABLE",
+      "scoringVolume": "MEDIUM",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "EXPANDING",
+      "profileConfidence": 88,
+      "profileSampleSize": 10,
+      "projectionBefore": 17.2,
+      "projectionAfter": 17.5,
+      "profileProjectionDelta": 0.3,
+      "rankingAdjustment": -5,
+      "calibrationReasons": "UNSTABLE role — higher evidence bar, canonical UNSTABLE_ROLE debt EXPANDING role — bounded opp shift +0.75"
+    },
+    {
+      "player": "Carla Leite",
+      "side": "Over",
+      "line": 14.5,
+      "gameDate": "2026-07-14",
+      "roleStability": "UNSTABLE",
+      "scoringVolume": "HIGH",
+      "scoringVolatility": "MEDIUM",
+      "roleDirection": "STABLE",
+      "profileConfidence": 88,
+      "profileSampleSize": 10,
+      "projectionBefore": 20.7,
+      "projectionAfter": 19.2,
+      "profileProjectionDelta": -1.5,
+      "rankingAdjustment": -5,
+      "calibrationReasons": "UNSTABLE role — higher evidence bar, canonical UNSTABLE_ROLE debt HIGH volume + UNSTABLE — stronger edge required Unstable shot volume"
+    }
+  ]
+}

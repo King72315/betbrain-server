@@ -164,17 +164,83 @@ Also observed (likely pre-existing / unrelated churn on branch): Flip-First `10b
 
 ## Phase 11 — Same-snapshot before/after
 
-Script: `betbrain-server/scripts/comparePlayerRoleProfileSnapshot.js`  
-Output: `betbrain-server/.player-role-profile-before-after.json`
+### Toggle (replay only; live defaults unchanged)
 
-**Tomorrow full WNBA slate:** no frozen full-candidate snapshot was available locally without calling live refresh / fabricating data. Replay used the best available frozen Top props payload (`.tmp-poll-picks-0713-after.json`) — **2 WNBA Top candidates** only.
+| Path | How |
+|---|---|
+| **Old / before** | `applyPlayerRoleProfile: false` → `projectWnbaPoints({ profileCalibration: null })` (no-op) |
+| **New / after** | `applyPlayerRoleProfile: true` → build profile + calibration, apply with hard **±1.5** cap |
+| Live engine | Always applies calibration when data card is built; **no feature flag flip / no SERVER_BUILD change** for this phase |
 
-| Player | Side / Line | Profile | Proj before → after (Δ) | Conf before → after | Notes |
-|---|---|---|---|---|---|
-| Marina Mabrey | Over 22.5 | STABLE / HIGH / HIGH vol / EXPANDING | 30.4 → 31.9 (**+1.5 cap**) | 84 → 85 | Hard ±1.5 honored |
-| Sonia Citron | Over 17.5 | STABLE / HIGH / HIGH vol / EXPANDING | 23.1 → 24.6 (**+1.5 cap**) | 86 → 87 | Hard ±1.5 honored |
+Scripts:
+- `betbrain-server/scripts/extractPlayerRoleProfileSnapshot.js` — compact fixture from frozen `/picks` dump
+- `betbrain-server/scripts/comparePlayerRoleProfileSnapshot.js` — same-snapshot before/after + Best 6 / Top 2 safety re-rank
 
-**Best 6 / Top 2:** Without a full tomorrow candidate pool freeze, Best 6 membership cannot be responsibly re-ranked offline. Top-2 identity in this truncated snapshot did not change; only bounded projection/confidence/safety deltas applied. **No forced slate change.**
+Artifacts:
+- Fixture: `betbrain-server/scripts/fixtures/player-role-profile-wnba-2026-07-14-snapshot.json`
+- Results: `betbrain-server/scripts/fixtures/player-role-profile-before-after-2026-07-14.json` (also mirrored to `betbrain-server/.player-role-profile-before-after.json`)
+- Live audit cross-check: `betbrain-server/scripts/fixtures/player-role-profile-live-refresh-audit-2026-07-14.json`
+- Prod GET meta (later board shrink): `betbrain-server/scripts/fixtures/player-role-profile-prod-get-capture-meta.json`
+
+### Snapshot source
+
+Frozen local GET dump `.tmp-poll-picks-0713-after.json` (`lastUpdated` **2026-07-13T07:16:09Z**), slate **2026-07-14** WNBA `boardCappedProps` ∪ display ∪ top — **6 full candidates** with `playerState` + `wnbaDataCard.last5`.
+
+No `/clear-tracked-props`, no restore/wipe, no additional `/refresh-picks` for this compare (prefer GET / frozen dump).
+
+**Limitation:** frozen cards expose last5 **averages** for minutes/FGA/FTA (not per-game series), so offline `roleStability` can over-label STABLE vs live (sampleSize 10). Projection ±1.5 cap and Best 6/Top membership compare remain valid on the same inputs.
+
+Live GET at Phase-11 close (`serverBuild: courteedge-player-role-profile-v1`) still had `candidateCount: 11` but only **2** `bestSixDisplayWNBA` with full payloads (Gustafson / Leite) — insufficient alone for a 6-wide re-rank; full Best 6 table uses the frozen 6 above. Prior live refresh display (4) audit fields below.
+
+### Full candidate table (same snapshot; profile off → on)
+
+| Player | Side / Line | Profile (offline) | Proj before → after (Δ) | Conf before → after | Safety before → after | Reasons |
+|---|---|---|---|---|---|---|
+| Carla Leite | Over 14.5 | STABLE / HIGH / MEDIUM vol / EXPANDING | 20.7 → 22.2 (**+1.5 cap**) | 83 → 87 | 646.0 → 651.6 | STABLE trust; HIGH vol descriptive; EXPANDING +0.75 |
+| Marina Mabrey | Over 22.5 | STABLE / HIGH / HIGH vol / EXPANDING | 30.4 → 31.9 (**+1.5 cap**) | 84 → 85 | 694.5 → 695.9 | STABLE; HIGH vol; HIGH scoring vol; EXPANDING +0.75 |
+| Sonia Citron | Over 17.5 | STABLE / HIGH / HIGH vol / EXPANDING | 23.1 → 24.6 (**+1.5 cap**) | 86 → 87 | 694.5 → 695.9 | STABLE; HIGH vol; HIGH scoring vol; EXPANDING +0.75 |
+| Kiki Iriafen | Over 14.5 | STABLE / HIGH / MEDIUM vol / EXPANDING | 18.8 → 20.3 (**+1.5 cap**) | 78 → 82 | 627.9 → 633.5 | STABLE; HIGH vol; EXPANDING +0.75 |
+| Olivia Nelson-Ododa | Over 10.5 | STABLE / MEDIUM / LOW vol / EXPANDING | 14.8 → 15.5 (**+0.7**) | 84 → 91 | 588.2 → 597.0 | STABLE; LOW vol supports conf; EXPANDING; STABLE+LOW_VOL |
+| Megan Gustafson | Over 12.5 | STABLE / MEDIUM / MEDIUM vol / STABLE | 17.2 → 17.1 (**−0.1**) | 79 → 82 | 582.5 → 587.7 | STABLE role — trust season blend |
+
+All |Δproj| ≤ **1.5**. No side flips from profile alone.
+
+### Best 6 before / after (safety re-rank + team/game caps)
+
+| Rank | Before (profile off) | After (profile on) |
+|---|---|---|
+| 1 | Marina Mabrey Over 22.5 (694.5) | Marina Mabrey Over 22.5 (695.9) |
+| 2 | Sonia Citron Over 17.5 (694.5) | Sonia Citron Over 17.5 (695.9) |
+| 3 | Carla Leite Over 14.5 (646.0) | Carla Leite Over 14.5 (651.6) |
+| 4 | Kiki Iriafen Over 14.5 (627.9) | Kiki Iriafen Over 14.5 (633.5) |
+| 5 | Olivia Nelson-Ododa Over 10.5 (588.2) | Olivia Nelson-Ododa Over 10.5 (597.0) |
+| 6 | Megan Gustafson Over 12.5 (582.5) | Megan Gustafson Over 12.5 (587.7) |
+
+**Membership & order unchanged.** Safety deltas only (rankingAdjustment ±8 bounded). **No forced slate change.**
+
+Original freeze display membership for Jul-14 (subset of mixed-date live Best 6): Mabrey, Citron, Iriafen, Nelson-Ododa. Replay ranks all 6 Jul-14 candidates into a complete Best 6.
+
+### Top 2 before / after
+
+| Rank | Before | After |
+|---|---|---|
+| 1 | Marina Mabrey Over 22.5 | Marina Mabrey Over 22.5 |
+| 2 | Sonia Citron Over 17.5 | Sonia Citron Over 17.5 |
+
+**Top 2 identity unchanged** (matches original freeze Top WNBA).
+
+### Live refresh audit cross-check (post-deploy display pool)
+
+From `.poll-refresh-role-profile-v1.json` Best 6 display (sampleSize 10 / true live last5). Top stayed Mabrey/Citron.
+
+| Player | Side / Line | Live profile | Proj before → after (Δ) | Notes |
+|---|---|---|---|---|
+| Marina Mabrey | Over 23.5 | STABLE / HIGH / HIGH / EXPANDING | 30.4 → 31.9 (**+1.5**) | Cap honored; line drifted vs freeze 22.5 |
+| Sonia Citron | Over 17.5 | MODERATE / HIGH / MEDIUM / STABLE | 23.2 → 23.2 (**0**) | MODERATE → no favorable projection bump |
+| Megan Gustafson | Over 12.5 | UNSTABLE / MEDIUM / EXPANDING | 17.2 → 17.5 (**+0.3**) | UNSTABLE_ROLE debt; rankingAdj −5 |
+| Carla Leite | Over 14.5 | UNSTABLE / HIGH / STABLE | 20.7 → 19.2 (**−1.5 cap**) | UNSTABLE + HIGH vol stronger edge; −1.5 clamp |
+
+Offline freeze vs live: same hard-cap behavior; live classification stricter on minutes CV when per-game logs exist (Citron MODERATE, Gustafson/Leite UNSTABLE).
 
 ---
 
@@ -207,7 +273,12 @@ Refresh artifact: `.poll-refresh-role-profile-v1.json`
 | `services/trackedPropService.js` | Persist profile audit fields |
 | `server.js` | `SERVER_BUILD=courteedge-player-role-profile-v1` |
 | `scripts/testPlayerRoleProfileV1.js` | **NEW** 16 tests |
-| `scripts/comparePlayerRoleProfileSnapshot.js` | **NEW** offline before/after |
+| `scripts/comparePlayerRoleProfileSnapshot.js` | Offline before/after (+ `applyPlayerRoleProfile` toggle) |
+| `scripts/extractPlayerRoleProfileSnapshot.js` | **NEW** compact Jul-14 fixture extractor |
+| `scripts/fixtures/player-role-profile-wnba-2026-07-14-snapshot.json` | Compact same-snapshot fixture |
+| `scripts/fixtures/player-role-profile-before-after-2026-07-14.json` | Full candidate + Best6/Top2 results |
+| `scripts/fixtures/player-role-profile-live-refresh-audit-2026-07-14.json` | Live refresh display audit cross-check |
+| `scripts/fixtures/player-role-profile-prod-get-capture-meta.json` | Prod GET meta at Phase 11 close |
 | `COURTEDGE_PLAYER_ROLE_PROFILE_V1_REPORT.md` | This report |
 
 ---
@@ -228,6 +299,7 @@ Refresh artifact: `.poll-refresh-role-profile-v1.json`
 
 ## Commit / push
 
-- **SERVER_BUILD:** `courteedge-player-role-profile-v1`
-- **Commit hash:** `4eec9918dd7a36fa6484774773d522da16f66b7b`
+- **SERVER_BUILD:** `courteedge-player-role-profile-v1` (unchanged this phase — report/scripts/fixtures only)
+- **Prior tip:** `6093c0f2a4119245a6d816d1df4f642402e93568`
+- **Phase 11 commit:** _(filled after commit)_
 - **Push target:** `orgin/betbrain-v2-rebuild`
