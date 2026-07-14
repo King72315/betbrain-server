@@ -157,8 +157,10 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
   const rawReaderScore = num(
     readerCase?.preGapPenaltyScore ?? readerCase?.rawScore ?? readerCase?.score
   );
-  let score = clamp(Math.round(Math.max(0, rawReaderScore) * 4.5), 0, 100);
+  // Preserve signed reader scores — do not erase negative Under/opposite cases.
+  let score = clamp(Math.round(rawReaderScore * 4.5), -20, 100);
   const reasons = [];
+  let uncertaintyPenalty = 0;
 
   const edge = side === "OVER" ? metrics.projection - metrics.line : metrics.line - metrics.projection;
   if (edge >= 4) {
@@ -190,10 +192,18 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
         ? mod.comparison?.weight || (mod.opponentHistory?.noHistory ? 0 : 0.55)
         : 1;
     if (weight <= 0) continue;
+    // Only true sideImpact counts directionally. Generic module.score /
+    // availability / collision-clear / sample are reliability → uncertainty.
     if (impactSupportsSide(mod.sideImpact, side)) score += Math.round(8 * weight);
-    if (impactAgainstSide(mod.sideImpact, side)) score -= Math.round(10 * weight);
-    if (mod.score != null) score += Math.round((num(mod.score) - 50) * 0.15 * weight);
+    else if (impactAgainstSide(mod.sideImpact, side)) score -= Math.round(10 * weight);
+    else if (mod.score != null || mod.uncertaintyAdded || mod.status === "WEAK" || mod.status === "BAD") {
+      const drift = Math.abs(num(mod.score, 50) - 50);
+      if (mod.status === "BAD" || mod.uncertaintyAdded) uncertaintyPenalty += Math.round(4 * weight);
+      else if (mod.status === "WEAK") uncertaintyPenalty += Math.round(2 * weight);
+      else if (drift >= 20) uncertaintyPenalty += Math.round(1 * weight);
+    }
   }
+  score -= uncertaintyPenalty;
 
   if (side === "OVER") {
     if (EXPANDING.has(metrics.roleTrend)) score += 8;
@@ -212,7 +222,12 @@ function scoreSideFromModules(side = "", ddi = {}, reader = {}, metrics = {}) {
     reasons.push(`Reader ${side} case strong.`);
   }
 
-  return { score: clamp(Math.round(score), 0, 100), reasons };
+  return {
+    score: clamp(Math.round(score), 0, 100),
+    rawSignedScore: Math.round(score),
+    uncertaintyPenalty,
+    reasons,
+  };
 }
 
 function oppositeSideViable(reader = {}, oppositeSide = "", metrics = {}) {

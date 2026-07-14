@@ -1,8 +1,13 @@
 /**
  * WNBA volume-first points projection.
  * expectedMinutes × shotVolume × efficiency, blended season/recent anchors.
- * Optional playerRoleProfileV1 calibration is applied with a hard ±1.5 pt cap
- * vs the uncalibrated baseline.
+ *
+ * Side-symmetry rule: recent-vs-season opportunity is counted ONCE via the
+ * blend weights. roleChange expected*Delta (recent−season) is descriptive for
+ * other engines and must NOT re-inflate volume. minutesFactor remultiply is
+ * removed for the same reason. Player Role Profile V1 calibration stays
+ * capped ±1.5 vs uncalibrated baseline; minutesTrustMultiplier may dampen
+ * only (never inflate projection — STABLE is reliability, not Over bias).
  */
 
 function num(value, fallback = 0) {
@@ -55,6 +60,7 @@ function computeCoreProjection({
   expectedFgaAdjustment = 0,
   expectedFtaAdjustment = 0,
   minutesTrustMultiplier = 1,
+  applyRoleChangeDeltas = false,
 } = {}) {
   const {
     expectedMinutesDelta = 0,
@@ -67,23 +73,32 @@ function computeCoreProjection({
   let expectedFGA = blend(recentFGA, seasonFGA, recentWeight);
   let expectedFTA = blend(recentFTA, seasonFTA, recentWeight);
 
-  expectedMinutes = Number(
-    (expectedMinutes + expectedMinutesDelta * 0.45).toFixed(1)
-  );
-  expectedFGA = Number((expectedFGA + expectedFGADelta * 0.45).toFixed(1));
-  expectedFTA = Number((expectedFTA + expectedFTADelta * 0.45).toFixed(1));
-
-  if (teammateOutBoost?.projectionBoost > 0 || teammateUsageShift?.fgaBoost > 0) {
-    const fgaBoost = num(teammateUsageShift?.fgaBoost ?? expectedFGADelta * 0.12);
-    expectedFGA = Number((expectedFGA + fgaBoost).toFixed(1));
+  // Optional legacy path only — default OFF. Recent−season deltas are already
+  // encoded in blend(recent, season); re-adding them double-counts opportunity.
+  if (applyRoleChangeDeltas) {
+    expectedMinutes = Number(
+      (expectedMinutes + expectedMinutesDelta * 0.45).toFixed(1)
+    );
+    expectedFGA = Number((expectedFGA + expectedFGADelta * 0.45).toFixed(1));
+    expectedFTA = Number((expectedFTA + expectedFTADelta * 0.45).toFixed(1));
   }
 
+  // True incremental opportunity (teammate out) — not recent/season echo.
+  if (teammateOutBoost?.projectionBoost > 0 || teammateUsageShift?.fgaBoost > 0) {
+    const fgaBoost = num(teammateUsageShift?.fgaBoost);
+    if (fgaBoost > 0) {
+      expectedFGA = Number((expectedFGA + fgaBoost).toFixed(1));
+    }
+  }
+
+  // Profile EXPANDING/CONTRACTING calibrated adjustments (canonical once).
   expectedMinutes = Number((expectedMinutes + expectedMinutesAdjustment).toFixed(1));
   expectedFGA = Number((expectedFGA + expectedFgaAdjustment).toFixed(1));
   expectedFTA = Number((expectedFTA + expectedFtaAdjustment).toFixed(1));
-  expectedMinutes = Number(
-    (expectedMinutes * clamp(minutesTrustMultiplier, 0.75, 1.15)).toFixed(1)
-  );
+
+  // Trust may dampen minutes estimate for audit — never inflate above blend.
+  const trustDamp = clamp(num(minutesTrustMultiplier, 1) || 1, 0.75, 1);
+  expectedMinutes = Number((expectedMinutes * trustDamp).toFixed(1));
 
   const fgPtsPerFGA = blend(
     estimateFgPtsPerFGA(recentPoints, recentFGA, recentFTA),
@@ -96,13 +111,38 @@ function computeCoreProjection({
     anchorRecentWeight
   );
 
-  const minutesFactor =
+  // Informative only — NOT applied to final projection (would remultiply minutes).
+  const minutesFactorObserved =
     seasonMinutes > 0 ? clamp(expectedMinutes / seasonMinutes, 0.75, 1.25) : 1;
 
   const volumeProjection = expectedFGA * fgPtsPerFGA + expectedFTA * ftPtsPerFTA;
   const anchorProjection = blend(recentPoints, seasonPoints, anchorRecentWeight);
   const blended = volumeProjection * 0.62 + anchorProjection * 0.38;
-  const projection = Number((blended * minutesFactor).toFixed(1));
+  // Apply trust dampen once on the blended projection when < 1 (reliability).
+  const projection = Number((blended * trustDamp).toFixed(1));
+
+  const components = {
+    volumeProjection: Number(volumeProjection.toFixed(3)),
+    anchorProjection: Number(anchorProjection.toFixed(3)),
+    volumeWeight: 0.62,
+    anchorWeight: 0.38,
+    blendedBeforeTrust: Number(blended.toFixed(3)),
+    minutesTrustDamp: trustDamp,
+    minutesFactorObserved: Number(minutesFactorObserved.toFixed(3)),
+    minutesFactorApplied: 1,
+    roleChangeDeltasApplied: Boolean(applyRoleChangeDeltas),
+    expectedMinutesAdjustment: num(expectedMinutesAdjustment),
+    expectedFgaAdjustment: num(expectedFgaAdjustment),
+    expectedFtaAdjustment: num(expectedFtaAdjustment),
+    profileProjectionAdjustment: 0,
+  };
+
+  const componentSum = Number(
+    (
+      components.volumeProjection * components.volumeWeight +
+      components.anchorProjection * components.anchorWeight
+    ).toFixed(3)
+  );
 
   return {
     projection,
@@ -113,6 +153,12 @@ function computeCoreProjection({
     ftPtsPerFTA: Number(ftPtsPerFTA.toFixed(3)),
     volumeProjection: Number(volumeProjection.toFixed(1)),
     anchorProjection: Number(anchorProjection.toFixed(1)),
+    minutesFactorObserved: Number(minutesFactorObserved.toFixed(3)),
+    projectionComponents: {
+      ...components,
+      blendedReconcile: componentSum,
+      finalBeforeProfileAdj: projection,
+    },
   };
 }
 
@@ -128,6 +174,7 @@ export function projectWnbaPoints({
   roleChange = {},
   teammateUsageShift = null,
   profileCalibration = null,
+  applyRoleChangeDeltas = false,
 } = {}) {
   const baseline = computeCoreProjection({
     seasonMinutes,
@@ -142,16 +189,23 @@ export function projectWnbaPoints({
     teammateUsageShift,
     recentWeight: 0.6,
     anchorRecentWeight: 0.55,
+    applyRoleChangeDeltas,
   });
 
   if (!profileCalibration) {
     return {
       ...baseline,
-      method: "volume-first-v2",
+      method: "volume-first-v3-side-symmetry",
       projectionBeforeProfileCalibration: baseline.projection,
       projectionAfterProfileCalibration: baseline.projection,
       profileProjectionDelta: 0,
       profileCalibrationApplied: false,
+      projectionComponents: {
+        ...baseline.projectionComponents,
+        profileProjectionAdjustment: 0,
+        finalProjection: baseline.projection,
+        remainder: 0,
+      },
     };
   }
 
@@ -176,25 +230,41 @@ export function projectWnbaPoints({
     expectedMinutesAdjustment: num(calib.expectedMinutesAdjustment, 0),
     expectedFgaAdjustment: num(calib.expectedFgaAdjustment, 0),
     expectedFtaAdjustment: num(calib.expectedFtaAdjustment, 0),
-    minutesTrustMultiplier: num(calib.minutesTrustMultiplier, 1) || 1,
+    // Cap trust at 1.0 for projection — STABLE reliability must not inflate pts
+    minutesTrustMultiplier: Math.min(1, num(calib.minutesTrustMultiplier, 1) || 1),
+    applyRoleChangeDeltas,
   });
 
-  let projection = Number(
-    (calibrated.projection + num(calib.projectionAdjustment, 0)).toFixed(1)
-  );
+  const profileAdj = num(calib.projectionAdjustment, 0);
+  let projection = Number((calibrated.projection + profileAdj).toFixed(1));
 
   // Hard safety: total movement vs uncalibrated baseline ≤ ±1.5 pts
   projection = Number(
     clamp(projection, baseline.projection - 1.5, baseline.projection + 1.5).toFixed(1)
   );
 
+  const components = {
+    ...calibrated.projectionComponents,
+    profileProjectionAdjustment: profileAdj,
+    finalProjection: projection,
+    remainder: Number(
+      (
+        projection -
+        (calibrated.projectionComponents.blendedBeforeTrust *
+          calibrated.projectionComponents.minutesTrustDamp +
+          profileAdj)
+      ).toFixed(3)
+    ),
+  };
+
   return {
     ...calibrated,
     projection,
-    method: "volume-first-v2",
+    method: "volume-first-v3-side-symmetry",
     projectionBeforeProfileCalibration: baseline.projection,
     projectionAfterProfileCalibration: projection,
     profileProjectionDelta: Number((projection - baseline.projection).toFixed(2)),
     profileCalibrationApplied: true,
+    projectionComponents: components,
   };
 }

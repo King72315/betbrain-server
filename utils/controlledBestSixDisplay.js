@@ -50,13 +50,12 @@ export function countCandidatesByEligibility(candidates = []) {
     const eligibility = resolveTrackEligibility(pick);
     if (eligibility === "TRACK") counts.track += 1;
     else if (eligibility === "NO_BET") counts.noBet += 1;
-    else if (eligibility === "BOARD_ONLY") {
-      counts.boardOnly += 1;
-      counts.highRisk += 1;
-    } else if (eligibility === "SHADOW_ONLY") {
-      counts.shadowOnly += 1;
-      counts.highRisk += 1;
-    } else counts.other += 1;
+    else if (eligibility === "BOARD_ONLY") counts.boardOnly += 1;
+    else if (eligibility === "SHADOW_ONLY") counts.shadowOnly += 1;
+    else counts.other += 1;
+
+    // High Risk summary MUST use canonical final trueRisk — not BOARD_ONLY.
+    if (resolveTrueRisk(pick) === "HIGH") counts.highRisk += 1;
   }
 
   return counts;
@@ -90,63 +89,10 @@ export function displayPickRankScore(pick = {}) {
 }
 
 export function applyDisplaySideBalance(selected = [], candidatePool = [], options = {}) {
-  const limit = Number(options.limit ?? BEST_SIX_LIMIT);
-  const minMinority = Number(options.minMinority ?? DISPLAY_SIDE_BALANCE_MINORITY);
-  const margin = Number(options.swapMargin ?? DISPLAY_SIDE_BALANCE_SWAP_MARGIN);
-  if (!Array.isArray(selected) || selected.length < 3) return selected;
-
-  const sortedPool = [...(candidatePool || [])].sort(
-    (a, b) => displayPickRankScore(b) - displayPickRankScore(a)
-  );
-  let result = [...selected];
-  const swaps = [];
-
-  for (let attempt = 0; attempt < limit; attempt += 1) {
-    const sideCounts = { OVER: 0, UNDER: 0 };
-    for (const pick of result) {
-      const side = normalizePickSide(pick.side || pick.pick);
-      if (side) sideCounts[side] += 1;
-    }
-
-    const dominantSide =
-      sideCounts.OVER >= limit - minMinority
-        ? "OVER"
-        : sideCounts.UNDER >= limit - minMinority
-          ? "UNDER"
-          : null;
-    if (!dominantSide) break;
-
-    const minoritySide = dominantSide === "OVER" ? "UNDER" : "OVER";
-    if (sideCounts[minoritySide] >= minMinority) break;
-
-    const selectedKeys = new Set(result.map((pick) => stablePickKey(pick)));
-    let weakestIdx = 0;
-    let weakestScore = displayPickRankScore(result[0]);
-    for (let i = 1; i < result.length; i += 1) {
-      const score = displayPickRankScore(result[i]);
-      if (normalizePickSide(result[i].side || result[i].pick) === dominantSide && score <= weakestScore) {
-        weakestScore = score;
-        weakestIdx = i;
-      }
-    }
-
-    const alternative = sortedPool.find((pick) => {
-      if (selectedKeys.has(stablePickKey(pick))) return false;
-      if (normalizePickSide(pick.side || pick.pick) !== minoritySide) return false;
-      return displayPickRankScore(pick) >= weakestScore - margin;
-    });
-    if (!alternative) break;
-
-    swaps.push({
-      replaced: result[weakestIdx]?.player,
-      with: alternative.player,
-      dominantSide,
-      minoritySide,
-    });
-    result[weakestIdx] = alternative;
-  }
-
-  return swaps.length ? result : selected;
+  // Side-symmetry policy: no forced O/U quota swaps that replace stronger with weaker.
+  void candidatePool;
+  void options;
+  return selected;
 }
 
 export function resolveBestSixDisplayPool(

@@ -71,31 +71,44 @@ function scoreVolumePath(side, card = {}) {
 
   if (side === "OVER") {
     overGap = edge;
-    if (lowLine) {
-      if (minutes >= 20 && fga >= 6) {
-        score += 8;
-        supports.push("Low-line over backed by minutes+FGA volume path");
-      } else if (minutes > 0 && minutes < 18) {
-        score -= 10;
-        disagrees.push("Low-line over without sufficient minutes");
+    // Volume-path bonuses only when Over has non-negative projection edge.
+    // High minutes/FGA must not elect Over when the model is already below the line.
+    if (edge >= 0) {
+      if (lowLine) {
+        if (minutes >= 20 && fga >= 6) {
+          score += 8;
+          supports.push("Low-line over backed by minutes+FGA volume path");
+        } else if (minutes > 0 && minutes < 18) {
+          score -= 10;
+          disagrees.push("Low-line over without sufficient minutes");
+        }
+      } else {
+        if (minutes >= 28 && fga >= 12) {
+          score += 8;
+          supports.push("Star-line over with strong minutes+FGA");
+        } else if (minutes > 0 && minutes < 24) {
+          score -= 8;
+          disagrees.push("Minutes too low for confident over");
+        }
       }
+
+      if (fga >= 10) score += 4;
+      else if (fga > 0 && fga < 7) {
+        score -= 6;
+        disagrees.push("FGA floor too low for over");
+      }
+
+      if (fta >= 3) score += 2;
     } else {
-      if (minutes >= 28 && fga >= 12) {
-        score += 8;
-        supports.push("Star-line over with strong minutes+FGA");
-      } else if (minutes > 0 && minutes < 24) {
-        score -= 8;
-        disagrees.push("Minutes too low for confident over");
+      if (minutes > 0 && minutes < 18) {
+        score -= 6;
+        disagrees.push("Weak minutes and negative Over edge");
+      }
+      if (fga > 0 && fga < 7) {
+        score -= 4;
+        disagrees.push("Low FGA with negative Over edge");
       }
     }
-
-    if (fga >= 10) score += 4;
-    else if (fga > 0 && fga < 7) {
-      score -= 6;
-      disagrees.push("FGA floor too low for over");
-    }
-
-    if (fta >= 3) score += 2;
   }
 
   if (side === "UNDER") {
@@ -107,6 +120,15 @@ function scoreVolumePath(side, card = {}) {
     if (fga > 0 && fga < 8) {
       score += 4;
       supports.push("Low FGA supports under");
+    }
+    // Mirror Over's "established volume path" bonus when Under gap is decisive.
+    // Prevents high-volume players from only rewarding Overs at equal |gap|.
+    if (edge >= 4 && minutes >= 20 && fga >= 6) {
+      score += 8;
+      supports.push("Strong under gap with established minutes+FGA sample");
+    } else if (edge >= 2.5 && minutes >= 18 && fga >= 5) {
+      score += 4;
+      supports.push("Moderate under gap with adequate volume sample");
     }
   }
 
@@ -222,7 +244,7 @@ function scoreFairLine(side, card = {}) {
   const supports = [];
   const disagrees = [];
 
-  if (fairSide === "NONE" || edge < 1.5) {
+  if (!fairSide || fairSide === "NONE" || edge < 1.5) {
     return { score: 0, supports, disagrees, role: "neutral" };
   }
 
@@ -310,6 +332,10 @@ function scoreRoleAndUsage(side, card = {}) {
   if (card.roleTrend === "up" && side === "OVER") {
     score += 6;
     supports.push("Role trend rising — volume path expanding");
+  }
+  if (card.roleTrend === "up" && side === "UNDER") {
+    score -= 6;
+    disagrees.push("Role trend up conflicts with under");
   }
   if (card.roleTrend === "down" && side === "UNDER") {
     score += 5;
@@ -500,8 +526,14 @@ export function readWnbaProp(dataCard = {}) {
   const overEligible = overCase.eligible !== false && !overCase.blocked;
   const underEligible = underCase.eligible !== false && !underCase.blocked;
   let finalSide = null;
+  // Side symmetry: equal scores do NOT default to Over.
   if (overEligible && underEligible) {
-    finalSide = overCase.score >= underCase.score ? "OVER" : "UNDER";
+    if (overCase.score > underCase.score) finalSide = "OVER";
+    else if (underCase.score > overCase.score) finalSide = "UNDER";
+    else {
+      finalSide = null;
+      reasonCodes.push("SIDE_SCORE_TIE");
+    }
   } else if (overEligible) {
     finalSide = "OVER";
   } else if (underEligible) {
@@ -521,16 +553,22 @@ export function readWnbaProp(dataCard = {}) {
       reasonCodes.push("BOTH_SIDES_GAP_FLOOR_FAIL");
     }
   }
-  const chosen = finalSide === "OVER" ? overCase : underCase;
-  const other = finalSide === "OVER" ? underCase : overCase;
+  const chosen =
+    finalSide === "OVER" ? overCase : finalSide === "UNDER" ? underCase : overCase;
+  const other =
+    finalSide === "OVER" ? underCase : finalSide === "UNDER" ? overCase : underCase;
   const margin = Math.abs(overCase.score - underCase.score);
 
-  if (chosen.blocked || chosen.score < 0) {
+  if (finalSide && chosen.blocked) {
     finalSide = null;
     reasonCodes.push("SIDE_BLOCKED");
-  } else if (margin < 3) {
+  } else if (finalSide && margin < 3 && overEligible && underEligible) {
+    reasonCodes.push("SIDE_TOO_CLOSE");
+  } else if (!finalSide && reasonCodes.includes("SIDE_SCORE_TIE")) {
     reasonCodes.push("SIDE_TOO_CLOSE");
   }
+  // Negative chosen.score is allowed for sole-eligible sides (common for Unders
+  // after fair/market penalties). Decision thresholds handle INSUFFICIENT_EDGE.
 
   const disagrees = [...chosen.disagrees];
   const supports = [...chosen.supports];

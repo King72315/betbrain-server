@@ -188,10 +188,15 @@ test("09 buildWnbaControlledSummary counts board candidates", () => {
   assert.strictEqual(summary.controlledBestSixTotal, 3);
   assert.strictEqual(summary.boardCandidates, 3);
   assert.strictEqual(summary.track, 1);
-  assert.strictEqual(summary.highRisk, 1);
+  assert.strictEqual(summary.boardOnly, 1);
+  // High Risk uses canonical trueRisk HIGH — BOARD_ONLY alone is not High Risk.
+  assert.strictEqual(summary.highRisk, 0);
   assert.strictEqual(summary.noBet, 1);
   assert.strictEqual(summary.topPicks, 2);
-  assert.strictEqual(summary.track + summary.highRisk + summary.noBet, summary.boardCandidates);
+  assert.strictEqual(
+    summary.track + summary.boardOnly + summary.noBet,
+    summary.boardCandidates
+  );
 });
 
 test("10 summary uses Board Candidates label not Playable", () => {
@@ -439,31 +444,33 @@ test("27 acceptance: default report structure has summary then controlled list o
   assert.ok(!report.includes("Top Props:"));
 });
 
-test("28 count reconciliation maps board/shadow to highRisk", () => {
+test("28 count reconciliation separates boardOnly from canonical trueRisk highRisk", () => {
   const candidates = [
     todayPick,
     {
       player: "Shadow",
-      decisionIntelligence: { trackEligibility: "SHADOW_ONLY" },
+      decisionIntelligence: { trackEligibility: "SHADOW_ONLY", trueRisk: "HIGH" },
       dayBucket: "TODAY",
     },
     {
       player: "Board Only",
-      decisionIntelligence: { trackEligibility: "BOARD_ONLY" },
+      decisionIntelligence: { trackEligibility: "BOARD_ONLY", trueRisk: "MEDIUM" },
       dayBucket: "TODAY",
     },
     {
       player: "No Bet",
-      decisionIntelligence: { trackEligibility: "NO_BET" },
+      decisionIntelligence: { trackEligibility: "NO_BET", trueRisk: "LOW" },
       dayBucket: "TODAY",
     },
   ];
   const counts = countCandidatesByEligibility(candidates);
   assert.strictEqual(counts.track, 1);
-  assert.strictEqual(counts.highRisk, 2);
+  assert.strictEqual(counts.boardOnly, 1);
+  assert.strictEqual(counts.shadowOnly, 1);
+  assert.strictEqual(counts.highRisk, 1, "only trueRisk HIGH counts as High Risk");
   assert.strictEqual(counts.noBet, 1);
   assert.strictEqual(
-    counts.track + counts.highRisk + counts.noBet + counts.other,
+    counts.track + counts.boardOnly + counts.shadowOnly + counts.noBet + counts.other,
     candidates.length
   );
 });

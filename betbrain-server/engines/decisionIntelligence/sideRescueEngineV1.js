@@ -38,7 +38,8 @@ function sideLabel(side = "") {
 }
 
 function normalizeReaderScore(score = 0) {
-  return clamp(Math.round(Math.max(0, num(score)) * 4.5), 0, 100);
+  // Preserve signed reader strength — Math.max(0,…) previously erased Unders.
+  return clamp(Math.round(num(score) * 4.5), -20, 100);
 }
 
 function projectionEdgeForSide(side = "", metrics = {}) {
@@ -145,9 +146,12 @@ function detectUnderFragility(metrics = {}, gate = {}, triggerDebts = []) {
   if (hasFtaCollapse(metrics, metrics.card) || triggerDebts.some((d) => d.code === "FTA_COLLAPSE_RISK")) {
     count += 1; factors.push("FTA_REBOUND_RISK");
   }
-  if (!CONTRACTING_ROLE.has(metrics.roleTrend)) { count += 1; factors.push("ROLE_NOT_DOWN"); }
+  // STABLE/flat role is not Under debt — only EXPANDING contradicts Under.
+  if (EXPANDING_ROLE.has(metrics.roleTrend)) { count += 1; factors.push("ROLE_EXPANDING"); }
   if (metrics.defenseProxyUsed) { count += 1; factors.push("NEUTRAL_DEFENSE"); }
-  if (metrics.availabilityDataMissing) { count += 1; factors.push("UNKNOWN_AVAILABILITY"); }
+  // Unknown availability is uncertainty, counted at half weight via separate path —
+  // do not treat as directional Under fragility stack fodder alone.
+  if (metrics.availabilityDataMissing) { count += 0.5; factors.push("UNKNOWN_AVAILABILITY"); }
   if (metrics.projectionGap > 0 && metrics.projectionGap < 5) { count += 1; factors.push("THIN_PROJECTION_GAP"); }
   if ((gate.dangerGateCount ?? 0) >= 2) { count += 1; factors.push("DANGER_STACK"); }
   return { fragile: count >= 3, count, factors };
@@ -198,7 +202,7 @@ function buildOppositeEvidence(oppositeSide = "", metrics = {}, reader = {}, car
     if (metrics.fairLineSide === "OVER" && Math.abs(metrics.fairLineEdge) >= 3) {
       evidence.push({ code: "FAIR_LINE_OVER", reason: "Fair line supports Over." });
     }
-    if (metrics.opportunityScore >= 55) evidence.push({ code: "OPPORTUNITY", reason: "Opportunity supports Over." });
+    // Generic opportunityScore is reliability/context — not Over directional evidence.
   }
 
   if (oppositeSide === "UNDER") {
@@ -282,7 +286,7 @@ function scoreSide(side = "", reader = {}, metrics = {}, evidence = [], options 
   const rawReaderScore = num(
     readerCase?.preGapPenaltyScore ?? readerCase?.rawScore ?? readerCase?.score
   );
-  let score = normalizeReaderScore(Math.max(0, rawReaderScore));
+  let score = normalizeReaderScore(rawReaderScore);
   const gapFailed = options.gapFloorFailed === true || oppositeGapFloorFailed(side, reader);
   const edge = projectionEdgeForSide(side, metrics);
   if (!gapFailed) {
@@ -290,18 +294,31 @@ function scoreSide(side = "", reader = {}, metrics = {}, evidence = [], options 
     else if (edge >= 2.5) score += 4;
     else if (edge >= 1.5 && rawReaderScore < 6) score += 6;
     else if (edge <= 1) score -= 10;
+  } else if (edge <= 1) {
+    // Gap floor failure still allows honest thin-gap penalty (symmetric).
+    score -= 6;
   }
 
   const boosts = {
     READER_CASE_STRONG: 12, READER_CASE_MODERATE: 6, EXPANDING_ROLE: 10, CONTRACTING_ROLE: 10,
     STRONG_MINUTES: 8, MINUTES_SPIKE_PATH: 8, FTA_REBOUND: 14, STRONG_FGA: 8,
     RECENT_NEAR_LINE: 6, SEASON_NEAR_LINE: 5, PROJECTION_OVER: 10, PROJECTION_UNDER: 10,
-    FAIR_LINE_OVER: 8, FAIR_LINE_UNDER: 8, OPPORTUNITY: 5, LOW_MINUTES: 6, LOW_FGA: 6,
+    FAIR_LINE_OVER: 8, FAIR_LINE_UNDER: 8, LOW_MINUTES: 6, LOW_FGA: 6,
     LOW_FTA: 5, RECENT_BELOW_LINE: 7, SEASON_BELOW_LINE: 5, EFFICIENCY_REGRESSION: 10,
   };
-  if (!gapFailed) {
-    for (const ev of evidence) score += boosts[ev.code] || 4;
-    if (metrics.fairLineSide === side && Math.abs(metrics.fairLineEdge) >= 3.5) score += 6;
+  // Non-projection evidence still earns comparative score when gap floor fails
+  // so opposite sides are not auto-zeroed after Math.max(0) erasure.
+  const nonProjection = new Set([
+    "EXPANDING_ROLE", "CONTRACTING_ROLE", "FTA_REBOUND", "EFFICIENCY_REGRESSION",
+    "FAIR_LINE_OVER", "FAIR_LINE_UNDER", "MINUTES_SPIKE_PATH",
+  ]);
+  for (const ev of evidence) {
+    const boost = boosts[ev.code] || 4;
+    if (!gapFailed) score += boost;
+    else if (nonProjection.has(ev.code)) score += Math.round(boost * 0.5);
+  }
+  if (!gapFailed && metrics.fairLineSide === side && Math.abs(metrics.fairLineEdge) >= 3.5) {
+    score += 6;
   }
   return clamp(Math.round(score), 0, 100);
 }

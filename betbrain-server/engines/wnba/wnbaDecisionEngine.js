@@ -32,8 +32,9 @@ import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
-const CONFIDENCE_BLEND_VERSION = "v1-70-30";
-const CONFIDENCE_BLEND_FORMULA = "0.7*readerConfidence + 0.3*winProbability";
+const CONFIDENCE_BLEND_VERSION = "v2-data-directional-side-symmetry";
+const CONFIDENCE_BLEND_FORMULA =
+  "final=0.35*dataConfidence+0.65*directional; directional starts 0.7*reader+0.3*winProb then DDI";
 
 function finalizeWnbaPickTracking(pick = {}, reader = {}) {
   const readerWantsOfficial = reader.decision === "OFFICIAL";
@@ -314,18 +315,26 @@ export async function evaluateWnbaPropDecision(context = {}) {
   const winProbability = num(
     bestPick.rawWinProbability ?? bestPick.winProbability
   );
-  const confidenceBeforeProfile = clamp(
+  const dataConfidence = clamp(num(dataCard.dataConfidenceScore, 55), 0, 100);
+  // Directional starts from reader/win blend; final recalculated after Flip-First/DDI.
+  const directionalConfidenceBeforeDdi = clamp(
     Math.round(readerConfidence * 0.7 + winProbability * 0.3),
-    30,
+    12,
     92
   );
   const profileConfAdj = num(
     dataCard.playerProfileCalibration?.confidenceAdjustment,
     0
   );
-  const finalConfidence = clamp(
-    Math.round(confidenceBeforeProfile + profileConfAdj),
-    30,
+  const confidenceBeforeProfile = clamp(
+    Math.round(directionalConfidenceBeforeDdi + profileConfAdj),
+    12,
+    92
+  );
+  let directionalConfidence = confidenceBeforeProfile;
+  let finalConfidence = clamp(
+    Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65),
+    12,
     92
   );
 
@@ -373,9 +382,12 @@ export async function evaluateWnbaPropDecision(context = {}) {
     dangerPressure: reader.disagrees.length * 0.05,
     readerConfidence,
     winProbability,
+    dataConfidence,
+    directionalConfidence,
     finalConfidence,
-    confidenceBlendVersion: CONFIDENCE_BLEND_VERSION,
-    confidenceBlendFormula: CONFIDENCE_BLEND_FORMULA,
+    confidenceBlendVersion: "v2-data-directional-side-symmetry",
+    confidenceBlendFormula:
+      "final=0.35*dataConfidence+0.65*directional; directional starts 0.7*reader+0.3*winProb then DDI",
     confidence: finalConfidence,
     strength: finalConfidence >= 75 ? "Strong" : finalConfidence >= 60 ? "Moderate" : "Lean",
     tier,
@@ -519,6 +531,15 @@ export async function evaluateWnbaPropDecision(context = {}) {
     last5,
     matchupGames,
   });
+  // Flip-First / DDI now owns confidence blend (data vs directional).
+  if (pick.finalConfidence != null) {
+    finalConfidence = num(pick.finalConfidence, finalConfidence);
+    directionalConfidence = num(pick.directionalConfidence, directionalConfidence);
+    pick.confidence = finalConfidence;
+    pick.finalConfidence = finalConfidence;
+    pick.directionalConfidence = directionalConfidence;
+    pick.dataConfidence = num(pick.dataConfidence, dataConfidence);
+  }
   pick.last5 = last5;
   pick.matchupGames = matchupGames;
 

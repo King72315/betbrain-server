@@ -156,10 +156,33 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   }
 
   if (flipDecision.action === "BOTH_SIDES_WEAK") {
+    confidenceAdjustment -= 18;
     decisionAdjustment = "PASS";
     bestSixImpact = "BOARD_OR_NO_BET";
     resultsAdmissionImpact = "BLOCK";
-    reasons.push("Both sides weak after flip-first review.");
+    reasons.push("Both sides weak after flip-first review — directional confidence cut.");
+  }
+
+  const market = ddi.marketIntelligence || {};
+  if (
+    market.marketWarning ||
+    (market.sideImpact &&
+      market.sideImpact !== "NEUTRAL" &&
+      flipDecision.originalSide &&
+      market.sideImpact !== flipDecision.originalSide &&
+      market.sideImpact !== flipDecision.finalSide)
+  ) {
+    confidenceAdjustment -= 8;
+    reasons.push("Market AGAINST selected side — directional confidence cut.");
+  } else if (market.sideImpact && market.sideImpact !== "NEUTRAL" && market.movement === "against") {
+    confidenceAdjustment -= 8;
+    reasons.push("Market movement against side — directional confidence cut.");
+  }
+
+  const projStatus = String(ddi.projectionQuality?.status || "").toUpperCase();
+  if (projStatus === "MIXED" || projStatus === "WEAK") {
+    confidenceAdjustment -= projStatus === "WEAK" ? 8 : 6;
+    reasons.push(`Projection quality ${projStatus} — directional confidence cut.`);
   }
 
   return {
@@ -168,7 +191,7 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     decisionAdjustment,
     bestSixImpact,
     resultsAdmissionImpact,
-    reasons: reasons.slice(0, 6),
+    reasons: reasons.slice(0, 8),
   };
 }
 
@@ -266,6 +289,30 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
           whyRetainedFlippedOrPass: ddi.flipFirstDecision.whyRetainedFlippedOrPass || "",
         }
       : null);
+
+  const dataConfidence = Number(
+    pick.dataConfidence ??
+      pick.wnbaDataCard?.dataConfidenceScore ??
+      pick.dataCoverage ??
+      55
+  );
+  const priorDirectional = Number(
+    pick.directionalConfidence ?? pick.confidence ?? pick.finalConfidence ?? 50
+  );
+  const influenceAdj = Number(ddi.finalInfluence?.confidenceAdjustment || 0);
+  const directionalConfidence = Math.max(
+    12,
+    Math.min(95, Math.round(priorDirectional + influenceAdj))
+  );
+  // Internal blend — does not invent new Home UI labels.
+  const finalConfidence = Math.max(
+    12,
+    Math.min(
+      92,
+      Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65)
+    )
+  );
+
   return {
     ...pick,
     decisionDataIntelligence: ddi,
@@ -275,6 +322,11 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     opponentHistoryComparison: ddi.opponentHistoryComparison,
     opponentHistoryComparisonVersion: ddi.opponentHistoryComparison?.version,
     opponentHistoryLabel: labels.opponentHistory,
+    dataConfidence: Math.round(dataConfidence),
+    directionalConfidence,
+    finalConfidence,
+    confidence: finalConfidence,
+    confidenceInfluenceAdjustment: influenceAdj,
   };
 }
 

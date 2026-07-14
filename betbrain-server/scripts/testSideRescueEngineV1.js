@@ -138,7 +138,7 @@ function test(name, fn) {
 }
 
 test("01 SIDE_RESCUE_VERSION constant", () => {
-  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1.2");
+  assert.strictEqual(SIDE_RESCUE_VERSION, "side-rescue-v1.3");
 });
 
 test("02 clean profile does not trigger rescue", () => {

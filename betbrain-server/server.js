@@ -247,7 +247,7 @@ import {
   TOP_PICKS_SOURCE_POOL,
 } from "./services/topPicksSnapshotService.js";
 
-const SERVER_BUILD = "courteedge-player-role-profile-v1";
+const SERVER_BUILD = "courteedge-wnba-side-symmetry-over-bias-fix-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
