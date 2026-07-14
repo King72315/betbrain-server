@@ -175,11 +175,34 @@ Frozen Jul 14 + `.tmp-six-props-all.json` inspected via audit script. Counts alo
 
 ## 19. Live safety checklist
 
-1. Push source to `orgin/betbrain-v2-rebuild`  
-2. Confirm health `SERVER_BUILD=courteedge-wnba-side-symmetry-over-bias-fix-v1`  
-3. Refresh Tomorrow **once**  
-4. Capture candidate pool before shrink + stage O/U counts  
-5. No tracked clear/duplicate; no Results/Lab/History mutation
+1. Push source to `orgin/betbrain-v2-rebuild` — **done** (`b0d7dd9`)
+2. Confirm health `SERVER_BUILD=courteedge-wnba-side-symmetry-over-bias-fix-v1` — **live**
+3. Refresh Tomorrow **once** — **done** (`POST /refresh-picks`, artifact `.poll-refresh-side-symmetry-v1.json`, `lastUpdated=2026-07-14T02:25:38Z`)
+4. Capture candidate pool before shrink + stage O/U counts — **done** (see below)
+5. No tracked clear/duplicate; no Results/Lab/History mutation — **honored**
+
+### Live refresh outcome (not forced balance)
+
+| Stage | Result |
+|-------|--------|
+| Raw markets | 83 Over / 83 Under lines scanned |
+| Chosen sides | **0 Over / 5 Under** |
+| All generated (pre Best 6 shrink) | 5 Unders (TODAY slate; Tomorrow games present with **0** prop candidates — no lines) |
+| Best 6 display WNBA | 0 (no TRACK / display-eligible after gates) |
+| Confidence blend | `dataConfidence` 100, `directionalConfidence` 39–51, final ~60–68 with BOTH_SIDES_WEAK |
+| Reader cases | Under scores **+30…+46** vs Over **−25…−48** (Unders can earn scores) |
+
+Sample pool:
+
+| Player | Side | Line | Proj | Gap | Conf | trueRisk | Track |
+|--------|------|------|------|-----|------|----------|-------|
+| Kahleah Copper | Under | 26.5 | 21.5 | −5.0 | 66 | MEDIUM | BOARD_ONLY |
+| Kayla McBride | Under | 25.5 | 20.3 | −5.2 | 68 | HIGH | BOARD_ONLY |
+| Olivia Miles | Under | 25.5 | 19.8 | −5.7 | 66 | HIGH | BOARD_ONLY |
+| Monique Akoa Makani | Under | 15.5 | 8.2 | −7.3 | 60 | HIGH | NO_BET |
+| DeWanna Bonner | Under | 13.5 | 7.5 | −6.0 | 64 | HIGH | BOARD_ONLY |
+
+Natural Under concentration when projections sit well below lines — **not** an Over-default and **not** a forced Under quota.
 
 ## 20. Files changed (source)
 
