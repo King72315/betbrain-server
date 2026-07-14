@@ -321,13 +321,15 @@ Test **#16**: restart + persisted state prevents re-run.
 
 ## 23. Final commit hash
 
-*(filled after push)*
+Feature (pregame v1.1): `e56d9f8`  
+Full: `e56d9f8c10305c6eb28471d41b774a93117e9166`  
+Prior tip: `beba86f`
 
 ---
 
 ## 24. Remote branch tip
 
-`orgin/betbrain-v2-rebuild` → *(filled after push)*
+`orgin/betbrain-v2-rebuild` → `e56d9f8` (updated after push confirmation commit if needed)
 
 ---
 
