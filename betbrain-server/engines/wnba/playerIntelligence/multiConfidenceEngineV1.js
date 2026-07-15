@@ -20,19 +20,22 @@ export const CONFIDENCE_WEIGHTS = Object.freeze({
   recentCalibration: 0.08,
 });
 
-function scoreProjectionQuality({ projectionGap, projectionQualityStatus, dataConfidence } = {}) {
+function scoreProjectionQuality({ projectionGap, projectionQualityStatus, dataConfidence, gapFloor } = {}) {
   let score = 55;
   const status = String(projectionQualityStatus || "").toUpperCase();
   if (status === "STRONG") score = 78;
   else if (status === "MIXED") score = 55;
   else if (status === "WEAK") score = 32;
 
-  // Gap may contribute lightly — never dominate
+  // Gap may contribute lightly — never dominate. Thin gaps always dampen.
   const gap = num(projectionGap);
+  const floor = num(gapFloor, 2.5) ?? 2.5;
   if (gap != null) {
-    if (gap >= 4) score += 6;
-    else if (gap >= 2.5) score += 3;
-    else if (gap <= 1) score -= 4;
+    if (gap >= floor + 2) score += 6;
+    else if (gap >= floor + 0.5) score += 3;
+    else if (gap < floor - 1) score -= 18;
+    else if (gap < floor) score -= 12;
+    else if (gap <= 1) score -= 6;
   }
   const dc = num(dataConfidence);
   if (dc != null) score = score * 0.7 + dc * 0.3;
@@ -147,6 +150,7 @@ export function computeMultiComponentConfidence({
       projectionGap,
       projectionQualityStatus,
       dataConfidence,
+      gapFloor: num(decisionDataIntelligence?.projectionQuality?.gapFloor, null),
     }),
     playerStability: scorePlayerStability(profile),
     usageStability: scoreUsageStability(profile),

@@ -32,13 +32,16 @@ function scoreFromEnum(map, key, fallback = 50) {
 }
 
 /**
- * Projection quality from data completeness + uncertainty — NOT gap size.
+ * Projection quality from data completeness + uncertainty — NOT gap size as primary.
+ * Thin gaps still dampen when provided.
  */
 export function scoreProjectionQuality({
   dataConfidence = null,
   projectionUncertainty = null,
   profileConfidence = null,
   missingFlags = [],
+  projectionGap = null,
+  gapFloor = null,
 } = {}) {
   let score = num(dataConfidence, 55) ?? 55;
   const unc = num(projectionUncertainty, 0) ?? 0;
@@ -47,6 +50,13 @@ export function scoreProjectionQuality({
   else if ((missingFlags?.length || 0) >= 1) score -= 4;
   const pc = num(profileConfidence, 50) ?? 50;
   score = score * 0.7 + pc * 0.3;
+
+  const gap = num(projectionGap);
+  const floor = num(gapFloor, 2.5) ?? 2.5;
+  if (gap != null) {
+    if (gap < floor - 1) score -= 16;
+    else if (gap < floor) score -= 10;
+  }
   return clamp(Math.round(score), 0, 100);
 }
 
@@ -165,6 +175,8 @@ export function computePlayerIntelligenceConfidence({
   sameTeamOpportunity = null,
   decisionIntelligence = null,
   historicalHints = null,
+  projectionGap = null,
+  gapFloor = null,
   weights = CONFIDENCE_WEIGHTS,
 } = {}) {
   const intel = playerIntelligence || {};
@@ -177,6 +189,8 @@ export function computePlayerIntelligenceConfidence({
       projectionUncertainty,
       profileConfidence: intel.profileConfidence,
       missingFlags,
+      projectionGap,
+      gapFloor,
     }),
     playerStability: scorePlayerStability(intel),
     usageStability: scoreUsageStability(intel),

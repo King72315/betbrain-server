@@ -37,6 +37,7 @@ import {
   applySlateCollisionAdjustments,
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
+import { applyEvidenceFinalConfidenceToPick } from "../wnba/playerIntelligence/evidenceFinalConfidenceV1.js";
 import {
   finalizeCanonicalDecision,
   computeDecisionHash,
@@ -151,12 +152,23 @@ function scoreCandidate(pick = {}) {
   const scored =
     league === "WNBA" ? scoreWnbaTopProp(pick) : scoreNbaTopProp(pick);
   const collisionPenalty = num(pick.slateCollisionPenalty);
+  const evidencePenalty = num(pick.evidenceRankPenalty);
+  const bothSidesWeakPenalty = num(pick.bothSidesWeakRankingPenalty);
+  const trustMul = clamp(num(pick.projectionTrustMultiplier, 1) || 1, 0.5, 1.15);
+  const trustScoreCut = Math.round((1 - trustMul) * 28);
+
+  const rawScore = num(scored.bestPropScore);
+  const penalized = Math.max(
+    0,
+    rawScore * trustMul - collisionPenalty - Math.max(evidencePenalty, bothSidesWeakPenalty) * 0.35 - trustScoreCut * 0.25
+  );
 
   return {
     ...pick,
     ...scored,
-    pickScore: Math.max(0, num(scored.bestPropScore) - collisionPenalty),
-    bestPropScore: Math.max(0, num(scored.bestPropScore) - collisionPenalty),
+    pickScore: penalized,
+    bestPropScore: penalized,
+    evidenceRankScoreCut: Number((rawScore - penalized).toFixed(2)),
   };
 }
 
@@ -178,7 +190,22 @@ function applySlateCollisionLayer(candidates = [], audit = {}) {
     unrealisticClusters: evaluation.unrealisticClusters,
     teamClusters: evaluation.teamClusters,
   };
-  return applySlateCollisionAdjustments(candidates, evaluation);
+  return applySlateCollisionAdjustments(candidates, evaluation).map((pick) => {
+    // Recompute evidence-final confidence once same-team opportunity is known.
+    if (String(pick.league || "").toUpperCase() !== "WNBA") return pick;
+    if (!pick.sameTeamOpportunityAudit && !pick.slateCollisionAudit) return pick;
+    const ddi = pick.decisionDataIntelligence || {};
+    return applyEvidenceFinalConfidenceToPick(pick, {
+      sameTeamOpportunity: pick.sameTeamOpportunityAudit || pick.slateCollisionAudit,
+      decisionDataIntelligence: {
+        ...ddi,
+        finalInfluence: {
+          ...(ddi.finalInfluence || {}),
+          confidenceAdjustment: 0,
+        },
+      },
+    });
+  });
 }
 
 function compareByScore(a = {}, b = {}) {
@@ -237,9 +264,30 @@ export function computeSafetyScore(pick = {}) {
     -8,
     8
   );
+
+  // P1-1 / P0-2 — material evidence ranking (BOTH_SIDES_WEAK, crowded same-team).
+  // Weak-sided or crowded props must not outrank cleaner props on raw confidence alone.
+  const flipAction = String(
+    pick.flipFirstAction ||
+      pick.decisionDataIntelligence?.flipFirstDecision?.action ||
+      pick.flipFirstDecision?.action ||
+      ""
+  ).toUpperCase();
+  const bothSidesWeakPenalty =
+    flipAction === "BOTH_SIDES_WEAK"
+      ? Math.max(num(pick.bothSidesWeakRankingPenalty), 22)
+      : num(pick.bothSidesWeakRankingPenalty);
+  const opportunityPenalty = Math.max(
+    num(pick.slateCollisionPenalty),
+    num(pick.sameTeamOpportunityAudit?.rankingPenalty),
+    num(pick.evidenceRankPenalty)
+  );
+  const trustMul = clamp(num(pick.projectionTrustMultiplier, 1) || 1, 0.5, 1.15);
+  const trustPenalty = Math.round((1 - trustMul) * 20);
+
   return (
     score +
-    confidence * 0.4 +
+    confidence * 0.28 +
     riskBonus +
     gateBonus +
     repairBonus +
@@ -249,7 +297,10 @@ export function computeSafetyScore(pick = {}) {
     debtPenalty -
     killPenalty -
     promotedPenalty -
-    gatePenalty
+    gatePenalty -
+    bothSidesWeakPenalty -
+    opportunityPenalty * 0.55 -
+    trustPenalty
   );
 }
 

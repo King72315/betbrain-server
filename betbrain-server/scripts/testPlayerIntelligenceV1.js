@@ -446,7 +446,7 @@ test("13 projection bias metrics surface", () => {
 });
 
 test("14 build tag present", () => {
-  assert.equal(PLAYER_INTELLIGENCE_BUILD_TAG, "courteedge-player-intel-v1");
+  assert.equal(PLAYER_INTELLIGENCE_BUILD_TAG, "courteedge-evidence-rank-v1");
 });
 
 test("15 rising opportunity produces positive opportunity stage", () => {

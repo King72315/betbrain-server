@@ -8,7 +8,7 @@
  */
 
 export const PLAYER_INTELLIGENCE_VERSION = "player-intelligence-v1";
-export const PLAYER_INTELLIGENCE_BUILD_TAG = "courteedge-player-intel-v1";
+export const PLAYER_INTELLIGENCE_BUILD_TAG = "courteedge-evidence-rank-v1";
 
 export const ROLE_STABILITY = Object.freeze([
   "VERY_STABLE",

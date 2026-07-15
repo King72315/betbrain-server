@@ -62,6 +62,13 @@ export {
 } from "./confidenceEngineV1.js";
 
 export {
+  EVIDENCE_FINAL_CONFIDENCE_VERSION,
+  EVIDENCE_FINAL_WEIGHTS,
+  computeEvidenceFinalConfidence,
+  applyEvidenceFinalConfidenceToPick,
+} from "./evidenceFinalConfidenceV1.js";
+
+export {
   MULTI_CONFIDENCE_VERSION,
   computeMultiComponentConfidence,
   applyMultiConfidenceToPick,
@@ -70,6 +77,7 @@ export {
 export {
   SAME_TEAM_OPPORTUNITY_VERSION,
   OPPORTUNITY_STATUS,
+  OPPORTUNITY_RANKING,
   evaluateSameTeamOpportunityCluster,
   underIndependentlyWins,
   evaluateSlateSameTeamOpportunity,

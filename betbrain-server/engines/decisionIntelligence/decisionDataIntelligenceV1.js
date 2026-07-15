@@ -15,10 +15,19 @@ import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 import {
   computePlayerIntelligenceConfidence,
 } from "../wnba/playerIntelligence/confidenceEngineV1.js";
+import { applyEvidenceFinalConfidenceToPick } from "../wnba/playerIntelligence/evidenceFinalConfidenceV1.js";
 import { getHistoricalAccuracyForPlayer } from "../wnba/playerIntelligence/historicalCalibrationEngineV1.js";
 
 export const DECISION_DATA_INTELLIGENCE_VERSION =
   "flip-first-decision-data-intelligence-v1";
+
+/** BOTH_SIDES_WEAK material selection constants (keep in learning pool). */
+export const BOTH_SIDES_WEAK_IMPACT = Object.freeze({
+  confidenceAdjustment: -22,
+  projectionTrustMultiplier: 0.78,
+  requiredEdgeBump: 0.4,
+  rankingPenalty: 22,
+});
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -164,11 +173,13 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   }
 
   if (flipDecision.action === "BOTH_SIDES_WEAK") {
-    confidenceAdjustment -= 18;
+    confidenceAdjustment -= Math.abs(BOTH_SIDES_WEAK_IMPACT.confidenceAdjustment);
     decisionAdjustment = "PASS";
     bestSixImpact = "BOARD_OR_NO_BET";
     resultsAdmissionImpact = "BLOCK";
-    reasons.push("Both sides weak after flip-first review — directional confidence cut.");
+    reasons.push(
+      "Both sides weak after flip-first review — confidence, trust, and ranking cut (kept in pool)."
+    );
   }
 
   const market = ddi.marketIntelligence || {};
@@ -346,13 +357,25 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
         riskDebtIds: pick.playerProfileCalibration?.riskDebtIds || [],
         riskRepairIds: pick.playerProfileCalibration?.riskRepairIds || [],
       },
+      projectionGap: (() => {
+        const proj = Number(pick.projection);
+        const line = Number(pick.line ?? pick.wnbaDataCard?.bookLine);
+        if (!Number.isFinite(proj) || !Number.isFinite(line)) return null;
+        const s = normalizeSide(pick.side || pick.pick || ddi.flipFirstDecision?.finalSide);
+        return s === "UNDER" ? line - proj : proj - line;
+      })(),
+      gapFloor:
+        pick.wnbaDataModeAudit?.gapFloorApplied ??
+        pick.underGapFloorUsed ??
+        pick.wnbaReader?.underGapFloorUsed ??
+        null,
     });
   } catch {
     multiConf = null;
   }
 
   const blendedFromLegacy = Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65);
-  const finalConfidence = Math.max(
+  let finalConfidence = Math.max(
     12,
     Math.min(
       92,
@@ -362,7 +385,10 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     )
   );
 
-  return {
+  const flipAction = String(ddi.flipFirstDecision?.action || "").toUpperCase();
+  const bothSidesWeak = flipAction === "BOTH_SIDES_WEAK";
+
+  let next = {
     ...pick,
     decisionDataIntelligence: ddi,
     decisionDataIntelligenceVersion: DECISION_DATA_INTELLIGENCE_VERSION,
@@ -379,6 +405,57 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     multiComponentConfidence: multiConf,
     confidenceComponents: multiConf?.components || null,
   };
+
+  // P1-1 — BOTH_SIDES_WEAK material selection impact (trust + required edge + ranking).
+  // Keep in learning pool — do not hard-drop.
+  if (bothSidesWeak) {
+    const priorTrust = num(next.projectionTrustMultiplier, 1) || 1;
+    const trustMul = Math.min(
+      priorTrust,
+      BOTH_SIDES_WEAK_IMPACT.projectionTrustMultiplier
+    );
+    const cal = { ...(next.playerProfileCalibration || {}) };
+    cal.overRequiredEdgeAdjustment = Math.max(
+      num(cal.overRequiredEdgeAdjustment, 0),
+      BOTH_SIDES_WEAK_IMPACT.requiredEdgeBump
+    );
+    cal.underRequiredEdgeAdjustment = Math.max(
+      num(cal.underRequiredEdgeAdjustment, 0),
+      BOTH_SIDES_WEAK_IMPACT.requiredEdgeBump
+    );
+    next = {
+      ...next,
+      bothSidesWeak: true,
+      projectionTrustMultiplier: trustMul,
+      projectionTrustPenalty: Math.max(
+        num(next.projectionTrustPenalty),
+        Math.round((1 - trustMul) * 100)
+      ),
+      evidenceRankPenalty: Math.max(
+        num(next.evidenceRankPenalty),
+        BOTH_SIDES_WEAK_IMPACT.rankingPenalty
+      ),
+      bothSidesWeakRankingPenalty: BOTH_SIDES_WEAK_IMPACT.rankingPenalty,
+      bothSidesWeakRequiredEdgeBump: BOTH_SIDES_WEAK_IMPACT.requiredEdgeBump,
+      playerProfileCalibration: cal,
+    };
+  }
+
+  // P0-1 — Recalculate confidence after all profile/gate/side/market/team evidence.
+  // Influence is already folded into directionalConfidence — do not apply twice.
+  next = applyEvidenceFinalConfidenceToPick(next, {
+    decisionDataIntelligence: {
+      ...ddi,
+      finalInfluence: {
+        ...(ddi.finalInfluence || {}),
+        confidenceAdjustment: 0,
+      },
+    },
+    dataConfidence,
+    side: normalizeSide(next.side || next.pick || ddi.flipFirstDecision?.finalSide),
+  });
+
+  return next;
 }
 
 export function buildFlipFirstCompactLabels(ddi = {}) {

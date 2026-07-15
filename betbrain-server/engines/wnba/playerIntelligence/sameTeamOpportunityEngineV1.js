@@ -7,12 +7,21 @@
  * eval; flip only if Under independently wins; else reduce ranking only.
  */
 
-export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v1";
+export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v2";
 export const OPPORTUNITY_STATUS = Object.freeze([
   "SUPPORTED",
   "QUESTIONABLE",
   "CONTRADICTED",
 ]);
+
+/** Ranking / trust constants — material score impact, not warnings. */
+export const OPPORTUNITY_RANKING = Object.freeze({
+  QUESTIONABLE_BASE: 14,
+  CONTRADICTED_BASE: 28,
+  TRUST_QUESTIONABLE: 0.9,
+  TRUST_CONTRADICTED_WEAK: 0.72,
+  TRUST_CONTRADICTED_PEER: 0.82,
+});
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -162,16 +171,26 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
     const row = rankedWeakFirst[i];
     const strengthRank = rankedWeakFirst.length - i; // 1 = strongest
     let rankingPenalty = 0;
+    let projectionTrustMultiplier = 1;
     let recommendation = "KEEP_OVER";
     let allowFlipEval = false;
 
     if (status === "QUESTIONABLE") {
-      rankingPenalty = Math.max(0, 10 - i * 3);
+      // Weaker overs take larger ranking + trust cuts; keep cluster if budget still viable.
+      rankingPenalty = Math.max(0, OPPORTUNITY_RANKING.QUESTIONABLE_BASE - i * 4);
+      projectionTrustMultiplier =
+        i === 0
+          ? OPPORTUNITY_RANKING.TRUST_QUESTIONABLE - 0.04
+          : OPPORTUNITY_RANKING.TRUST_QUESTIONABLE;
       recommendation = i === 0 ? "MONITOR" : "REDUCE_RANKING";
     }
     if (status === "CONTRADICTED") {
-      rankingPenalty = Math.max(0, 22 - i * 5);
-      allowFlipEval = i === 0; // weakest only
+      rankingPenalty = Math.max(0, OPPORTUNITY_RANKING.CONTRADICTED_BASE - i * 6);
+      allowFlipEval = i === 0; // weakest only — never auto-flip
+      projectionTrustMultiplier =
+        i === 0
+          ? OPPORTUNITY_RANKING.TRUST_CONTRADICTED_WEAK
+          : OPPORTUNITY_RANKING.TRUST_CONTRADICTED_PEER;
       recommendation = allowFlipEval
         ? "EVALUATE_UNDER_INDEPENDENTLY"
         : "REDUCE_RANKING_NO_FORCE_UNDER";
@@ -187,6 +206,8 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
       status,
       pressureScore,
       rankingPenalty,
+      scorePenalty: rankingPenalty,
+      projectionTrustMultiplier,
       recommendation,
       allowFlipEval,
       strengthRank,
@@ -300,18 +321,29 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
     if (!audit) return pick;
 
     const rankingPenalty = num(audit.rankingPenalty);
+    const trustMul = num(audit.projectionTrustMultiplier, 1) || 1;
+    const priorTrust = num(pick.projectionTrustMultiplier, 1) || 1;
     let next = {
       ...pick,
       sameTeamOpportunityStatus: audit.status,
       sameTeamOpportunityAudit: audit,
       // Keep slateCollisionPenalty channel so Best 6 scoring continues to subtract
       slateCollisionPenalty: Math.max(num(pick.slateCollisionPenalty), rankingPenalty),
+      // Material projection trust cut for crowded/unrealistic same-team Overs
+      projectionTrustMultiplier: Math.min(priorTrust, trustMul),
+      projectionTrustPenalty: Math.max(
+        num(pick.projectionTrustPenalty),
+        Math.round((1 - Math.min(priorTrust, trustMul)) * 100)
+      ),
+      evidenceRankPenalty: Math.max(num(pick.evidenceRankPenalty), rankingPenalty),
       slateCollisionAudit: {
         ...(pick.slateCollisionAudit || {}),
         opportunityVersion: SAME_TEAM_OPPORTUNITY_VERSION,
         status: audit.status,
         pressureScore: audit.pressureScore,
         rankingPenalty,
+        scorePenalty: rankingPenalty,
+        projectionTrustMultiplier: trustMul,
         recommendation: audit.recommendation,
         autoFlip: false,
       },
