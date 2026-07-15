@@ -191,16 +191,22 @@ function applySlateCollisionLayer(candidates = [], audit = {}) {
     teamClusters: evaluation.teamClusters,
   };
   return applySlateCollisionAdjustments(candidates, evaluation).map((pick) => {
-    // Recompute evidence-final confidence once same-team opportunity is known.
+    // Recompute evidence-final confidence after slate opportunity evidence is complete.
     if (String(pick.league || "").toUpperCase() !== "WNBA") return pick;
-    if (!pick.sameTeamOpportunityAudit && !pick.slateCollisionAudit) return pick;
     const ddi = pick.decisionDataIntelligence || {};
+    const teamOpp =
+      pick.sameTeamOpportunityAudit ||
+      pick.slateCollisionAudit ||
+      ddi.sameTeamOpportunity ||
+      ddi.sameTeamCollision ||
+      {};
     return applyEvidenceFinalConfidenceToPick(pick, {
-      sameTeamOpportunity: pick.sameTeamOpportunityAudit || pick.slateCollisionAudit,
+      sameTeamOpportunity: teamOpp,
       decisionDataIntelligence: {
         ...ddi,
         finalInfluence: {
           ...(ddi.finalInfluence || {}),
+          // Influence already folded into directionalConfidence — avoid double-count.
           confidenceAdjustment: 0,
         },
       },
@@ -275,7 +281,7 @@ export function computeSafetyScore(pick = {}) {
   ).toUpperCase();
   const bothSidesWeakPenalty =
     flipAction === "BOTH_SIDES_WEAK"
-      ? Math.max(num(pick.bothSidesWeakRankingPenalty), 22)
+      ? Math.max(num(pick.bothSidesWeakRankingPenalty), 32)
       : num(pick.bothSidesWeakRankingPenalty);
   const opportunityPenalty = Math.max(
     num(pick.slateCollisionPenalty),

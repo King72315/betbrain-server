@@ -52,6 +52,7 @@ export {
   computePlayerIntelligenceConfidence,
   confidenceEngineDirectionalDelta,
   scoreProjectionQuality,
+  scoreProjectionEdgeStrength,
   scorePlayerStability,
   scoreUsageStability,
   scoreHistoricalAccuracy,
@@ -77,7 +78,7 @@ export {
 export {
   SAME_TEAM_OPPORTUNITY_VERSION,
   OPPORTUNITY_STATUS,
-  OPPORTUNITY_RANKING,
+  resolveImpliedTeamTotal,
   evaluateSameTeamOpportunityCluster,
   underIndependentlyWins,
   evaluateSlateSameTeamOpportunity,

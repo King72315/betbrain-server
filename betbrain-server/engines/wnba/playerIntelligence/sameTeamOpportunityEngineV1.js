@@ -4,24 +4,15 @@
  * Status: SUPPORTED | QUESTIONABLE | CONTRADICTED
  *
  * CONTRADICTED: never auto-flip. Identify weakest projection; full opposite-side
- * eval; flip only if Under independently wins; else reduce ranking only.
+ * eval; flip only if Under independently wins; else reduce ranking + projection trust.
  */
 
-export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v2";
+export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v2-rank";
 export const OPPORTUNITY_STATUS = Object.freeze([
   "SUPPORTED",
   "QUESTIONABLE",
   "CONTRADICTED",
 ]);
-
-/** Ranking / trust constants — material score impact, not warnings. */
-export const OPPORTUNITY_RANKING = Object.freeze({
-  QUESTIONABLE_BASE: 14,
-  CONTRADICTED_BASE: 28,
-  TRUST_QUESTIONABLE: 0.9,
-  TRUST_CONTRADICTED_WEAK: 0.72,
-  TRUST_CONTRADICTED_PEER: 0.82,
-});
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -45,6 +36,35 @@ function isPointsOver(pick = {}) {
   const side = normalizeSide(pick.side || pick.pick || pick.currentEngineSide);
   const stat = String(pick.stat || pick.propType || "points").toLowerCase();
   return side === "OVER" && (stat.includes("point") || stat === "pts" || !pick.stat);
+}
+
+/**
+ * Resolve implied team total from pick / game context (home vs away).
+ */
+export function resolveImpliedTeamTotal(pick = {}) {
+  const card = pick.wnbaDataCard || {};
+  const ctx = pick.wnbaGameContext || {};
+  const env = card.gameEnvironment || {};
+  const direct =
+    num(pick.impliedTeamTotal) ||
+    num(pick.impliedTeamTotalAudit?.value) ||
+    num(ctx.impliedTeamTotal) ||
+    num(env.impliedTeamTotal);
+  if (direct > 0) return direct;
+
+  const team = cleanTeam(pick.team || pick.teamKey || ctx.playerTeam);
+  const home = cleanTeam(ctx.homeTeam || pick.homeTeam || card.homeTeam);
+  const away = cleanTeam(ctx.awayTeam || pick.awayTeam || card.awayTeam);
+  const homeTotal = num(ctx.impliedHomeTotal ?? env.impliedHomeTotal);
+  const awayTotal = num(ctx.impliedAwayTotal ?? env.impliedAwayTotal);
+
+  if (team && home && team === home && homeTotal > 0) return homeTotal;
+  if (team && away && team === away && awayTotal > 0) return awayTotal;
+
+  // Fallback: if only one side known and team matches neither label
+  if (homeTotal > 0 && awayTotal <= 0) return homeTotal;
+  if (awayTotal > 0 && homeTotal <= 0) return awayTotal;
+  return 0;
 }
 
 function pickMetrics(pick = {}) {
@@ -76,11 +96,7 @@ function pickMetrics(pick = {}) {
     overGap: num(pick.overGap ?? pick.wnbaReader?.overGap),
     underCaseScore: num(pick.wnbaReader?.underCase?.score ?? pick.underCaseScore),
     overCaseScore: num(pick.wnbaReader?.overCase?.score ?? pick.overCaseScore),
-    impliedTeamTotal: num(
-      pick.impliedTeamTotalAudit?.value ??
-        pick.wnbaGameContext?.impliedTeamTotal ??
-        card.gameEnvironment?.impliedTeamTotal
-    ),
+    impliedTeamTotal: resolveImpliedTeamTotal(pick),
   };
 }
 
@@ -90,78 +106,103 @@ function pickMetrics(pick = {}) {
 export function evaluateSameTeamOpportunityCluster(overs = []) {
   const reasons = [];
   const demands = overs.map(pickMetrics);
-  const projectedTeamPoints = demands
-    .map((d) => d.impliedTeamTotal)
-    .find((v) => v > 0) || 0;
+  const projectedTeamPoints =
+    demands.map((d) => d.impliedTeamTotal).find((v) => v > 0) || 0;
   const combinedPlayerProjected = demands.reduce((s, d) => s + d.projection, 0);
   const combinedExpectedFga = demands.reduce((s, d) => s + d.expectedFga, 0);
   const combinedExpectedFta = demands.reduce((s, d) => s + d.expectedFta, 0);
 
-  // Remaining team opportunity = projected team pts − combined player projections
   const remainingOpportunity =
     projectedTeamPoints > 0
       ? projectedTeamPoints - combinedPlayerProjected
       : null;
 
-  // Usage ceiling proxy (~ team FGA share for featured scorers)
+  const usageShare =
+    projectedTeamPoints > 0
+      ? combinedPlayerProjected / projectedTeamPoints
+      : null;
+
   const usagePressure =
     combinedExpectedFga > 0
       ? combinedExpectedFga / Math.max(overs.length, 1)
       : 0;
 
   let pressureScore = 0;
-  if (overs.length >= 2) pressureScore += 15;
+  if (overs.length >= 2) pressureScore += 12;
   if (overs.length >= 3) pressureScore += 18;
+  if (overs.length >= 4) pressureScore += 10;
 
   if (projectedTeamPoints > 0) {
     const demandRatio = combinedPlayerProjected / projectedTeamPoints;
-    if (demandRatio >= 1.05) {
-      pressureScore += 35;
+    if (demandRatio >= 1.0) {
+      pressureScore += 40;
       reasons.push(
         `Combined projections ${combinedPlayerProjected.toFixed(1)} exceed team total ${projectedTeamPoints.toFixed(1)}.`
       );
-    } else if (demandRatio >= 0.88) {
-      pressureScore += 18;
+    } else if (demandRatio >= 0.85) {
+      pressureScore += 28;
       reasons.push("Combined projections consume most of team opportunity.");
-    } else if (demandRatio <= 0.7) {
-      pressureScore -= 8;
+    } else if (demandRatio >= 0.72) {
+      pressureScore += 16;
+      reasons.push("Combined projections press team scoring budget.");
+    } else if (demandRatio <= 0.55) {
+      pressureScore -= 6;
       reasons.push("Combined projections leave healthy remaining team opportunity.");
     }
 
-    if (remainingOpportunity != null && remainingOpportunity < 8 && overs.length >= 2) {
-      pressureScore += 12;
+    if (remainingOpportunity != null && remainingOpportunity < 12 && overs.length >= 2) {
+      pressureScore += 14;
       reasons.push(
-        `Remaining team opportunity thin (${remainingOpportunity.toFixed(1)} pts).`
+        `Remaining teammate scoring thin (${remainingOpportunity.toFixed(1)} pts).`
+      );
+    } else if (remainingOpportunity != null && remainingOpportunity < 20 && overs.length >= 2) {
+      pressureScore += 6;
+      reasons.push(
+        `Remaining teammate scoring tight (${remainingOpportunity.toFixed(1)} pts).`
       );
     }
   } else {
     reasons.push("Projected team points unavailable — budget check partial.");
+    // Without team totals, still pressure from combined volume across multiple overs
+    if (overs.length >= 2 && combinedPlayerProjected >= 38) {
+      pressureScore += 14;
+      reasons.push("High combined player projections without team total validation.");
+    }
   }
 
-  if (combinedExpectedFga >= 52) {
-    pressureScore += 10;
+  if (combinedExpectedFga >= 48) {
+    pressureScore += 14;
     reasons.push("Combined expected FGA presses team shot budget.");
+  } else if (combinedExpectedFga >= 36) {
+    pressureScore += 8;
+    reasons.push("Combined expected FGA elevated across teammate overs.");
   }
-  if (combinedExpectedFta >= 16) {
+  if (combinedExpectedFta >= 14) {
     pressureScore += 6;
     reasons.push("Combined expected FTA elevated across teammate overs.");
   }
-  if (usagePressure >= 16) {
-    pressureScore += 6;
+  if (usagePressure >= 15) {
+    pressureScore += 8;
     reasons.push("Average expected FGA per Over looks heavy for shared usage.");
+  }
+
+  // Weak-edge overs amplify cluster pressure (crowded thin Overs)
+  const thinOvers = demands.filter((d) => d.projection - d.line < 2.0).length;
+  if (thinOvers >= 2 && overs.length >= 2) {
+    pressureScore += 10;
+    reasons.push(`${thinOvers} clustered Overs carry thin projection edges.`);
   }
 
   pressureScore = Math.max(0, Math.min(100, pressureScore));
 
   let status = "SUPPORTED";
-  if (pressureScore >= 48) status = "CONTRADICTED";
-  else if (pressureScore >= 28) status = "QUESTIONABLE";
+  if (pressureScore >= 42) status = "CONTRADICTED";
+  else if (pressureScore >= 24) status = "QUESTIONABLE";
 
-  // Weakest projection = largest projection−line (most aggressive Over) or lowest pickScore
+  // Weakest Over = smallest projection−line edge, then lowest pickScore
   const rankedWeakFirst = [...demands].sort((a, b) => {
     const aEdge = a.projection - a.line;
     const bEdge = b.projection - b.line;
-    // Weakest Over: smallest edge / worst score
     return aEdge - bEdge || a.pickScore - b.pickScore;
   });
   const weakest = rankedWeakFirst[0] || null;
@@ -169,28 +210,22 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
   const propAudits = new Map();
   for (let i = 0; i < rankedWeakFirst.length; i += 1) {
     const row = rankedWeakFirst[i];
-    const strengthRank = rankedWeakFirst.length - i; // 1 = strongest
+    const strengthRank = rankedWeakFirst.length - i;
     let rankingPenalty = 0;
     let projectionTrustMultiplier = 1;
     let recommendation = "KEEP_OVER";
     let allowFlipEval = false;
 
     if (status === "QUESTIONABLE") {
-      // Weaker overs take larger ranking + trust cuts; keep cluster if budget still viable.
-      rankingPenalty = Math.max(0, OPPORTUNITY_RANKING.QUESTIONABLE_BASE - i * 4);
-      projectionTrustMultiplier =
-        i === 0
-          ? OPPORTUNITY_RANKING.TRUST_QUESTIONABLE - 0.04
-          : OPPORTUNITY_RANKING.TRUST_QUESTIONABLE;
+      // Meaningful demotion for weaker cluster members
+      rankingPenalty = Math.max(0, 18 - i * 5);
+      projectionTrustMultiplier = i === 0 ? 0.86 : Math.max(0.9, 0.96 - i * 0.02);
       recommendation = i === 0 ? "MONITOR" : "REDUCE_RANKING";
     }
     if (status === "CONTRADICTED") {
-      rankingPenalty = Math.max(0, OPPORTUNITY_RANKING.CONTRADICTED_BASE - i * 6);
-      allowFlipEval = i === 0; // weakest only — never auto-flip
-      projectionTrustMultiplier =
-        i === 0
-          ? OPPORTUNITY_RANKING.TRUST_CONTRADICTED_WEAK
-          : OPPORTUNITY_RANKING.TRUST_CONTRADICTED_PEER;
+      rankingPenalty = Math.max(0, 36 - i * 8);
+      projectionTrustMultiplier = i === 0 ? 0.72 : Math.max(0.8, 0.9 - i * 0.04);
+      allowFlipEval = i === 0;
       recommendation = allowFlipEval
         ? "EVALUATE_UNDER_INDEPENDENTLY"
         : "REDUCE_RANKING_NO_FORCE_UNDER";
@@ -206,7 +241,6 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
       status,
       pressureScore,
       rankingPenalty,
-      scorePenalty: rankingPenalty,
       projectionTrustMultiplier,
       recommendation,
       allowFlipEval,
@@ -214,10 +248,12 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
       weaknessRank: i + 1,
       projection: row.projection,
       line: row.line,
+      expectedFga: row.expectedFga,
+      expectedFta: row.expectedFta,
+      usageShare: usageShare != null ? Number(usageShare.toFixed(3)) : null,
       remainingOpportunity:
         remainingOpportunity != null ? Number(remainingOpportunity.toFixed(1)) : null,
       reasons: reasons.slice(0, 6),
-      // No artificial balancing / no auto-flip flag
       autoFlip: false,
     });
   }
@@ -230,6 +266,7 @@ export function evaluateSameTeamOpportunityCluster(overs = []) {
     combinedPlayerProjected: Number(combinedPlayerProjected.toFixed(1)),
     combinedExpectedFga: Number(combinedExpectedFga.toFixed(1)),
     combinedExpectedFta: Number(combinedExpectedFta.toFixed(1)),
+    usageShare: usageShare != null ? Number(usageShare.toFixed(3)) : null,
     remainingOpportunity:
       remainingOpportunity != null ? Number(remainingOpportunity.toFixed(1)) : null,
     weakestPlayer: weakest?.player || null,
@@ -250,7 +287,6 @@ export function underIndependentlyWins(pick = {}, audit = {}) {
   const underCase = m.underCaseScore;
   const overCase = m.overCaseScore;
 
-  // Under must clear a meaningful gap and beat Over case — no forced flip
   const gapOk = underGap >= 1.5 && underGap > overGap;
   const caseOk =
     underCase > 0 && overCase > 0
@@ -284,6 +320,8 @@ export function evaluateSlateSameTeamOpportunity(candidates = []) {
       projectedTeamPoints: cluster.projectedTeamPoints,
       combinedPlayerProjected: cluster.combinedPlayerProjected,
       remainingOpportunity: cluster.remainingOpportunity,
+      usageShare: cluster.usageShare,
+      combinedExpectedFga: cluster.combinedExpectedFga,
       weakestPlayer: cluster.weakestPlayer,
       players: cluster.players,
       reasons: cluster.reasons,
@@ -309,8 +347,8 @@ export function evaluateSlateSameTeamOpportunity(candidates = []) {
 }
 
 /**
- * Apply opportunity budgeting as ranking penalty (and optional Under flip only when independent).
- * Preserves Best 6 size / lifecycle — no auto-reject.
+ * Apply opportunity budgeting as ranking + projection-trust penalties.
+ * Preserves Best 6 size / lifecycle — no auto-reject / no forced flip.
  */
 export function applySameTeamOpportunityAdjustments(candidates = [], evaluation = null) {
   const evalResult = evaluation || evaluateSlateSameTeamOpportunity(candidates);
@@ -321,29 +359,24 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
     if (!audit) return pick;
 
     const rankingPenalty = num(audit.rankingPenalty);
-    const trustMul = num(audit.projectionTrustMultiplier, 1) || 1;
+    const trustMult = num(audit.projectionTrustMultiplier, 1) || 1;
     const priorTrust = num(pick.projectionTrustMultiplier, 1) || 1;
+
     let next = {
       ...pick,
       sameTeamOpportunityStatus: audit.status,
       sameTeamOpportunityAudit: audit,
+      projectionTrustMultiplier: Math.min(priorTrust, trustMult),
+      sameTeamOpportunityTrustMult: trustMult,
       // Keep slateCollisionPenalty channel so Best 6 scoring continues to subtract
       slateCollisionPenalty: Math.max(num(pick.slateCollisionPenalty), rankingPenalty),
-      // Material projection trust cut for crowded/unrealistic same-team Overs
-      projectionTrustMultiplier: Math.min(priorTrust, trustMul),
-      projectionTrustPenalty: Math.max(
-        num(pick.projectionTrustPenalty),
-        Math.round((1 - Math.min(priorTrust, trustMul)) * 100)
-      ),
-      evidenceRankPenalty: Math.max(num(pick.evidenceRankPenalty), rankingPenalty),
       slateCollisionAudit: {
         ...(pick.slateCollisionAudit || {}),
         opportunityVersion: SAME_TEAM_OPPORTUNITY_VERSION,
         status: audit.status,
         pressureScore: audit.pressureScore,
         rankingPenalty,
-        scorePenalty: rankingPenalty,
-        projectionTrustMultiplier: trustMul,
+        projectionTrustMultiplier: trustMult,
         recommendation: audit.recommendation,
         autoFlip: false,
       },
@@ -355,7 +388,6 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
         sameTeamOpportunityFlipEligible: true,
         sameTeamOpportunityFlipReason:
           "CONTRADICTED weakest Over — Under independently wins; flip allowed (not forced).",
-        // Do not mutate side here — Flip-First / decision stack owns side flips.
         decisionRecomputeReason:
           pick.decisionRecomputeReason || "same_team_opportunity_under_independent",
       };
@@ -378,7 +410,6 @@ export function evaluateSameTeamUsageCollisionViaOpportunity(pick = {}, options 
   const result = evaluateSameTeamOpportunityForPick(pick, options);
   return {
     ...result,
-    // Preserve collision-shaped fields for DDI consumers
     opportunityStatus: result.status,
     collisionScore: result.pressureScore ?? result.collisionScore ?? 0,
   };
@@ -446,7 +477,10 @@ export function evaluateSameTeamOpportunityForPick(pick = {}, options = {}) {
     combinedPlayerProjected: cluster.combinedPlayerProjected,
     projectedTeamPoints: cluster.projectedTeamPoints,
     remainingOpportunity: cluster.remainingOpportunity,
+    usageShare: cluster.usageShare,
     weakestPlayer: cluster.weakestPlayer,
+    rankingPenalty: audit.rankingPenalty || 0,
+    projectionTrustMultiplier: audit.projectionTrustMultiplier ?? 1,
     sideImpact,
     recommendation,
     autoFlip: false,

@@ -25,8 +25,8 @@ export const DECISION_DATA_INTELLIGENCE_VERSION =
 export const BOTH_SIDES_WEAK_IMPACT = Object.freeze({
   confidenceAdjustment: -22,
   projectionTrustMultiplier: 0.78,
-  requiredEdgeBump: 0.4,
-  rankingPenalty: 22,
+  requiredEdgeBump: 0.45,
+  rankingPenalty: 32,
 });
 
 function num(value, fallback = 0) {
@@ -119,6 +119,9 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   let decisionAdjustment = "KEEP";
   let bestSixImpact = "NEUTRAL";
   let resultsAdmissionImpact = "NEUTRAL";
+  let projectionTrustMultiplier = 1;
+  let requiredEdgeBump = 0;
+  let rankingPenalty = 0;
 
   if (flipDecision.flipRecommended) {
     confidenceAdjustment += 4;
@@ -175,10 +178,13 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   if (flipDecision.action === "BOTH_SIDES_WEAK") {
     confidenceAdjustment -= Math.abs(BOTH_SIDES_WEAK_IMPACT.confidenceAdjustment);
     decisionAdjustment = "PASS";
-    bestSixImpact = "BOARD_OR_NO_BET";
-    resultsAdmissionImpact = "BLOCK";
+    bestSixImpact = "RANK_PENALTY_KEEP_LEARNING";
+    resultsAdmissionImpact = "KEEP_LEARNING";
+    projectionTrustMultiplier = BOTH_SIDES_WEAK_IMPACT.projectionTrustMultiplier;
+    requiredEdgeBump = BOTH_SIDES_WEAK_IMPACT.requiredEdgeBump;
+    rankingPenalty = BOTH_SIDES_WEAK_IMPACT.rankingPenalty;
     reasons.push(
-      "Both sides weak after flip-first review — confidence, trust, and ranking cut (kept in pool)."
+      "Both sides weak after flip-first review — confidence, trust, and ranking cut (kept in learning pool)."
     );
   }
 
@@ -210,6 +216,9 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     decisionAdjustment,
     bestSixImpact,
     resultsAdmissionImpact,
+    projectionTrustMultiplier,
+    requiredEdgeBump,
+    rankingPenalty,
     reasons: reasons.slice(0, 8),
   };
 }
