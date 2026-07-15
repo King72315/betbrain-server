@@ -37,6 +37,10 @@ import {
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
+  recordGradedPropCalibration,
+  attachProfileLabFieldsToTracked,
+} from "../engines/wnba/playerIntelligence/index.js";
+import {
   buildTrackingQualityAudit,
   evaluateWnbaTrackingEligibility,
   isWnbaQualityGatePick,
@@ -2012,7 +2016,7 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     auditSideMatch: tracked.auditSideMatch,
   });
 
-  return {
+  let graded = {
     ...tracked,
     status: current.result || "pending",
     actualStat: current.actualStat,
@@ -2035,6 +2039,20 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     fairLineShadowMargin: fairShadow.margin,
     sideComparison,
   };
+
+  // Phase 5–6: feed historical calibration + Lab profile snapshot (internal only)
+  try {
+    const calib = recordGradedPropCalibration(graded, {
+      season: options.season || "current",
+    });
+    if (calib?.recorded) {
+      graded = attachProfileLabFieldsToTracked(graded, calib.record);
+    }
+  } catch {
+    /* calibration store optional — never block grading */
+  }
+
+  return graded;
 }
 
 function appendLineHistory(existing = {}, nextLine = 0) {

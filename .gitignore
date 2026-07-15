@@ -47,3 +47,9 @@ betbrain-server/board-cache.json
 betbrain-server/board-cache.json.tmp
 betbrain-server/courtedge-scheduler-state-v1.json
 betbrain-server/courtedge-scheduler-state-v1.json.tmp
+
+# Player Intelligence durable stores (runtime learning caches)
+betbrain-server/player-intelligence-cache-v1.json
+betbrain-server/player-intelligence-cache-v1.json.tmp
+betbrain-server/player-intelligence-calibration-v1.json
+betbrain-server/player-intelligence-calibration-v1.json.tmp

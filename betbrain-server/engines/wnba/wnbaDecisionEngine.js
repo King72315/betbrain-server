@@ -30,6 +30,12 @@ import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { CONFIG } from "../../config.js";
 import { buildWnbaPlayerPropDataCard } from "./wnbaPlayerPropDataCard.js";
 import { readWnbaProp, mapReaderToTracking } from "./wnbaReaderEngine.js";
+import {
+  computeMultiComponentConfidence,
+  confidenceEngineDirectionalDelta,
+  getHistoricalAccuracyForPlayer,
+  getLearnedCalibrationForProfile,
+} from "./playerIntelligence/index.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
 const CONFIDENCE_BLEND_VERSION = "v2-data-directional-side-symmetry";
@@ -331,7 +337,35 @@ export async function evaluateWnbaPropDecision(context = {}) {
     12,
     92
   );
-  let directionalConfidence = confidenceBeforeProfile;
+
+  // Phase 3 — multi-component confidence (not gap-primary). Soft influence only.
+  const intelProfile =
+    dataCard.playerIntelligenceProfile ||
+    dataCard.playerRoleProfile?.playerIntelligence ||
+    dataCard.playerRoleProfile ||
+    {};
+  const multiConfidence = computeMultiComponentConfidence({
+    profile: intelProfile,
+    projectionGap: null, // deliberately unused as primary driver
+    dataConfidence,
+    historicalAccuracy:
+      getHistoricalAccuracyForPlayer(dataCard.playerId) ||
+      getLearnedCalibrationForProfile(intelProfile) ||
+      {},
+    market: {
+      marketQuality: prop.marketQuality ?? dataCard.marketQuality,
+    },
+    sameTeamOpportunity: {},
+    decisionDataIntelligence: {},
+    recentCalibration: getLearnedCalibrationForProfile(intelProfile) || {},
+    side: pickSide,
+    priorRawConfidence: confidenceBeforeProfile,
+  });
+  const confPull = confidenceEngineDirectionalDelta(
+    { finalConfidence: multiConfidence.finalConfidence },
+    confidenceBeforeProfile
+  );
+  let directionalConfidence = confPull.after;
   let finalConfidence = clamp(
     Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65),
     12,
@@ -385,9 +419,11 @@ export async function evaluateWnbaPropDecision(context = {}) {
     dataConfidence,
     directionalConfidence,
     finalConfidence,
-    confidenceBlendVersion: "v2-data-directional-side-symmetry",
+    confidenceBlendVersion: "v3-multi-component-player-intel",
     confidenceBlendFormula:
-      "final=0.35*dataConfidence+0.65*directional; directional starts 0.7*reader+0.3*winProb then DDI",
+      "final=0.35*data+0.65*directional; directional=reader/win + profileAdj + multiComponent soft pull (gap not primary); then DDI",
+    multiComponentConfidence: multiConfidence,
+    confidenceComponents: multiConfidence.components,
     confidence: finalConfidence,
     strength: finalConfidence >= 75 ? "Strong" : finalConfidence >= 60 ? "Moderate" : "Lean",
     tier,

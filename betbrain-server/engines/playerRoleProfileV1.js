@@ -2,10 +2,21 @@
  * Player Role Profile v1 — data-driven role classification + bounded calibration.
  * Classifies prop-listed players by measurable behavior (not reputation).
  * Profile alone must not force side flip, TRACK, or hard-kill override.
+ *
+ * CourtEdge Player Intelligence v1: every profile is also a mathematical
+ * Player Intelligence profile (roleStabilityScore, usageProfile, etc.).
+ * Calibration prefers intelligence-driven knobs when available.
  */
 
+import {
+  buildPlayerIntelligenceProfile,
+  getStoredPlayerProfile,
+  getCalibrationHintsForPlayer,
+  buildIntelligenceProjectionCalibration,
+} from "./wnba/playerIntelligence/index.js";
+
 export const PLAYER_ROLE_PROFILE_VERSION = "player-role-profile-v1";
-export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1.1";
+export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1.2";
 
 const MIN_FAVORABLE_SAMPLE = 5;
 const MAX_RECENT_GAMES = 10;
@@ -392,6 +403,9 @@ export function buildPlayerRoleProfile({
   roleChange = {},
   availabilityContext = {},
   gamesPlayed = null,
+  playerId = null,
+  season = "current",
+  line = null,
 } = {}) {
   const missingProfileFields = [];
   const profileDataSources = [];
@@ -545,14 +559,47 @@ export function buildPlayerRoleProfile({
     roleChange,
   });
 
+  const prior =
+    playerId != null ? getStoredPlayerProfile(playerId, season) : null;
+  const intelligence = buildPlayerIntelligenceProfile({
+    playerId,
+    season,
+    last5,
+    seasonGames,
+    seasonMinutes,
+    seasonFga,
+    seasonFta,
+    seasonPoints,
+    bookCount,
+    line,
+    availabilityContext: {
+      ...availabilityContext,
+      teammateOut: Boolean(availabilityContext?.teammateOut || roleChange?.teammateOutBoost),
+    },
+    priorProfile: prior,
+    gamesPlayed: num(gamesPlayed) ?? sampleSize,
+  });
+
+  // Adaptive profile confidence: prefer intelligence accumulation curve
+  const adaptiveConfidence = intelligence.profileConfidence ?? profileConfidence;
+
   return {
     version: PLAYER_ROLE_PROFILE_VERSION,
+    intelligenceVersion: intelligence.version,
     roleStability,
     minutesLevel,
     scoringVolume,
     shotVolumeStability,
     scoringVolatility,
     roleDirection,
+    // Phase 1 mathematical enums (Player Intelligence)
+    roleStabilityScore: intelligence.roleStabilityScore,
+    usageProfile: intelligence.usageProfile,
+    scoringProfile: intelligence.scoringProfile,
+    opportunityTrend: intelligence.opportunityTrend,
+    availabilityProfile: intelligence.availabilityProfile,
+    volatilityIndex: intelligence.volatilityIndex,
+    adaptationRate: intelligence.adaptationRate,
     recentMinutesAverage,
     seasonMinutesAverage,
     minutesStandardDeviation,
@@ -575,11 +622,14 @@ export function buildPlayerRoleProfile({
     roleChangeFrequency,
     majorBreakCount,
     gamesPlayed: num(gamesPlayed) ?? sampleSize,
-    profileConfidence,
+    profileConfidence: adaptiveConfidence,
     profileSampleSize: sampleSize,
     profileDataSources,
     missingProfileFields,
     fallbackUsed,
+    playerId: playerId != null ? String(playerId) : null,
+    season,
+    playerIntelligence: intelligence,
   };
 }
 
@@ -594,8 +644,57 @@ function allowFavorableAdjustments(profile = {}) {
 /**
  * Bounded calibration from profile (Phases 4–6).
  * Profile alone cannot flip side / create TRACK / override hard kill.
+ * When Player Intelligence enums are present, mathematical intelligence
+ * calibration replaces static dampening thresholds.
  */
 export function buildPlayerProfileCalibration(profile = {}, options = {}) {
+  const hints =
+    options.historicalHints ||
+    getCalibrationHintsForPlayer(profile.playerId, options.playerName) ||
+    profile.calibrationHints ||
+    null;
+
+  // Prefer mathematical Player Intelligence calibration when enums exist.
+  // Merge root profile overrides (tests/callers) over nested playerIntelligence.
+  if (profile.roleStabilityScore || profile.playerIntelligence?.roleStabilityScore) {
+    const intel = {
+      ...(profile.playerIntelligence || {}),
+      ...profile,
+      roleStabilityScore:
+        profile.roleStabilityScore ||
+        profile.playerIntelligence?.roleStabilityScore,
+      usageProfile:
+        profile.usageProfile || profile.playerIntelligence?.usageProfile,
+      scoringProfile:
+        profile.scoringProfile || profile.playerIntelligence?.scoringProfile,
+      opportunityTrend:
+        profile.opportunityTrend ||
+        profile.playerIntelligence?.opportunityTrend,
+      availabilityProfile:
+        profile.availabilityProfile ||
+        profile.playerIntelligence?.availabilityProfile,
+      volatilityIndex:
+        profile.volatilityIndex ??
+        profile.playerIntelligence?.volatilityIndex,
+      profileConfidence:
+        profile.profileConfidence ??
+        profile.playerIntelligence?.profileConfidence,
+      adaptationRate:
+        profile.adaptationRate ?? profile.playerIntelligence?.adaptationRate,
+      fallbackUsed:
+        profile.fallbackUsed ?? profile.playerIntelligence?.fallbackUsed,
+    };
+    const intelCalib = buildIntelligenceProjectionCalibration(intel, hints || {});
+    return {
+      ...intelCalib,
+      version: PLAYER_PROFILE_CALIBRATION_VERSION,
+      historicalHintsApplied: Boolean(hints),
+      cannotForceSideFlip: true,
+      cannotCreateTrack: true,
+      cannotOverrideHardKill: true,
+    };
+  }
+
   const reasons = [];
   const riskDebtIds = [];
   const riskRepairIds = [];

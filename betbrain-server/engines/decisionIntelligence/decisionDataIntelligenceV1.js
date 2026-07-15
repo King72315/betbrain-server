@@ -12,6 +12,10 @@ import {
 } from "./opponentHistoryComparisonV1.js";
 import { evaluateFlipFirstSideSelection } from "./flipFirstSideSelectionV1.js";
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
+import {
+  computePlayerIntelligenceConfidence,
+} from "../wnba/playerIntelligence/confidenceEngineV1.js";
+import { getHistoricalAccuracyForPlayer } from "../wnba/playerIntelligence/historicalCalibrationEngineV1.js";
 
 export const DECISION_DATA_INTELLIGENCE_VERSION =
   "flip-first-decision-data-intelligence-v1";
@@ -133,9 +137,13 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     reasons.push("Some data weakness — monitor risk.");
   }
 
-  if (ddi.sameTeamCollision?.detected && ddi.sameTeamCollision.collisionScore >= 45) {
+  const teamOpp = ddi.sameTeamOpportunity || ddi.sameTeamCollision;
+  if (teamOpp?.status === "CONTRADICTED" || (teamOpp?.detected && teamOpp.collisionScore >= 55)) {
     confidenceAdjustment -= 6;
-    reasons.push("Same-team collision pressure.");
+    reasons.push("Same-team opportunity CONTRADICTED — ranking pressure (no auto-flip).");
+  } else if (teamOpp?.detected && (teamOpp.status === "QUESTIONABLE" || teamOpp.collisionScore >= 32)) {
+    confidenceAdjustment -= 3;
+    reasons.push("Same-team opportunity QUESTIONABLE.");
   }
 
   const ohc = ddi.opponentHistoryComparison?.comparison || {};
@@ -217,6 +225,8 @@ export function evaluateDecisionDataIntelligence(pick = {}, options = {}) {
     impliedTeamTotal: options.impliedTeamTotal,
     side: evalSide,
   });
+  // Phase 4 alias — opportunity budgeting surface (same payload as collision wrap)
+  const sameTeamOpportunity = sameTeamCollision?.sameTeamOpportunity || sameTeamCollision;
   const marketIntelligence = evaluateMarketMovementIntelligence(pick, {
     dataCard,
     marketIntelligence: pick.marketIntelligence,
@@ -251,6 +261,7 @@ export function evaluateDecisionDataIntelligence(pick = {}, options = {}) {
     roleStability,
     usageShare,
     sameTeamCollision,
+    sameTeamOpportunity,
     marketIntelligence,
     availabilityImpact,
     opponentHistoryComparison,
@@ -304,12 +315,50 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     12,
     Math.min(95, Math.round(priorDirectional + influenceAdj))
   );
-  // Internal blend — does not invent new Home UI labels.
+
+  // Phase 3 — multi-component confidence (gap is not primary). Soft blend only.
+  const profile =
+    pick.playerRoleProfile || pick.wnbaDataCard?.playerRoleProfile || {};
+  const hist =
+    getHistoricalAccuracyForPlayer(pick.playerId || profile.playerId) || {};
+  let multiConf = null;
+  try {
+    multiConf = computePlayerIntelligenceConfidence({
+      playerIntelligence: profile.playerIntelligence || profile,
+      dataConfidence,
+      projectionUncertainty:
+        pick.playerProfileCalibration?.projectionUncertaintyAdjustment ?? null,
+      missingFlags: pick.wnbaDataCard?.dataMissingFlags || [],
+      historicalHints: {
+        gradedSample: hist.sampleSize || 0,
+        meanAbsError: hist.meanAbsoluteError,
+        meanAbsoluteError: hist.meanAbsoluteError,
+        meanError: hist.avgError,
+      },
+      marketQuality: pick.marketQuality ?? pick.wnbaDataCard?.marketQuality,
+      bookCount: pick.bookCount ?? pick.wnbaDataCard?.bookCount,
+      lineSpread: pick.lineSpread ?? pick.wnbaDataCard?.lineSpread,
+      sameTeamOpportunity: ddi.sameTeamOpportunity || ddi.sameTeamCollision,
+      decisionIntelligence: {
+        evidenceScore: directionalConfidence,
+        finalQualityScore: directionalConfidence,
+        trueRisk: pick.trueRisk || pick.riskLabel,
+        riskDebtIds: pick.playerProfileCalibration?.riskDebtIds || [],
+        riskRepairIds: pick.playerProfileCalibration?.riskRepairIds || [],
+      },
+    });
+  } catch {
+    multiConf = null;
+  }
+
+  const blendedFromLegacy = Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65);
   const finalConfidence = Math.max(
     12,
     Math.min(
       92,
-      Math.round(dataConfidence * 0.35 + directionalConfidence * 0.65)
+      multiConf?.finalConfidence != null
+        ? Math.round(blendedFromLegacy * 0.45 + multiConf.finalConfidence * 0.55)
+        : blendedFromLegacy
     )
   );
 
@@ -327,6 +376,8 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
     finalConfidence,
     confidence: finalConfidence,
     confidenceInfluenceAdjustment: influenceAdj,
+    multiComponentConfidence: multiConf,
+    confidenceComponents: multiConf?.components || null,
   };
 }
 

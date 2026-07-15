@@ -122,6 +122,12 @@ import {
   teamsMatch,
 } from "./engines/wnba/wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "./engines/wnba/wnbaPlayerIdResolver.js";
+import {
+  PLAYER_INTELLIGENCE_BUILD_TAG,
+  buildPlayerProfileLabReport,
+  buildProjectionBiasReport,
+  getCalibrationStoreSummary,
+} from "./engines/wnba/playerIntelligence/index.js";
 import { buildSlateRejectionAnalysisFromProps } from "./services/wnbaSlateRejectionAnalysis.js";
 
 import {
@@ -258,7 +264,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-profile-risk-recal-v1.1";
+const SERVER_BUILD = "courteedge-player-intel-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3731,7 +3737,78 @@ app.get("/admin/official-freeze/:slateDate", requireAdminSecret, (req, res) => {
 
 app.get("/admin/lab-bundle/:slateDate", requireAdminSecret, (req, res) => {
   try {
-    res.json(getLabBundleInfo(req.params.slateDate));
+    const bundle = getLabBundleInfo(req.params.slateDate);
+    // Internal Player Profile Lab + bias monitoring (does not change consumer Lab UX)
+    let playerProfileLab = null;
+    let projectionBias = null;
+    try {
+      playerProfileLab = buildPlayerProfileLabReport({
+        slateDate: req.params.slateDate,
+      });
+      projectionBias = buildProjectionBiasReport({
+        slateDate: req.params.slateDate,
+      });
+    } catch {
+      /* optional enrichment */
+    }
+    res.json({
+      ...bundle,
+      playerProfileLab,
+      projectionBias,
+      playerIntelligenceBuild: PLAYER_INTELLIGENCE_BUILD_TAG,
+      serverBuild: SERVER_BUILD,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Phase 6 — Player Profile Lab internal report */
+app.get("/admin/player-profile-lab", requireAdminSecret, (req, res) => {
+  try {
+    const report = buildPlayerProfileLabReport({
+      slateDate: req.query.slateDate || null,
+      limit: Number(req.query.limit) || 2000,
+    });
+    res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      playerIntelligenceBuild: PLAYER_INTELLIGENCE_BUILD_TAG,
+      report,
+      calibrationSummary: getCalibrationStoreSummary(),
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+/** Phase 7 — Projection Bias Monitoring internal report */
+app.get("/admin/projection-bias", requireAdminSecret, (req, res) => {
+  try {
+    const report = buildProjectionBiasReport({
+      slateDate: req.query.slateDate || null,
+    });
+    res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      playerIntelligenceBuild: PLAYER_INTELLIGENCE_BUILD_TAG,
+      report,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.get("/internal/courtedge/projection-bias", requireSchedulerToken, (req, res) => {
+  try {
+    const report = buildProjectionBiasReport({
+      slateDate: req.query.slateDate || null,
+    });
+    res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      report,
+    });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message });
   }

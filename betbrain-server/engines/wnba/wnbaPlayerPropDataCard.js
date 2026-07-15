@@ -20,6 +20,12 @@ import {
   buildPlayerProfileCalibration,
   buildPlayerRoleProfileAudit,
 } from "../playerRoleProfileV1.js";
+import {
+  savePlayerProfile,
+  getLearnedCalibrationForProfile,
+  getHistoricalAccuracyForPlayer,
+  applyProjectionAdjustmentPipeline,
+} from "./playerIntelligence/index.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -356,11 +362,40 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     roleChange,
     availabilityContext: {
       teammateOut: Boolean(roleChange?.teammateOutBoost),
+      status: availabilityGate?.status || availabilityGate?.statusLevel,
+      level: availabilityGate?.statusLevel,
+      availabilityStatus: availabilityGate?.availabilityStatus,
     },
     gamesPlayed: bdlSeasonGames?.length || effectiveLast5.length,
+    playerId: effectivePlayerId,
+    season: "current",
+    line: num(prop.line),
   });
 
-  playerProfileCalibration = buildPlayerProfileCalibration(playerRoleProfile, {});
+  // Persist adaptive profile for next reads (best-effort)
+  try {
+    if (playerRoleProfile?.playerId && playerRoleProfile.playerIntelligence) {
+      savePlayerProfile(
+        {
+          ...playerRoleProfile.playerIntelligence,
+          playerId: playerRoleProfile.playerId,
+        },
+        "current"
+      );
+    }
+  } catch {
+    /* cache optional */
+  }
+
+  const learnedHints =
+    getLearnedCalibrationForProfile(playerRoleProfile) ||
+    getHistoricalAccuracyForPlayer(effectivePlayerId) ||
+    null;
+
+  playerProfileCalibration = buildPlayerProfileCalibration(playerRoleProfile, {
+    playerName,
+    historicalHints: learnedHints,
+  });
 
   projectionResult = projectWnbaPoints({
     seasonMinutes: effectiveSeasonMinutes,
@@ -375,6 +410,35 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     teammateUsageShift,
     profileCalibration: playerProfileCalibration,
   });
+
+  // Phase 2: Raw → Profile → Volatility → Opportunity → Final
+  const staged = applyProjectionAdjustmentPipeline({
+    rawProjection: projectionResult.projection,
+    seasonPointsAverage: effectiveSeasonPoints,
+    recentPointsAverage: effectiveRecentPoints,
+    profile: playerRoleProfile.playerIntelligence || playerRoleProfile,
+    learnedCalibration: learnedHints,
+  });
+  if (staged?.applied) {
+    const beforeStaged = projectionResult.projectionBeforeProfileCalibration
+      ?? uncalibratedProjection.projection;
+    projectionResult = {
+      ...projectionResult,
+      projection: staged.finalProjection,
+      projectionAfterProfileCalibration: staged.finalProjection,
+      profileProjectionDelta: Number(
+        (staged.finalProjection - beforeStaged).toFixed(2)
+      ),
+      projectionAdjustmentPipeline: staged,
+      projectionComponents: {
+        ...(projectionResult.projectionComponents || {}),
+        stagedProfileAdj: staged.stages?.[0]?.adjustment ?? 0,
+        stagedVolatilityAdj: staged.stages?.[1]?.adjustment ?? 0,
+        stagedOpportunityAdj: staged.stages?.[2]?.adjustment ?? 0,
+        finalProjection: staged.finalProjection,
+      },
+    };
+  }
 
   fairLine = buildFairLine({
     playerState: {
@@ -488,8 +552,11 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     projection: projectionResult,
     fairLine,
     playerRoleProfile,
+    playerIntelligenceProfile: playerRoleProfile?.playerIntelligence || null,
     playerProfileCalibration,
     playerRoleProfileAudit,
+    projectionAdjustmentPipeline:
+      projectionResult?.projectionAdjustmentPipeline || null,
     dataMissingFlags,
     dataConfidenceScore,
     dataIntegrity,
