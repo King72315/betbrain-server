@@ -139,6 +139,34 @@ function testStartedExcluded() {
   assert.strictEqual(audit.startedExcludedCount, 1);
 }
 
+function testStartedBestSixDisplayStillTracked() {
+  const startedBestSix = makePick({
+    player: "Started Best Six",
+    isStarted: true,
+    trackingType: "TEST",
+    controlledBestSixDisplay: true,
+    controlledBestSixDisplayTracked: true,
+    resultsAdmissionEligible: true,
+  });
+  const upcoming = makePick({
+    player: "Upcoming Best Six",
+    trackingType: "TEST",
+    controlledBestSixDisplay: true,
+    controlledBestSixDisplayTracked: true,
+    resultsAdmissionEligible: true,
+  });
+  const { cohort, audit } = buildResultsTrackingCohort(
+    [startedBestSix, upcoming],
+    {
+      sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+      trackAllBestSixDisplay: true,
+    }
+  );
+  assert.strictEqual(cohort.length, 2);
+  assert.strictEqual(audit.startedExcludedCount, 0);
+  assert.ok(cohort.some((pick) => pick.player === "Started Best Six"));
+}
+
 function testNoDoubleTrackStableKey() {
   const candidates = [
     makePick({ player: "Same", line: 10.5, side: "Over", pickScore: 70, trackingType: "TEST" }),
@@ -543,6 +571,7 @@ const tests = [
   ["3 tracks eligible OFFICIAL and TEST", testTracksEligibleOfficialAndTest],
   ["4 excludes NO_BET", testNoBetExcluded],
   ["5 excludes started games", testStartedExcluded],
+  ["5b Best 6 display keeps started props", testStartedBestSixDisplayStillTracked],
   ["6 no double-track stable key", testNoDoubleTrackStableKey],
   ["7 official vs test labeling", testOfficialVsTestLabeling],
   ["8 diagnostics explain exclusions", testDiagnosticsExplainExclusions],

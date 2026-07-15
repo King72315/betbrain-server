@@ -686,9 +686,20 @@ export function collectAllGeneratedCandidatesFromGames(gameCards = []) {
   return candidates;
 }
 
-function getResultsCohortExclusionReason(pick = {}) {
+function getResultsCohortExclusionReason(pick = {}, options = {}) {
   if (isPreV1ShadowProp(pick)) return "pre_v1_shadow";
-  if (pick.isStarted) return "started";
+
+  // Home / Results track-all-6 must keep Best 6 members even after tip-off.
+  // Mid-slate started games still need Results learning.
+  const allowStartedBestSix =
+    options.trackAllBestSixDisplay === true ||
+    options.allowStartedBestSix === true ||
+    pick.controlledBestSixDisplay === true ||
+    pick.controlledBestSixDisplayTracked === true ||
+    pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY" ||
+    pick.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY";
+  if (pick.isStarted && !allowStartedBestSix) return "started";
+
   if (!hasRequiredTrackingFields(pick)) return "missing_data";
 
   const decision = getPickDecision(pick);
@@ -818,7 +829,7 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
         pick.readerDecision || pick.wnbaReader?.decision || decision;
     }
 
-    const exclusionReason = getResultsCohortExclusionReason(gatedPick);
+    const exclusionReason = getResultsCohortExclusionReason(gatedPick, options);
     if (exclusionReason) {
       auditEntry.reasonIfNotTracked = exclusionReason;
       if (exclusionReason === "started") audit.startedExcludedCount += 1;

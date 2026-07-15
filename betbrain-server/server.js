@@ -264,7 +264,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-results-today-best-six-v1";
+const SERVER_BUILD = "courteedge-results-today-best-six-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
