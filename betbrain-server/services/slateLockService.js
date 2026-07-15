@@ -628,6 +628,77 @@ export function syncGradedPropsToLockedSlate(slateDate, mergedProps = []) {
   return { ok: true, slateDate: date, propCount: mergedProps.length };
 }
 
+/**
+ * Append-only Best 6 backfill into a locked ACTIVE snapshot.
+ * Never removes or replaces existing snapshot props / grades.
+ */
+export function appendMissingPropsToLockedSnapshot(slateDate, incomingProps = []) {
+  const date = String(slateDate || "");
+  if (!date || !isSlateLocked(date)) {
+    return { ok: false, skipped: true, message: "Slate not locked" };
+  }
+
+  const incoming = (Array.isArray(incomingProps) ? incomingProps : []).filter(Boolean);
+  if (!incoming.length) {
+    return { ok: true, skipped: true, appended: 0, slateDate: date };
+  }
+
+  const snapshot = getLockedSnapshot(date);
+  if (!snapshot) {
+    return { ok: false, message: "Missing locked snapshot" };
+  }
+
+  const existingProps = Array.isArray(snapshot.props) ? [...snapshot.props] : [];
+  const existingKeys = new Set(
+    existingProps.map((prop) => String(prop.trackedKey || prop.trackedId || "")).filter(Boolean)
+  );
+
+  const appended = [];
+  for (const prop of incoming) {
+    const frozen = freezePropAtLock(prop);
+    const key = String(frozen.trackedKey || frozen.trackedId || "");
+    if (!key || existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    existingProps.push(frozen);
+    appended.push(frozen);
+  }
+
+  if (!appended.length) {
+    return {
+      ok: true,
+      skipped: true,
+      appended: 0,
+      slateDate: date,
+      propCount: existingProps.length,
+    };
+  }
+
+  const now = new Date().toISOString();
+  writeJSON(snapshotPath(date), {
+    ...snapshot,
+    props: existingProps,
+    propCount: existingProps.length,
+    bestSixBackfilledAt: now,
+    bestSixBackfillCount: (Number(snapshot.bestSixBackfillCount) || 0) + appended.length,
+  });
+
+  const registry = getRegistry();
+  const entry = registry.slates.find((s) => s.slateDate === date);
+  if (entry) {
+    entry.propCount = existingProps.length;
+    entry.bestSixBackfilledAt = now;
+    saveRegistry(registry);
+  }
+
+  return {
+    ok: true,
+    slateDate: date,
+    appended: appended.length,
+    propCount: existingProps.length,
+    players: appended.map((prop) => prop.player),
+  };
+}
+
 export function syncLockedSlateGradesFromLive(liveProps = [], slateDate = null) {
   const targets = slateDate
     ? [String(slateDate)]

@@ -500,6 +500,9 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     bestSixDisplay: isWNBA
       ? data.bestSixDisplayWNBA || []
       : data.bestSixDisplayNBA || [],
+    bestSixDisplayToday: isWNBA
+      ? data.bestSixDisplayTodayWNBA || data.bestSixWNBA || []
+      : data.bestSixDisplayTodayNBA || data.bestSixNBA || [],
     topProps: isWNBA ? data.topWNBAProps || [] : data.topNBAProps || [],
   };
 }
@@ -508,6 +511,7 @@ export function buildLeagueBestSixBoard({
   league = "WNBA",
   bestSix = [],
   bestSixDisplay = [],
+  bestSixDisplayToday = [],
   topProps = [],
   games = [],
   dateView = "today",
@@ -515,6 +519,10 @@ export function buildLeagueBestSixBoard({
 } = {}) {
   const leagueCode = normalizeLeagueCode(league);
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
+  const serverTodayPool = (bestSixDisplayToday?.length
+    ? bestSixDisplayToday
+    : filterBestSixByDateView(bestSix, "today")
+  ).slice(0, bestSixLimit);
   const scopedPool =
     dateView === "full_board"
       ? applyDisplaySideBalance(
@@ -522,7 +530,13 @@ export function buildLeagueBestSixBoard({
           collectLeagueCandidatesFromGames(games, leagueCode),
           { limit: bestSixLimit }
         )
-      : resolveDateScopedDisplayPool(
+      : dateView === "today" && serverTodayPool.length >= bestSixLimit
+        ? applyDisplaySideBalance(
+            serverTodayPool,
+            collectLeagueCandidatesFromGames(games, leagueCode),
+            { limit: bestSixLimit }
+          )
+        : resolveDateScopedDisplayPool(
           displayPool,
           games,
           leagueCode,

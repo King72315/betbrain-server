@@ -264,7 +264,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-evidence-rank-v1";
+const SERVER_BUILD = "courteedge-results-today-best-six-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2430,6 +2430,8 @@ async function refreshAllPicks() {
     bestSixNBA,
     bestSixDisplayWNBA,
     bestSixDisplayNBA,
+    bestSixDisplayTodayWNBA: cohortBundle.bestSixDisplayTodayWNBA || bestSixWNBA,
+    bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || bestSixNBA,
     topPropsSource: TOP_PICKS_SOURCE_POOL,
     topWNBAPropsSelectedFromBestSix: true,
     topNBAPropsSelectedFromBestSix: true,
@@ -2616,6 +2618,10 @@ app.get("/top-props", async (req, res) => {
       bestSixNBA: picksCache.bestSixNBA || [],
       bestSixDisplayWNBA: picksCache.bestSixDisplayWNBA || [],
       bestSixDisplayNBA: picksCache.bestSixDisplayNBA || [],
+      bestSixDisplayTodayWNBA:
+        picksCache.bestSixDisplayTodayWNBA || picksCache.bestSixWNBA || [],
+      bestSixDisplayTodayNBA:
+        picksCache.bestSixDisplayTodayNBA || picksCache.bestSixNBA || [],
       topPropsSource: picksCache.topPropsSource || TOP_PICKS_SOURCE_POOL,
       topWNBAPropsSelectedFromBestSix: true,
       topNBAPropsSelectedFromBestSix: true,

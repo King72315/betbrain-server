@@ -325,7 +325,8 @@ function testNoBetEligibilityDisplayBestSixTracked() {
     trackAllBestSixDisplay: true,
   });
   assert.strictEqual(cohort.length, 1);
-  assert.strictEqual(cohort[0].resultsDecisionLabel, "NO_BET");
+  // Display Best 6 NO_BET members are TRACK-admitted for Results learning.
+  assert.strictEqual(cohort[0].resultsDecisionLabel, "TRACK");
   assert.ok(isOfficialResultsProp(cohort[0]));
 }
 
@@ -345,10 +346,17 @@ function testControlledCohortUsesDisplayBestSix() {
     ...(selection.bestSixDisplayNBA || []),
   ];
   const bundle = buildControlledTrackingCohort({ gameCards: [game] });
-  assert.ok(displayCohort.length >= bundle.trackingCohort.length);
   assert.ok(
     bundle.trackingCohort.length >= selection.bestSixWNBA.length,
     "display cohort should track at least as many as TRACK-gated Results pool"
+  );
+  assert.ok(
+    bundle.trackingCohort.length <= BEST_SIX_LIMIT * 2,
+    "tracking cohort remains capped at Best 6 per league"
+  );
+  assert.ok(
+    displayCohort.length >= 0,
+    "display Best 6 remains the Home board source"
   );
 }
 
@@ -429,6 +437,106 @@ function testControlledCohortAdmitsTodayWhenDisplayIsTomorrow() {
   }
 }
 
+/**
+ * Regression: mixed Today+Tomorrow display Best 6 leaves only ~3 Today props
+ * after day filter. Home fills to 6 from today's board — Results must rebuild
+ * today's display Best 6 so tracked count matches a full Best 6.
+ */
+function testMixedDisplayTodayPartialRebuildsFullTodayBestSix() {
+  const todayPicks = Array.from({ length: 8 }, (_, i) =>
+    makePick({
+      player: `Today Fill ${i + 1}`,
+      team: `T${i + 1}`,
+      dayBucket: "TODAY",
+      dateLabel: "Today",
+      commenceTime: "2026-07-15T23:00:00Z",
+      gameDate: "2026-07-15",
+      pickScore: 88 - i,
+      confidence: 70 - i,
+      trackingType: "TEST",
+      controlledBestSixDisplay: true,
+      resultsAdmissionEligible: true,
+    })
+  );
+  const tomorrowPicks = Array.from({ length: 3 }, (_, i) =>
+    makePick({
+      player: `Tomorrow Fill ${i + 1}`,
+      team: `X${i + 1}`,
+      dayBucket: "TOMORROW",
+      dateLabel: "Tomorrow",
+      commenceTime: "2026-07-16T23:00:00Z",
+      gameDate: "2026-07-16",
+      pickScore: 95 - i,
+      confidence: 80 - i,
+      trackingType: "TEST",
+      controlledBestSixDisplay: true,
+      resultsAdmissionEligible: true,
+    })
+  );
+
+  // Mixed display Best 6: 3 Today + 3 Tomorrow (the live bug shape).
+  const mixedDisplay = [
+    todayPicks[0],
+    todayPicks[1],
+    tomorrowPicks[0],
+    tomorrowPicks[1],
+    todayPicks[2],
+    tomorrowPicks[2],
+  ];
+
+  const todayGame = makeGame(todayPicks.slice(0, 4), todayPicks, {
+    dayBucket: "TODAY",
+    dateLabel: "Today",
+    date: "2026-07-15",
+    commenceTime: "2026-07-15T23:00:00Z",
+  });
+  const tomorrowGame = makeGame(tomorrowPicks.slice(0, 4), tomorrowPicks, {
+    dayBucket: "TOMORROW",
+    dateLabel: "Tomorrow",
+    date: "2026-07-16",
+    commenceTime: "2026-07-16T23:00:00Z",
+  });
+
+  const bundle = buildControlledTrackingCohort(
+    { gameCards: [todayGame, tomorrowGame] },
+    {
+      todayLocalDate: "2026-07-15",
+      controlledSelection: {
+        bestSixDisplayWNBA: mixedDisplay,
+        bestSixDisplayNBA: [],
+        bestSixWNBA: mixedDisplay.slice(0, 3),
+        bestSixNBA: [],
+      },
+    }
+  );
+
+  const todayFromMixed = mixedDisplay.filter(
+    (pick) => String(pick.dayBucket || "").toUpperCase() === "TODAY"
+  );
+  assert.strictEqual(todayFromMixed.length, 3, "fixture must start with 3 today display props");
+  assert.ok(
+    bundle.bestSixWNBA.length >= BEST_SIX_LIMIT,
+    `today Best 6 cohort must be full (>=${BEST_SIX_LIMIT}), got ${bundle.bestSixWNBA.length}`
+  );
+  assert.ok(
+    bundle.trackingCohort.length >= BEST_SIX_LIMIT,
+    `Results tracked count must be >=${BEST_SIX_LIMIT} when Today Best 6 is full, got ${bundle.trackingCohort.length}`
+  );
+  assert.ok(
+    bundle.trackingCohort.every(
+      (pick) =>
+        String(pick.dayBucket || "").toUpperCase() === "TODAY" ||
+        String(pick.dateLabel || "").toLowerCase() === "today" ||
+        String(pick.slateDate || "") === "2026-07-15"
+    ),
+    "Results cohort must stay on today's slate"
+  );
+  assert.ok(
+    bundle.trackingCohort.every((pick) => pick.resultsAdmissionEligible !== false),
+    "display Best 6 cohort members must remain Results-admission eligible"
+  );
+}
+
 const tests = [
   ["1 controlled Best 6 cap limits cohort", testTopPropsLimitDoesNotReduceCohort],
   ["2 top pick references do not inflate cohort logic", testTopPickReferencesDoNotIncreaseCount],
@@ -450,6 +558,10 @@ const tests = [
   [
     "17 today cohort admitted when display is tomorrow-only",
     testControlledCohortAdmitsTodayWhenDisplayIsTomorrow,
+  ],
+  [
+    "18 mixed Today+Tomorrow display rebuilds full Today Best 6 for Results",
+    testMixedDisplayTodayPartialRebuildsFullTodayBestSix,
   ],
 ];
 

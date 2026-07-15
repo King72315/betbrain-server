@@ -25,6 +25,7 @@ import {
 } from "./gradeMonotonicityGuard.js";
 
 import {
+  appendMissingPropsToLockedSnapshot,
   getHistoryArchiveProps,
   getLockedSlatesRegistry,
   getLockedSnapshot,
@@ -59,6 +60,7 @@ import { runFlipFirstDecisionPipeline } from "../engines/decisionIntelligence/de
 import {
   selectControlledBestSixCombined,
   selectBestSixDisplay,
+  annotateResultsAdmission,
   CONTROLLED_BEST_SIX_VERSION,
   BEST_SIX_LIMIT,
 } from "../engines/topProps/controlledBestSixSelector.js";
@@ -892,12 +894,22 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     exactSeen.set(dupeKey, gatedPick);
     playerLineBest.set(plKey, gatedPick);
 
-    const recordType = resolveResultsTrackingRecordType(gatedPick);
-    auditEntry.decision = recordType;
-
     const isDisplayCohort =
       options.trackAllBestSixDisplay === true ||
       options.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY";
+
+    // Re-promote after gate recompute so Best 6 display members stay TRACK-admitted.
+    if (isDisplayCohort) {
+      gatedPick = annotateResultsAdmission({
+        ...gatedPick,
+        controlledBestSixDisplay: true,
+        controlledBestSixDisplayTracked: true,
+      });
+    }
+
+    const recordType = resolveResultsTrackingRecordType(gatedPick);
+    auditEntry.decision = recordType;
+
     const normalizedPick = {
       ...gatedPick,
       trackingType: recordType,
@@ -918,6 +930,7 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       controlledBestSixApplied:
         isDisplayCohort || options.sourcePool === "CONTROLLED_BEST_SIX",
       controlledBestSixDisplayTracked: isDisplayCohort,
+      controlledBestSixDisplay: isDisplayCohort ? true : gatedPick.controlledBestSixDisplay,
       sourcePool: options.sourcePool || gatedPick.sourcePool || null,
     };
     if (recordType === "TEST") {
@@ -946,13 +959,100 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
   return { cohort, audit };
 }
 
+function pickIdentityKey(pick = {}) {
+  return [
+    clean(pick.player),
+    String(pick.line ?? ""),
+    normalizeTrackingSide(pick.side || pick.pick),
+    String(pick.league || "").toUpperCase(),
+  ].join("|");
+}
+
+/**
+ * Home Today Best 6 fills to 6 when the mixed slate Best 6 only has a few
+ * Today members. Results must do the same: re-select from today candidates when
+ * possible, otherwise keep Today's display members and fill/promote the rest.
+ */
+function resolveTodayBestSixForResults(
+  filteredTodayDisplay = [],
+  todayLeagueCandidates = [],
+  league = "WNBA",
+  options = {}
+) {
+  const limit = BEST_SIX_LIMIT;
+  const target = Math.min(
+    limit,
+    todayLeagueCandidates.length || filteredTodayDisplay.length || 0
+  );
+  if (!todayLeagueCandidates.length) {
+    return filteredTodayDisplay.slice(0, limit);
+  }
+  if (filteredTodayDisplay.length >= target) {
+    return filteredTodayDisplay.slice(0, limit);
+  }
+
+  const rebuilt = selectBestSixDisplay(
+    todayLeagueCandidates,
+    league,
+    options.selectorOptions || {}
+  ).bestSix;
+
+  if (rebuilt.length >= target) {
+    return rebuilt.slice(0, limit);
+  }
+  if (rebuilt.length > filteredTodayDisplay.length) {
+    return rebuilt.slice(0, limit);
+  }
+
+  // Fallback fill (Home date-scoped board shape): keep Today display members,
+  // promote remaining today candidates into Results learning.
+  const filled = filteredTodayDisplay.map((pick, index) =>
+    annotateResultsAdmission({
+      ...pick,
+      bestSixRank: index + 1,
+      controlledBestSixRank: index + 1,
+      controlledBestSixDisplay: true,
+      sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+    })
+  );
+  const used = new Set(filled.map(pickIdentityKey));
+  const rankedFillers = [...todayLeagueCandidates].sort(
+    (a, b) =>
+      num(b.pickScore ?? b.confidence ?? b.bestPropScore) -
+      num(a.pickScore ?? a.confidence ?? a.bestPropScore)
+  );
+
+  for (const pick of rankedFillers) {
+    if (filled.length >= limit) break;
+    const key = pickIdentityKey(pick);
+    if (used.has(key)) continue;
+    used.add(key);
+    const rank = filled.length + 1;
+    filled.push(
+      annotateResultsAdmission({
+        ...pick,
+        bestSixRank: rank,
+        controlledBestSixRank: rank,
+        controlledBestSixDisplay: true,
+        sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
+      })
+    );
+  }
+
+  return filled.slice(0, limit);
+}
+
 export const CONTROLLED_TRACKING_COHORT_VERSION =
-  "controlled-tracking-cohort-v2-track-all-best-six";
+  "controlled-tracking-cohort-v3-today-best-six-full";
 
 /**
  * Shared tracking admission: full pool → Controlled Best 6 display → Results cohort.
  * Used by refreshAllPicks, syncTrackedFromCache, /picks, /top-props.
  * Never admits via collectAllGeneratedProps (board-capped display picks).
+ *
+ * Home Today Best 6 fills to 6 from today's board when the mixed slate Best 6
+ * spans Today+Tomorrow. Results must rebuild Today's display Best 6 from today's
+ * candidates whenever they exist — filtering the mixed board alone can leave 3/6.
  */
 export function buildControlledTrackingCohort(input = {}, options = {}) {
   const gameCards = input.gameCards || [];
@@ -982,33 +1082,30 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
 
-  // Home/Top boards are tomorrow-scoped; Results must always admit today's Best 6.
+  // Home Today fills to Best 6 from today's board; Results must do the same.
   const todayCandidates = filterTodayResultsTrackingPicks(
     fullGeneratedCandidates,
     todayLocalDate
   );
-  let bestSixWNBA = filterTodayResultsTrackingPicks(
-    bestSixDisplayWNBA,
-    todayLocalDate
+  const todayWnbaCandidates = todayCandidates.filter(
+    (pick) => String(pick.league || "").toUpperCase() === "WNBA"
   );
-  let bestSixNBA = filterTodayResultsTrackingPicks(
-    bestSixDisplayNBA,
-    todayLocalDate
+  const todayNbaCandidates = todayCandidates.filter(
+    (pick) => String(pick.league || "").toUpperCase() === "NBA"
   );
-  if (!bestSixWNBA.length && todayCandidates.length) {
-    bestSixWNBA = selectBestSixDisplay(
-      todayCandidates,
-      "WNBA",
-      options.selectorOptions || {}
-    ).bestSix;
-  }
-  if (!bestSixNBA.length && todayCandidates.length) {
-    bestSixNBA = selectBestSixDisplay(
-      todayCandidates,
-      "NBA",
-      options.selectorOptions || {}
-    ).bestSix;
-  }
+
+  const bestSixWNBA = resolveTodayBestSixForResults(
+    filterTodayResultsTrackingPicks(bestSixDisplayWNBA, todayLocalDate),
+    todayWnbaCandidates,
+    "WNBA",
+    options
+  );
+  const bestSixNBA = resolveTodayBestSixForResults(
+    filterTodayResultsTrackingPicks(bestSixDisplayNBA, todayLocalDate),
+    todayNbaCandidates,
+    "NBA",
+    options
+  );
   const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
@@ -1056,6 +1153,8 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     fullGeneratedCandidates,
     bestSixWNBA,
     bestSixNBA,
+    bestSixDisplayTodayWNBA: bestSixWNBA,
+    bestSixDisplayTodayNBA: bestSixNBA,
     topProps: selection.topProps || [],
     topNBAProps: selection.topNBAProps || [],
     topWNBAProps: selection.topWNBAProps || [],
@@ -1699,6 +1798,8 @@ function mapPickToTrackedFields(pick = {}) {
     team: pick.team || "",
     opponent: pick.opponent || "",
     stat: pick.stat || "Points",
+    side: currentEngineSide || pick.side || pick.pick || "",
+    pick: currentEngineSide || pick.pick || pick.side || "",
     line: num(pick.line ?? pick.sportsbookLine),
     currentEngineSide,
     fairLineSide,
@@ -1866,6 +1967,15 @@ function mapPickToTrackedFields(pick = {}) {
     riskBeforeCeiling: pick.riskBeforeCeiling ?? null,
     riskAfterCeiling: pick.riskAfterCeiling ?? null,
     controlledBestSixApplied: pick.controlledBestSixApplied ?? null,
+    controlledBestSixDisplay: pick.controlledBestSixDisplay ?? null,
+    controlledBestSixDisplayTracked: pick.controlledBestSixDisplayTracked ?? null,
+    resultsAdmissionEligible: pick.resultsAdmissionEligible ?? null,
+    resultsDecisionLabel: pick.resultsDecisionLabel ?? null,
+    resultsTrackingWarning: pick.resultsTrackingWarning ?? null,
+    resultsAdmissionReason: pick.resultsAdmissionReason ?? null,
+    displayResultsReason: pick.displayResultsReason ?? null,
+    naturalDecision: pick.naturalDecision ?? null,
+    bestSixQualityFlags: pick.bestSixQualityFlags ?? null,
     decisionIntelligence: pick.decisionIntelligence ?? null,
     decisionIntelligenceVersion:
       pick.decisionIntelligenceVersion ?? pick.decisionIntelligence?.version ?? null,
@@ -2347,6 +2457,11 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
 export function addTrackedProps(picks = [], options = {}) {
   const skipTopPickReferences = Boolean(options.skipTopPickReferences);
   const preFilteredCohort = Boolean(options.preFilteredCohort);
+  const allowLockedBestSixBackfill =
+    options.allowLockedBestSixBackfill !== false &&
+    (Boolean(options.allowLockedBestSixBackfill) ||
+      preFilteredCohort ||
+      options.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY");
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter((pick) => {
     if (preFilteredCohort) {
       if (!pick?.player) return false;
@@ -2364,7 +2479,14 @@ export function addTrackedProps(picks = [], options = {}) {
     blockedNewKeys: 0,
     safeUpdates: 0,
     newKeys: 0,
+    bestSixLockedBackfill: 0,
   };
+  const lockedBackfillBySlate = new Map();
+  const isBestSixDisplayAdmissionPick = (pick = {}) =>
+    pick.controlledBestSixDisplay === true ||
+    pick.controlledBestSixDisplayTracked === true ||
+    pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY" ||
+    pick.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY";
 
   const lockedSlateCounts = new Map();
   const lockedSlates = getLockedSlatesRegistry().slates || [];
@@ -2407,8 +2529,12 @@ export function addTrackedProps(picks = [], options = {}) {
       indexByStable.get(stableKey) ?? indexByStable.get(legacyKey);
 
     if (slateLocked && existingIndex === undefined) {
-      audit.blockedNewKeys += 1;
-      continue;
+      // Append-only Best 6 Results backfill — never delete existing locked props.
+      if (!(allowLockedBestSixBackfill && isBestSixDisplayAdmissionPick(pick))) {
+        audit.blockedNewKeys += 1;
+        continue;
+      }
+      audit.bestSixLockedBackfill += 1;
     }
 
     if (existingIndex !== undefined) {
@@ -2450,6 +2576,13 @@ export function addTrackedProps(picks = [], options = {}) {
       normalized.latestLine = firstLine || normalized.latestLine;
       normalized.currentLine = firstLine || normalized.currentLine;
       normalized.timesSeen = 1;
+      if (slateLocked) {
+        normalized.slateLocked = true;
+        if (!lockedBackfillBySlate.has(slateDate)) {
+          lockedBackfillBySlate.set(slateDate, []);
+        }
+        lockedBackfillBySlate.get(slateDate).push(normalized);
+      }
       indexByStable.set(stableKey, working.length);
       if (legacyKey !== stableKey) {
         indexByStable.set(legacyKey, working.length);
@@ -2504,6 +2637,24 @@ export function addTrackedProps(picks = [], options = {}) {
   }
 
   writeJSON(TRACKED_FILE, working);
+
+  const snapshotBackfills = [];
+  for (const [slateDate, props] of lockedBackfillBySlate.entries()) {
+    const remaining = props.filter((prop) =>
+      working.some(
+        (item) =>
+          String(item.trackedKey || item.trackedId || "") ===
+          String(prop.trackedKey || prop.trackedId || "")
+      )
+    );
+    if (!remaining.length) continue;
+    snapshotBackfills.push(
+      appendMissingPropsToLockedSnapshot(slateDate, remaining)
+    );
+  }
+  if (snapshotBackfills.length) {
+    audit.lockedSnapshotBackfills = snapshotBackfills;
+  }
 
   const autoLock = maybeAutoLockTodaySlate(working, audit);
   if (autoLock?.ok && autoLock.snapshot?.props?.length) {
