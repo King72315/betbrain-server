@@ -145,6 +145,38 @@ function testOfficialPropIdStable() {
 }
 
 /** Partial-board sealing: 1/6 stays DRAFT; later 6/6 seals; no early 1-prop seal. */
+/** Display Best 6 often omits slateDate — still must DRAFT (not skip). */
+function testTomorrowMissingSlateDateStillDrafts() {
+  cleanupDate("2099-12-30");
+  const today = "2099-12-29";
+  const five = Array.from({ length: 5 }, (_, i) =>
+    makePick({
+      player: `NoDate ${i + 1}`,
+      team: `ND${i + 1}`,
+      line: 12 + i,
+      bestSixRank: i + 1,
+      dayBucket: "TOMORROW",
+      dateLabel: "Tomorrow",
+      slateDate: "", // omitted on purpose
+    })
+  );
+  // Remove empty slateDate key entirely (matches prod display props).
+  for (const p of five) delete p.slateDate;
+
+  const result = sealTomorrowOfficialSlates(five, {
+    todayLocalDate: today,
+    serverBuild: "test",
+  });
+  assert.strictEqual(result.sealedCount, 0);
+  assert.strictEqual(result.draftCount, 1);
+  assert.ok(result.results[0]);
+  assert.strictEqual(result.results[0].status, OFFICIAL_SEAL_STATUS.DRAFT);
+  assert.strictEqual(result.results[0].propCount, 5);
+  assert.strictEqual(result.results[0].slateDate, "2099-12-30");
+  assert.ok(!isOfficialSlateSealed("2099-12-30"));
+  cleanupDate("2099-12-30");
+}
+
 function testPartialBoardDoesNotSeal() {
   cleanupDate(TEST_PARTIAL);
   const today = "2099-12-29"; // window still open for TEST_PARTIAL
@@ -555,6 +587,7 @@ function testLearningRecordsEnrichment() {
 
 const tests = [
   ["1 official prop id stable", testOfficialPropIdStable],
+  ["1b missing slateDate Tomorrow still DRAFTs", testTomorrowMissingSlateDateStillDrafts],
   ["2 partial-board sealing stays DRAFT until 6/6", testPartialBoardDoesNotSeal],
   ["3 thin-slate FINAL_THIN_SLATE seals 5 only", testThinSlateFinalization],
   ["4 date rollover inherits sealed Tomorrow → Results", testDateRolloverInheritsSealed],

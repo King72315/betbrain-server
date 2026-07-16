@@ -28,7 +28,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const AUDIT_FILE = path.join(SERVER_ROOT, "lifecycle-integrity-audit.json");
 
 export const OFFICIAL_SLATE_VERSION = "official-slate-immutable-v2";
-export const OFFICIAL_SLATE_BUILD_TAG = "courteedge-lifecycle-integrity-v1";
+export const OFFICIAL_SLATE_BUILD_TAG = "courteedge-lifecycle-integrity-v1.1";
 export const BEST_SIX_FULL_COUNT = 6;
 
 /** Internal seal status — not a user-facing label. */
@@ -977,20 +977,39 @@ export function resolveResultsPropsFromOfficialSlate(slateDate = "", fallbackPro
  */
 export function sealTomorrowOfficialSlates(picks = [], options = {}) {
   const today = options.todayLocalDate || getTodayLocalDate();
+  const tomorrowFallback = (() => {
+    // Derive CT calendar tomorrow from YYYY-MM-DD today (no DST edge for date-only math).
+    const [y, m, d] = String(today)
+      .split("-")
+      .map((n) => Number(n));
+    if (!y || !m || !d) return "";
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0, 10);
+  })();
   const byDate = new Map();
 
   for (const pick of picks || []) {
     const dayBucket = String(pick.dayBucket || "").toUpperCase();
     const dateLabel = String(pick.dateLabel || "").toLowerCase();
-    const slateDate = String(pick.slateDate || "").trim();
+    let slateDate = String(pick.slateDate || "").trim();
     const isTomorrow =
       dayBucket === "TOMORROW" ||
       dateLabel === "tomorrow" ||
       (slateDate && slateDate > today);
 
-    if (!isTomorrow || !slateDate) continue;
+    if (!isTomorrow) continue;
+
+    // Display Best 6 often carries dayBucket/dateLabel but omits slateDate —
+    // without a date the board cannot enter DRAFT/SEALED. Use tomorrow CT.
+    if (!slateDate) {
+      slateDate = tomorrowFallback;
+    }
+    if (!slateDate) continue;
+
+    const stamped = { ...pick, slateDate, dayBucket: dayBucket || "TOMORROW" };
     if (!byDate.has(slateDate)) byDate.set(slateDate, []);
-    byDate.get(slateDate).push(pick);
+    byDate.get(slateDate).push(stamped);
   }
 
   const results = [];
@@ -1038,7 +1057,8 @@ export function sealTomorrowOfficialSlates(picks = [], options = {}) {
     ok: true,
     today,
     sealedCount: results.filter((r) => r.sealed || r.alreadySealed).length,
-    draftCount: results.filter((r) => r.status === OFFICIAL_SEAL_STATUS.DRAFT).length,
+    draftCount: results.filter((r) => r.status === OFFICIAL_SEAL_STATUS.DRAFT)
+      .length,
     results,
   };
 }
