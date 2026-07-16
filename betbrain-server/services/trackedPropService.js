@@ -41,6 +41,7 @@ import {
   recordGradedPropCalibration,
   attachProfileLabFieldsToTracked,
 } from "../engines/wnba/playerIntelligence/index.js";
+import { enrichGradedPropForLab } from "./labLearningEnrichmentService.js";
 import {
   buildTrackingQualityAudit,
   evaluateWnbaTrackingEligibility,
@@ -124,6 +125,30 @@ const RESOLVED_GRADE_FIELDS = new Set([
   "fairLineShadowMargin",
   "sideComparison",
   "resultMeta",
+  "postgameTruth",
+  "actualMinutes",
+  "actualFGA",
+  "actualFTA",
+  "actualFG3A",
+  "actualFGM",
+  "actualFGPct",
+  "actualFG3Pct",
+  "actualTSPct",
+  "starterResult",
+  "teamFinalScore",
+  "opponentFinalScore",
+  "finalMargin",
+  "dnpConfirmed",
+  "closingLine",
+  "closingLineValue",
+  "lockLine",
+  "missType",
+  "missSubtype",
+  "calibrationLesson",
+  "modulesHelped",
+  "modulesHurt",
+  "modulesNeutral",
+  "labCounterfactual",
   "matchVerified",
   "resultConfidence",
   "matchedDate",
@@ -163,6 +188,30 @@ const SAFE_LOCKED_UPDATE_FIELDS = new Set([
   "fairLineShadowMargin",
   "sideComparison",
   "resultMeta",
+  "postgameTruth",
+  "actualMinutes",
+  "actualFGA",
+  "actualFTA",
+  "actualFG3A",
+  "actualFGM",
+  "actualFGPct",
+  "actualFG3Pct",
+  "actualTSPct",
+  "starterResult",
+  "teamFinalScore",
+  "opponentFinalScore",
+  "finalMargin",
+  "dnpConfirmed",
+  "closingLine",
+  "closingLineValue",
+  "lockLine",
+  "missType",
+  "missSubtype",
+  "calibrationLesson",
+  "modulesHelped",
+  "modulesHurt",
+  "modulesNeutral",
+  "labCounterfactual",
   "matchVerified",
   "resultConfidence",
   "matchedDate",
@@ -402,12 +451,14 @@ export function getSlateDateCT(commenceTime) {
 
 function filterTodayResultsTrackingPicks(picks = [], today = getTodayLocalDate()) {
   return (picks || []).filter((pick) => {
+    // Prefer explicit slateDate — dayBucket can still say TODAY after Lab promotion.
+    const slate =
+      pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time);
+    if (slate) return String(slate).slice(0, 10) === today;
     const dayBucket = String(pick.dayBucket || "").toUpperCase();
     if (dayBucket === "TODAY") return true;
     if (String(pick.dateLabel || "").toLowerCase() === "today") return true;
-    const slate =
-      pick.slateDate || getSlateDateCT(pick.commenceTime || pick.time);
-    return slate === today;
+    return false;
   });
 }
 
@@ -1075,13 +1126,16 @@ export const CONTROLLED_TRACKING_COHORT_VERSION =
 export function buildControlledTrackingCohort(input = {}, options = {}) {
   const gameCards = input.gameCards || [];
   const todayLocalDate = options.todayLocalDate || getTodayLocalDate();
+  const reports = options.reports || [];
+  const lockedSlates = options.lockedSlates || getLockedSlatesRegistry().slates || [];
+  const trackedProps = options.trackedProps || getTrackedProps();
   const slateDate = resolveResultsCohortSlateDate({
     todayLocalDate,
     slateDate: input.slateDate || options.slateDate,
     cohortSlateDate: options.cohortSlateDate,
-    lockedSlates: options.lockedSlates,
-    trackedProps: options.trackedProps,
-    reports: options.reports,
+    lockedSlates,
+    trackedProps,
+    reports,
   });
   const sourcePool = options.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY";
   const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
@@ -1100,20 +1154,42 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
 
-  // Prefer immutable Official Slate for Results — never regenerate locked membership.
+  // Calendar-today Home display — never the Lab-promoted Results cohort.
+  const homeTodayDisplayWNBA = filterTodayResultsTrackingPicks(
+    bestSixDisplayWNBA,
+    todayLocalDate
+  );
+  const homeTodayDisplayNBA = filterTodayResultsTrackingPicks(
+    bestSixDisplayNBA,
+    todayLocalDate
+  );
+
+  // Prefer immutable Official Slate for the active Results cohort only.
+  // Home Today display (bestSixDisplayToday*) stays calendar-today regardless.
+  const blockingSlate = getBlockingActiveResultsSlateDate(
+    trackedProps,
+    lockedSlates,
+    reports,
+    todayLocalDate
+  );
   const officialResults = resolveResultsPropsFromOfficialSlate(slateDate, []);
+  const useOfficialResultsCohort =
+    officialResults.source === "OFFICIAL_SEALED_SLATE" &&
+    officialResults.props.length > 0 &&
+    (slateDate === todayLocalDate || slateDate === blockingSlate);
+
   let bestSixWNBA;
   let bestSixNBA;
   let bestSixCohort;
   let admissionPath = "CONTROLLED_BEST_SIX_DISPLAY";
 
-  if (officialResults.source === "OFFICIAL_SEALED_SLATE" && officialResults.props.length) {
+  if (useOfficialResultsCohort) {
     const sealed = officialResults.props;
     bestSixWNBA = sealed.filter((p) => String(p.league || "").toUpperCase() === "WNBA");
     bestSixNBA = sealed.filter((p) => String(p.league || "").toUpperCase() === "NBA");
     bestSixCohort = sealed;
     admissionPath = "OFFICIAL_SEALED_SLATE";
-  } else {
+  } else if (slateDate === todayLocalDate) {
     // Home Today fills to Best 6 from today's board; Results must do the same
     // until an Official Slate is sealed for this date.
     const todayCandidates = filterTodayResultsTrackingPicks(
@@ -1128,18 +1204,31 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     );
 
     bestSixWNBA = resolveTodayBestSixForResults(
-      filterTodayResultsTrackingPicks(bestSixDisplayWNBA, todayLocalDate),
+      homeTodayDisplayWNBA,
       todayWnbaCandidates,
       "WNBA",
       options
     );
     bestSixNBA = resolveTodayBestSixForResults(
-      filterTodayResultsTrackingPicks(bestSixDisplayNBA, todayLocalDate),
+      homeTodayDisplayNBA,
       todayNbaCandidates,
       "NBA",
       options
     );
     bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
+  } else if (blockingSlate && slateDate === blockingSlate) {
+    // Overnight Results hold: keep sealed membership only. Do not admit
+    // calendar-today board picks into yesterday's Results cohort (Home bug).
+    bestSixWNBA = [];
+    bestSixNBA = [];
+    bestSixCohort = [];
+    admissionPath = "OVERNIGHT_RESULTS_HOLD_NO_NEW_ADMISSION";
+  } else {
+    // Lab/History slateDate must never refill Home/Results board pools.
+    bestSixWNBA = [];
+    bestSixNBA = [];
+    bestSixCohort = [];
+    admissionPath = "NO_ACTIVE_RESULTS_COHORT";
   }
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
@@ -1195,8 +1284,9 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     fullGeneratedCandidates,
     bestSixWNBA,
     bestSixNBA,
-    bestSixDisplayTodayWNBA: bestSixWNBA,
-    bestSixDisplayTodayNBA: bestSixNBA,
+    // Home Today must be calendar-today display — never Lab/overnight Results cohort.
+    bestSixDisplayTodayWNBA: homeTodayDisplayWNBA,
+    bestSixDisplayTodayNBA: homeTodayDisplayNBA,
     topProps: selection.topProps || [],
     topNBAProps: selection.topNBAProps || [],
     topWNBAProps: selection.topWNBAProps || [],
@@ -2117,6 +2207,68 @@ function gradeEngineSide(tracked, statResult, side) {
     margin: num(graded.resultMargin ?? graded.margin),
     actualStat: num(graded.actualStat ?? graded.actualPoints),
     pendingReason: graded.pendingReason || null,
+    resultMeta: graded.resultMeta || null,
+  };
+}
+
+function buildPostgameTruthFromGrade(tracked = {}, current = {}) {
+  const meta = current.resultMeta || {};
+  const lockLine = num(
+    tracked.officialLine ?? tracked.pickLine ?? tracked.line ?? tracked.sportsbookLine
+  );
+  const openingLine = num(
+    tracked.pregameSnapshot?.marketBookData?.openingLine ??
+      tracked.openingLine ??
+      lockLine
+  );
+  const closingLine = num(
+    tracked.latestLine ?? tracked.currentLine ?? lockLine
+  );
+  const side = String(
+    tracked.lockedSide || tracked.currentEngineSide || tracked.side || tracked.pick || ""
+  ).toUpperCase();
+  let closingLineValue = null;
+  if (lockLine != null && closingLine != null) {
+    if (side.startsWith("OVER")) {
+      closingLineValue = Number((closingLine - lockLine).toFixed(2));
+    } else if (side.startsWith("UNDER")) {
+      closingLineValue = Number((lockLine - closingLine).toFixed(2));
+    }
+  }
+
+  const actualMinutes = meta.minutes ?? tracked.actualMinutes ?? null;
+  const teamScore = meta.teamScore ?? null;
+  const oppScore = meta.opponentScore ?? null;
+  const finalMargin =
+    meta.gameMargin ??
+    (teamScore != null && oppScore != null ? teamScore - oppScore : null);
+
+  return {
+    actualPoints: current.actualStat ?? null,
+    actualMinutes,
+    actualFGA: meta.fga ?? null,
+    actualFTA: meta.fta ?? null,
+    actualFG3A: meta.fg3a ?? null,
+    actualFGM: meta.fgm ?? null,
+    actualFGPct: meta.fgPct ?? null,
+    actualFG3Pct: meta.fg3Pct ?? null,
+    actualTSPct: meta.tsPct ?? null,
+    starterResult: meta.starter ?? null,
+    startPosition: meta.startPosition ?? null,
+    teamFinalScore: teamScore,
+    opponentFinalScore: oppScore,
+    finalMargin,
+    actualPace: tracked.actualPace ?? null,
+    dnpConfirmed: Boolean(meta.dnp) || actualMinutes === 0,
+    restrictionConfirmed: Boolean(tracked.restrictionConfirmed),
+    injuryConfirmation: tracked.injuryConfirmation || null,
+    lockLine,
+    openingLine,
+    closingLine,
+    closingLineValue,
+    bookLockLine: tracked.bookLockLine ?? lockLine,
+    bookCloseLine: closingLine,
+    resultMeta: meta,
   };
 }
 
@@ -2168,6 +2320,8 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     auditSideMatch: tracked.auditSideMatch,
   });
 
+  const postgameTruth = buildPostgameTruthFromGrade(tracked, current);
+
   let graded = {
     ...tracked,
     status: current.result || "pending",
@@ -2190,6 +2344,24 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     fairLineShadowWon: fairShadow.won,
     fairLineShadowMargin: fairShadow.margin,
     sideComparison,
+    resultMeta: current.resultMeta || null,
+    postgameTruth,
+    actualMinutes: postgameTruth.actualMinutes,
+    actualFGA: postgameTruth.actualFGA,
+    actualFTA: postgameTruth.actualFTA,
+    actualFG3A: postgameTruth.actualFG3A,
+    actualFGM: postgameTruth.actualFGM,
+    actualFGPct: postgameTruth.actualFGPct,
+    actualFG3Pct: postgameTruth.actualFG3Pct,
+    actualTSPct: postgameTruth.actualTSPct,
+    starterResult: postgameTruth.starterResult,
+    teamFinalScore: postgameTruth.teamFinalScore,
+    opponentFinalScore: postgameTruth.opponentFinalScore,
+    finalMargin: postgameTruth.finalMargin,
+    dnpConfirmed: postgameTruth.dnpConfirmed,
+    lockLine: postgameTruth.lockLine,
+    closingLine: postgameTruth.closingLine,
+    closingLineValue: postgameTruth.closingLineValue,
   };
 
   // Phase 5–6: feed historical calibration + Lab profile snapshot (internal only)
@@ -2202,6 +2374,13 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     }
   } catch {
     /* calibration store optional — never block grading */
+  }
+
+  // Lab lesson + module attribution (analysis only — does not mutate pregameSnapshot).
+  try {
+    graded = enrichGradedPropForLab(graded);
+  } catch {
+    /* enrichment optional at grade time — report build also enriches */
   }
 
   return graded;

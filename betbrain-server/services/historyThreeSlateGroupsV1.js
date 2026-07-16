@@ -180,7 +180,78 @@ function compareToPreviousBlock(current, previous) {
   };
 }
 
-function buildGroupFromArchives(archives, groupIndex, groupId) {
+function buildLearningBlockComparison(archives = [], previousArchives = []) {
+  const summaries = archives
+    .map((a) => a.report?.officialLabDailySummary || a.officialLabDailySummary)
+    .filter(Boolean);
+  if (!summaries.length) return null;
+
+  const notes = [];
+  const avg = (vals) => {
+    const nums = vals.filter((v) => v != null && Number.isFinite(Number(v))).map(Number);
+    if (!nums.length) return null;
+    return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
+  };
+
+  const winRates = summaries.map((s) => s.overallRecord?.winRate);
+  const margins = summaries.map((s) => s.overallRecord?.avgMargin).filter(Boolean);
+  const topWinRates = summaries.map((s) => s.topPicks?.winRate);
+  const missTypes = {};
+  for (const s of summaries) {
+    for (const [k, v] of Object.entries(s.missTypeCounts || {})) {
+      missTypes[k] = (missTypes[k] || 0) + Number(v);
+    }
+  }
+
+  const prevSummaries = previousArchives
+    .map((a) => a.report?.officialLabDailySummary || a.officialLabDailySummary)
+    .filter(Boolean);
+  const prevWinRate = avg(prevSummaries.map((s) => s.overallRecord?.winRate));
+  const curWinRate = avg(winRates);
+  const prevTopWr = avg(prevSummaries.map((s) => s.topPicks?.winRate));
+  const curTopWr = avg(topWinRates);
+
+  if (curWinRate != null && prevWinRate != null) {
+    const d = Number((curWinRate - prevWinRate).toFixed(1));
+    if (d > 2) notes.push(`Win rate improved +${d}% vs prior 3-slate block.`);
+    else if (d < -2) notes.push(`Win rate declined ${d}% vs prior 3-slate block.`);
+  }
+  if (curTopWr != null && prevTopWr != null) {
+    const d = Number((curTopWr - prevTopWr).toFixed(1));
+    if (d > 2) notes.push(`Top 2 outperformed prior block (+${d}% WR).`);
+    else if (d < -2) notes.push(`Top 2 underperformed prior block (${d}% WR).`);
+  }
+  const topMiss = Object.entries(missTypes).sort((a, b) => b[1] - a[1])[0];
+  if (topMiss) notes.push(`Dominant miss type in block: ${topMiss[0]} (${topMiss[1]}).`);
+
+  const poorProfiles = [];
+  for (const s of summaries) {
+    const rows = s.aggregateBreakdown?.dimensionIndex?.player_profile || [];
+    for (const row of rows) {
+      if (row.n >= 2 && row.winRate != null && row.winRate < 45) {
+        poorProfiles.push(`${row.value} (${row.winRate}%)`);
+      }
+    }
+  }
+  if (poorProfiles.length) {
+    notes.push(`Profiles projected poorly: ${[...new Set(poorProfiles)].slice(0, 3).join("; ")}.`);
+  }
+
+  if (!notes.length) {
+    notes.push("Learning block stable vs prior — review per-prop packets for calibration tweaks.");
+  }
+
+  return {
+    winRate: curWinRate,
+    topPickWinRate: curTopWr,
+    missTypeCounts: missTypes,
+    notes,
+    recommendation:
+      "Evidence for human review only — Lab does not auto-modify engine weights.",
+  };
+}
+
+function buildGroupFromArchives(archives, groupIndex, groupId, previousArchives = []) {
   const slateDates = archives.map((a) => a.slateDate).sort();
   const allProps = archives.flatMap((a) => a.props || []);
   const record = buildSlateRecord(allProps);
@@ -215,6 +286,7 @@ function buildGroupFromArchives(archives, groupIndex, groupId) {
     neutralSignals,
     signalRowCount: aggregatedRows.length,
     smallSampleSignals: aggregatedRows.filter((row) => row.smallSample).length,
+    learningBlock: buildLearningBlockComparison(archives, previousArchives),
     comparison: null,
   };
 }
@@ -237,9 +309,10 @@ export function buildHistoryThreeSlateGroups(archives = [], options = {}) {
   const groups = [];
   for (let i = 0; i < archived.length; i += groupSize) {
     const chunk = archived.slice(i, i + groupSize);
+    const prevChunk = i >= groupSize ? archived.slice(i - groupSize, i) : [];
     const groupIndex = Math.floor(i / groupSize);
     const groupId = `block-${groupIndex + 1}`;
-    groups.push(buildGroupFromArchives(chunk, groupIndex, groupId));
+    groups.push(buildGroupFromArchives(chunk, groupIndex, groupId, prevChunk));
   }
 
   for (let i = 0; i < groups.length; i++) {

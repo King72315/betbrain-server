@@ -279,6 +279,25 @@ function normalizeSportsDataStat(stat = {}, date = new Date()) {
     "NBA"
   );
 
+  const points = num(stat.Points);
+  const fga = num(stat.FieldGoalsAttempted || stat.FGA);
+  const fta = num(stat.FreeThrowsAttempted || stat.FTA);
+  const fgm = num(stat.FieldGoalsMade || stat.FGM);
+  const fg3m = num(stat.ThreePointersMade || stat.ThreePointMade || stat.FG3M);
+  const fg3a = num(stat.ThreePointersAttempted || stat.ThreePointAttempts || stat.FG3A);
+  const ftm = num(stat.FreeThrowsMade || stat.FTM);
+  const fgPct =
+    fga > 0 && fgm != null ? Number(((fgm / fga) * 100).toFixed(1)) : num(stat.FieldGoalsPercentage);
+  const fg3Pct =
+    fg3a > 0 && fg3m != null
+      ? Number(((fg3m / fg3a) * 100).toFixed(1))
+      : num(stat.ThreePointersPercentage);
+  const tsDenom = fga != null && fta != null ? 2 * (fga + 0.44 * fta) : null;
+  const tsPct =
+    tsDenom && tsDenom > 0 && points != null
+      ? Number(((points / tsDenom) * 100).toFixed(1))
+      : null;
+
   return {
     source: "SportsData",
     league: "NBA",
@@ -297,11 +316,35 @@ function normalizeSportsDataStat(stat = {}, date = new Date()) {
       stat.OpponentAbbreviation ||
       "",
 
-    points: num(stat.Points),
+    points,
     minutes: num(stat.Minutes || stat.MinutesPlayed),
-    fga: num(stat.FieldGoalsAttempted || stat.FGA),
-    fta: num(stat.FreeThrowsAttempted || stat.FTA),
-    fg3a: num(stat.ThreePointersAttempted || stat.ThreePointAttempts || stat.FG3A),
+    fga,
+    fta,
+    fg3a,
+    fgm,
+    fg3m,
+    ftm,
+    fgPct,
+    fg3Pct,
+    tsPct,
+    starter:
+      stat.Started === true || String(stat.Started || "").toLowerCase() === "true"
+        ? true
+        : stat.Started === false
+          ? false
+          : null,
+    teamScore: num(
+      stat.TeamScore ??
+        (String(stat.HomeOrAway || "").toUpperCase() === "HOME"
+          ? stat.HomeTeamScore
+          : stat.AwayTeamScore)
+    ),
+    opponentScore: num(
+      stat.OpponentScore ??
+        (String(stat.HomeOrAway || "").toUpperCase() === "HOME"
+          ? stat.AwayTeamScore
+          : stat.HomeTeamScore)
+    ),
 
     raw: stat,
   };
@@ -309,6 +352,42 @@ function normalizeSportsDataStat(stat = {}, date = new Date()) {
 
 function normalizeBallStat(stat = {}, league = "WNBA") {
   const player = fullBallPlayerName(stat.player);
+  const game = stat.game || {};
+  const points = num(stat.pts ?? stat.points);
+  const fga = num(stat.fga ?? stat.field_goal_attempts);
+  const fta = num(stat.fta ?? stat.free_throw_attempts);
+  const fgm = num(stat.fgm ?? stat.field_goals_made);
+  const fg3m = num(stat.fg3m ?? stat.three_pointers_made);
+  const fg3a = num(stat.fg3a ?? stat.three_point_attempts);
+  const ftm = num(stat.ftm ?? stat.free_throws_made);
+  const minutes = parseBallMinutes(stat.min ?? stat.minutes);
+  const fgPct =
+    fga > 0 && fgm != null
+      ? Number(((fgm / fga) * 100).toFixed(1))
+      : num(stat.fg_pct ?? stat.field_goal_percentage);
+  const fg3Pct =
+    fg3a > 0 && fg3m != null
+      ? Number(((fg3m / fg3a) * 100).toFixed(1))
+      : num(stat.fg3_pct ?? stat.three_point_percentage);
+  const tsDenom = fga != null && fta != null ? 2 * (fga + 0.44 * fta) : null;
+  const tsPct =
+    tsDenom && tsDenom > 0 && points != null
+      ? Number(((points / tsDenom) * 100).toFixed(1))
+      : null;
+
+  const homeScore = num(game.home_team_score);
+  const awayScore = num(game.visitor_team_score);
+  const playerTeamId = stat.team?.id;
+  const homeTeamId = game.home_team?.id ?? game.home_team_id;
+  const isHome =
+    playerTeamId != null && homeTeamId != null
+      ? Number(playerTeamId) === Number(homeTeamId)
+      : null;
+  const teamScore =
+    isHome === true ? homeScore : isHome === false ? awayScore : null;
+  const opponentScore =
+    isHome === true ? awayScore : isHome === false ? homeScore : null;
+  const startPos = String(stat.start_position || stat.starter || "").trim();
 
   return {
     source: "BallDontLie",
@@ -324,11 +403,25 @@ function normalizeBallStat(stat = {}, league = "WNBA") {
     opponent: getBallOpponent(stat),
     rawOpponent: "",
 
-    points: num(stat.pts ?? stat.points),
-    minutes: parseBallMinutes(stat.min ?? stat.minutes),
-    fga: num(stat.fga ?? stat.field_goal_attempts),
-    fta: num(stat.fta ?? stat.free_throw_attempts),
-    fg3a: num(stat.fg3a ?? stat.three_point_attempts),
+    points,
+    minutes,
+    fga,
+    fta,
+    fg3a,
+    fgm,
+    fg3m,
+    ftm,
+    fgPct,
+    fg3Pct,
+    tsPct,
+    starter: startPos ? startPos !== "" && startPos.toUpperCase() !== "BENCH" : null,
+    startPosition: startPos || null,
+    teamScore,
+    opponentScore,
+    gameMargin:
+      teamScore != null && opponentScore != null ? teamScore - opponentScore : null,
+    dnp: minutes === 0 || minutes == null,
+    restrictionNote: null,
 
     raw: stat,
   };
@@ -1342,6 +1435,28 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
 
   const gradedAt = new Date().toISOString();
 
+  const minutes = statResult.minutes ?? null;
+  const fga = num(statResult.fga);
+  const fta = num(statResult.fta);
+  const fgm = num(statResult.fgm);
+  const fg3a = num(statResult.fg3a);
+  const fg3m = num(statResult.fg3m);
+  const ftm = num(statResult.ftm);
+  const fgPct =
+    statResult.fgPct ??
+    (fga > 0 && fgm != null ? Number(((fgm / fga) * 100).toFixed(1)) : null);
+  const fg3Pct =
+    statResult.fg3Pct ??
+    (fg3a > 0 && fg3m != null ? Number(((fg3m / fg3a) * 100).toFixed(1)) : null);
+  const tsDenom = fga != null && fta != null ? 2 * (fga + 0.44 * fta) : null;
+  const tsPct =
+    statResult.tsPct ??
+    (tsDenom && tsDenom > 0
+      ? Number(((actualPoints / tsDenom) * 100).toFixed(1))
+      : null);
+  const teamScore = num(statResult.teamScore);
+  const opponentScore = num(statResult.opponentScore);
+
   return {
     ...savedPick,
 
@@ -1381,10 +1496,24 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
       date: statResult.date || "",
       team: statResult.team || "",
       opponent: statResult.opponent || "",
-      minutes: statResult.minutes ?? null,
-      fga: statResult.fga ?? null,
-      fta: statResult.fta ?? null,
-      fg3a: statResult.fg3a ?? null,
+      minutes,
+      fga,
+      fta,
+      fg3a,
+      fgm,
+      fg3m,
+      ftm,
+      fgPct,
+      fg3Pct,
+      tsPct,
+      starter: statResult.starter ?? null,
+      startPosition: statResult.startPosition ?? null,
+      teamScore,
+      opponentScore,
+      gameMargin:
+        statResult.gameMargin ??
+        (teamScore != null && opponentScore != null ? teamScore - opponentScore : null),
+      dnp: Boolean(statResult.dnp) || minutes === 0,
       points: actualPoints,
       matchedSource: statResult.matchMeta?.matchedSource || statResult.source || "unknown",
       matchedDate: statResult.matchMeta?.matchedDate || statResult.date || "",

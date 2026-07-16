@@ -25,6 +25,7 @@ import {
   archiveTopPicksSnapshotToReportMetadata,
 } from "./topPicksSnapshotService.js";
 import { attachOfficialLearningToReport } from "./officialLearningRecordBuilder.js";
+import { enrichGradedPropsForLab } from "./labLearningEnrichmentService.js";
 import {
   validateOfficialSlateLifecycle,
 } from "./officialSlateService.js";
@@ -1023,9 +1024,11 @@ function buildTrackingCalibrationSplit(slateProps = []) {
 }
 
 function buildSlateReport(slateDate, props = [], options = {}) {
-  const slateProps = props.filter(
+  const rawSlateProps = props.filter(
     (prop) => (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
   );
+  // Persist postgame lessons + module attribution onto Lab-bound props.
+  const slateProps = enrichGradedPropsForLab(rawSlateProps);
   const record = buildRecord(slateProps);
   const allGraded =
     record.pending === 0 &&

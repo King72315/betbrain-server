@@ -21,6 +21,7 @@ import {
 } from "./slateLockService.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
 import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
+import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,67 +106,34 @@ function num(value, fallback = null) {
 /** Freeze a full learning-ready official prop record at seal time. */
 export function freezeOfficialProp(pick = {}, options = {}) {
   const slateDate = String(options.slateDate || pick.slateDate || "");
-  const line = num(pick.officialLine ?? pick.line ?? pick.currentLine ?? pick.sportsbookLine, 0);
-  const side = normalizeSide(pick.side || pick.pick || pick.lockedSide || pick.currentEngineSide);
-  const officialPropId =
-    pick.officialPropId || buildOfficialPropId({ ...pick, line, side }, slateDate);
   const sealedAt = options.sealedAt || new Date().toISOString();
-  const confidence = pick.confidence ?? pick.winProbability ?? null;
-  const projectedPoints =
-    pick.projectedPoints ?? pick.projection ?? pick.projectedStat ?? null;
-  const di = pick.decisionIntelligence || {};
-  const sr = pick.sideRescue || {};
-  const reader = pick.wnbaReader || {};
-  const flip =
-    pick.flipFirstDecision || pick.decisionDataIntelligence?.flipFirstDecision || null;
-  const profile =
-    pick.playerRoleProfile || pick.playerIntelligence || pick.profileType || null;
 
-  // Pregame snapshot is frozen forever — Lab/History may only ADD postgame fields.
-  const pregameSnapshot = pick.pregameSnapshot || {
-    line,
-    side,
-    projection: projectedPoints,
-    confidence,
-    fairLine: pick.fairLine ?? null,
-    projectionEdge: pick.projectionEdge ?? pick.edge ?? null,
-    risk: di.trueRisk || pick.trueRisk || pick.riskLabel || null,
-    naturalDecision: di.naturalDecision || di.originalGateEligibility || di.trackEligibility || null,
-    readerEvidence: {
-      finalSide: reader.finalSide || null,
-      score: reader.score ?? reader.finalScore ?? null,
-      overGap: reader.overGap ?? null,
-      underGap: reader.underGap ?? null,
-      thinGap: reader.thinGap ?? null,
-      contradictions: reader.contradictions || pick.contradictions || [],
-    },
-    flipFirst: flip,
-    gate: {
-      trackEligibility: di.trackEligibility || pick.trackingEligibility || null,
-      gateReason: di.gateReason || pick.wnbaTrackingReason || null,
-      bestSixPromoted: Boolean(di.bestSixPromoted),
-      promotionReasons: di.promotionReasons || [],
-    },
-    sideRescue: sr,
-    playerIntelligenceProfile: profile,
-    marketBookData: {
-      bookCount: pick.bookCount ?? pick.marketBookCount ?? null,
-      marketQuality: pick.marketQuality ?? null,
-      openingLine: pick.openingLine ?? null,
-      consensus: pick.consensus ?? null,
-    },
-    sameTeamOpportunity: pick.sameTeamOpportunity || pick.slateCollision || null,
-    buildVersion: options.serverBuild || pick.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
-    engineVersions: {
-      controlledBestSixVersion:
-        pick.controlledBestSixVersion || CONTROLLED_BEST_SIX_VERSION,
-      decisionIntelligenceVersion: di.version || null,
-      sideRescueVersion: sr.version || null,
-      calibrationVersion:
-        pick.calibrationVersion || profile?.calibrationVersion || null,
-    },
-    sealedAt,
-  };
+  const pregameSnapshot =
+    pick.pregameSnapshot?.sealedAt
+      ? pick.pregameSnapshot
+      : buildCompletePregameSnapshot(pick, {
+          slateDate,
+          sealedAt,
+          serverBuild: options.serverBuild || pick.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
+        });
+
+  const line = num(pregameSnapshot.line ?? pick.officialLine ?? pick.line, 0);
+  const side = normalizeSide(pregameSnapshot.side || pick.side || pick.pick);
+  const officialPropId =
+    pregameSnapshot.officialPropId ||
+    pick.officialPropId ||
+    buildOfficialPropId({ ...pick, line, side }, slateDate);
+  const confidence = pregameSnapshot.confidence ?? pick.confidence ?? pick.winProbability ?? null;
+  const projectedPoints =
+    pregameSnapshot.projection ??
+    pick.projectedPoints ??
+    pick.projection ??
+    pick.projectedStat ??
+    null;
+  const di = pick.decisionIntelligence || pregameSnapshot.decisionIntelligence || {};
+  const sr = pick.sideRescue || pregameSnapshot.sideRescue || {};
+  const flip = pregameSnapshot.flipFirst?.raw || pick.flipFirstDecision || null;
+  const profile = pregameSnapshot.playerIntelligenceProfile || pick.playerRoleProfile || null;
 
   return {
     ...pick,
@@ -186,9 +154,9 @@ export function freezeOfficialProp(pick = {}, options = {}) {
     line,
     confidence,
     projectedPoints,
-    fairLine: pick.fairLine ?? null,
-    projectionEdge: pick.projectionEdge ?? pick.edge ?? null,
-    bestSixRank: pick.bestSixRank || pick.controlledBestSixRank || null,
+    fairLine: pregameSnapshot.fairLine ?? pick.fairLine ?? null,
+    projectionEdge: pregameSnapshot.projectionGap ?? pick.projectionEdge ?? pick.edge ?? null,
+    bestSixRank: pregameSnapshot.rank ?? pick.bestSixRank ?? pick.controlledBestSixRank ?? null,
     controlledBestSixDisplay: true,
     controlledBestSixDisplayTracked: true,
     trackingAdmissionSource: "CONTROLLED_BEST_SIX_DISPLAY",

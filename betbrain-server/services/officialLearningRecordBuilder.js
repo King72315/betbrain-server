@@ -4,6 +4,13 @@
  * Pregame snapshot is immutable; postgame learning fields may update on rebuild.
  */
 import { buildOfficialPropId } from "./officialSlateService.js";
+import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
+import { buildLabAggregateBreakdown } from "./labAggregateBreakdown.js";
+import {
+  enrichGradedPropForLab,
+  buildPostgameTruth,
+  LAB_LEARNING_VERSION,
+} from "./labLearningEnrichmentService.js";
 
 function num(value, fallback = null) {
   const n = Number(value);
@@ -55,33 +62,43 @@ function wouldSideWin(side, line, actual) {
  * Uses sealed snapshots when present; never invents new engine outputs.
  */
 export function buildOfficialLearningRecord(prop = {}, options = {}) {
-  const slateDate = String(prop.slateDate || "");
+  const enriched =
+    ["win", "loss", "push"].includes(String(prop.status || "").toLowerCase())
+      ? enrichGradedPropForLab(prop)
+      : prop;
+  const slateDate = String(enriched.slateDate || "");
   const officialPropId =
-    prop.officialPropId || buildOfficialPropId(prop, slateDate);
-  const pregame = prop.pregameSnapshot || options.pregameSnapshot || null;
+    enriched.officialPropId || buildOfficialPropId(enriched, slateDate);
+  const pregameRaw = enriched.pregameSnapshot || options.pregameSnapshot || null;
+  const pregameSnapshot = pregameRaw?.sealedAt
+    ? pregameRaw
+    : buildCompletePregameSnapshot(enriched, { slateDate });
+  const truth = buildPostgameTruth(enriched);
 
   const side = normalizeSide(
-    pregame?.side || prop.lockedSide || prop.side || prop.pick
+    pregameSnapshot.side || enriched.lockedSide || enriched.side || enriched.pick
   );
   const opp = oppositeSide(side);
   const line = num(
-    pregame?.line ?? prop.officialLine ?? prop.pickLine ?? prop.line
+    pregameSnapshot.line ?? enriched.officialLine ?? enriched.pickLine ?? enriched.line
   );
-  const actual = num(prop.actualStat ?? prop.actualPoints ?? prop.finalPoints);
+  const actual = num(
+    truth.actualPoints ?? enriched.actualStat ?? enriched.actualPoints ?? enriched.finalPoints
+  );
   const projection = num(
-    pregame?.projection ??
-      prop.projectedPoints ??
-      prop.projection ??
-      prop.projectedStat ??
-      prop.sealedDecisionIntelligence?.projectedPoints
+    pregameSnapshot.projection ??
+      enriched.projectedPoints ??
+      enriched.projection ??
+      enriched.projectedStat ??
+      enriched.sealedDecisionIntelligence?.projectedPoints
   );
-  const fairLine = num(pregame?.fairLine ?? prop.fairLine);
+  const fairLine = num(pregameSnapshot.fairLine ?? enriched.fairLine);
   const confidence = num(
-    pregame?.confidence ?? prop.confidence ?? prop.winProbability
+    pregameSnapshot.confidence ?? enriched.confidence ?? enriched.winProbability
   );
-  const status = String(prop.status || "").toLowerCase();
-  const result = String(prop.result || prop.status || "").toUpperCase();
-  const margin = num(prop.resultMargin ?? prop.margin);
+  const status = String(enriched.status || "").toLowerCase();
+  const result = String(enriched.result || enriched.status || "").toUpperCase();
+  const margin = num(enriched.resultMargin ?? enriched.margin);
 
   const projError =
     projection != null && actual != null ? actual - projection : null;
@@ -97,98 +114,46 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
         ? false
         : null;
 
-  const di = pregame?.gate
-    ? {
-        trackEligibility: pregame.gate.trackEligibility,
-        gateReason: pregame.gate.gateReason,
-        bestSixPromoted: pregame.gate.bestSixPromoted,
-        promotionReasons: pregame.gate.promotionReasons,
-        naturalDecision: pregame.naturalDecision,
-        trueRisk: pregame.risk,
-      }
-    : prop.sealedDecisionIntelligence || prop.decisionIntelligence || {};
-  const sr = pregame?.sideRescue || prop.sealedSideRescue || prop.sideRescue || {};
+  const di = {
+    ...(pregameSnapshot.decisionIntelligence || {}),
+    ...(enriched.sealedDecisionIntelligence || enriched.decisionIntelligence || {}),
+    trackEligibility:
+      pregameSnapshot.gate?.trackEligibility ||
+      enriched.trackingEligibility ||
+      null,
+    gateReason: pregameSnapshot.gate?.gateReason || enriched.wnbaTrackingReason || null,
+    trueRisk: pregameSnapshot.risk || enriched.trueRisk || enriched.riskLabel || null,
+  };
+  const sr = pregameSnapshot.sideRescue || enriched.sealedSideRescue || enriched.sideRescue || {};
   const reader =
-    pregame?.readerEvidence || prop.sealedWnbaReader || prop.wnbaReader || {};
+    pregameSnapshot.readerEvidence || enriched.sealedWnbaReader || enriched.wnbaReader || {};
   const flip =
-    pregame?.flipFirst ||
-    prop.sealedFlipFirst ||
-    prop.flipFirstDecision ||
-    prop.decisionDataIntelligence?.flipFirstDecision ||
+    pregameSnapshot.flipFirst?.raw ||
+    pregameSnapshot.flipFirst ||
+    enriched.sealedFlipFirst ||
+    enriched.flipFirstDecision ||
+    enriched.decisionDataIntelligence?.flipFirstDecision ||
     {};
   const profile =
-    pregame?.playerIntelligenceProfile ||
-    prop.sealedPlayerProfile ||
-    prop.playerRoleProfile ||
-    prop.playerIntelligence ||
+    pregameSnapshot.playerIntelligenceProfile ||
+    enriched.sealedPlayerProfile ||
+    enriched.playerRoleProfile ||
+    enriched.playerIntelligence ||
     {};
-  const market = pregame?.marketBookData || {};
+  const market = pregameSnapshot.marketBookData || {};
   const gap = num(
-    pregame?.projectionEdge ??
-      prop.projectionEdge ??
-      prop.edge ??
+    pregameSnapshot.projectionGap ??
+      pregameSnapshot.projectionEdge ??
+      enriched.projectionEdge ??
+      enriched.edge ??
       reader.overGap ??
       reader.underGap
   );
 
-  // Immutable pregame block — rebuild must deep-equal this when source freeze is stable.
-  const pregameSnapshot = {
-    line,
-    side,
-    projection,
-    confidence,
-    fairLine,
-    projectionEdge: gap,
-    risk: di.trueRisk || pregame?.risk || prop.trueRisk || prop.riskLabel || null,
-    naturalDecision:
-      di.naturalDecision ||
-      pregame?.naturalDecision ||
-      di.originalGateEligibility ||
-      di.trackEligibility ||
-      null,
-    readerEvidence: {
-      finalSide: reader.finalSide || null,
-      score: reader.score ?? reader.finalScore ?? null,
-      overGap: reader.overGap ?? null,
-      underGap: reader.underGap ?? null,
-      thinGap: reader.thinGap ?? null,
-      contradictions: reader.contradictions || prop.contradictions || [],
-    },
-    flipFirst: flip,
-    gate: {
-      trackEligibility: di.trackEligibility || prop.trackingEligibility || null,
-      gateReason: di.gateReason || prop.wnbaTrackingReason || null,
-      bestSixPromoted: Boolean(di.bestSixPromoted),
-      promotionReasons: di.promotionReasons || [],
-    },
-    sideRescue: sr,
-    playerIntelligenceProfile: profile,
-    marketBookData: {
-      bookCount: market.bookCount ?? prop.bookCount ?? prop.marketBookCount ?? null,
-      marketQuality: market.marketQuality ?? prop.marketQuality ?? null,
-      openingLine: market.openingLine ?? prop.openingLine ?? null,
-      consensus: market.consensus ?? prop.consensus ?? null,
-    },
-    sameTeamOpportunity:
-      pregame?.sameTeamOpportunity ||
-      prop.sameTeamOpportunity ||
-      prop.slateCollision ||
-      null,
-    buildVersion: pregame?.buildVersion || prop.serverBuild || null,
-    engineVersions: pregame?.engineVersions || {
-      controlledBestSixVersion: prop.controlledBestSixVersion || null,
-      decisionIntelligenceVersion: di.version || null,
-      sideRescueVersion: sr.version || null,
-      calibrationVersion: prop.calibrationVersion || null,
-    },
-    sealedAt: pregame?.sealedAt || prop.officialSealedAt || null,
-  };
+  // pregameSnapshot is immutable when sealed — do not rebuild inline fields.
 
-  const missType =
-    prop.missType ||
-    prop.gradingNotes ||
-    options.analysis?.missType ||
-    null;
+  const missType = enriched.missType || options.analysis?.missType || null;
+  const missSubtype = enriched.missSubtype || options.analysis?.missSubtype || null;
 
   const signalVerdict = (() => {
     if (chosenWon === true) return "helped";
@@ -198,7 +163,7 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
 
   // Postgame learning — may update on report rebuild; never mutates pregameSnapshot.
   const postgameLearning = {
-    actualPoints: actual,
+    ...truth,
     result,
     status,
     margin,
@@ -206,6 +171,17 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
     absoluteError: absError,
     signedError,
     oppositeSideResult: oppositeWon,
+    missType,
+    missSubtype,
+    calibrationLesson:
+      enriched.calibrationLesson ||
+      options.analysis?.calibrationLesson ||
+      enriched.gradingNotes ||
+      null,
+    modulesHelped: enriched.modulesHelped || [],
+    modulesHurt: enriched.modulesHurt || [],
+    modulesNeutral: enriched.modulesNeutral || [],
+    counterfactual: enriched.labCounterfactual || null,
     flip: {
       beneficial: flipBeneficial === true,
       harmful: flipBeneficial === false,
@@ -223,34 +199,57 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
       neutral: signalVerdict === "neutral",
       verdict: signalVerdict,
     },
-    missType,
-    calibrationLesson:
-      prop.calibrationLesson ||
-      options.analysis?.calibrationLesson ||
-      prop.gradingNotes ||
-      null,
-    gradedAt: prop.gradedAt || prop.resolvedAt || null,
+    gradedAt: enriched.gradedAt || enriched.resolvedAt || null,
     analysisUpdatedAt: new Date().toISOString(),
+    labLearningVersion: LAB_LEARNING_VERSION,
     ...(options.analysis || {}),
   };
 
   return {
     officialPropId,
     officialSlateId: slateDate,
-    immutableOfficial: prop.immutableOfficial === true,
-    player: prop.player,
-    team: prop.team,
-    opponent: prop.opponent,
-    league: prop.league,
-    stat: prop.stat || "points",
-    bestSixRank: prop.bestSixRank || prop.controlledBestSixRank || null,
-    isTopPick: Boolean(prop.topPickRank || prop.isTopPickReference),
+    immutableOfficial: enriched.immutableOfficial === true,
+    player: enriched.player,
+    team: enriched.team,
+    opponent: enriched.opponent,
+    league: enriched.league,
+    stat: enriched.stat || "points",
+    bestSixRank: enriched.bestSixRank || enriched.controlledBestSixRank || null,
+    isTopPick: Boolean(enriched.topPickRank || enriched.isTopPickReference),
 
     /** Frozen at seal — Lab rebuild must not alter these fields. */
     pregameSnapshot,
 
     /** Grade / learning only — may be enriched after games finish. */
     postgameLearning,
+
+    // Compact primary packet for Lab UI — full four-layer learning unit.
+    learningPacket: {
+      officialPropId,
+      player: enriched.player,
+      team: enriched.team,
+      opponent: enriched.opponent,
+      pregame: pregameSnapshot,
+      postgame: {
+        ...postgameLearning,
+        measuredFields: truth.measuredFields || null,
+      },
+      diagnosis: {
+        missType: postgameLearning.missType,
+        missSubtype: postgameLearning.missSubtype,
+        calibrationLesson: postgameLearning.calibrationLesson,
+        modulesHelped: postgameLearning.modulesHelped,
+        modulesHurt: postgameLearning.modulesHurt,
+        modulesNeutral: postgameLearning.modulesNeutral,
+        chosenSideCorrect: chosenWon,
+        oppositeSideWouldWin: oppositeWon,
+        counterfactual: postgameLearning.counterfactual,
+        flipFirstEffect: postgameLearning.flip?.verdict || null,
+        sideRescueEffect: postgameLearning.counterfactual?.sideRescueHelped,
+        shouldHaveAvoided: postgameLearning.counterfactual?.noPlayPreferable === true,
+        primaryFailureDomain: postgameLearning.missType,
+      },
+    },
 
     // Legacy flat shapes for existing Lab UI consumers (sourced from freeze + grade).
     projection: {
@@ -277,7 +276,7 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
       readerSide: normalizeSide(reader.finalSide || reader.side),
       finalSide: side,
       rescueSide: normalizeSide(sr.finalSide || sr.side),
-      rescueAction: sr.action || prop.sideRescueAction || null,
+      rescueAction: sr.action || enriched.sideRescueAction || null,
     },
 
     reader: {
@@ -285,7 +284,7 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
       score: num(reader.score ?? reader.finalScore),
       evidence: reader.evidence || reader.evidenceSummary || null,
       uncertainty: reader.uncertainty || reader.uncertain || null,
-      contradictions: reader.contradictions || prop.contradictions || [],
+      contradictions: reader.contradictions || enriched.contradictions || [],
       thinGap: reader.thinGap ?? null,
       overGap: num(reader.overGap),
       underGap: num(reader.underGap),
@@ -293,7 +292,7 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
 
     flipFirst: {
       triggered: Boolean(flip.action && String(flip.action).includes("FLIP")),
-      action: flip.action || prop.flipFirstAction || null,
+      action: flip.action || enriched.flipFirstAction || null,
       reason: flip.reason || flip.primaryReason || null,
       flipScore: num(flip.score ?? flip.flipScore),
       flipMargin: num(flip.margin ?? flip.flipMargin),
@@ -303,20 +302,20 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
     trackingGate: {
       gateDecision:
         di.trackEligibility ||
-        prop.trackingEligibility ||
-        prop.wnbaTrackingDecision ||
+        enriched.trackingEligibility ||
+        enriched.wnbaTrackingDecision ||
         null,
-      gateReason: di.gateReason || prop.wnbaTrackingReason || null,
-      dangerStack: di.dangerGateCount ?? prop.dangerGateCount ?? null,
-      warnings: di.warnings || prop.trackingWarnings || [],
+      gateReason: di.gateReason || enriched.wnbaTrackingReason || null,
+      dangerStack: di.dangerGateCount ?? enriched.dangerGateCount ?? null,
+      warnings: di.warnings || enriched.trackingWarnings || [],
       naturalDecision: di.naturalDecision || di.originalGateEligibility || null,
       promotedDecision: di.bestSixPromoted ? "TRACK" : di.trackEligibility || null,
       bestSixPromoted: Boolean(di.bestSixPromoted),
-      promotionReasons: di.promotionReasons || prop.bestSixQualityFlags || [],
+      promotionReasons: di.promotionReasons || enriched.bestSixQualityFlags || [],
     },
 
     decisionIntelligence: {
-      risk: di.trueRisk || prop.trueRisk || prop.riskLabel || null,
+      risk: di.trueRisk || enriched.trueRisk || enriched.riskLabel || null,
       riskDebts: di.riskDebts || [],
       riskRepairs: di.riskRepairs || [],
       debtCategories: (di.riskDebts || [])
@@ -331,11 +330,11 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
 
     playerIntelligence: {
       profileType:
-        profile.profileType || profile.type || prop.profileType || null,
+        profile.profileType || profile.type || enriched.profileType || null,
       roleStability: num(profile.roleStability ?? profile.roleStabilityScore),
       minutesStability: num(
         profile.minutesStability ??
-          prop.minutesStabilityScore ??
+          enriched.minutesStabilityScore ??
           di.minutesStabilityScore
       ),
       usageStability: num(profile.usageStability ?? profile.volumeStability),
@@ -350,55 +349,62 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
     market: {
       openingLine: num(
         pregameSnapshot.marketBookData.openingLine ??
-          prop.openingLine ??
-          prop.lineHistory?.[0]?.line
+          enriched.openingLine ??
+          enriched.lineHistory?.[0]?.line
       ),
-      closingLine: num(prop.latestLine ?? prop.currentLine ?? line),
-      lineMovement: prop.lineMovement || null,
+      closingLine: num(truth.closingLine ?? enriched.latestLine ?? enriched.currentLine ?? line),
+      closingLineValue: truth.closingLineValue,
+      lineMovement: enriched.lineMovement || null,
       bookCount: num(pregameSnapshot.marketBookData.bookCount),
       marketQuality: num(pregameSnapshot.marketBookData.marketQuality),
       consensus: pregameSnapshot.marketBookData.consensus || null,
     },
 
     gameContext: {
-      pace: prop.pace ?? prop.wnbaGameContext?.pace ?? null,
-      spread: prop.spread ?? prop.wnbaGameContext?.spread ?? null,
+      pace: enriched.pace ?? enriched.wnbaGameContext?.pace ?? null,
+      spread: enriched.spread ?? enriched.wnbaGameContext?.spread ?? null,
       blowoutProbability:
-        prop.blowoutProbability ?? prop.wnbaGameContext?.blowoutProbability ?? null,
-      injuries: prop.injuries || prop.availabilityNotes || null,
-      availability: prop.availability || null,
-      opponentStrength: prop.opponentDefense || prop.opponentStrength || null,
-      opponentHistory: prop.h2h || prop.opponentHistory || null,
+        enriched.blowoutProbability ?? enriched.wnbaGameContext?.blowoutProbability ?? null,
+      injuries: enriched.injuries || enriched.availabilityNotes || null,
+      availability: enriched.availability || null,
+      opponentStrength: enriched.opponentDefense || enriched.opponentStrength || null,
+      opponentHistory: enriched.h2h || enriched.opponentHistory || null,
+      teamFinalScore: truth.teamFinalScore,
+      opponentFinalScore: truth.opponentFinalScore,
+      finalMargin: truth.finalMargin,
     },
 
     outcome: {
       status,
       result,
       margin,
-      gradedAt: prop.gradedAt || prop.resolvedAt || null,
+      gradedAt: enriched.gradedAt || enriched.resolvedAt || null,
       won: status === "win" || result === "WIN",
       lost: status === "loss" || result === "LOSS",
       push: status === "push" || result === "PUSH",
     },
 
     calibration: {
-      modulesHelped: [],
-      modulesHurt: [],
-      strongestEvidence: null,
-      failedEvidence: null,
+      modulesHelped: postgameLearning.modulesHelped,
+      modulesHurt: postgameLearning.modulesHurt,
+      modulesNeutral: postgameLearning.modulesNeutral,
+      strongestEvidence: postgameLearning.modulesHelped[0] || null,
+      failedEvidence: postgameLearning.modulesHurt[0] || null,
       thresholdsTooAggressive: [],
       thresholdsTooConservative: [],
       notes: missType,
+      missSubtype,
       lesson: postgameLearning.calibrationLesson,
     },
 
     versions: {
-      officialSealVersion: prop.officialSealVersion || null,
-      controlledBestSixVersion: prop.controlledBestSixVersion || null,
-      serverBuild: prop.serverBuild || null,
-      calibrationVersion: prop.calibrationVersion || null,
+      officialSealVersion: enriched.officialSealVersion || null,
+      controlledBestSixVersion: enriched.controlledBestSixVersion || null,
+      serverBuild: enriched.serverBuild || null,
+      calibrationVersion: enriched.calibrationVersion || null,
       buildVersion: pregameSnapshot.buildVersion,
       engineVersions: pregameSnapshot.engineVersions,
+      labLearningVersion: LAB_LEARNING_VERSION,
     },
   };
 }
@@ -536,9 +542,52 @@ export function attachOfficialLearningToReport(report = {}, props = []) {
   const summary = buildOfficialLabDailySummary(records, {
     slateDate: report.slateDate,
   });
+
+  // Module attribution rollup — only from modules that actually influenced decisions.
+  const moduleStats = {};
+  for (const rec of records) {
+    const outcome = rec.outcome || {};
+    for (const mod of rec.calibration?.modulesHelped || []) {
+      if (!moduleStats[mod]) moduleStats[mod] = { helped: 0, hurt: 0, neutral: 0, wins: 0, losses: 0 };
+      moduleStats[mod].helped += 1;
+      if (outcome.won) moduleStats[mod].wins += 1;
+      if (outcome.lost) moduleStats[mod].losses += 1;
+    }
+    for (const mod of rec.calibration?.modulesHurt || []) {
+      if (!moduleStats[mod]) moduleStats[mod] = { helped: 0, hurt: 0, neutral: 0, wins: 0, losses: 0 };
+      moduleStats[mod].hurt += 1;
+      if (outcome.won) moduleStats[mod].wins += 1;
+      if (outcome.lost) moduleStats[mod].losses += 1;
+    }
+    for (const mod of rec.calibration?.modulesNeutral || []) {
+      if (!moduleStats[mod]) moduleStats[mod] = { helped: 0, hurt: 0, neutral: 0, wins: 0, losses: 0 };
+      moduleStats[mod].neutral += 1;
+    }
+  }
+
+  const missTypeCounts = {};
+  for (const rec of records) {
+    const key = rec.postgameLearning?.missType || "UNKNOWN";
+    missTypeCounts[key] = (missTypeCounts[key] || 0) + 1;
+  }
+
+  const aggregateBreakdown = buildLabAggregateBreakdown(records);
+
   return {
     ...report,
     officialLearningRecords: records,
-    officialLabDailySummary: summary,
+    officialLabDailySummary: {
+      ...summary,
+      moduleAttribution: moduleStats,
+      missTypeCounts,
+      aggregateBreakdown,
+      labLearningVersion: LAB_LEARNING_VERSION,
+    },
+    labAggregateBreakdown: aggregateBreakdown,
+    learningPackets: records.map((r) => ({
+      officialPropId: r.officialPropId,
+      player: r.player,
+      ...r.learningPacket,
+    })),
   };
 }

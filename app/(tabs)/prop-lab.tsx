@@ -43,6 +43,11 @@ import {
   computeLabSlateTrackingSummary,
   formatLabTrackingSummaryLine,
 } from "../../utils/labTrackingInference";
+import {
+  formatMeasuredValue,
+  formatModuleList,
+  LAB_AGGREGATE_DIMENSION_LABELS,
+} from "../../utils/labDeepLearning";
 import { formatSlateMessageDate } from "../../utils/slateMessages";
 import {
   formatImpactLabel,
@@ -771,6 +776,21 @@ export default function PropLab() {
   const calibrationRules = report?.calibrationRules || report?.sections?.I;
   const slateLesson = report?.slateLesson || report?.sections?.J;
   const leagueSplit = report?.leagueSplit || report?.sections?.L;
+  const learningPackets = useMemo(() => {
+    if (Array.isArray(report?.learningPackets) && report.learningPackets.length) {
+      return report.learningPackets;
+    }
+    return (report?.officialLearningRecords || [])
+      .map((rec: any) => ({
+        officialPropId: rec.officialPropId,
+        player: rec.player,
+        ...(rec.learningPacket || {}),
+      }))
+      .filter((p: any) => p.player);
+  }, [report]);
+  const labDailySummary = report?.officialLabDailySummary || null;
+  const labAggregateBreakdown =
+    report?.labAggregateBreakdown || labDailySummary?.aggregateBreakdown || null;
 
   const slateTrackedProps = useMemo(() => {
     if (!currentLabSlateDate) return [];
@@ -1038,6 +1058,150 @@ export default function PropLab() {
                 )}
               />
             ) : null}
+          </SectionCard>
+        ) : null}
+
+        {learningPackets.length > 0 ? (
+          <SectionCard title="Per-Prop Learning Packets">
+            <Text style={styles.muted}>
+              Four layers: frozen pregame · postgame truth · diagnosis · module attribution.
+              Evidence only — Lab does not auto-change the engine.
+            </Text>
+            {labDailySummary?.missTypeCounts ? (
+              <Text style={[styles.muted, { marginBottom: 8 }]}>
+                Miss types:{" "}
+                {Object.entries(labDailySummary.missTypeCounts)
+                  .map(([k, v]) => `${k} ${v}`)
+                  .join(" · ")}
+              </Text>
+            ) : null}
+            {learningPackets.map((pkt: any) => {
+              const pre = pkt.pregame || {};
+              const post = pkt.postgame || {};
+              const diag = pkt.diagnosis || {};
+              const measured = post.measuredFields || {};
+              const modulesHelped = diag.modulesHelped || post.modulesHelped || [];
+              const modulesHurt = diag.modulesHurt || post.modulesHurt || [];
+              const modulesNeutral = diag.modulesNeutral || post.modulesNeutral || [];
+              return (
+                <View
+                  key={pkt.officialPropId || pkt.player}
+                  style={styles.learningPacketCard}
+                >
+                  <Text style={styles.learningPacketTitle}>
+                    {pkt.player}{" "}
+                    <Text style={styles.muted}>
+                      {post.result || "—"} · {diag.missType || post.missType || "—"}
+                      {diag.missSubtype || post.missSubtype
+                        ? ` / ${diag.missSubtype || post.missSubtype}`
+                        : ""}
+                    </Text>
+                  </Text>
+                  <Text style={styles.learningPacketLine}>
+                    ID: {pkt.officialPropId || pre.officialPropId || "—"}
+                  </Text>
+                  <Text style={styles.learningSubheading}>1 · Pregame freeze</Text>
+                  <Text style={styles.learningPacketLine}>
+                    {pre.side || "—"} {pre.line ?? "—"} · rank {pre.rank ?? "—"}
+                    {pre.isTopPick ? " · TOP" : ""}
+                    {"\n"}Raw proj {pre.rawProjection ?? pre.projection ?? "—"} · profile adj{" "}
+                    {pre.profileAdjustedProjection ?? pre.projection ?? "—"} · fair{" "}
+                    {pre.fairLine ?? "—"} · gap {pre.projectionGap ?? pre.projectionEdge ?? "—"}
+                    {"\n"}Exp {pre.expectedMinutes ?? "—"}m / {pre.expectedFGA ?? "—"} FGA /{" "}
+                    {pre.expectedFTA ?? "—"} FTA · conf {pre.confidence ?? "—"} · risk{" "}
+                    {pre.risk || "—"} · safety {pre.safetyScore ?? "—"}
+                    {"\n"}Profile {pre.profileType || "—"} (conf {pre.profileConfidence ?? "—"}) ·
+                    role stab {pre.roleStability ?? "—"} · vol {pre.scoringVolatility ?? "—"}
+                    {"\n"}Gate {pre.gate?.trackEligibility || "—"}
+                    {pre.gate?.gateReason ? ` (${pre.gate.gateReason})` : ""}
+                    {"\n"}Flip {pre.flipFirst?.action || "—"} · Rescue{" "}
+                    {pre.sideRescue?.action || "—"} · Opp{" "}
+                    {pre.sameTeamOpportunity?.opportunityAssessment ||
+                      pre.sameTeamOpportunity?.status ||
+                      "—"}
+                    {"\n"}Books {pre.marketBookData?.bookCount ?? "—"} · open{" "}
+                    {pre.marketBookData?.openingLine ?? "—"} · lock{" "}
+                    {pre.marketBookData?.lockLine ?? pre.line ?? "—"}
+                    {"\n"}Build {pre.buildVersion || "—"}
+                  </Text>
+                  <Text style={styles.learningSubheading}>2 · Postgame truth</Text>
+                  <Text style={styles.learningPacketLine}>
+                    Pts {formatMeasuredValue(measured.actualPoints ?? post.actualPoints)} · min{" "}
+                    {formatMeasuredValue(measured.actualMinutes ?? post.actualMinutes)} · FGA{" "}
+                    {formatMeasuredValue(measured.actualFGA ?? post.actualFGA)} · FTA{" "}
+                    {formatMeasuredValue(measured.actualFTA ?? post.actualFTA)}
+                    {"\n"}FG% {formatMeasuredValue(measured.actualFGPct ?? post.actualFGPct)} · TS%{" "}
+                    {formatMeasuredValue(measured.actualTSPct ?? post.actualTSPct)} · score{" "}
+                    {formatMeasuredValue(measured.teamFinalScore ?? post.teamFinalScore)}-
+                    {formatMeasuredValue(measured.opponentFinalScore ?? post.opponentFinalScore)}
+                    {"\n"}Close {formatMeasuredValue(measured.closingLine ?? post.closingLine)} ·
+                    CLV {formatMeasuredValue(measured.closingLineValue ?? post.closingLineValue)}
+                    {"\n"}Proj err {post.projectionError ?? post.signedError ?? "—"} · margin{" "}
+                    {post.resultMargin ?? post.margin ?? "—"}
+                  </Text>
+                  <Text style={styles.learningSubheading}>3 · Diagnosis</Text>
+                  {(diag.calibrationLesson || post.calibrationLesson) ? (
+                    <Text style={styles.learningLesson}>
+                      {diag.calibrationLesson || post.calibrationLesson}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.learningPacketLine}>
+                    Chosen side correct:{" "}
+                    {diag.chosenSideCorrect == null ? "—" : String(diag.chosenSideCorrect)}
+                    {"\n"}Opposite would win:{" "}
+                    {diag.oppositeSideWouldWin == null
+                      ? "—"
+                      : String(diag.oppositeSideWouldWin)}
+                    {"\n"}Flip-First:{" "}
+                    {diag.flipFirstEffect ??
+                      (diag.counterfactual?.flipFirstHelped == null
+                        ? "—"
+                        : String(diag.counterfactual.flipFirstHelped))}
+                    {"\n"}Side Rescue: {diag.sideRescueEffect ?? "—"} · Avoid?{" "}
+                    {diag.shouldHaveAvoided == null ? "—" : String(diag.shouldHaveAvoided)}
+                  </Text>
+                  <Text style={styles.learningSubheading}>4 · Modules</Text>
+                  <Text style={styles.learningPacketLine}>
+                    Helped: {formatModuleList(modulesHelped)}
+                    {"\n"}Hurt: {formatModuleList(modulesHurt)}
+                    {"\n"}Neutral: {formatModuleList(modulesNeutral)}
+                  </Text>
+                </View>
+              );
+            })}
+          </SectionCard>
+        ) : null}
+
+        {labAggregateBreakdown?.dimensionIndex ? (
+          <SectionCard title="Signal Learning Aggregates">
+            <Text style={styles.muted}>
+              Every official prop rolled up by signal — small samples stay visible.
+            </Text>
+            {labAggregateBreakdown.overall ? (
+              <Text style={styles.learningPacketLine}>
+                Slate: {labAggregateBreakdown.overall.record} · WR{" "}
+                {labAggregateBreakdown.overall.winRate ?? "—"}% · avg margin{" "}
+                {labAggregateBreakdown.overall.avgMargin ?? "—"} · avg proj err{" "}
+                {labAggregateBreakdown.overall.avgProjectionError ?? "—"}
+              </Text>
+            ) : null}
+            {Object.entries(labAggregateBreakdown.dimensionIndex as Record<string, any[]>)
+              .slice(0, 12)
+              .map(([dimension, rows]) => {
+                if (!rows?.length) return null;
+                const label = LAB_AGGREGATE_DIMENSION_LABELS[dimension] || dimension;
+                return (
+                  <View key={dimension} style={{ marginTop: 10 }}>
+                    <Text style={styles.learningSubheading}>{label}</Text>
+                    {rows.slice(0, 4).map((row: any) => (
+                      <Text key={`${dimension}-${row.value}`} style={styles.learningPacketLine}>
+                        {row.value}: {row.record} · {row.winRate ?? "—"}% · n={row.n}
+                        {row.smallSample ? " (small)" : ""}
+                      </Text>
+                    ))}
+                  </View>
+                );
+              })}
           </SectionCard>
         ) : null}
 
@@ -2234,6 +2398,40 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 6,
     lineHeight: 18,
+  },
+  learningPacketCard: {
+    backgroundColor: "#0b1220",
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#1e293b",
+  },
+  learningPacketTitle: {
+    color: "#f8fafc",
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+  learningPacketLine: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "600",
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  learningLesson: {
+    color: "#c8e6c9",
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  learningSubheading: {
+    color: "#90caf9",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 8,
+    marginBottom: 2,
   },
   emptyCard: {
     backgroundColor: "#0f172a",

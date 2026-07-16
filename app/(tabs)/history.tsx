@@ -704,6 +704,22 @@ function ThreeSlateGroupCard({
             </Text>
           ))}
 
+          {(group as any).learningBlock?.notes?.length ? (
+            <>
+              <Text style={styles.groupSectionTitle}>3-slate learning</Text>
+              {(group as any).learningBlock.notes.map((note: string, index: number) => (
+                <Text key={`learn-${index}`} style={styles.groupNote}>
+                  • {note}
+                </Text>
+              ))}
+              {(group as any).learningBlock.recommendation ? (
+                <Text style={styles.groupLineMuted}>
+                  {(group as any).learningBlock.recommendation}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+
           {group.comparison?.notes?.length ? (
             <>
               <Text style={styles.groupSectionTitle}>vs prior block</Text>
