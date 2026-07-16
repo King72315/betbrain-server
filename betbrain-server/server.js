@@ -275,7 +275,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lab-learning-backfill-v1";
+const SERVER_BUILD = "courteedge-lab-learning-backfill-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3258,6 +3258,39 @@ app.post("/daily-slate-reports/build", (req, res) => {
   try {
     const slateDate = req.body?.slateDate ? String(req.body.slateDate) : null;
     const forceRebuild = Boolean(req.body?.forceRebuild);
+    const learningOnly = Boolean(req.body?.learningOnly);
+
+    if (learningOnly) {
+      const confirm = Boolean(req.body?.confirm);
+      const dryRun = Boolean(req.body?.dryRun);
+      if (!confirm && !dryRun) {
+        return res.status(400).json({
+          ok: false,
+          message: "learningOnly backfill requires confirm: true or dryRun: true",
+          description:
+            "Appends deep Lab learning layers only. Preserves officialPropId, sealed pregame snapshots, Results, History, and slate membership.",
+        });
+      }
+
+      const result = backfillLabLearningLayers({
+        dryRun,
+        slateDate,
+        backupReason: req.body?.backupReason || "pre-lab-learning-backfill-v1",
+      });
+
+      if (!result.ok) {
+        return res.status(result.dryRun ? 200 : 400).json(result);
+      }
+
+      return res.json({
+        ok: true,
+        message: dryRun
+          ? "Lab learning backfill dry-run complete"
+          : "Lab learning layers backfilled",
+        result,
+      });
+    }
+
     const props = getTrackedProps();
     const result = buildDailySlateReportsFromTrackedProps(props, {
       slateDate,

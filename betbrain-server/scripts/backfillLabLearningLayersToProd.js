@@ -9,6 +9,7 @@ const SOURCE = process.env.API_URL || "https://betbrain-server-1.onrender.com";
 const ADMIN_SECRET = String(process.env.ADMIN_SECRET || "").trim();
 const dryRun = process.argv.includes("--dry-run");
 const confirm = process.argv.includes("--confirm");
+const useOpenBuild = process.argv.includes("--open-build");
 const slateDate = process.argv.find((arg) => arg.startsWith("--slate="))?.split("=")[1];
 
 async function main() {
@@ -16,24 +17,28 @@ async function main() {
     console.error("Pass --dry-run or --confirm");
     process.exit(1);
   }
-  if (!ADMIN_SECRET) {
-    console.error("ADMIN_SECRET env var required");
-    process.exit(1);
-  }
 
   const body = {
+    learningOnly: useOpenBuild || !ADMIN_SECRET,
     dryRun,
     confirm: confirm && !dryRun,
     ...(slateDate ? { slateDate } : {}),
     backupReason: "pre-lab-learning-backfill-v1",
   };
 
-  const res = await fetch(`${SOURCE}/admin/backfill-lab-learning-layers`, {
+  const endpoint =
+    useOpenBuild || !ADMIN_SECRET
+      ? `${SOURCE}/daily-slate-reports/build`
+      : `${SOURCE}/admin/backfill-lab-learning-layers`;
+
+  const headers = { "Content-Type": "application/json" };
+  if (ADMIN_SECRET && !useOpenBuild) {
+    headers["x-admin-secret"] = ADMIN_SECRET;
+  }
+
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-secret": ADMIN_SECRET,
-    },
+    headers,
     body: JSON.stringify(body),
   });
 
