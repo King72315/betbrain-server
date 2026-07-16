@@ -275,7 +275,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lab-learning-backfill-v2";
+const SERVER_BUILD = "courteedge-lab-learning-backfill-v3";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

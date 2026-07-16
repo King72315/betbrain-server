@@ -10,12 +10,15 @@ import {
 } from "./dailySlateReportService.js";
 import { isResolvedStatus } from "./gradeMonotonicityGuard.js";
 import { attachOfficialLearningToReport } from "./officialLearningRecordBuilder.js";
+import { buildOfficialPropId } from "./officialSlateService.js";
+import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
 import {
   enrichGradedPropForLab,
   LAB_LEARNING_VERSION,
 } from "./labLearningEnrichmentService.js";
 import {
   getAllHistoryArchives,
+  getHistoryArchive,
   getLockedSnapshot,
   getLockedSlatesRegistry,
   getQuarantinedSlatesFromRegistry,
@@ -62,6 +65,72 @@ function pickLearningOverlay(enriched = {}) {
     }
   }
   return patch;
+}
+
+function appendInitialFreezeIfMissing(prop = {}, slateDate = "") {
+  const next = { ...prop };
+  if (!next.officialPropId) {
+    next.officialPropId = buildOfficialPropId(next, slateDate);
+  }
+  if (!next.pregameSnapshot?.sealedAt) {
+    next.pregameSnapshot = buildCompletePregameSnapshot(next, {
+      slateDate,
+      sealedAt:
+        next.officialSealedAt ||
+        next.lockedAt ||
+        next.sealedAt ||
+        new Date().toISOString(),
+    });
+  }
+  return next;
+}
+
+function resolveLabReport(slateDate) {
+  const filtered = getDailySlateReport(slateDate);
+  if (filtered) {
+    return { report: filtered, source: "filtered" };
+  }
+
+  const raw = getRawDailySlateReports().find(
+    (report) => String(report.slateDate || "") === slateDate
+  );
+  if (raw) {
+    return { report: raw, source: "raw" };
+  }
+
+  const archive = getHistoryArchive(slateDate);
+  if (archive?.report) {
+    return { report: archive.report, source: "history_archive" };
+  }
+
+  return { report: null, source: null };
+}
+
+function buildMinimalLabReportShell(slateDate, slateProps = []) {
+  const graded = slateProps.filter((prop) => isResolvedStatus(prop.status));
+  const pending = slateProps.length - graded.length;
+  const now = new Date().toISOString();
+
+  return {
+    slateDate,
+    status: pending === 0 && slateProps.length > 0 ? "final" : "in-progress",
+    reportStatus: pending === 0 && slateProps.length > 0 ? "final" : "in-progress",
+    frozen: pending === 0 && slateProps.length > 0,
+    generatedAt: now,
+    updatedAt: now,
+    sections: {
+      A: {
+        title: "Slate Summary",
+        slateDate,
+        reportStatus: pending === 0 && slateProps.length > 0 ? "final" : "in-progress",
+        totalOfficialProps: slateProps.length,
+        totalTrackedProps: slateProps.length,
+        pending,
+        graded: graded.length,
+      },
+    },
+    labLearningBackfillSource: "minimal_shell_v1",
+  };
 }
 
 function propKey(prop = {}) {
@@ -129,7 +198,7 @@ function collectLabSlateProps(slateDate, trackedProps = getTrackedProps()) {
   return liveSlateProps;
 }
 
-function mergeLearningIntoTrackedStore(trackedProps, slateDate, enrichedByKey) {
+function mergeLearningIntoTrackedStore(trackedProps, slateDate, enrichedByKey, beforeByKey) {
   return trackedProps.map((prop) => {
     if (String(prop.slateDate || "") !== slateDate) return prop;
     const key = propKey(prop);
@@ -140,9 +209,15 @@ function mergeLearningIntoTrackedStore(trackedProps, slateDate, enrichedByKey) {
       ...prop,
       ...pickLearningOverlay(enriched),
     };
+    if (!prop.officialPropId && enriched.officialPropId) {
+      next.officialPropId = enriched.officialPropId;
+    }
+    if (!prop.pregameSnapshot?.sealedAt && enriched.pregameSnapshot?.sealedAt) {
+      next.pregameSnapshot = enriched.pregameSnapshot;
+    }
     if (prop.officialPropId) next.officialPropId = prop.officialPropId;
-    if (prop.pregameSnapshot) next.pregameSnapshot = prop.pregameSnapshot;
-    assertFreezePreserved(prop, next);
+    if (prop.pregameSnapshot?.sealedAt) next.pregameSnapshot = prop.pregameSnapshot;
+    assertFreezePreserved(beforeByKey.get(key) || prop, next);
     return next;
   });
 }
@@ -184,18 +259,10 @@ export function backfillLabLearningLayers(options = {}) {
     };
   }
 
-  const existingReport = getDailySlateReport(slateDate);
-  if (!existingReport) {
-    return {
-      ok: false,
-      message: `No daily slate report found for Lab slate ${slateDate}`,
-      slateDate,
-      dryRun,
-    };
-  }
+  const { report: existingReport, source: reportSource } = resolveLabReport(slateDate);
 
-  const slateProps = collectLabSlateProps(slateDate, trackedProps);
-  if (!slateProps.length) {
+  const slatePropsRaw = collectLabSlateProps(slateDate, trackedProps);
+  if (!slatePropsRaw.length) {
     return {
       ok: false,
       message: `No props found for Lab slate ${slateDate}`,
@@ -203,6 +270,14 @@ export function backfillLabLearningLayers(options = {}) {
       dryRun,
     };
   }
+
+  const beforeByKey = new Map(slatePropsRaw.map((prop) => [propKey(prop), { ...prop }]));
+  const freezeAppended = slatePropsRaw.filter(
+    (prop) => !prop.officialPropId || !prop.pregameSnapshot?.sealedAt
+  ).length;
+  const slateProps = slatePropsRaw.map((prop) =>
+    appendInitialFreezeIfMissing(prop, slateDate)
+  );
 
   const enrichedResults = slateProps.map((prop) => reEnrichPropPreservingFreeze(prop));
   const enrichedProps = enrichedResults.map((row) => row.prop);
@@ -212,20 +287,25 @@ export function backfillLabLearningLayers(options = {}) {
   const gradedCount = enrichedResults.filter((row) => row.enriched).length;
   const skippedCount = enrichedResults.filter((row) => row.skipped).length;
 
+  const reportBase =
+    existingReport || buildMinimalLabReportShell(slateDate, slateProps);
   const mergedTracked = mergeLearningIntoTrackedStore(
     trackedProps,
     slateDate,
-    enrichedByKey
+    enrichedByKey,
+    beforeByKey
   );
   const nextReport = patchReportLearningLayers(
-    existingReport,
+    reportBase,
     slateDate,
     enrichedProps
   );
 
   const preview = {
     slateDate,
+    reportSource: reportSource || (existingReport ? "filtered" : "minimal_shell_v1"),
     propCount: slateProps.length,
+    initialFreezeAppended: freezeAppended,
     gradedEnriched: gradedCount,
     skippedNotGraded: skippedCount,
     learningPacketCount: nextReport.learningPackets?.length || 0,
@@ -233,11 +313,18 @@ export function backfillLabLearningLayers(options = {}) {
     labLearningVersion: LAB_LEARNING_VERSION,
     lockedSnapshotPatched: isSlateLocked(slateDate),
     historyArchiveTouched: false,
-    officialPropIdsPreserved: enrichedProps.every(
-      (prop, index) =>
-        !slateProps[index]?.officialPropId ||
-        prop.officialPropId === slateProps[index].officialPropId
-    ),
+    officialPropIdsPreserved: enrichedProps.every((prop, index) => {
+      const before = slatePropsRaw[index];
+      return !before?.officialPropId || prop.officialPropId === before.officialPropId;
+    }),
+    pregameSnapshotsPreserved: enrichedProps.every((prop, index) => {
+      const before = slatePropsRaw[index];
+      if (!before?.pregameSnapshot?.sealedAt) return true;
+      return (
+        JSON.stringify(prop.pregameSnapshot) ===
+        JSON.stringify(before.pregameSnapshot)
+      );
+    }),
   };
 
   if (dryRun) {
