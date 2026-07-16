@@ -493,7 +493,7 @@ function isPropBlockingLabInference(prop = {}) {
   return true;
 }
 
-function inferCompletedReportsFromTrackedProps(
+export function inferCompletedReportsFromTrackedProps(
   trackedProps = [],
   reports = [],
   today = getTodayLocalDate(),

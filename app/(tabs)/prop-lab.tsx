@@ -663,24 +663,41 @@ export default function PropLab() {
     rotationMeta.historySlateDates.length || slateRotation.historySlates.length;
   const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
 
-  const loadReportForSlate = async (slateDate: string, validReports: any[]) => {
+  const loadReportForSlate = async (slateDate: string, validReports: any[], rawReports: any[] = []) => {
     const frozenReport =
       validReports.find(
         (r) =>
           r.slateDate === slateDate && (r.frozen === true || r.locked === true)
-      ) || null;
+      ) ||
+      rawReports.find(
+        (r) =>
+          r.slateDate === slateDate && (r.frozen === true || r.locked === true)
+      ) ||
+      null;
     const detail = frozenReport
       ? { ok: true, report: frozenReport }
       : await fetchDailySlateReport(slateDate);
     setReport(
-      detail.report || validReports.find((r) => r.slateDate === slateDate) || null
+      detail.report ||
+        validReports.find((r) => r.slateDate === slateDate) ||
+        rawReports.find((r) => r.slateDate === slateDate) ||
+        null
     );
   };
 
   const loadReports = async () => {
     const list = await fetchDailySlateReports();
     const rawReports = list.reports || [];
+    const lifecycleDates = [
+      list.currentLabSlateDate,
+      ...(list.historySlateDates || []),
+    ].filter(Boolean);
     const validReports = filterValidDailyReports(rawReports);
+    for (const slateDate of lifecycleDates) {
+      if (validReports.some((report) => report.slateDate === slateDate)) continue;
+      const match = rawReports.find((report) => report.slateDate === slateDate);
+      if (match) validReports.push(match);
+    }
     setReports(validReports);
     setRotationMeta({
       currentLabSlateDate: list.currentLabSlateDate || null,
@@ -692,7 +709,7 @@ export default function PropLab() {
     const labDate = list.currentLabSlateDate || null;
 
     if (labDate) {
-      await loadReportForSlate(labDate, validReports);
+      await loadReportForSlate(labDate, validReports, rawReports);
     } else {
       setReport(null);
     }

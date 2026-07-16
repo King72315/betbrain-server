@@ -14,6 +14,11 @@ import {
   resolveOfficialSlateMembership,
 } from "../services/officialSlateMembershipService.js";
 import { normalizeDailySlateReport } from "../services/canonicalDailySlateReportService.js";
+import {
+  filterValidDailyReports,
+  inferCompletedReportsFromTrackedProps,
+  isCompletedSlate,
+} from "../services/slateScopeService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = path.join(__dirname, "..", "lifecycle-pointer-state.json");
@@ -119,12 +124,42 @@ function testMembershipFromDisplayCohort() {
   assert.equal(membership.source, "display_cohort");
 }
 
+function testInferredLabReportIsDeliverable() {
+  const tracked = [
+    {
+      slateDate: "2099-01-01",
+      player: "A",
+      trackingType: "OFFICIAL",
+      controlledBestSixDisplayTracked: true,
+      status: "win",
+      league: "WNBA",
+    },
+    {
+      slateDate: "2099-01-01",
+      player: "B",
+      trackingType: "OFFICIAL",
+      controlledBestSixDisplayTracked: true,
+      status: "loss",
+      league: "WNBA",
+    },
+  ];
+  const inferred = inferCompletedReportsFromTrackedProps(
+    tracked,
+    [],
+    "2099-01-02"
+  );
+  assert.equal(inferred.length, 1);
+  assert.equal(isCompletedSlate(inferred[0]), true);
+  assert.equal(filterValidDailyReports(inferred, "2099-01-02").length, 1);
+}
+
 const tests = [
   ["monotonic blocks backward Lab pointer", testMonotonicBlocksBackward],
   ["monotonic allows forward Lab pointer", testMonotonicAllowsForward],
   ["official classification ignores watchlist when contract says official", testOfficialFromDisplayCohortNotWatchlistTier],
   ["canonical report has stable record + league", testCanonicalReportNeverUndefinedRecord],
   ["membership resolves display cohort", testMembershipFromDisplayCohort],
+  ["inferred completed report is API-deliverable", testInferredLabReportIsDeliverable],
 ];
 
 let passed = 0;

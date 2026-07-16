@@ -121,6 +121,18 @@ export function repairLifecycleIntegrity(options = {}) {
     };
   }
 
+  if (
+    options.targetLabSlateDate &&
+    !isFullyGradedOfficialSlate(targetLab, trackedProps)
+  ) {
+    return {
+      ok: false,
+      message: `Target Lab slate ${targetLab} is not fully graded — cannot promote to Lab`,
+      dryRun,
+      targetLabSlateDate: targetLab,
+    };
+  }
+
   const before = auditLifecycleIntegrity();
 
   const preview = {

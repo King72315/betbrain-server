@@ -172,7 +172,9 @@ import {
   buildDailySlateReportsFromTrackedProps,
   getDailySlateReport,
   getDailySlateReports,
+  getLifecycleDeliverableReports,
   getRawDailySlateReports,
+  resolveDeliverableDailySlateReport,
 } from "./services/dailySlateReportService.js";
 
 import {
@@ -283,7 +285,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lifecycle-integrity-v1";
+const SERVER_BUILD = "courteedge-lifecycle-integrity-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3195,7 +3197,6 @@ app.post("/clear-tracked-props", (req, res) => {
 
 app.get("/daily-slate-reports", (req, res) => {
   const rawReports = getRawDailySlateReports();
-  const reports = getDailySlateReports();
   const trackedProps = getTrackedProps();
   const archives = getAllHistoryArchives();
   const lockedSlates = getLockedSlatesRegistry().slates || [];
@@ -3209,6 +3210,12 @@ app.get("/daily-slate-reports", (req, res) => {
     getRotationRuntimeContext({ trackedProps, archives, lockedSlates, today }),
     viewedSlateDate
   );
+
+  const reports = getLifecycleDeliverableReports({
+    rotation,
+    trackedProps,
+    today,
+  });
 
   const historyThreeSlateGroups = buildHistoryThreeSlateGroups(archives, {
     historySlateDates: rotation.historySlateDates,
@@ -3246,7 +3253,10 @@ app.get("/daily-slate-reports", (req, res) => {
 });
 
 app.get("/daily-slate-reports/:slateDate", (req, res) => {
-  const report = getDailySlateReport(req.params.slateDate);
+  const trackedProps = getTrackedProps();
+  const report = resolveDeliverableDailySlateReport(req.params.slateDate, {
+    trackedProps,
+  });
 
   if (!report) {
     return res.status(404).json({

@@ -40,6 +40,7 @@ import {
   filterOutQuarantinedReports,
   filterReportsOnOrAfterCutoff,
   filterValidDailyReports,
+  inferCompletedReportsFromTrackedProps,
   getTodayLocalDate,
   hasUnresolvedGradingProps,
   isFutureSlateDate,
@@ -1336,6 +1337,83 @@ export function getDailySlateReports() {
   return filterOutQuarantinedReports(
     filterValidDailyReports(getRawDailySlateReports()),
     quarantinedSlates
+  );
+}
+
+/** Lifecycle-facing reports: valid filtered + raw/inferred stubs for current Lab and History. */
+export function getLifecycleDeliverableReports(options = {}) {
+  const {
+    rotation = null,
+    trackedProps = getTrackedProps(),
+    quarantinedSlates = getQuarantinedSlatesFromRegistry(),
+    today = getTodayLocalDate(),
+  } = options;
+
+  const rawReports = getRawDailySlateReports();
+  const filtered = getDailySlateReports();
+  const byDate = new Map(
+    filtered.map((report) => [String(report.slateDate || ""), report])
+  );
+
+  const lifecycleDates = rotation
+    ? [
+        rotation.currentLabSlateDate,
+        rotation.viewedSlateDate,
+        ...(rotation.historySlateDates || []),
+      ].filter(Boolean)
+    : [];
+
+  const uniqueDates = [...new Set(lifecycleDates.map(String))];
+  if (!uniqueDates.length) {
+    return filtered;
+  }
+
+  const inferred = inferCompletedReportsFromTrackedProps(
+    trackedProps,
+    rawReports,
+    today,
+    quarantinedSlates
+  );
+
+  for (const slateDate of uniqueDates) {
+    if (byDate.has(slateDate)) continue;
+    const raw = rawReports.find((report) => String(report.slateDate) === slateDate);
+    if (raw) {
+      byDate.set(slateDate, raw);
+      continue;
+    }
+    const stub = inferred.find((report) => String(report.slateDate) === slateDate);
+    if (stub) {
+      byDate.set(slateDate, stub);
+    }
+  }
+
+  return sortReportsByDateDesc([...byDate.values()]);
+}
+
+export function resolveDeliverableDailySlateReport(slateDate, options = {}) {
+  const date = String(slateDate || "");
+  if (!date) return null;
+
+  const direct = getDailySlateReport(date);
+  if (direct) return direct;
+
+  const raw = getRawDailySlateReports().find((report) => String(report.slateDate) === date);
+  if (raw) return raw;
+
+  const {
+    trackedProps = getTrackedProps(),
+    quarantinedSlates = getQuarantinedSlatesFromRegistry(),
+    today = getTodayLocalDate(),
+  } = options;
+
+  return (
+    inferCompletedReportsFromTrackedProps(
+      trackedProps,
+      getRawDailySlateReports(),
+      today,
+      quarantinedSlates
+    ).find((report) => String(report.slateDate) === date) || null
   );
 }
 
