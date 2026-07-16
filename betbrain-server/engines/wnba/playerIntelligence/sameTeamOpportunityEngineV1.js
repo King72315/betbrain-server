@@ -10,7 +10,7 @@
  * INSUFFICIENT_DATA: never treat as clean coexistence; bounded uncertainty only.
  */
 
-export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v3-incomplete";
+export const SAME_TEAM_OPPORTUNITY_VERSION = "same-team-opportunity-v4-identity";
 export const OPPORTUNITY_ASSESSMENT = Object.freeze([
   "SUPPORTED",
   "CONTRADICTED",
@@ -25,8 +25,10 @@ export const OPPORTUNITY_STATUS = Object.freeze([
 ]);
 
 /** Bounded uncertainty penalty — does not force flip/Under/reject. */
-export const INSUFFICIENT_OPPORTUNITY_RANKING_PENALTY = 14;
-export const INSUFFICIENT_OPPORTUNITY_TRUST_MULT = 0.94;
+export const INSUFFICIENT_OPPORTUNITY_RANKING_PENALTY = 8;
+export const INSUFFICIENT_OPPORTUNITY_TRUST_MULT = 0.97;
+export const SUPPORTED_OPPORTUNITY_RANKING_BOOST = 6;
+export const SUPPORTED_OPPORTUNITY_CONFIDENCE_BOOST = 3;
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -570,6 +572,11 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
     const rankingPenalty = num(audit.rankingPenalty);
     const trustMult = num(audit.projectionTrustMultiplier, 1) || 1;
     const priorTrust = num(pick.projectionTrustMultiplier, 1) || 1;
+    const assessment = String(audit.opportunityAssessment || audit.status || "").toUpperCase();
+    const rankingBoost =
+      assessment === "SUPPORTED" ? SUPPORTED_OPPORTUNITY_RANKING_BOOST : 0;
+    const confidenceBoost =
+      assessment === "SUPPORTED" ? SUPPORTED_OPPORTUNITY_CONFIDENCE_BOOST : 0;
 
     let next = {
       ...pick,
@@ -579,7 +586,16 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
       projectionTrustMultiplier: Math.min(priorTrust, trustMult),
       sameTeamOpportunityTrustMult: trustMult,
       // Keep slateCollisionPenalty channel so Best 6 scoring continues to subtract
-      slateCollisionPenalty: Math.max(num(pick.slateCollisionPenalty), rankingPenalty),
+      slateCollisionPenalty: Math.max(
+        0,
+        Math.max(num(pick.slateCollisionPenalty), rankingPenalty) - rankingBoost
+      ),
+      sameTeamOpportunityRankingBoost: rankingBoost,
+      sameTeamOpportunityConfidenceBoost: confidenceBoost,
+      confidence:
+        confidenceBoost > 0
+          ? Math.min(90, num(pick.confidence ?? pick.finalConfidence, 50) + confidenceBoost)
+          : pick.confidence,
       slateCollisionAudit: {
         ...(pick.slateCollisionAudit || {}),
         opportunityVersion: SAME_TEAM_OPPORTUNITY_VERSION,
@@ -589,6 +605,7 @@ export function applySameTeamOpportunityAdjustments(candidates = [], evaluation 
         missingOpportunityInputs: audit.missingOpportunityInputs,
         pressureScore: audit.pressureScore,
         rankingPenalty,
+        rankingBoost,
         opportunityPenaltyApplied: audit.opportunityPenaltyApplied,
         projectionTrustMultiplier: trustMult,
         recommendation: audit.recommendation,

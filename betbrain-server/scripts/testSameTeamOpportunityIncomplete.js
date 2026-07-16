@@ -250,7 +250,7 @@ test("C missing implied team total → INSUFFICIENT_DATA, never CLEAR, safety pe
   assert.equal(forPick.opportunityAssessment, "INSUFFICIENT_DATA");
   const labels = buildFlipFirstCompactLabels({ sameTeamOpportunity: forPick });
   assert.notEqual(labels.collision, "CLEAR");
-  assert.equal(labels.collision, "");
+  assert.equal(labels.collision, "INCOMPLETE");
 
   const adjusted = applySameTeamOpportunityAdjustments([a, b])[0];
   assert.equal(
@@ -290,7 +290,7 @@ test("D missing peer data → INSUFFICIENT_DATA, never opportunity clear", () =>
   assert.ok(result.missingOpportunityInputs.includes("peer_roster"));
   assert.ok(!result.reasons.some((r) => /opportunity clear/i.test(r)));
   const labels = buildFlipFirstCompactLabels({ sameTeamOpportunity: result });
-  assert.notEqual(labels.collision, "CLEAR");
+  assert.equal(labels.collision, "INCOMPLETE");
 });
 
 test("E four same-game props incomplete budget → no false clean, Top not fully verified", () => {
@@ -377,7 +377,7 @@ test("F no same-team peer → not a collision case, no penalty, not CLEAR-from-S
   assert.ok(result.reasons.some((r) => /not a same-team collision case/i.test(r)));
   assert.ok(!result.reasons.some((r) => /opportunity clear/i.test(r)));
   const labels = buildFlipFirstCompactLabels({ sameTeamOpportunity: result });
-  assert.notEqual(labels.collision, "CLEAR");
+  assert.equal(labels.collision, "CLEAR");
 });
 
 test("Replay Atlanta–Toronto cluster (in-memory from poll snapshot)", () => {
@@ -592,7 +592,7 @@ test("Replay Atlanta–Toronto cluster (in-memory from poll snapshot)", () => {
       }),
     });
     console.log("compactCollision:", JSON.stringify(labels.collision));
-    assert.notEqual(labels.collision, "CLEAR");
+    assert.ok(["INCOMPLETE", "WARNING", "FLIP_WARNING"].includes(labels.collision));
   }
 
   const atl = byTeam.get("atlantadream") || [];

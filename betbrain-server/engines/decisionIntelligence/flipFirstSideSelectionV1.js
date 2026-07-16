@@ -4,8 +4,12 @@
 import { resolveQualityGateInputs } from "../wnba/wnbaGateInputs.js";
 import { resolveWnbaGapFloor } from "../wnba/wnbaGraduatedDataModeV1.js";
 import { countIndependentEvidenceCategories } from "./sideSelectionTrustV1.js";
+import {
+  buildPlayerRoleIdentity,
+  classifySideEvidenceClass,
+} from "../wnba/playerIntelligence/playerRoleIdentityV1.js";
 
-export const FLIP_FIRST_VERSION = "flip-first-side-selection-v1";
+export const FLIP_FIRST_VERSION = "flip-first-side-selection-v2-evidence-class";
 
 const FLIP_SCORE_FLOOR = 58;
 const FLIP_MARGIN_DEFAULT = 8;
@@ -283,6 +287,16 @@ function originalHasHonestProjectionSupport(metrics = {}, originalSide = "", rea
   return false;
 }
 
+/** True Under edge requires Under case score + gap — not merely failed Over. */
+function underIndependentlyQualifies(reader = {}, metrics = {}, underScored = {}) {
+  const underGapFloor = resolveWnbaGapFloor({ ...metrics, side: "UNDER" }).gapFloorApplied;
+  const underGap = num(reader.underGap ?? metrics.underGap ?? metrics.projectionGap);
+  const underCase = num(reader.underCase?.score ?? underScored.score, 0);
+  if (underCase >= 58 && underGap >= Math.max(1.5, underGapFloor - 0.75)) return true;
+  if (underGap >= underGapFloor && underCase >= 50) return true;
+  return false;
+}
+
 export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
   const ddi = options.decisionDataIntelligence || pick.decisionDataIntelligence || {};
   const reader = options.reader || pick.wnbaReader || {};
@@ -362,6 +376,14 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     oppositeScored.score < 70
   ) {
     noFlipReasons.push("Opposite lacks independent evidence.");
+  } else if (
+    oppositeSide === "UNDER" &&
+    !underIndependentlyQualifies(reader, metrics, oppositeScored)
+  ) {
+    // Lack of Over evidence is not automatic Under edge.
+    noFlipReasons.push(
+      "Opposite Under lacks independent Under edge — uncertainty, not Under value."
+    );
   } else {
     flipRecommended = true;
     finalSide = oppositeSide;
@@ -423,6 +445,26 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     ? flipReasons[0] || `Flipped to ${finalSide}.`
     : noFlipReasons[0] || "Original retained after opposite review.";
 
+  const resolvedSide = flipRecommended ? finalSide : originalSide;
+  const roleIdentity = buildPlayerRoleIdentity(
+    pick.playerRoleProfile || pick.wnbaDataCard?.playerRoleProfile || {},
+    { line: pick.line }
+  );
+  const evidenceClass = classifySideEvidenceClass({
+    side: resolvedSide,
+    identity: roleIdentity,
+    overCaseScore:
+      reader.overCase?.score ??
+      (originalSide === "OVER" ? originalScored.score : oppositeScored.score),
+    underCaseScore:
+      reader.underCase?.score ??
+      (originalSide === "UNDER" ? originalScored.score : oppositeScored.score),
+    overGap: reader.overGap,
+    underGap: reader.underGap,
+    gapFloor: underGapFloor,
+    flipAction: action,
+  });
+
   const flipFirstAudit = {
     flipTriggered,
     flipTriggerReasons,
@@ -435,6 +477,8 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     thinGapTriggeredReview: thinEdge,
     flipMarginUsed: flipMargin,
     independentEvidenceCategoryCount: independentCategoryCount,
+    sideEvidenceClass: evidenceClass.sideEvidenceClass,
+    sideEvidenceReason: evidenceClass.reason,
   };
 
   return {
@@ -444,7 +488,7 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     originalSideScore: originalScored.score,
     oppositeSideScore: oppositeScored.score,
     flipRecommended,
-    finalSide: flipRecommended ? finalSide : originalSide,
+    finalSide: resolvedSide,
     flipReason: flipReasons[0] || "",
     noFlipReason: noFlipReasons[0] || "",
     action,
@@ -457,6 +501,9 @@ export function evaluateFlipFirstSideSelection(pick = {}, options = {}) {
     flipMarginUsed: flipMargin,
     independentEvidenceCategoryCount: independentCategoryCount,
     originalProblems,
+    sideEvidenceClass: evidenceClass.sideEvidenceClass,
+    sideEvidenceReason: evidenceClass.reason,
+    roleIdentity: roleIdentity.identity,
     reasons: reasons.slice(0, 8),
   };
 }
@@ -477,6 +524,9 @@ export function applyFlipFirstSideSelectionToPick(pick = {}, flipDecision = null
     flipFirstVersion: FLIP_FIRST_VERSION,
     flipFirstAction: fd.action,
     flipFirstExplanation: fd.flipReason || fd.noFlipReason || "",
+    sideEvidenceClass: fd.sideEvidenceClass || null,
+    sideEvidenceReason: fd.sideEvidenceReason || null,
+    roleIdentity: fd.roleIdentity || pick.roleIdentity || null,
     flipFirstAudit: fd.flipFirstAudit || {
       flipTriggered: fd.flipTriggered,
       flipTriggerReasons: fd.flipTriggerReasons || [],

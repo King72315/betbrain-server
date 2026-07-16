@@ -87,7 +87,7 @@ function basePick(overrides = {}) {
 
 test("01 build tag is courteedge-evidence-rank-v1", () => {
   assert.equal(PLAYER_INTELLIGENCE_BUILD_TAG, "courteedge-evidence-rank-v1");
-  assert.equal(EVIDENCE_FINAL_CONFIDENCE_VERSION, "evidence-final-confidence-v1");
+  assert.equal(EVIDENCE_FINAL_CONFIDENCE_VERSION, "evidence-final-confidence-v2");
 });
 
 test("02 thin projection gap dampens confidence even when side stays Over", () => {
@@ -257,19 +257,24 @@ test("04 BOTH_SIDES_WEAK applies material ranking + trust + required edge; stays
 
   assert.equal(applied.bothSidesWeak, true);
   assert.ok(
-    applied.finalConfidence <= 58,
+    applied.finalConfidence <= 70,
     `BOTH_SIDES_WEAK confidence cap: got ${applied.finalConfidence}`
   );
   assert.ok(
     applied.finalConfidence >= 18,
     `should not floor to absolute min from double-count: got ${applied.finalConfidence}`
   );
-  assert.ok((applied.projectionTrustMultiplier || 1) <= 0.78);
+  assert.ok(
+    (applied.projectionTrustMultiplier || 1) <=
+      BOTH_SIDES_WEAK_IMPACT.projectionTrustMultiplier + 0.001
+  );
   assert.ok(
     (applied.playerProfileCalibration?.overRequiredEdgeAdjustment || 0) >=
       BOTH_SIDES_WEAK_IMPACT.requiredEdgeBump
   );
-  assert.ok((applied.bothSidesWeakRankingPenalty || 0) >= 22);
+  assert.ok(
+    (applied.bothSidesWeakRankingPenalty || 0) >= BOTH_SIDES_WEAK_IMPACT.rankingPenalty
+  );
 
   const weakRank = computeSafetyScore({
     ...applied,
@@ -397,12 +402,12 @@ test("06 evidence-final apply overwrites confidence after evidence", () => {
         usageShare: { status: "BAD", score: 25 },
         marketIntelligence: { marketWarning: true, sideImpact: "UNDER" },
         sameTeamOpportunity: { status: "CONTRADICTED", pressureScore: 60 },
-        finalInfluence: { confidenceAdjustment: -22 },
+        finalInfluence: { confidenceAdjustment: -10 },
       },
     })
   );
   assert.ok(pick.confidenceBeforeEvidenceFinal === 88);
-  assert.ok(pick.finalConfidence <= 58);
+  assert.ok(pick.finalConfidence <= 70);
   assert.ok(pick.evidenceFinalConfidence?.version === EVIDENCE_FINAL_CONFIDENCE_VERSION);
 });
 

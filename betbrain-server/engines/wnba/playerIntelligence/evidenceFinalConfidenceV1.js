@@ -8,18 +8,18 @@
 
 import { num, clamp, normalizeSide } from "./playerIntelligenceUtils.js";
 
-export const EVIDENCE_FINAL_CONFIDENCE_VERSION = "evidence-final-confidence-v1";
+export const EVIDENCE_FINAL_CONFIDENCE_VERSION = "evidence-final-confidence-v2";
 
 /** Component weights — gap/edge is a minority share. */
 export const EVIDENCE_FINAL_WEIGHTS = Object.freeze({
   projectionEdgeStrength: 0.14,
-  profileReliability: 0.14,
+  profileReliability: 0.16,
   roleStability: 0.14,
   volumeUsageStability: 0.12,
   marketAgreement: 0.12,
-  sameTeamOpportunity: 0.1,
-  uniqueRiskDebts: 0.12,
-  sideSelectionAgreement: 0.12,
+  sameTeamOpportunity: 0.12,
+  uniqueRiskDebts: 0.1,
+  sideSelectionAgreement: 0.1,
 });
 
 function scoreProjectionEdgeStrength({
@@ -115,22 +115,23 @@ function scoreSameTeamOpportunity(opp = {}) {
   const assessment = String(
     opp.opportunityAssessment || opp.status || opp.opportunityStatus || ""
   ).toUpperCase();
-  if (assessment === "SUPPORTED") return 82;
-  if (assessment === "INSUFFICIENT_DATA") return 48;
-  if (assessment === "QUESTIONABLE") return 42;
-  if (assessment === "CONTRADICTED") return 18;
-  if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 45) return 25;
-  if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 28) return 44;
-  // No peer / not evaluated — neutral, not a clean SUPPORTED boost.
-  return 55;
+  if (assessment === "SUPPORTED") return 86;
+  if (assessment === "INSUFFICIENT_DATA") return 62; // incomplete ≠ contradiction
+  if (assessment === "QUESTIONABLE") return 48;
+  if (assessment === "CONTRADICTED") return 22;
+  if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 45) return 30;
+  if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 28) return 48;
+  // Solo / no peer — clear lane, mild support (not a penalty).
+  return 68;
 }
 
 function scoreUniqueRiskDebts({ riskDebtIds = [], debtCount = null, dangerGateCount = 0 } = {}) {
   const debts = Array.isArray(riskDebtIds) ? riskDebtIds : [];
   const unique = [...new Set(debts.filter(Boolean))];
   const count = debtCount != null ? num(debtCount, 0) : unique.length;
-  let score = 78 - count * 9 - (dangerGateCount || 0) * 5;
-  return clamp(Math.round(score), 8, 95);
+  // Softened stacking — debts inform, they must not crush TRACK into 30%.
+  let score = 82 - count * 5 - (dangerGateCount || 0) * 3;
+  return clamp(Math.round(score), 20, 95);
 }
 
 function scoreSideSelectionAgreement({
@@ -139,18 +140,21 @@ function scoreSideSelectionAgreement({
   sideRescueAction = "",
   initialSide = "",
   finalSide = "",
+  sideEvidenceClass = "",
 } = {}) {
   const action = String(flipAction || "").toUpperCase();
-  if (action === "BOTH_SIDES_WEAK") return 18;
-  if (action === "CHECK_UNDER" || action === "CHECK_OVER") return 42;
-  if (flipRecommended) return 72;
+  const evidenceClass = String(sideEvidenceClass || "").toUpperCase();
+  if (action === "BOTH_SIDES_WEAK" || evidenceClass === "UNCERTAINTY") return 42;
+  if (action === "CHECK_UNDER" || action === "CHECK_OVER") return 52;
+  if (flipRecommended) return 74;
   const init = normalizeSide(initialSide);
   const fin = normalizeSide(finalSide);
-  if (init && fin && init !== fin) return 68;
+  if (init && fin && init !== fin) return 70;
   const rescue = String(sideRescueAction || "").toUpperCase();
-  if (rescue === "FLIP_SIDE") return 70;
-  if (rescue && rescue !== "KEEP" && rescue !== "NONE") return 50;
-  return 74;
+  if (rescue === "FLIP_SIDE") return 72;
+  if (rescue && rescue !== "KEEP" && rescue !== "NONE") return 55;
+  if (evidenceClass === "POSITIVE_EDGE") return 80;
+  return 76;
 }
 
 /**
@@ -174,8 +178,11 @@ export function computeEvidenceFinalConfidence({
   initialSide = "",
   finalSide = "",
   side = "",
+  sideEvidenceClass = "",
   priorDirectional = null,
   influenceAdjustment = 0,
+  trackEligibility = "",
+  roleIdentityFloor = null,
   weights = EVIDENCE_FINAL_WEIGHTS,
 } = {}) {
   const components = {
@@ -199,6 +206,7 @@ export function computeEvidenceFinalConfidence({
       sideRescueAction,
       initialSide,
       finalSide: finalSide || side,
+      sideEvidenceClass,
     }),
   };
 
@@ -215,34 +223,41 @@ export function computeEvidenceFinalConfidence({
   let composite = weightSum > 0 ? weighted / weightSum : 50;
 
   // Soft blend with prior directional — does not re-center on gap.
-  // Caller should pass prior AFTER influence, with influenceAdjustment=0, OR
-  // prior BEFORE influence with the adjustment value — never both.
   const prior = num(priorDirectional);
   if (prior != null) {
-    composite = composite * 0.82 + prior * 0.18;
+    composite = composite * 0.78 + prior * 0.22;
   }
 
-  const infl = clamp(num(influenceAdjustment, 0) ?? 0, -28, 12);
-  composite += infl * 0.85;
+  const infl = clamp(num(influenceAdjustment, 0) ?? 0, -16, 12);
+  composite += infl * 0.7;
 
-  // Explicit thin-gap dampener (extra cut beyond component score) when below floor.
+  // Softened thin-gap dampener — gap already scored in projectionEdgeStrength.
   const gap = num(projectionGap);
   const floor = num(gapFloor, 2.5) ?? 2.5;
   let thinGapDampener = 0;
   if (gap != null && gap < floor) {
-    thinGapDampener = gap < floor - 1 ? -12 : -7;
+    thinGapDampener = gap < floor - 1 ? -6 : -3;
     composite += thinGapDampener;
   }
 
-  // BOTH_SIDES_WEAK hard ceiling so raw gap/confidence can't stay 80%+
+  // BOTH_SIDES_WEAK ceiling — uncertainty, not a 30% TRACK pick.
   const action = String(flipAction || "").toUpperCase();
   let bothSidesWeakCap = null;
   if (action === "BOTH_SIDES_WEAK") {
-    bothSidesWeakCap = 58;
+    bothSidesWeakCap = 70;
     composite = Math.min(composite, bothSidesWeakCap);
   }
 
-  const finalConfidence = clamp(Math.round(composite), 12, 88);
+  // TRACK eligibility must reflect evidence quality — floor unless exceptional debt stack.
+  const track = String(trackEligibility || "").toUpperCase();
+  const debtScore = components.uniqueRiskDebts;
+  let trackFloorApplied = null;
+  if (track === "TRACK" && debtScore >= 40) {
+    trackFloorApplied = num(roleIdentityFloor, 48) ?? 48;
+    composite = Math.max(composite, trackFloorApplied);
+  }
+
+  const finalConfidence = clamp(Math.round(composite), 28, 90);
 
   return {
     version: EVIDENCE_FINAL_CONFIDENCE_VERSION,
@@ -252,6 +267,7 @@ export function computeEvidenceFinalConfidence({
     weights: { ...weights },
     thinGapDampener,
     bothSidesWeakCap,
+    trackFloorApplied,
     gapWasPrimaryDriver: false,
     reasons: breakdown
       .filter((b) => b.score <= 40 || b.score >= 80)
@@ -262,6 +278,7 @@ export function computeEvidenceFinalConfidence({
       )
       .concat(thinGapDampener < 0 ? [`Thin gap dampener ${thinGapDampener}`] : [])
       .concat(bothSidesWeakCap != null ? [`BOTH_SIDES_WEAK confidence cap ${bothSidesWeakCap}`] : [])
+      .concat(trackFloorApplied != null ? [`TRACK confidence floor ${trackFloorApplied}`] : [])
       .slice(0, 10),
   };
 }
@@ -303,6 +320,12 @@ export function applyEvidenceFinalConfidenceToPick(pick = {}, options = {}) {
     ddi.sameTeamCollision ||
     {};
 
+  const roleIdentityDetail =
+    profile.roleIdentityDetail ||
+    pick.playerRoleProfile?.roleIdentityDetail ||
+    pick.playerIntelligenceProfile?.roleIdentityDetail ||
+    null;
+
   const result = computeEvidenceFinalConfidence({
     projectionGap,
     gapFloor,
@@ -334,8 +357,19 @@ export function applyEvidenceFinalConfidenceToPick(pick = {}, options = {}) {
     initialSide: pick.initialSide || flip.originalSide,
     finalSide: side || flip.finalSide,
     side,
+    sideEvidenceClass:
+      pick.sideEvidenceClass ||
+      flip.sideEvidenceClass ||
+      ddi.sideEvidenceClass ||
+      "",
     priorDirectional: pick.directionalConfidence ?? pick.confidence,
     influenceAdjustment: ddi.finalInfluence?.confidenceAdjustment || 0,
+    trackEligibility:
+      pick.trackingEligibility ||
+      pick.wnbaTrackingDecision ||
+      pick.decisionIntelligence?.trackEligibility ||
+      "",
+    roleIdentityFloor: roleIdentityDetail?.confidenceFloorHint ?? null,
   });
 
   return {
@@ -345,6 +379,7 @@ export function applyEvidenceFinalConfidenceToPick(pick = {}, options = {}) {
     confidenceBeforeEvidenceFinal: pick.finalConfidence ?? pick.confidence ?? null,
     finalConfidence: result.finalConfidence,
     confidence: result.finalConfidence,
+    roleIdentity: roleIdentityDetail?.identity || pick.roleIdentity || null,
     confidenceComponents: {
       ...(pick.confidenceComponents || {}),
       ...result.components,

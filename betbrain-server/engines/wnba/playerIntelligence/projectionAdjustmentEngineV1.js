@@ -9,10 +9,12 @@
  *  Rising / low Profile Confidence → adapt faster
  */
 
-export const PROJECTION_ADJUSTMENT_VERSION = "projection-adjustment-v1";
+import { buildPlayerRoleIdentity } from "./playerRoleIdentityV1.js";
+
+export const PROJECTION_ADJUSTMENT_VERSION = "projection-adjustment-v2-role-identity";
 export const PROJECTION_CAPS = Object.freeze({
-  maxTotalMovement: 1.5,
-  maxStageMovement: 0.9,
+  maxTotalMovement: 2.0,
+  maxStageMovement: 1.0,
 });
 
 function num(value, fallback = 0) {
@@ -163,6 +165,28 @@ export function applyPlayerIntelligenceProjectionAdjustments({
   current = round(current + oppAdj, 2);
   stages.push({ stage: "OPPORTUNITY", adjustment: round(oppAdj, 2), projection: current });
 
+  // --- Stage 4: Role Identity Adjustment (persistent identity → projection) ---
+  const roleIdentity =
+    intel.roleIdentity ||
+    buildPlayerRoleIdentity(intel, {
+      line: null,
+      seasonAverage: seasonAvg,
+      recentAverage: recentAvg,
+    });
+  let identityAdj = num(roleIdentity.projectionShift, 0) ?? 0;
+  // Identity moves projection toward natural value — not a confidence substitute.
+  if (roleIdentity.identity === "MINUTES_DEPENDENT" && seasonAvg != null) {
+    identityAdj += (seasonAvg - current) * 0.12;
+  }
+  identityAdj = clamp(identityAdj, -0.85, 0.65);
+  current = round(current + identityAdj, 2);
+  stages.push({
+    stage: "ROLE_IDENTITY",
+    adjustment: round(identityAdj, 2),
+    projection: current,
+    identity: roleIdentity.identity,
+  });
+
   // Hard safety vs raw
   let finalProjection = clamp(current, raw - maxTotalMovement, raw + maxTotalMovement);
   finalProjection = round(finalProjection, 1);
@@ -179,6 +203,8 @@ export function applyPlayerIntelligenceProjectionAdjustments({
     opportunityTrend: trend,
     availabilityProfile: avail,
     profileConfidence: conf,
+    roleIdentity: roleIdentity.identity,
+    roleIdentitySideBias: roleIdentity.sideBias,
     applied: Math.abs(finalProjection - raw) > 0.01,
   };
 }
@@ -217,13 +243,16 @@ export function buildIntelligenceProjectionCalibration(intel = {}, hints = {}) {
   const riskRepairIds = [];
   const reasons = [];
 
+  const roleIdentity = buildPlayerRoleIdentity(intel, {});
+  const identity = roleIdentity.identity;
+
   if (role === "VERY_STABLE" || role === "STABLE") {
     if (conf >= 50) {
       recentWeightAdjustment -= 0.02;
       minutesTrustMultiplier = 1.0; // never inflate projection via trust
       projectionUncertaintyAdjustment -= 0.2;
-      confidenceAdjustment += 2;
-      rankingAdjustment += 2;
+      confidenceAdjustment += 3;
+      rankingAdjustment += 3;
       riskRepairIds.push("STABLE_ROLE_PROFILE");
       reasons.push("Stable role intelligence — trust season blend");
     }
@@ -231,18 +260,36 @@ export function buildIntelligenceProjectionCalibration(intel = {}, hints = {}) {
     recentWeightAdjustment -= 0.05 * (1 + num(hints.volatilityPenaltyBoost, 0));
     minutesTrustMultiplier = role === "VERY_VOLATILE" ? 0.88 : 0.92;
     projectionUncertaintyAdjustment += 0.35 + num(hints.volatilityPenaltyBoost, 0) * 0.15;
-    overRequiredEdgeAdjustment += 0.25;
-    underRequiredEdgeAdjustment += 0.18;
-    confidenceAdjustment -= 3;
-    rankingAdjustment -= 3;
+    // Raise Over evidence bar — do NOT treat as automatic Under edge.
+    overRequiredEdgeAdjustment += 0.35;
+    underRequiredEdgeAdjustment += 0.08;
+    confidenceAdjustment -= 1; // identity handles projection; avoid double-crushing confidence
+    rankingAdjustment -= 2;
     riskDebtIds.push("UNSTABLE_ROLE");
-    reasons.push("Volatile role intelligence — regress / raise evidence bar");
+    reasons.push(
+      "Volatile role — raise Over evidence bar; Under still needs independent edge"
+    );
   } else {
     projectionUncertaintyAdjustment += 0.12;
     overRequiredEdgeAdjustment += 0.06;
-    confidenceAdjustment -= 1;
     reasons.push("Moderate role intelligence");
   }
+
+  // Identity-driven projection + asymmetric evidence requirements
+  projectionAdjustment += clamp(roleIdentity.projectionShift, -0.85, 0.65);
+  if (roleIdentity.overEvidenceRequirement === "HIGH") {
+    overRequiredEdgeAdjustment += 0.2;
+  }
+  if (roleIdentity.underEvidenceRequirement === "HIGH") {
+    underRequiredEdgeAdjustment += 0.2;
+  }
+  if (roleIdentity.lackOfOverEvidenceIsNotUnderEdge) {
+    underRequiredEdgeAdjustment += 0.12;
+    reasons.push(
+      `${identity}: lack of Over evidence is not an Under edge`
+    );
+  }
+  reasons.push(`Role identity ${identity} (bias ${roleIdentity.sideBias})`);
 
   if (usage === "ERRATIC") {
     projectionUncertaintyAdjustment += 0.15;
@@ -347,5 +394,8 @@ export function buildIntelligenceProjectionCalibration(intel = {}, hints = {}) {
     intelligenceVersion: intel.version || null,
     volatilityIndex: volIdx,
     adaptationRate,
+    roleIdentity: identity,
+    roleIdentitySideBias: roleIdentity.sideBias,
+    lackOfOverEvidenceIsNotUnderEdge: roleIdentity.lackOfOverEvidenceIsNotUnderEdge,
   };
 }

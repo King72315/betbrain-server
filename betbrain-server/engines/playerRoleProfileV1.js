@@ -13,10 +13,11 @@ import {
   getStoredPlayerProfile,
   getCalibrationHintsForPlayer,
   buildIntelligenceProjectionCalibration,
+  buildPlayerRoleIdentity,
 } from "./wnba/playerIntelligence/index.js";
 
-export const PLAYER_ROLE_PROFILE_VERSION = "player-role-profile-v1";
-export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1.2";
+export const PLAYER_ROLE_PROFILE_VERSION = "player-role-profile-v2-identity";
+export const PLAYER_PROFILE_CALIBRATION_VERSION = "player-profile-calibration-v1.3";
 
 const MIN_FAVORABLE_SAMPLE = 5;
 const MAX_RECENT_GAMES = 10;
@@ -583,6 +584,30 @@ export function buildPlayerRoleProfile({
   // Adaptive profile confidence: prefer intelligence accumulation curve
   const adaptiveConfidence = intelligence.profileConfidence ?? profileConfidence;
 
+  const roleIdentity = buildPlayerRoleIdentity(
+    {
+      roleStability,
+      minutesLevel,
+      scoringVolume,
+      shotVolumeStability,
+      scoringVolatility,
+      roleDirection,
+      roleStabilityScore: intelligence.roleStabilityScore,
+      usageProfile: intelligence.usageProfile,
+      scoringProfile: intelligence.scoringProfile,
+      opportunityTrend: intelligence.opportunityTrend,
+      availabilityProfile: intelligence.availabilityProfile,
+      volatilityIndex: intelligence.volatilityIndex,
+      profileConfidence: adaptiveConfidence,
+      recentMinutesAverage,
+      recentFgaAverage,
+      recentPointsAverage,
+      seasonPointsAverage,
+      playerIntelligence: intelligence,
+    },
+    { line, seasonAverage: seasonPointsAverage, recentAverage: recentPointsAverage }
+  );
+
   return {
     version: PLAYER_ROLE_PROFILE_VERSION,
     intelligenceVersion: intelligence.version,
@@ -592,6 +617,8 @@ export function buildPlayerRoleProfile({
     shotVolumeStability,
     scoringVolatility,
     roleDirection,
+    roleIdentity: roleIdentity.identity,
+    roleIdentityDetail: roleIdentity,
     // Phase 1 mathematical enums (Player Intelligence)
     roleStabilityScore: intelligence.roleStabilityScore,
     usageProfile: intelligence.usageProfile,
@@ -629,7 +656,11 @@ export function buildPlayerRoleProfile({
     fallbackUsed,
     playerId: playerId != null ? String(playerId) : null,
     season,
-    playerIntelligence: intelligence,
+    playerIntelligence: {
+      ...intelligence,
+      roleIdentity: roleIdentity.identity,
+      roleIdentityDetail: roleIdentity,
+    },
   };
 }
 
@@ -688,6 +719,7 @@ export function buildPlayerProfileCalibration(profile = {}, options = {}) {
     return {
       ...intelCalib,
       version: PLAYER_PROFILE_CALIBRATION_VERSION,
+      roleIdentity: intelCalib.roleIdentity || intel.roleIdentity || null,
       historicalHintsApplied: Boolean(hints),
       cannotForceSideFlip: true,
       cannotCreateTrack: true,

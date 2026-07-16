@@ -23,10 +23,10 @@ export const DECISION_DATA_INTELLIGENCE_VERSION =
 
 /** BOTH_SIDES_WEAK material selection constants (keep in learning pool). */
 export const BOTH_SIDES_WEAK_IMPACT = Object.freeze({
-  confidenceAdjustment: -22,
-  projectionTrustMultiplier: 0.78,
-  requiredEdgeBump: 0.45,
-  rankingPenalty: 32,
+  confidenceAdjustment: -10,
+  projectionTrustMultiplier: 0.88,
+  requiredEdgeBump: 0.28,
+  rankingPenalty: 18,
 });
 
 function num(value, fallback = 0) {
@@ -490,12 +490,16 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
     collisionStatus = "CLEAR";
   } else if (assessment === "CONTRADICTED") {
     collisionStatus = collisionScore >= 45 ? "FLIP_WARNING" : "WARNING";
+  } else if (assessment === "QUESTIONABLE") {
+    collisionStatus = "WARNING";
   } else if (assessment === "INSUFFICIENT_DATA") {
-    // Internal audit keeps INSUFFICIENT_DATA; UI stays neutral (not CLEAR).
-    collisionStatus = "";
+    // Visible incomplete signal — never blank, never fake CLEAR.
+    collisionStatus = "INCOMPLETE";
+  } else if (!opportunity.detected && !assessment) {
+    // Solo / no same-team peer — clear lane (engine evaluated, no conflict).
+    collisionStatus = "CLEAR";
   } else {
-    // No peer / not a collision case — blank, not CLEAR.
-    collisionStatus = "";
+    collisionStatus = "CLEAR";
   }
   const marketStatus = ddi.marketIntelligence?.marketWarning
     ? ddi.marketIntelligence?.sideImpact && ddi.marketIntelligence.sideImpact !== "NEUTRAL"

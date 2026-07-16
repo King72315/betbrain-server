@@ -285,7 +285,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lifecycle-integrity-v2";
+const SERVER_BUILD = "courteedge-player-intel-confidence-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

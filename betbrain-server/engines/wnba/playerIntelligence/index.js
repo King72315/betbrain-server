@@ -47,6 +47,14 @@ export {
 } from "./projectionAdjustmentEngineV1.js";
 
 export {
+  PLAYER_ROLE_IDENTITY_VERSION,
+  ROLE_IDENTITIES,
+  buildPlayerRoleIdentity,
+  identityProjectionShift,
+  classifySideEvidenceClass,
+} from "./playerRoleIdentityV1.js";
+
+export {
   CONFIDENCE_ENGINE_VERSION,
   CONFIDENCE_WEIGHTS,
   computePlayerIntelligenceConfidence,

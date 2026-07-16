@@ -206,7 +206,8 @@ test("05 projection uses profile — volatile regresses, stable barely moves", (
   const volDelta = Math.abs(volAdj.finalProjection - raw);
   assert.ok(stableDelta <= 1.0, `stable delta ${stableDelta}`);
   assert.ok(volDelta >= stableDelta, `vol ${volDelta} vs stable ${stableDelta}`);
-  assert.equal(stableAdj.stages.length, 3);
+  assert.equal(stableAdj.stages.length, 4);
+  assert.ok(stableAdj.stages.some((s) => s.stage === "ROLE_IDENTITY"));
 });
 
 test("06 returning availability is conservative", () => {

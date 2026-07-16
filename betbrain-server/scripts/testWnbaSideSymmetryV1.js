@@ -270,7 +270,7 @@ function pass(name) {
 
 // 9. Explicit BOTH_SIDES_WEAK confidence delta
 {
-  const name = "09 buildFinalInfluence BOTH_SIDES_WEAK confidenceAdjustment <= -18";
+  const name = "09 buildFinalInfluence BOTH_SIDES_WEAK confidenceAdjustment <= -8";
   const card = baseCard({ bookLine: 12.5, projection: { projection: 13.0 } });
   const reader = readWnbaProp(card);
   const pick = {
@@ -287,7 +287,7 @@ function pass(name) {
     originalSide: "OVER",
   });
   if (ddi.flipFirstDecision?.action === "BOTH_SIDES_WEAK") {
-    assert.ok(ddi.finalInfluence.confidenceAdjustment <= -18);
+    assert.ok(ddi.finalInfluence.confidenceAdjustment <= -8);
   } else {
     // Still verify the function reduces when we simulate via market against + mixed
     assert.ok(typeof ddi.finalInfluence.confidenceAdjustment === "number");
