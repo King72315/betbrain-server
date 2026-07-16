@@ -24,6 +24,10 @@ import {
   clearActiveTopPicksSnapshot,
   archiveTopPicksSnapshotToReportMetadata,
 } from "./topPicksSnapshotService.js";
+import { attachOfficialLearningToReport } from "./officialLearningRecordBuilder.js";
+import {
+  validateOfficialSlateLifecycle,
+} from "./officialSlateService.js";
 import {
   computeSlateRotation,
   filterOutQuarantinedReports,
@@ -1179,7 +1183,7 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     ...leagueSplit,
   };
 
-  return {
+  const baseReport = {
     slateDate,
     status: reportStatus,
     reportStatus,
@@ -1201,6 +1205,9 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     sideRescueRetroSimulation,
     signalPerformance,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
+    lifecycleIntegrity: validateOfficialSlateLifecycle(slateDate, {
+      trackedProps: slateProps,
+    }),
     sections: {
       A: {
         ...sectionA,
@@ -1289,6 +1296,9 @@ function buildSlateReport(slateDate, props = [], options = {}) {
       },
     },
   };
+
+  // Lab enrichment: mine locked props into durable learning records (no rebuild).
+  return attachOfficialLearningToReport(baseReport, slateProps);
 }
 
 function sortReportsByDateDesc(reports = []) {

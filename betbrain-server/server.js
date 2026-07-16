@@ -176,6 +176,14 @@ import {
 } from "./services/dailySlateReportService.js";
 
 import {
+  sealTomorrowOfficialSlates,
+  inheritTodayResultsFromSealedSlate,
+  buildOfficialSlateDiagnostics,
+  validateOfficialSlateLifecycle,
+  OFFICIAL_SLATE_BUILD_TAG,
+} from "./services/officialSlateService.js";
+
+import {
   createBackup,
   getLastBackup,
   listBackups,
@@ -264,7 +272,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-player-intel-v1";
+const SERVER_BUILD = "courteedge-lifecycle-integrity-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2372,8 +2380,26 @@ async function refreshAllPicks() {
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
+  // Stage 1 — Upsert Tomorrow Best 6 as DRAFT; seal only when full 6 or FINAL_THIN_SLATE.
+  const tomorrowDisplayBestSix = [
+    ...(controlledSelection.bestSixDisplayWNBA || []),
+    ...(controlledSelection.bestSixDisplayNBA || []),
+  ];
+  const officialSealResult = sealTomorrowOfficialSlates(tomorrowDisplayBestSix, {
+    todayLocalDate: getTodayLocalDate(),
+    serverBuild: SERVER_BUILD,
+    selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+  });
+
+  // Date rollover — Today Results inherits sealed Tomorrow slate only.
+  // Never reseal from a refreshed Today Best 6 cohort.
+  const resultsSlateDate = cohortBundle.audit.slateDate || getTodayLocalDate();
+  const todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
+    serverBuild: SERVER_BUILD,
+  });
+
   saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
-    slateDate: cohortBundle.audit.slateDate || getTodayLocalDate(),
+    slateDate: resultsSlateDate,
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     controlledBestSixAudit: topSelectionAudit,
   });
@@ -2383,6 +2409,11 @@ async function refreshAllPicks() {
   addTrackedProps(trackingCohort, {
     skipTopPickReferences: true,
     preFilteredCohort: true,
+    allowLockedBestSixBackfill: false,
+  });
+
+  const lifecycleValidation = validateOfficialSlateLifecycle(resultsSlateDate, {
+    trackedProps: getTrackedProps(),
   });
 
   const generatedProps = trackingCohort;
@@ -2400,6 +2431,12 @@ async function refreshAllPicks() {
     config: checkConfig(),
     filterAudit,
     sideAudit,
+    officialSeal: {
+      tomorrow: officialSealResult,
+      today: todayOfficialSeal,
+      lifecycleValidation,
+      buildTag: OFFICIAL_SLATE_BUILD_TAG,
+    },
     sideAuditSummary: {
       ...sideAudit,
       topRejectionReasons: Object.entries(sideAudit.rejectionReasons || {})
@@ -3476,6 +3513,10 @@ app.get("/diagnostics", (req, res) => {
     registry.slates || []
   );
   const lifecycleIntegrity = getLifecycleIntegrityDiagnostics(tracked);
+  const officialSlateDiagnostics = buildOfficialSlateDiagnostics({
+    trackedProps: tracked,
+    todayLocalDate: getTodayLocalDate(),
+  });
   courtEdgeFlow.resultsCohortSlateDate = resolveResultsCohortSlateDate({
     todayLocalDate: getTodayLocalDate(),
     lockedSlates: registry.slates || [],
@@ -3493,6 +3534,7 @@ app.get("/diagnostics", (req, res) => {
     serverBuild: SERVER_BUILD,
     engines: ENGINE_LOAD_FLAGS,
     trackingMode: TRACKING_MODE,
+    officialSlate: officialSlateDiagnostics,
     activeSlate: activeSlates[activeSlates.length - 1] || null,
     activeSlates,
     lockedSlates: registry.slates || [],

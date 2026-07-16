@@ -74,6 +74,13 @@ import {
   isFutureSlateDate,
   isOnOrAfterCleanDataCutoff,
 } from "./slateScopeService.js";
+import {
+  buildOfficialPropId,
+  freezeOfficialProp,
+  isOfficialSlateSealed,
+  resolveResultsPropsFromOfficialSlate,
+  appendLifecycleAudit,
+} from "./officialSlateService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1093,31 +1100,47 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
 
-  // Home Today fills to Best 6 from today's board; Results must do the same.
-  const todayCandidates = filterTodayResultsTrackingPicks(
-    fullGeneratedCandidates,
-    todayLocalDate
-  );
-  const todayWnbaCandidates = todayCandidates.filter(
-    (pick) => String(pick.league || "").toUpperCase() === "WNBA"
-  );
-  const todayNbaCandidates = todayCandidates.filter(
-    (pick) => String(pick.league || "").toUpperCase() === "NBA"
-  );
+  // Prefer immutable Official Slate for Results — never regenerate locked membership.
+  const officialResults = resolveResultsPropsFromOfficialSlate(slateDate, []);
+  let bestSixWNBA;
+  let bestSixNBA;
+  let bestSixCohort;
+  let admissionPath = "CONTROLLED_BEST_SIX_DISPLAY";
 
-  const bestSixWNBA = resolveTodayBestSixForResults(
-    filterTodayResultsTrackingPicks(bestSixDisplayWNBA, todayLocalDate),
-    todayWnbaCandidates,
-    "WNBA",
-    options
-  );
-  const bestSixNBA = resolveTodayBestSixForResults(
-    filterTodayResultsTrackingPicks(bestSixDisplayNBA, todayLocalDate),
-    todayNbaCandidates,
-    "NBA",
-    options
-  );
-  const bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
+  if (officialResults.source === "OFFICIAL_SEALED_SLATE" && officialResults.props.length) {
+    const sealed = officialResults.props;
+    bestSixWNBA = sealed.filter((p) => String(p.league || "").toUpperCase() === "WNBA");
+    bestSixNBA = sealed.filter((p) => String(p.league || "").toUpperCase() === "NBA");
+    bestSixCohort = sealed;
+    admissionPath = "OFFICIAL_SEALED_SLATE";
+  } else {
+    // Home Today fills to Best 6 from today's board; Results must do the same
+    // until an Official Slate is sealed for this date.
+    const todayCandidates = filterTodayResultsTrackingPicks(
+      fullGeneratedCandidates,
+      todayLocalDate
+    );
+    const todayWnbaCandidates = todayCandidates.filter(
+      (pick) => String(pick.league || "").toUpperCase() === "WNBA"
+    );
+    const todayNbaCandidates = todayCandidates.filter(
+      (pick) => String(pick.league || "").toUpperCase() === "NBA"
+    );
+
+    bestSixWNBA = resolveTodayBestSixForResults(
+      filterTodayResultsTrackingPicks(bestSixDisplayWNBA, todayLocalDate),
+      todayWnbaCandidates,
+      "WNBA",
+      options
+    );
+    bestSixNBA = resolveTodayBestSixForResults(
+      filterTodayResultsTrackingPicks(bestSixDisplayNBA, todayLocalDate),
+      todayNbaCandidates,
+      "NBA",
+      options
+    );
+    bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
+  }
 
   const { cohort: trackingCohort, audit: trackingCohortAudit } =
     buildResultsTrackingCohort(bestSixCohort, {
@@ -1143,7 +1166,13 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     })),
     controlledBestSixAudit: selection.controlledBestSixAudit || null,
     referenceOnly: true,
+    immutableOfficial: admissionPath === "OFFICIAL_SEALED_SLATE",
   };
+
+  const todayCandidateCount = filterTodayResultsTrackingPicks(
+    fullGeneratedCandidates,
+    todayLocalDate
+  ).length;
 
   const audit = {
     version: CONTROLLED_TRACKING_COHORT_VERSION,
@@ -1152,12 +1181,14 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     slateDate,
     sourcePool,
     fullCandidateCount: fullGeneratedCandidates.length,
+    todayCandidateCount,
     bestSixCount: bestSixCohort.length,
     trackingCohortCount: trackingCohort.length,
     controlledBestSixAudit: selection.controlledBestSixAudit || null,
     trackingCohortAudit,
-    admissionPath: "CONTROLLED_BEST_SIX_DISPLAY",
+    admissionPath,
     collectAllGeneratedPropsBypass: false,
+    officialSlateSealed: isOfficialSlateSealed(slateDate),
   };
 
   return {
@@ -2380,7 +2411,12 @@ function pruneExcessPreCapProps(working = [], incoming = [], audit = {}) {
   let excessRemoved = 0;
 
   for (const slateDate of slatesToEnforce) {
-    if (isSlateLocked(slateDate) || getHistoryArchiveProps(slateDate).length > 0) {
+    // Never prune sealed Official Slates or locked Results membership.
+    if (
+      isOfficialSlateSealed(slateDate) ||
+      isSlateLocked(slateDate) ||
+      getHistoryArchiveProps(slateDate).length > 0
+    ) {
       continue;
     }
 
@@ -2468,11 +2504,11 @@ function maybeAutoLockTodaySlate(working = [], audit = {}) {
 export function addTrackedProps(picks = [], options = {}) {
   const skipTopPickReferences = Boolean(options.skipTopPickReferences);
   const preFilteredCohort = Boolean(options.preFilteredCohort);
+  // Official sealed slates: membership is frozen — never append after seal.
+  // Explicit options.allowLockedBestSixBackfill === true is required for admin repair.
   const allowLockedBestSixBackfill =
-    options.allowLockedBestSixBackfill !== false &&
-    (Boolean(options.allowLockedBestSixBackfill) ||
-      preFilteredCohort ||
-      options.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY");
+    options.allowLockedBestSixBackfill === true &&
+    !options.forbidOfficialSealAppend;
   const incoming = (Array.isArray(picks) ? picks : [picks]).filter((pick) => {
     if (preFilteredCohort) {
       if (!pick?.player) return false;
@@ -2540,6 +2576,18 @@ export function addTrackedProps(picks = [], options = {}) {
       indexByStable.get(stableKey) ?? indexByStable.get(legacyKey);
 
     if (slateLocked && existingIndex === undefined) {
+      // Official sealed membership is frozen — no post-seal appends.
+      if (isOfficialSlateSealed(slateDate)) {
+        audit.blockedNewKeys += 1;
+        audit.blockedByOfficialSeal = (audit.blockedByOfficialSeal || 0) + 1;
+        appendLifecycleAudit({
+          type: "BLOCKED_POST_SEAL_APPEND",
+          slateDate,
+          player: pick.player,
+          reason: "official_slate_immutable",
+        });
+        continue;
+      }
       // Append-only Best 6 Results backfill — never delete existing locked props.
       if (!(allowLockedBestSixBackfill && isBestSixDisplayAdmissionPick(pick))) {
         audit.blockedNewKeys += 1;
@@ -2937,15 +2985,44 @@ export function deleteTrackedProp(id) {
   if (!targetId) return { ok: false, message: "Missing tracked prop id" };
 
   const tracked = readJSON(TRACKED_FILE, []);
+  const target = tracked.find(
+    (item) =>
+      String(item.trackedId) === targetId ||
+      String(item.trackedKey) === targetId ||
+      String(item.officialPropId || "") === targetId
+  );
+
+  if (!target) {
+    return { ok: false, message: "Tracked prop not found" };
+  }
+
+  const slateDate = String(target.slateDate || "");
+  if (
+    target.immutableOfficial === true ||
+    isOfficialSlateSealed(slateDate) ||
+    isSlateLocked(slateDate) ||
+    getHistoryArchiveProps(slateDate).length > 0
+  ) {
+    appendLifecycleAudit({
+      type: "BLOCKED_DELETE_SEALED_OR_LOCKED",
+      slateDate,
+      trackedId: targetId,
+      player: target.player,
+    });
+    return {
+      ok: false,
+      message: `Cannot delete prop on sealed/locked/archived slate ${slateDate}`,
+      blockedByLifecycle: true,
+      slateDate,
+    };
+  }
+
   const next = tracked.filter(
     (item) =>
       String(item.trackedId) !== targetId &&
-      String(item.trackedKey) !== targetId
+      String(item.trackedKey) !== targetId &&
+      String(item.officialPropId || "") !== targetId
   );
-
-  if (next.length === tracked.length) {
-    return { ok: false, message: "Tracked prop not found" };
-  }
 
   writeJSON(TRACKED_FILE, next);
   return { ok: true, message: "Tracked prop deleted", props: next };

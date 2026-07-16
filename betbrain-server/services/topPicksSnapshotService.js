@@ -9,6 +9,11 @@ import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestS
 import { getStableTrackedPropKey } from "./trackedPropService.js";
 import { buildSlateResultsSnapshot } from "./slateResultsSnapshot.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
+import {
+  getOfficialSlate,
+  isOfficialSlateSealed,
+} from "./officialSlateService.js";
+import { isSlateLocked } from "./slateLockService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -189,6 +194,50 @@ export function saveBestSixSnapshot(bestSix = [], options = {}) {
   const selectedAt = options.selectedAt || new Date().toISOString();
   const selectorVersion = options.selectorVersion || CONTROLLED_BEST_SIX_VERSION;
   const audit = options.controlledBestSixAudit || null;
+
+  // Official sealed / locked slates: never regenerate or reorder Best 6 display.
+  if (
+    !options.forceOverwrite &&
+    slateDate &&
+    (isOfficialSlateSealed(slateDate) || isSlateLocked(slateDate))
+  ) {
+    const official = getOfficialSlate(slateDate);
+    const store = readBestSixStore();
+    const existing = store.bySlate?.[slateDate] || null;
+    if (existing?.immutableOfficial || official?.props?.length) {
+      const pinned = existing || {
+        slateDate,
+        selectedAt: official.sealedAt || selectedAt,
+        selectorVersion,
+        sourcePool: TOP_PICKS_SOURCE_POOL,
+        pickCount: official.props.length,
+        picks: official.props.map((pick, index) =>
+          buildBestSixSnapshotEntry(
+            { ...pick, slateDate },
+            pick.bestSixRank || index + 1,
+            {
+              selectedAt: official.sealedAt || selectedAt,
+              selectorVersion,
+              slateDate,
+              league: pick.league,
+            }
+          )
+        ),
+        immutableOfficial: true,
+        referenceOnly: true,
+      };
+      store.active = pinned;
+      store.bySlate = store.bySlate || {};
+      store.bySlate[slateDate] = { ...pinned, immutableOfficial: true };
+      writeBestSixStore(store);
+      return {
+        ok: true,
+        snapshot: store.bySlate[slateDate],
+        skippedRegeneration: true,
+        reason: "official_slate_sealed",
+      };
+    }
+  }
 
   const picks = ranked.map((pick, index) =>
     buildBestSixSnapshotEntry(

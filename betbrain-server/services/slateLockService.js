@@ -396,7 +396,12 @@ export function lockSlate(slateDate, options = {}) {
     return { ok: false, message: "Missing slateDate" };
   }
 
-  if (isFutureSlateDate(date, getTodayLocalDate())) {
+  // Official Tomorrow Best 6 seals are allowed before calendar day (immutable Home lock).
+  // All other future locks remain blocked.
+  if (
+    isFutureSlateDate(date, getTodayLocalDate()) &&
+    !options.allowFutureOfficialSeal
+  ) {
     recordBlockedWrite({
       action: "lockSlate",
       slateDate: date,
@@ -446,6 +451,7 @@ export function lockSlate(slateDate, options = {}) {
   const autoLocked = Boolean(
     options.autoLocked ?? String(reason).startsWith("auto_")
   );
+  const officialSeal = options.officialSeal || null;
 
   const snapshot = {
     slateDate: date,
@@ -456,6 +462,8 @@ export function lockSlate(slateDate, options = {}) {
     propCount: frozenProps.length,
     props: frozenProps,
     backupId,
+    immutableOfficial: Boolean(officialSeal?.sealed),
+    officialSeal: officialSeal || undefined,
   };
 
   writeJSON(snapshotPath(date), snapshot);
@@ -471,6 +479,8 @@ export function lockSlate(slateDate, options = {}) {
     propCount: frozenProps.length,
     snapshotFile: `slate-snapshots/${date}.json`,
     backupId,
+    immutableOfficial: Boolean(officialSeal?.sealed),
+    officialSealedAt: officialSeal?.sealedAt || null,
   });
 
   saveRegistry(registry);
@@ -631,6 +641,8 @@ export function syncGradedPropsToLockedSlate(slateDate, mergedProps = []) {
 /**
  * Append-only Best 6 backfill into a locked ACTIVE snapshot.
  * Never removes or replaces existing snapshot props / grades.
+ *
+ * Official sealed slates reject appends — membership is frozen at seal.
  */
 export function appendMissingPropsToLockedSnapshot(slateDate, incomingProps = []) {
   const date = String(slateDate || "");
@@ -646,6 +658,17 @@ export function appendMissingPropsToLockedSnapshot(slateDate, incomingProps = []
   const snapshot = getLockedSnapshot(date);
   if (!snapshot) {
     return { ok: false, message: "Missing locked snapshot" };
+  }
+
+  if (snapshot.immutableOfficial === true || snapshot.officialSeal?.sealed === true) {
+    return {
+      ok: false,
+      skipped: true,
+      appended: 0,
+      slateDate: date,
+      message: "Official sealed slate rejects membership appends",
+      blockedByOfficialSeal: true,
+    };
   }
 
   const existingProps = Array.isArray(snapshot.props) ? [...snapshot.props] : [];
