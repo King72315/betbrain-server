@@ -211,6 +211,8 @@ import {
   buildCourtEdgeFlowDiagnostics,
   buildSlateRotationMetadata,
   getTodayLocalDate,
+  pickActiveResultsSlateDate,
+  sanitizeHomeBoardForLifecycle,
 } from "./services/slateScopeService.js";
 
 import {
@@ -272,7 +274,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lifecycle-integrity-v1.1";
+const SERVER_BUILD = "courteedge-opportunity-incomplete-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2467,8 +2469,8 @@ async function refreshAllPicks() {
     bestSixNBA,
     bestSixDisplayWNBA,
     bestSixDisplayNBA,
-    bestSixDisplayTodayWNBA: cohortBundle.bestSixDisplayTodayWNBA || bestSixWNBA,
-    bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || bestSixNBA,
+    bestSixDisplayTodayWNBA: cohortBundle.bestSixDisplayTodayWNBA || [],
+    bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || [],
     topPropsSource: TOP_PICKS_SOURCE_POOL,
     topWNBAPropsSelectedFromBestSix: true,
     topNBAPropsSelectedFromBestSix: true,
@@ -2583,7 +2585,14 @@ app.get("/picks", async (req, res) => {
         lastUpdated: null,
       });
     }
-    return res.json({ ...board, readOnly: true, serverBuild: SERVER_BUILD });
+    const sanitized = sanitizeHomeBoardForLifecycle(board, {
+      todayLocalDate: getTodayLocalDate(),
+      trackedProps: getTrackedProps(),
+      reports: getRawDailySlateReports(),
+      archives: getAllHistoryArchives(),
+      lockedSlates: getLockedSlatesRegistry().slates || [],
+    });
+    return res.json({ ...sanitized, readOnly: true, serverBuild: SERVER_BUILD });
   } catch (error) {
     console.log("GET PICKS ERROR:", error.message);
 
@@ -2618,86 +2627,92 @@ app.get("/top-props", async (req, res) => {
       });
     }
     picksCache = board;
+    const sanitized = sanitizeHomeBoardForLifecycle(board, {
+      todayLocalDate: getTodayLocalDate(),
+      trackedProps: getTrackedProps(),
+      reports: getRawDailySlateReports(),
+      archives: getAllHistoryArchives(),
+      lockedSlates: getLockedSlatesRegistry().slates || [],
+    });
 
     res.json({
       ok: true,
       readOnly: true,
       serverBuild: SERVER_BUILD,
-      lastUpdated: picksCache.lastUpdated,
-      topProps: (picksCache.topProps || []).slice(0, CONFIG.TOP_PROP_COMBINED_LIMIT),
-      topOfficialProps: (picksCache.topOfficialProps || []).slice(
+      lastUpdated: sanitized.lastUpdated,
+      topProps: (sanitized.topProps || []).slice(0, CONFIG.TOP_PROP_COMBINED_LIMIT),
+      topOfficialProps: (sanitized.topOfficialProps || []).slice(
         0,
         CONFIG.TOP_PROP_COMBINED_LIMIT
       ),
-      topTestProps: (picksCache.topTestProps || []).slice(
+      topTestProps: (sanitized.topTestProps || []).slice(
         0,
         CONFIG.TOP_PROP_COMBINED_LIMIT
       ),
-      topNBAProps: (picksCache.topNBAProps || []).slice(0, CONFIG.NBA_TOP_PROP_LIMIT),
-      topWNBAProps: (picksCache.topWNBAProps || []).slice(0, CONFIG.WNBA_TOP_PROP_LIMIT),
-      topNBAOfficialProps: (picksCache.topNBAOfficialProps || []).slice(
+      topNBAProps: (sanitized.topNBAProps || []).slice(0, CONFIG.NBA_TOP_PROP_LIMIT),
+      topWNBAProps: (sanitized.topWNBAProps || []).slice(0, CONFIG.WNBA_TOP_PROP_LIMIT),
+      topNBAOfficialProps: (sanitized.topNBAOfficialProps || []).slice(
         0,
         CONFIG.NBA_TOP_PROP_LIMIT
       ),
-      topNBATestProps: (picksCache.topNBATestProps || []).slice(
+      topNBATestProps: (sanitized.topNBATestProps || []).slice(
         0,
         CONFIG.NBA_TOP_PROP_LIMIT
       ),
-      topWNBAOfficialProps: (picksCache.topWNBAOfficialProps || []).slice(
+      topWNBAOfficialProps: (sanitized.topWNBAOfficialProps || []).slice(
         0,
         CONFIG.WNBA_TOP_PROP_LIMIT
       ),
-      topWNBATestProps: (picksCache.topWNBATestProps || []).slice(
+      topWNBATestProps: (sanitized.topWNBATestProps || []).slice(
         0,
         CONFIG.WNBA_TOP_PROP_LIMIT
       ),
-      bestSixWNBA: picksCache.bestSixWNBA || [],
-      bestSixNBA: picksCache.bestSixNBA || [],
-      bestSixDisplayWNBA: picksCache.bestSixDisplayWNBA || [],
-      bestSixDisplayNBA: picksCache.bestSixDisplayNBA || [],
-      bestSixDisplayTodayWNBA:
-        picksCache.bestSixDisplayTodayWNBA || picksCache.bestSixWNBA || [],
-      bestSixDisplayTodayNBA:
-        picksCache.bestSixDisplayTodayNBA || picksCache.bestSixNBA || [],
-      topPropsSource: picksCache.topPropsSource || TOP_PICKS_SOURCE_POOL,
+      bestSixWNBA: sanitized.bestSixWNBA || [],
+      bestSixNBA: sanitized.bestSixNBA || [],
+      bestSixDisplayWNBA: sanitized.bestSixDisplayWNBA || [],
+      bestSixDisplayNBA: sanitized.bestSixDisplayNBA || [],
+      bestSixDisplayTodayWNBA: sanitized.bestSixDisplayTodayWNBA || [],
+      bestSixDisplayTodayNBA: sanitized.bestSixDisplayTodayNBA || [],
+      topPropsSource: sanitized.topPropsSource || TOP_PICKS_SOURCE_POOL,
       topWNBAPropsSelectedFromBestSix: true,
       topNBAPropsSelectedFromBestSix: true,
-      bestSixCountByLeague: picksCache.bestSixCountByLeague ?? {},
-      qualityPassedCountByLeague: picksCache.qualityPassedCountByLeague ?? {},
-      selectedBestSixTeamsByLeague: picksCache.selectedBestSixTeamsByLeague ?? {},
-      selectedTopTeamsByLeague: picksCache.selectedTopTeamsByLeague ?? {},
-      hiddenDueToBestSixCap: picksCache.hiddenDueToBestSixCap ?? null,
-      hiddenDueToTeamCap: picksCache.hiddenDueToTeamCap ?? null,
-      hiddenDueToGameCap: picksCache.hiddenDueToGameCap ?? null,
-      hiddenDueToQualityGate: picksCache.hiddenDueToQualityGate ?? null,
-      controlledBestSixAudit: picksCache.controlledBestSixAudit || null,
-      topSelectionAudit: picksCache.topSelectionAudit || null,
-      candidateCount: picksCache.candidateCount ?? null,
+      bestSixCountByLeague: sanitized.bestSixCountByLeague ?? {},
+      qualityPassedCountByLeague: sanitized.qualityPassedCountByLeague ?? {},
+      selectedBestSixTeamsByLeague: sanitized.selectedBestSixTeamsByLeague ?? {},
+      selectedTopTeamsByLeague: sanitized.selectedTopTeamsByLeague ?? {},
+      hiddenDueToBestSixCap: sanitized.hiddenDueToBestSixCap ?? null,
+      hiddenDueToTeamCap: sanitized.hiddenDueToTeamCap ?? null,
+      hiddenDueToGameCap: sanitized.hiddenDueToGameCap ?? null,
+      hiddenDueToQualityGate: sanitized.hiddenDueToQualityGate ?? null,
+      controlledBestSixAudit: sanitized.controlledBestSixAudit || null,
+      topSelectionAudit: sanitized.topSelectionAudit || null,
+      candidateCount: sanitized.candidateCount ?? null,
       selectedCount: Math.min(
-        picksCache.selectedCount ?? picksCache.topProps?.length ?? 0,
+        sanitized.selectedCount ?? sanitized.topProps?.length ?? 0,
         CONFIG.TOP_PROP_COMBINED_LIMIT
       ),
-      selectedNBA: picksCache.selectedNBA ?? picksCache.topNBAProps?.length ?? 0,
-      selectedWNBA: picksCache.selectedWNBA ?? picksCache.topWNBAProps?.length ?? 0,
-      officialCount: picksCache.officialCount ?? null,
-      testCount: picksCache.testCount ?? null,
-      noBetCount: picksCache.noBetCount ?? null,
+      selectedNBA: sanitized.selectedNBA ?? sanitized.topNBAProps?.length ?? 0,
+      selectedWNBA: sanitized.selectedWNBA ?? sanitized.topWNBAProps?.length ?? 0,
+      officialCount: sanitized.officialCount ?? null,
+      testCount: sanitized.testCount ?? null,
+      noBetCount: sanitized.noBetCount ?? null,
       topPropSelectorVersion:
-        picksCache.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
+        sanitized.topPropSelectorVersion || TOP_PROP_SELECTOR_VERSION,
       controlledBestSixVersion:
-        picksCache.controlledBestSixVersion || CONTROLLED_BEST_SIX_VERSION,
+        sanitized.controlledBestSixVersion || CONTROLLED_BEST_SIX_VERSION,
       topPropLimit: CONFIG.TOP_PROP_COMBINED_LIMIT,
       bestSixLimit: 6,
       nbaTopPropLimit: CONFIG.NBA_TOP_PROP_LIMIT,
       wnbaTopPropLimit: CONFIG.WNBA_TOP_PROP_LIMIT,
       topPropTeamDiversityRequired: true,
-      selectedTeamsByLeague: picksCache.selectedTeamsByLeague ?? {},
-      hiddenDueToSameTeam: picksCache.hiddenDueToSameTeam ?? null,
-      hiddenDueToLeagueLimit: picksCache.hiddenDueToLeagueLimit ?? null,
+      selectedTeamsByLeague: sanitized.selectedTeamsByLeague ?? {},
+      hiddenDueToSameTeam: sanitized.hiddenDueToSameTeam ?? null,
+      hiddenDueToLeagueLimit: sanitized.hiddenDueToLeagueLimit ?? null,
       hiddenDueToNoDifferentTeamByLeague:
-        picksCache.hiddenDueToNoDifferentTeamByLeague ?? {},
-      candidateCountByLeague: picksCache.candidateCountByLeague ?? {},
-      scoredCountByLeague: picksCache.scoredCountByLeague ?? {},
+        sanitized.hiddenDueToNoDifferentTeamByLeague ?? {},
+      candidateCountByLeague: sanitized.candidateCountByLeague ?? {},
+      scoredCountByLeague: sanitized.scoredCountByLeague ?? {},
+      lifecycleHomeSanitize: sanitized.lifecycleHomeSanitize || null,
       hiddenDueToLimit: picksCache.topSelectionAudit?.hiddenDueToLimit ?? null,
       engineHandled: picksCache.topSelectionAudit?.engineHandled ?? {},
       filterAudit: picksCache.filterAudit || null,
@@ -3109,6 +3124,15 @@ app.post("/resolve-tracked-props", async (req, res) => {
       requireLikelyFinished: Boolean(req.body?.requireLikelyFinished),
     });
 
+    // Results UI must only receive the active Results cohort — never Lab/History.
+    const classification = classifyTrackedPropsByLifecycle(props, {
+      reports: rawReports,
+      archives,
+      lockedSlates,
+      today: getTodayLocalDate(),
+    });
+    const resultsProps = classification.activeResultsProps || [];
+
     const scopedSummary = buildScopedResolveSummary({
       beforeProps,
       afterProps: props,
@@ -3121,7 +3145,9 @@ app.post("/resolve-tracked-props", async (req, res) => {
     res.json({
       ok: true,
       message: scopedSummary.checkMessage || "Tracked props resolved",
-      props,
+      props: resultsProps,
+      trackedPropsReturnedMode: "active_results_only",
+      activeResultsSlateDate: classification.activeResultsSlateDate || null,
       summary: scopedSummary,
       analytics: buildTrackedPropAnalytics(
         getAnalyticsScopeProps(props, rawReports, archives)

@@ -112,13 +112,17 @@ function scoreMarketAgreement(market = {}, side = "") {
 }
 
 function scoreSameTeamOpportunity(opp = {}) {
-  const status = String(opp.status || opp.opportunityStatus || "").toUpperCase();
-  if (status === "SUPPORTED") return 82;
-  if (status === "QUESTIONABLE") return 42;
-  if (status === "CONTRADICTED") return 18;
+  const assessment = String(
+    opp.opportunityAssessment || opp.status || opp.opportunityStatus || ""
+  ).toUpperCase();
+  if (assessment === "SUPPORTED") return 82;
+  if (assessment === "INSUFFICIENT_DATA") return 48;
+  if (assessment === "QUESTIONABLE") return 42;
+  if (assessment === "CONTRADICTED") return 18;
   if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 45) return 25;
   if (opp.detected && (opp.collisionScore || opp.pressureScore || 0) >= 28) return 44;
-  return 62;
+  // No peer / not evaluated — neutral, not a clean SUPPORTED boost.
+  return 55;
 }
 
 function scoreUniqueRiskDebts({ riskDebtIds = [], debtCount = null, dangerGateCount = 0 } = {}) {

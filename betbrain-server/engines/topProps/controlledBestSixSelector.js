@@ -943,6 +943,7 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
   const sorted = [...bestSix].sort(compareBySafetyScore);
   const selected = [];
   const selectedTeamKeys = new Set();
+  let insufficientOpportunitySelected = 0;
 
   for (const pick of sorted) {
     if (selected.length >= limit) {
@@ -968,8 +969,42 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       continue;
     }
 
+    // Incomplete same-team opportunity: at most one unverified Over in Top
+    // when a comparable non-blocked alternative exists.
+    const topPairBlocked =
+      pick.sameTeamOpportunityAudit?.topPairAllowed === false ||
+      pick.slateCollisionAudit?.topPairAllowed === false ||
+      pick.sameTeamOpportunityAssessment === "INSUFFICIENT_DATA";
+    if (topPairBlocked && insufficientOpportunitySelected >= 1) {
+      const hasCleanAlt = sorted.some((candidate) => {
+        if (selected.includes(candidate) || candidate === pick) return false;
+        const altTeam = getPickTeamKey(candidate);
+        if (altTeam && selectedTeamKeys.has(altTeam)) return false;
+        const altBlocked =
+          candidate.sameTeamOpportunityAudit?.topPairAllowed === false ||
+          candidate.slateCollisionAudit?.topPairAllowed === false ||
+          candidate.sameTeamOpportunityAssessment === "INSUFFICIENT_DATA";
+        return !altBlocked;
+      });
+      if (hasCleanAlt) {
+        audit.hiddenDueToInsufficientOpportunityTopPair =
+          (audit.hiddenDueToInsufficientOpportunityTopPair || 0) + 1;
+        audit.hidden.push({
+          reason: "hidden_due_to_insufficient_opportunity_top_pair",
+          topPairBlockReason:
+            pick.sameTeamOpportunityAudit?.topPairBlockReason ||
+            pick.slateCollisionAudit?.topPairBlockReason ||
+            "INSUFFICIENT_OPPORTUNITY_DATA",
+          safetyScore: computeSafetyScore(pick),
+          pick: summarizePickForAudit(pick),
+        });
+        continue;
+      }
+    }
+
     selected.push(pick);
     if (teamKey) selectedTeamKeys.add(teamKey);
+    if (topPairBlocked) insufficientOpportunitySelected += 1;
   }
 
   if (limit >= 2 && selected.length === 1 && bestSix.length > 1) {

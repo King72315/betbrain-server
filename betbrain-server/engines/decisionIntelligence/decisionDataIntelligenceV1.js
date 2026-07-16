@@ -469,11 +469,34 @@ export function applyDecisionDataIntelligenceToPick(pick = {}, options = {}) {
 
 export function buildFlipFirstCompactLabels(ddi = {}) {
   const usageStatus = ddi.usageShare?.status || "PARTIAL";
-  const collisionStatus = ddi.sameTeamCollision?.detected
-    ? ddi.sameTeamCollision.collisionScore >= 45
-      ? "FLIP_WARNING"
-      : "WARNING"
-    : "CLEAR";
+  // Opportunity assessment drives collision compact label — never !detected => CLEAR.
+  const opportunity = ddi.sameTeamOpportunity || ddi.sameTeamCollision || {};
+  const assessment = String(
+    opportunity.opportunityAssessment ||
+      (opportunity.status === "SUPPORTED"
+        ? "SUPPORTED"
+        : opportunity.status === "INSUFFICIENT_DATA"
+          ? "INSUFFICIENT_DATA"
+          : opportunity.status === "CONTRADICTED" ||
+              opportunity.status === "QUESTIONABLE"
+            ? "CONTRADICTED"
+            : "")
+  ).toUpperCase();
+  const collisionScore = Number(
+    opportunity.collisionScore ?? opportunity.pressureScore ?? 0
+  );
+  let collisionStatus = "";
+  if (assessment === "SUPPORTED") {
+    collisionStatus = "CLEAR";
+  } else if (assessment === "CONTRADICTED") {
+    collisionStatus = collisionScore >= 45 ? "FLIP_WARNING" : "WARNING";
+  } else if (assessment === "INSUFFICIENT_DATA") {
+    // Internal audit keeps INSUFFICIENT_DATA; UI stays neutral (not CLEAR).
+    collisionStatus = "";
+  } else {
+    // No peer / not a collision case — blank, not CLEAR.
+    collisionStatus = "";
+  }
   const marketStatus = ddi.marketIntelligence?.marketWarning
     ? ddi.marketIntelligence?.sideImpact && ddi.marketIntelligence.sideImpact !== "NEUTRAL"
       ? "FLIP_SIGNAL"

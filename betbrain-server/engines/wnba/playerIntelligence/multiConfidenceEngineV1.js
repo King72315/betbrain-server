@@ -94,13 +94,16 @@ function scoreMarketAgreement({ marketQuality, marketWarning, marketSideImpact, 
 }
 
 function scoreSameTeamOpportunity(opp = {}) {
-  const status = String(opp.status || opp.opportunityStatus || "").toUpperCase();
+  const status = String(
+    opp.opportunityAssessment || opp.status || opp.opportunityStatus || ""
+  ).toUpperCase();
   if (status === "SUPPORTED") return 82;
+  if (status === "INSUFFICIENT_DATA") return 50;
   if (status === "QUESTIONABLE") return 48;
   if (status === "CONTRADICTED") return 22;
   if (opp.detected && (opp.collisionScore || 0) >= 45) return 28;
   if (opp.detected && (opp.collisionScore || 0) >= 30) return 45;
-  return 65;
+  return 55;
 }
 
 function scoreDecisionIntelligence(ddi = {}) {

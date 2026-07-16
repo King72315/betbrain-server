@@ -78,7 +78,11 @@ export {
 export {
   SAME_TEAM_OPPORTUNITY_VERSION,
   OPPORTUNITY_STATUS,
+  OPPORTUNITY_ASSESSMENT,
+  INSUFFICIENT_OPPORTUNITY_RANKING_PENALTY,
   resolveImpliedTeamTotal,
+  resolveImpliedTeamTotalWithSource,
+  assessOpportunityDataCompleteness,
   evaluateSameTeamOpportunityCluster,
   underIndependentlyWins,
   evaluateSlateSameTeamOpportunity,

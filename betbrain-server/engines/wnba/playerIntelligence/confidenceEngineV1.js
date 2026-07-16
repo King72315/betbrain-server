@@ -179,13 +179,18 @@ export function scoreMarketAgreement({
 }
 
 export function scoreSameTeamOpportunity(opportunity = null) {
-  if (!opportunity || (!opportunity.status && opportunity.status !== 0)) {
-    if (!opportunity) return 55;
-  }
-  const status = String(opportunity?.status || opportunity?.opportunityStatus || "").toUpperCase();
+  if (!opportunity) return 55;
+  const status = String(
+    opportunity.opportunityAssessment ||
+      opportunity.status ||
+      opportunity.opportunityStatus ||
+      ""
+  ).toUpperCase();
   switch (status) {
     case "SUPPORTED":
       return 78;
+    case "INSUFFICIENT_DATA":
+      return 48;
     case "QUESTIONABLE":
       return 42;
     case "CONTRADICTED":
@@ -464,9 +469,13 @@ export function computeEvidenceFinalConfidence({
   }
 
   const status = String(
-    sameTeamOpportunity?.status || sameTeamOpportunity?.opportunityStatus || ""
+    sameTeamOpportunity?.opportunityAssessment ||
+      sameTeamOpportunity?.status ||
+      sameTeamOpportunity?.opportunityStatus ||
+      ""
   ).toUpperCase();
   if (status === "CONTRADICTED") composite = Math.min(composite, 60);
+  else if (status === "INSUFFICIENT_DATA") composite = Math.min(composite, 66);
   else if (status === "QUESTIONABLE") composite = Math.min(composite, 70);
 
   const finalConfidence = clamp(Math.round(composite), 12, 88);

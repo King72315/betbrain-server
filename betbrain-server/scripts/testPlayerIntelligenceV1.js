@@ -299,6 +299,8 @@ test("09 same-team opportunity budgeting statuses", () => {
       side: "OVER",
       line: 18.5,
       projection: 20,
+      expectedFGA: 14,
+      expectedFTA: 3,
       confidence: 70,
       wnbaGameContext: { impliedTeamTotal: 78 },
     },
@@ -309,6 +311,8 @@ test("09 same-team opportunity budgeting statuses", () => {
       side: "OVER",
       line: 22.5,
       projection: 24,
+      expectedFGA: 17,
+      expectedFTA: 4,
       confidence: 60,
       wnbaGameContext: { impliedTeamTotal: 78 },
     },
@@ -319,12 +323,23 @@ test("09 same-team opportunity budgeting statuses", () => {
       side: "OVER",
       line: 25.5,
       projection: 28,
+      expectedFGA: 19,
+      expectedFTA: 5,
       confidence: 55,
       wnbaGameContext: { impliedTeamTotal: 78 },
     },
   ];
   const cluster = evaluateSameTeamOpportunityCluster(overs);
-  assert.ok(["SUPPORTED", "QUESTIONABLE", "CONTRADICTED"].includes(cluster.status));
+  assert.ok(
+    ["SUPPORTED", "QUESTIONABLE", "CONTRADICTED", "INSUFFICIENT_DATA"].includes(
+      cluster.status
+    )
+  );
+  assert.ok(
+    ["SUPPORTED", "CONTRADICTED", "INSUFFICIENT_DATA"].includes(
+      cluster.opportunityAssessment
+    )
+  );
   const pickEval = evaluateSameTeamOpportunityForPick(overs[2], {
     teamCandidates: overs,
   });
