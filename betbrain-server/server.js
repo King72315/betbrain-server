@@ -274,7 +274,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-opportunity-incomplete-v1";
+const SERVER_BUILD = "courteedge-player-intel-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
