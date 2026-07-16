@@ -638,6 +638,93 @@ export function syncGradedPropsToLockedSlate(slateDate, mergedProps = []) {
   return { ok: true, slateDate: date, propCount: mergedProps.length };
 }
 
+const LAB_SNAPSHOT_LEARNING_FIELDS = [
+  "postgameTruth",
+  "actualMinutes",
+  "actualFGA",
+  "actualFTA",
+  "actualFGPct",
+  "actualTSPct",
+  "teamFinalScore",
+  "opponentFinalScore",
+  "finalMargin",
+  "closingLine",
+  "closingLineValue",
+  "lockLine",
+  "missType",
+  "missSubtype",
+  "calibrationLesson",
+  "modulesHelped",
+  "modulesHurt",
+  "modulesNeutral",
+  "labCounterfactual",
+  "labLearningVersion",
+];
+
+function snapshotPropKey(prop = {}) {
+  return String(prop.trackedKey || prop.trackedId || prop.officialPropId || "");
+}
+
+/**
+ * Overlay Lab learning fields onto a locked snapshot only.
+ * Does not touch history archives, membership, officialPropId, or pregame snapshots.
+ */
+export function patchLockedSnapshotLearningFields(slateDate, enrichedProps = []) {
+  const date = String(slateDate || "");
+  if (!date || !isSlateLocked(date)) {
+    return { ok: false, skipped: true, message: "Slate not locked" };
+  }
+
+  const snapshot = getLockedSnapshot(date);
+  if (!snapshot?.props?.length) {
+    return { ok: false, message: "Missing locked snapshot" };
+  }
+
+  const byKey = new Map(
+    (Array.isArray(enrichedProps) ? enrichedProps : []).map((prop) => [
+      snapshotPropKey(prop),
+      prop,
+    ])
+  );
+
+  const now = new Date().toISOString();
+  let patchedCount = 0;
+  const nextProps = snapshot.props.map((snapshotProp) => {
+    const enriched = byKey.get(snapshotPropKey(snapshotProp));
+    if (!enriched) return { ...snapshotProp };
+
+    const next = { ...snapshotProp };
+    for (const field of LAB_SNAPSHOT_LEARNING_FIELDS) {
+      if (enriched[field] !== undefined) {
+        next[field] = enriched[field];
+      }
+    }
+    if (snapshotProp.officialPropId) {
+      next.officialPropId = snapshotProp.officialPropId;
+    }
+    if (snapshotProp.pregameSnapshot) {
+      next.pregameSnapshot = snapshotProp.pregameSnapshot;
+    }
+    patchedCount += 1;
+    return next;
+  });
+
+  writeJSON(snapshotPath(date), {
+    ...snapshot,
+    props: nextProps,
+    propCount: nextProps.length,
+    labLearningBackfilledAt: now,
+  });
+
+  return {
+    ok: true,
+    slateDate: date,
+    propCount: nextProps.length,
+    patchedCount,
+    historyArchiveTouched: false,
+  };
+}
+
 /**
  * Append-only Best 6 backfill into a locked ACTIVE snapshot.
  * Never removes or replaces existing snapshot props / grades.

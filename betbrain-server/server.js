@@ -241,6 +241,7 @@ import { repairSlateRotation0624 } from "./services/repairSlateRotation0624Servi
 import { repairLabHistoryMessages0625 } from "./services/repairLabHistoryMessages0625Service.js";
 import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0624AndArchive0621Service.js";
 import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
+import { backfillLabLearningLayers } from "./services/backfillLabLearningLayersService.js";
 import {
   previewSplitResultsCohortRepair,
   repairSplitResultsCohort,
@@ -274,7 +275,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lab-deep-packet-v1";
+const SERVER_BUILD = "courteedge-lab-learning-backfill-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -4262,6 +4263,47 @@ app.post("/admin/repair-lab-slate-rotation", requireAdminSecret, (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Lab slate rotation repair failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/backfill-lab-learning-layers", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Backfill requires confirm: true or dryRun: true",
+        description:
+          "Appends deep Lab learning layers (postgame truth, diagnosis, aggregates) for the current Lab slate. Preserves officialPropId, sealed pregame snapshots, Results, History, and slate membership.",
+      });
+    }
+
+    const result = backfillLabLearningLayers({
+      dryRun,
+      slateDate: req.body?.slateDate ? String(req.body.slateDate) : null,
+      backupReason: req.body?.backupReason || "pre-lab-learning-backfill-v1",
+    });
+
+    if (!result.ok) {
+      return res.status(result.dryRun ? 200 : 400).json(result);
+    }
+
+    res.json({
+      ok: true,
+      message: dryRun
+        ? "Lab learning backfill dry-run complete"
+        : "Lab learning layers backfilled",
+      result,
+    });
+  } catch (error) {
+    console.log("BACKFILL LAB LEARNING ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab learning backfill failed",
       error: error.message,
     });
   }

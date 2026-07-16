@@ -348,16 +348,16 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
 
     market: {
       openingLine: num(
-        pregameSnapshot.marketBookData.openingLine ??
+        pregameSnapshot.marketBookData?.openingLine ??
           enriched.openingLine ??
           enriched.lineHistory?.[0]?.line
       ),
       closingLine: num(truth.closingLine ?? enriched.latestLine ?? enriched.currentLine ?? line),
       closingLineValue: truth.closingLineValue,
       lineMovement: enriched.lineMovement || null,
-      bookCount: num(pregameSnapshot.marketBookData.bookCount),
-      marketQuality: num(pregameSnapshot.marketBookData.marketQuality),
-      consensus: pregameSnapshot.marketBookData.consensus || null,
+      bookCount: num(pregameSnapshot.marketBookData?.bookCount),
+      marketQuality: num(pregameSnapshot.marketBookData?.marketQuality),
+      consensus: pregameSnapshot.marketBookData?.consensus || null,
     },
 
     gameContext: {
