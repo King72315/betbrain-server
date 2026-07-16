@@ -6,6 +6,7 @@ import { evaluateWnbaOfficialEligibility } from "../wnbaOfficialEngine.js";
 import {
   resolveWnbaGapFloor,
   WNBA_UNDER_GAP_FLOOR,
+  WNBA_READER_MEANINGFUL_OVER_GAP,
 } from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
@@ -58,10 +59,15 @@ function scoreVolumePath(side, card = {}) {
   let overGapFloorPassed = null;
   let limitedDataOverPenaltyApplied = false;
 
+  // Over meaningful evidence aligned to FULL_DATA gate floor (3.0).
+  // Under moderate band left at 2.5 — Under floors are not part of this calibration.
+  const meaningfulGap =
+    side === "OVER" ? WNBA_READER_MEANINGFUL_OVER_GAP : 2.5;
+
   if (edge >= 4) {
     score += 12;
     supports.push(`Projection gap ${edge.toFixed(1)} supports ${side}`);
-  } else if (edge >= 2.5) {
+  } else if (edge >= meaningfulGap) {
     score += 7;
     supports.push(`Moderate projection gap ${edge.toFixed(1)}`);
   } else if (edge <= 1) {
@@ -659,7 +665,7 @@ export function readWnbaProp(dataCard = {}) {
     }
   }
 
-  if (chosen.edge > 0 && chosen.edge < 2.5 && finalSide === "OVER") {
+  if (chosen.edge > 0 && chosen.edge < WNBA_READER_MEANINGFUL_OVER_GAP && finalSide === "OVER") {
     reasonCodes.push("THIN_OVER_GAP");
     if (decision === "OFFICIAL") decision = "TEST";
   }

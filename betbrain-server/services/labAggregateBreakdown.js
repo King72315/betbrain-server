@@ -177,6 +177,45 @@ export function buildLabAggregateBreakdown(records = []) {
     ["side_rescue", (r) => r.sideAnalysis?.rescueAction || "NONE"],
     ["gate", (r) => r.trackingGate?.gateDecision],
     ["gate_reason", (r) => r.trackingGate?.gateReason],
+    [
+      "natural_decision",
+      (r) => r.trackingGate?.naturalDecision || r.naturalDecision || null,
+    ],
+    [
+      "promoted_fill",
+      (r) =>
+        r.trackingGate?.promotedForBestSix || r.trackingGate?.bestSixPromoted
+          ? "PROMOTED"
+          : "NATURAL",
+    ],
+    [
+      "reader_gate_disagreement",
+      (r) => (r.trackingGate?.readerGateDisagreement ? "DISAGREE" : "AGREE"),
+    ],
+    [
+      "reader_vs_gate",
+      (r) => {
+        const label =
+          r.reader?.evidence ||
+          (r.projection?.gapBucket != null
+            ? `gap:${r.projection.gapBucket}`
+            : "unknown");
+        const gate =
+          r.trackingGate?.naturalDecision ||
+          r.trackingGate?.gateDecision ||
+          "unknown";
+        return `${label}|${gate}`;
+      },
+    ],
+    [
+      "top2_promotion",
+      (r) => {
+        if (!r.isTopPick) return null;
+        return r.trackingGate?.promotedForBestSix || r.trackingGate?.bestSixPromoted
+          ? "TOP_PROMOTED"
+          : "TOP_NATURAL";
+      },
+    ],
     ["miss_type", (r) => r.postgameLearning?.missType],
     ["data_mode", (r) => r.pregameSnapshot?.dataMode || r.decisionIntelligence?.dataMode],
     ["minutes_delta", minutesDeltaBucket],

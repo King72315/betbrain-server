@@ -183,32 +183,41 @@ test("05 defense and implied team total audits attach when data exists", () => {
   assert.notStrictEqual(synced.impliedTeamTotalAudit.source, "unavailable");
 });
 
-test("06 live Over floor stays 4.0; retro FULL stable can use 3.5", () => {
-  const live = resolveWnbaGapFloors({
+test("06 live FULL stable Over floor is 3.0; LIMITED Over stays 4.0", () => {
+  const liveFull = resolveWnbaGapFloors({
     side: "OVER",
     dataMode: "WNBA_FULL_DATA",
     volatility: "stable",
   });
-  assert.strictEqual(live.gapFloor, 4);
-  assert.strictEqual(live.scenario, "live");
+  assert.strictEqual(liveFull.gapFloor, 3);
+  assert.strictEqual(liveFull.scenario, "live_full_data_stable");
 
   const retro = resolveWnbaGapFloors(
     { side: "OVER", dataMode: "WNBA_FULL_DATA", volatility: "stable" },
     { scenario: "retro_full_data_stable" }
   );
-  assert.strictEqual(retro.gapFloor, 3.5);
+  assert.strictEqual(retro.gapFloor, 3);
+
+  const limited = resolveWnbaGapFloors({
+    side: "OVER",
+    dataMode: "WNBA_LIMITED_DATA",
+    volatility: "stable",
+  });
+  assert.strictEqual(limited.gapFloor, 4);
 
   const pick = makePick({
     wnbaDataCard: baseCard({
       projection: { projection: 16, expectedMinutes: 27, expectedFGA: 10 },
       bookLine: 12.5,
+      dataMode: "WNBA_FULL_DATA",
     }),
     projection: 16,
     line: 12.5,
+    dataMode: "WNBA_FULL_DATA",
   });
   const synced = syncWnbaDataModeOnPick(pick, pick.wnbaDataCard, pick.wnbaReader);
   const gate = evaluateWnbaTrackingGateV2(synced);
-  assert.ok(gate.keyMetrics?.gapFloorApplied === 4 || synced.wnbaDataModeAudit?.gapFloorApplied === 4);
+  assert.ok(gate.keyMetrics?.gapFloorApplied === 3 || synced.wnbaDataModeAudit?.gapFloorApplied === 3);
 });
 
 function runRegression(script) {

@@ -85,9 +85,11 @@ export function isWnbaFullDataMode(dataMode = "") {
   return mode === "WNBA_FULL_DATA" || mode === "WNBA_FULL";
 }
 
-export const WNBA_FULL_OVER_GAP_FLOOR = 3.5;
+export const WNBA_FULL_OVER_GAP_FLOOR = 3.0;
 export const WNBA_LIMITED_OVER_GAP_FLOOR = 4.0;
 export const WNBA_UNDER_GAP_FLOOR = 3.5;
+/** Reader Over "meaningful / moderate" gap — must match FULL_DATA gate floor. */
+export const WNBA_READER_MEANINGFUL_OVER_GAP = 3.0;
 
 const SIDE_INAPPLICABLE_DEBT_CODES = {
   UNDER: new Set(["LOW_VOLUME_OVER_TRAP", "LOW_FGA", "EFFICIENCY_ONLY_SCORING"]),
@@ -133,7 +135,11 @@ export function resolveWnbaGapFloor(metrics = {}, options = {}) {
   };
 }
 
-/** Graduated Over/Under gap floors — live Over uses 4.0; retro FULL+stable may use 3.5. */
+/** Graduated Over/Under gap floors.
+ * Live FULL_DATA + stable minutes → FULL floor (aligned with Reader meaningful Over).
+ * Live LIMITED / volatile Over → LIMITED floor 4.0.
+ * Under floors unchanged at 3.5.
+ */
 export function resolveWnbaGapFloors(metrics = {}, options = {}) {
   const side = normalizeGapSide(metrics.side);
   const scenario = String(options.scenario || "live").toLowerCase();
@@ -158,11 +164,15 @@ export function resolveWnbaGapFloors(metrics = {}, options = {}) {
     ? WNBA_FULL_OVER_GAP_FLOOR
     : null;
 
-  if (scenario === "retro_full_data_stable" && retroFullDataStableFloor != null) {
+  // Live and retro FULL+stable share the same FULL floor (Reader/Gate aligned).
+  if (fullStableEligible) {
     return {
-      gapFloor: retroFullDataStableFloor,
+      gapFloor: WNBA_FULL_OVER_GAP_FLOOR,
       reasonCode: "OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR",
-      scenario,
+      scenario:
+        scenario === "retro_full_data_stable"
+          ? "retro_full_data_stable"
+          : "live_full_data_stable",
       retroFullDataStableFloor,
     };
   }

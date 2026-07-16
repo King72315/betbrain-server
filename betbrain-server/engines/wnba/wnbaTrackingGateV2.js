@@ -174,8 +174,8 @@ function resolveDangerGateStack(pick = {}, metrics = {}, side = "") {
 
   if (isStrongFairDisagree(metrics, side)) stack.push("projectionFairLineDisagreement");
 
-  const gapFloor =
-    side === "UNDER" ? WNBA_LIMITED_UNDER_GAP_FLOOR : WNBA_LIMITED_OVER_GAP_FLOOR;
+  // thinGap must use the same resolved floor as the side gate (FULL 3.0 vs LIMITED 4.0).
+  const { gapFloor } = resolveWnbaGapFloors({ ...metrics, side });
   if (metrics.projectionGap < gapFloor) stack.push("thinGap");
   if (
     side === "UNDER" &&
@@ -782,7 +782,10 @@ export function evaluateWnbaTrackingGateV2(pick = {}, dataCard = null, reader = 
       dataMode: metrics.dataMode,
       dangerGateCount: dangerGateStack.length,
       dataModeAudit: pick.wnbaDataModeAudit || null,
-      gapFloorApplied: pick.wnbaDataModeAudit?.gapFloorApplied ?? null,
+      gapFloorApplied:
+        resolveWnbaGapFloors({ ...metrics, side }).gapFloor ??
+        pick.wnbaDataModeAudit?.gapFloorApplied ??
+        null,
       defenseAudit: pick.defenseAudit || metrics.defenseAudit || null,
       impliedTeamTotalAudit: pick.impliedTeamTotalAudit || null,
       profileConfidence: profile.profileConfidence ?? null,

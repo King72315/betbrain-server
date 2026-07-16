@@ -692,7 +692,7 @@ test("40 low volume over trap blocks TRACK and High risk ceiling", () => {
   );
 });
 
-test("41 live FULL_DATA stable Over gap 3.6 fails 4.0 side gate floor", () => {
+test("41 live FULL_DATA stable Over gap 3.6 natural TRACK (Reader/Gate aligned at 3.0)", () => {
   const pick = live0625Pick("Azzi Fudd", "OVER", 14.5, {
     minutesVolatility: "stable",
     dataMode: "WNBA_FULL_DATA",
@@ -701,13 +701,89 @@ test("41 live FULL_DATA stable Over gap 3.6 fails 4.0 side gate floor", () => {
     fairLine: { fairLineSide: "OVER", fairLineEdge: 3.6, fairLineQuality: 65 },
   }, { netEdge: 5 });
   const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.wnbaTrackingDecision, "TRACK");
+  assert.ok(!gate.trackingWarnings.includes("OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR"));
+  assert.ok(
+    (gate.keyMetrics?.gapFloorApplied ?? 3) <= 3.6,
+    `floor should be <= gap; got ${gate.keyMetrics?.gapFloorApplied}`
+  );
+});
+
+test("41b live FULL_DATA stable Over gap 2.9 stays BOARD_ONLY", () => {
+  const pick = live0625Pick("Azzi Fudd", "OVER", 14.5, {
+    minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
+    projection: { projection: 17.4, expectedMinutes: 28, expectedFGA: 10 },
+    last5: { points: 17, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 2.9, fairLineQuality: 65 },
+  }, { netEdge: 5, gap: 2.9 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
   assert.ok(
     ["BOARD_ONLY", "NO_BET"].includes(gate.wnbaTrackingDecision),
     `expected BOARD_ONLY|NO_BET got ${gate.wnbaTrackingDecision}`
   );
   assert.ok(
     gate.trackingWarnings.includes("OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR") ||
-      gate.wnbaTrackingDecision === "NO_BET"
+      (gate.wnbaTrackingReason || "").includes("OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR")
+  );
+});
+
+test("41c Hiedeman-style +1.7 Over remains BOARD_ONLY", () => {
+  const pick = live0625Pick("Natisha Hiedeman", "OVER", 15.5, {
+    minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
+    projection: { projection: 17.2, expectedMinutes: 30, expectedFGA: 10 },
+    last5: { points: 16, minutes: 29, fga: 10, ptsPerFGA: 1.05, games: 5 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 1.7, fairLineQuality: 60 },
+  }, { netEdge: 4, gap: 1.7 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.ok(
+    ["BOARD_ONLY", "NO_BET"].includes(gate.wnbaTrackingDecision),
+    `expected BOARD_ONLY|NO_BET got ${gate.wnbaTrackingDecision}`
+  );
+});
+
+test("41d LIMITED_DATA Over floor unchanged at 4.0", () => {
+  const pick = live0625Pick("Limited Over", "OVER", 14.5, {
+    minutesVolatility: "stable",
+    dataMode: "WNBA_LIMITED_DATA",
+    bookCount: 2,
+    marketQuality: 40,
+    dataConfidenceScore: 40,
+    projection: { projection: 17.5, expectedMinutes: 28, expectedFGA: 10 },
+    last5: { points: 16, minutes: 28, fga: 10, ptsPerFGA: 1.05, games: 1 },
+    fairLine: { fairLineSide: "OVER", fairLineEdge: 3.0, fairLineQuality: 55 },
+    dataMissingFlags: [
+      { key: "last5", missing: true, note: "Only 1 recent games" },
+      { key: "market", missing: true },
+    ],
+  }, { netEdge: 4, gap: 3.0 });
+  pick.dataMissingFlags = pick.wnbaDataCard.dataMissingFlags;
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.strictEqual(gate.keyMetrics?.gapFloorApplied, WNBA_LIMITED_OVER_GAP_FLOOR);
+  assert.strictEqual(gate.sideGatePassed, false);
+  assert.ok(
+    ["BOARD_ONLY", "NO_BET"].includes(gate.wnbaTrackingDecision),
+    `expected BOARD_ONLY|NO_BET got ${gate.wnbaTrackingDecision}`
+  );
+});
+
+test("41e FULL_DATA Under floor unchanged at 3.5", () => {
+  const pick = live0625Pick("Under Thin", "UNDER", 16.5, {
+    minutesVolatility: "stable",
+    dataMode: "WNBA_FULL_DATA",
+    projection: { projection: 14, expectedMinutes: 24, expectedFGA: 8 },
+    last5: { points: 14, minutes: 23, fga: 8, ptsPerFGA: 1.0, games: 5 },
+    fairLine: { fairLineSide: "UNDER", fairLineEdge: 2.5, fairLineQuality: 65 },
+  }, { netEdge: 4, gap: 2.5 });
+  const gate = evaluateWnbaTrackingGateV2(pick);
+  assert.ok(
+    ["BOARD_ONLY", "NO_BET"].includes(gate.wnbaTrackingDecision),
+    `expected BOARD_ONLY|NO_BET got ${gate.wnbaTrackingDecision}`
+  );
+  assert.ok(
+    gate.trackingWarnings.includes("UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR") ||
+      (gate.wnbaTrackingReason || "").includes("UNDER_GAP_BELOW")
   );
 });
 

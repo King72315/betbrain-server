@@ -308,10 +308,53 @@ export function buildOfficialLearningRecord(prop = {}, options = {}) {
       gateReason: di.gateReason || enriched.wnbaTrackingReason || null,
       dangerStack: di.dangerGateCount ?? enriched.dangerGateCount ?? null,
       warnings: di.warnings || enriched.trackingWarnings || [],
-      naturalDecision: di.naturalDecision || di.originalGateEligibility || null,
-      promotedDecision: di.bestSixPromoted ? "TRACK" : di.trackEligibility || null,
-      bestSixPromoted: Boolean(di.bestSixPromoted),
+      naturalDecision:
+        di.naturalDecision ||
+        enriched.naturalDecision ||
+        di.originalGateEligibility ||
+        null,
+      naturalGateReason:
+        di.naturalGateReason ||
+        enriched.naturalGateReason ||
+        di.gateReason ||
+        enriched.wnbaTrackingReason ||
+        null,
+      promotedDecision:
+        di.promotedDecision ||
+        (di.bestSixPromoted || di.promotedForBestSix || enriched.promotedForBestSix
+          ? "TRACK"
+          : di.trackEligibility || null),
+      bestSixPromoted: Boolean(di.bestSixPromoted || di.promotedForBestSix),
+      promotedForBestSix: Boolean(
+        di.promotedForBestSix || di.bestSixPromoted || enriched.promotedForBestSix
+      ),
       promotionReasons: di.promotionReasons || enriched.bestSixQualityFlags || [],
+      readerGateDisagreement: Boolean(
+        di.readerGateDisagreement ??
+          enriched.readerGateDisagreement ??
+          (() => {
+            const nat = String(
+              di.naturalDecision || di.originalGateEligibility || ""
+            ).toUpperCase();
+            const gap = num(
+              enriched.projectionEdge ??
+                enriched.edge ??
+                reader.overGap ??
+                reader.underGap
+            );
+            const reason = String(
+              di.naturalGateReason || di.gateReason || enriched.wnbaTrackingReason || ""
+            );
+            const side = String(enriched.side || enriched.pick || "").toUpperCase();
+            const meaningful =
+              side.startsWith("OVER") && gap != null && gap >= 3.0;
+            return (
+              meaningful &&
+              nat !== "TRACK" &&
+              reason.includes("GAP_BELOW")
+            );
+          })()
+      ),
     },
 
     decisionIntelligence: {
@@ -463,6 +506,11 @@ export function buildOfficialLabDailySummary(records = [], options = {}) {
   const byGate = {};
   const byRescue = {};
   const byFlip = {};
+  const byNatural = {};
+  const byPromoted = {};
+  const byDisagreement = {};
+  const byReaderVsGate = {};
+  const byTopPromotion = {};
   const byReader = { hits: emptySignalStats() };
 
   let wins = 0;
@@ -470,6 +518,9 @@ export function buildOfficialLabDailySummary(records = [], options = {}) {
   let pushes = 0;
   let topPickWins = 0;
   let topPickLosses = 0;
+  let naturalTrackCount = 0;
+  let promotedFillCount = 0;
+  let disagreementCount = 0;
 
   for (const rec of list) {
     if (rec.outcome?.won) wins += 1;
@@ -480,6 +531,14 @@ export function buildOfficialLabDailySummary(records = [], options = {}) {
       if (rec.outcome?.won) topPickWins += 1;
       if (rec.outcome?.lost) topPickLosses += 1;
     }
+
+    const nat = String(rec.trackingGate?.naturalDecision || "").toUpperCase();
+    const promoted = Boolean(
+      rec.trackingGate?.promotedForBestSix || rec.trackingGate?.bestSixPromoted
+    );
+    if (nat === "TRACK" && !promoted) naturalTrackCount += 1;
+    if (promoted) promotedFillCount += 1;
+    if (rec.trackingGate?.readerGateDisagreement) disagreementCount += 1;
 
     bumpSignal(bySide, rec.sideAnalysis?.chosenSide, rec);
     bumpSignal(byRisk, rec.decisionIntelligence?.risk, rec);
@@ -497,6 +556,21 @@ export function buildOfficialLabDailySummary(records = [], options = {}) {
       rec.flipFirst?.action || (rec.flipFirst?.triggered ? "FLIP" : "NO_FLIP"),
       rec
     );
+    bumpSignal(byNatural, nat || "UNKNOWN", rec);
+    bumpSignal(byPromoted, promoted ? "PROMOTED" : "NATURAL", rec);
+    bumpSignal(
+      byDisagreement,
+      rec.trackingGate?.readerGateDisagreement ? "DISAGREE" : "AGREE",
+      rec
+    );
+    bumpSignal(
+      byReaderVsGate,
+      `${rec.reader?.evidence || rec.projection?.gapBucket || "unknown"}|${nat || rec.trackingGate?.gateDecision || "unknown"}`,
+      rec
+    );
+    if (rec.isTopPick) {
+      bumpSignal(byTopPromotion, promoted ? "TOP_PROMOTED" : "TOP_NATURAL", rec);
+    }
     bumpSignal(byReader, "reader", rec);
   }
 
@@ -529,6 +603,18 @@ export function buildOfficialLabDailySummary(records = [], options = {}) {
     flipPerformance: byFlip,
     rescuePerformance: byRescue,
     gatePerformance: byGate,
+    naturalDecisionPerformance: byNatural,
+    promotedFillPerformance: byPromoted,
+    readerGateDisagreementPerformance: byDisagreement,
+    readerVsGatePerformance: byReaderVsGate,
+    top2PromotionPerformance: byTopPromotion,
+    naturalTrackCount,
+    promotedFillCount,
+    overrideRate:
+      list.length > 0
+        ? Number((promotedFillCount / list.length).toFixed(3))
+        : 0,
+    readerGateDisagreementCount: disagreementCount,
     playerProfilePerformance: byProfile,
     projectionGapPerformance: byGap,
     bookCountPerformance: byBookCount,
