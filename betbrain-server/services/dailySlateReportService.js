@@ -27,6 +27,12 @@ import {
 import { attachOfficialLearningToReport } from "./officialLearningRecordBuilder.js";
 import { enrichGradedPropsForLab } from "./labLearningEnrichmentService.js";
 import {
+  mergeMembershipWithLiveGrades,
+  resolveOfficialSlateMembership,
+  validateMembershipIntegrity,
+} from "./officialSlateMembershipService.js";
+import { logLifecycleIntegrityFailure } from "./lifecyclePointerStateService.js";
+import {
   validateOfficialSlateLifecycle,
 } from "./officialSlateService.js";
 import {
@@ -1024,7 +1030,9 @@ function buildTrackingCalibrationSplit(slateProps = []) {
 }
 
 function buildSlateReport(slateDate, props = [], options = {}) {
-  const rawSlateProps = props.filter(
+  const membership = options.membership || null;
+  const membershipProps = membership?.props?.length ? membership.props : props;
+  const rawSlateProps = membershipProps.filter(
     (prop) => (prop.slateDate || getSlateDateCT(prop.commenceTime)) === slateDate
   );
   // Persist postgame lessons + module attribution onto Lab-bound props.
@@ -1065,9 +1073,13 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     title: "Slate Summary",
     slateDate,
     reportStatus,
-    totalOfficialProps: trackingCalibration.officialCount || slateProps.length,
+    totalOfficialProps:
+      membership?.propCount ||
+      trackingCalibration.officialCount ||
+      slateProps.length,
     totalTrackedProps: slateProps.length,
-    officialPropsCount: trackingCalibration.officialCount,
+    officialPropsCount:
+      membership?.propCount || trackingCalibration.officialCount,
     testPropsCount: trackingCalibration.testCount,
     readerOfficialDemotedCount: trackingCalibration.readerOfficialDemotedCount,
     readerUncertainTestCount: trackingCalibration.readerUncertainTestCount,
@@ -1188,6 +1200,11 @@ function buildSlateReport(slateDate, props = [], options = {}) {
 
   const baseReport = {
     slateDate,
+    officialSlateId: membership?.officialSlateId || slateDate,
+    officialPropIds:
+      membership?.officialPropIds ||
+      slateProps.map((p) => p.officialPropId).filter(Boolean),
+    officialMembershipSource: membership?.source || null,
     status: reportStatus,
     reportStatus,
     locked: Boolean(options.locked),
@@ -1435,14 +1452,31 @@ export function buildDailySlateReportsFromTrackedProps(
     );
 
     let slateProps = liveSlateProps;
-    if (locked && snapshot?.props?.length) {
+    const membership = mergeMembershipWithLiveGrades(
+      resolveOfficialSlateMembership(slateDate, trackedProps),
+      liveSlateProps
+    );
+    if (membership.props?.length) {
+      slateProps = membership.props;
+    } else if (locked && snapshot?.props?.length) {
       slateProps = mergeSnapshotPropsWithLiveGrades(snapshot.props, liveSlateProps);
       syncGradedPropsToLockedSlate(slateDate, slateProps);
     } else if (snapshot?.props?.length) {
       slateProps = snapshot.props;
     }
 
-    const preview = buildSlateReport(slateDate, slateProps, { locked });
+    if (!membership.props?.length && liveSlateProps.length) {
+      logLifecycleIntegrityFailure({
+        code: "REPORT_BUILD_WITHOUT_OFFICIAL_MEMBERSHIP",
+        slateDate,
+        trackedCount: liveSlateProps.length,
+      });
+    }
+
+    const preview = buildSlateReport(slateDate, slateProps, {
+      locked,
+      membership,
+    });
     const isFinal = preview.reportStatus === "final";
 
     if (
@@ -1490,7 +1524,26 @@ export function buildDailySlateReportsFromTrackedProps(
       locked,
       frozen: locked && isFinal,
       topPicksReview: buildTopPicksReview(slateDate, trackedProps),
+      membership,
     });
+
+    const integrity = validateMembershipIntegrity(membership, report);
+    if (!integrity.ok) {
+      logLifecycleIntegrityFailure({
+        code: "REPORT_MEMBERSHIP_INTEGRITY_FAILURE",
+        slateDate,
+        failures: integrity.failures,
+      });
+      if (isFinal) {
+        results.push({
+          slateDate,
+          skipped: true,
+          integrityFailure: true,
+          failures: integrity.failures,
+        });
+        continue;
+      }
+    }
 
     const upsert = upsertDailySlateReport({
       ...report,

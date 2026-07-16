@@ -243,6 +243,14 @@ import { repairQuarantine0624AndArchive0621 } from "./services/repairQuarantine0
 import { repairLabSlateRotation } from "./services/repairLabSlateRotationService.js";
 import { backfillLabLearningLayers } from "./services/backfillLabLearningLayersService.js";
 import {
+  auditLifecycleIntegrity,
+  repairLifecycleIntegrity,
+} from "./services/repairLifecycleIntegrityService.js";
+import {
+  normalizeDailySlateReport,
+  normalizeDailySlateReports,
+} from "./services/canonicalDailySlateReportService.js";
+import {
   previewSplitResultsCohortRepair,
   repairSplitResultsCohort,
 } from "./services/repairSplitResultsCohortService.js";
@@ -275,7 +283,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lab-learning-backfill-v3";
+const SERVER_BUILD = "courteedge-lifecycle-integrity-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3208,7 +3216,7 @@ app.get("/daily-slate-reports", (req, res) => {
 
   res.json({
     ok: true,
-    reports,
+    reports: normalizeDailySlateReports(reports),
     count: reports.length,
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
@@ -3250,7 +3258,7 @@ app.get("/daily-slate-reports/:slateDate", (req, res) => {
 
   res.json({
     ok: true,
-    report,
+    report: normalizeDailySlateReport(report),
   });
 });
 
@@ -3259,6 +3267,30 @@ app.post("/daily-slate-reports/build", (req, res) => {
     const slateDate = req.body?.slateDate ? String(req.body.slateDate) : null;
     const forceRebuild = Boolean(req.body?.forceRebuild);
     const learningOnly = Boolean(req.body?.learningOnly);
+    const lifecycleRepair = Boolean(req.body?.lifecycleRepair);
+
+    if (lifecycleRepair) {
+      const confirm = Boolean(req.body?.confirm);
+      const dryRun = Boolean(req.body?.dryRun);
+      if (!confirm && !dryRun) {
+        return res.status(400).json({
+          ok: false,
+          message: "lifecycleRepair requires confirm: true or dryRun: true",
+        });
+      }
+      const result = repairLifecycleIntegrity({
+        dryRun,
+        targetLabSlateDate: slateDate,
+        backupReason: req.body?.backupReason || "pre-lifecycle-integrity-repair-v1",
+      });
+      return res.json({
+        ok: result.ok !== false,
+        message: dryRun
+          ? "Lifecycle integrity repair dry-run complete"
+          : "Lifecycle integrity repair applied",
+        result,
+      });
+    }
 
     if (learningOnly) {
       const confirm = Boolean(req.body?.confirm);
@@ -4337,6 +4369,51 @@ app.post("/admin/backfill-lab-learning-layers", requireAdminSecret, (req, res) =
     res.status(500).json({
       ok: false,
       message: "Lab learning backfill failed",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/admin/lifecycle-integrity-audit", requireAdminSecret, (req, res) => {
+  try {
+    res.json(auditLifecycleIntegrity());
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: "Lifecycle integrity audit failed",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/admin/repair-lifecycle-integrity", requireAdminSecret, (req, res) => {
+  try {
+    const confirm = Boolean(req.body?.confirm);
+    const dryRun = Boolean(req.body?.dryRun);
+    if (!confirm && !dryRun) {
+      return res.status(400).json({
+        ok: false,
+        message: "Repair requires confirm: true or dryRun: true",
+      });
+    }
+    const result = repairLifecycleIntegrity({
+      dryRun,
+      targetLabSlateDate: req.body?.targetLabSlateDate
+        ? String(req.body.targetLabSlateDate)
+        : null,
+      backupReason: req.body?.backupReason || "pre-lifecycle-integrity-repair-v1",
+    });
+    res.json({
+      ok: result.ok !== false,
+      message: dryRun
+        ? "Lifecycle integrity repair dry-run complete"
+        : "Lifecycle integrity repair applied",
+      result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: "Lifecycle integrity repair failed",
       error: error.message,
     });
   }

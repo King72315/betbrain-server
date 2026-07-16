@@ -5,12 +5,23 @@ function hasExplicitTrackingType(prop: any = {}): boolean {
   return explicit === "OFFICIAL" || explicit === "TEST" || explicit === "NO_BET";
 }
 
-/** Infer OFFICIAL vs TEST when trackingType is missing (legacy slates). */
-export function inferTrackingType(prop: any = {}): InferredTrackingType {
+/** Official status from immutable slate contract — not tier/watchlist inference. */
+export function inferTrackingType(prop: any = {}, officialPropIds: string[] = []): InferredTrackingType {
   const explicit = String(prop.trackingType || prop.recordType || "").toUpperCase();
   if (explicit === "OFFICIAL") return "OFFICIAL";
   if (explicit === "TEST") return "TEST";
   if (explicit === "NO_BET") return "NO_BET";
+
+  if (prop.immutableOfficial === true) return "OFFICIAL";
+  if (prop.controlledBestSixDisplayTracked === true) return "OFFICIAL";
+  if (prop.controlledBestSixDisplay === true) return "OFFICIAL";
+  if (prop.officialPropId && officialPropIds.includes(String(prop.officialPropId))) {
+    return "OFFICIAL";
+  }
+  if (prop.bestSixRank != null && Number(prop.bestSixRank) > 0) return "OFFICIAL";
+  if (prop.controlledBestSixRank != null && Number(prop.controlledBestSixRank) > 0) {
+    return "OFFICIAL";
+  }
 
   if (prop.excludedFromOfficialRecord === true) return "TEST";
   if (prop.preV1Shadow === true || prop.excludedFromV1OfficialRecord === true) {
@@ -18,11 +29,18 @@ export function inferTrackingType(prop: any = {}): InferredTrackingType {
   }
 
   const tier = String(prop.tier || "").toUpperCase();
-  if (tier === "LEAN" || tier === "WATCHLIST") return "TEST";
+  if (tier === "LEAN") return "TEST";
   if (tier === "PREMIUM" || tier === "OFFICIAL") return "OFFICIAL";
   if (prop.officialEligible === true) return "OFFICIAL";
 
   return "TEST";
+}
+
+export function inferOfficialPropCount(
+  props: any[] = [],
+  officialPropIds: string[] = []
+): number {
+  return props.filter((p) => inferTrackingType(p, officialPropIds) === "OFFICIAL").length;
 }
 
 export function isLegacyInferredTestProp(prop: any = {}): boolean {
@@ -67,8 +85,13 @@ export function computeLabSlateTrackingSummary(
   const pending = Number(reportSectionA?.pending ?? 0);
 
   if (props.length > 0) {
-    const officialProps = props.filter((p) => inferTrackingType(p) === "OFFICIAL");
-    const testWatchlistProps = props.filter((p) => inferTrackingType(p) === "TEST");
+    const officialIds = (reportSectionA?.officialPropIds || []).map(String);
+    const officialProps = props.filter(
+      (p) => inferTrackingType(p, officialIds) === "OFFICIAL"
+    );
+    const testWatchlistProps = props.filter(
+      (p) => inferTrackingType(p, officialIds) === "TEST"
+    );
     return {
       totalProps: props.length,
       officialProps: officialProps.length,

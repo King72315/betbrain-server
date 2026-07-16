@@ -1001,7 +1001,7 @@ export function buildPropLabReport(input: {
       hasLabSlate ? `Report status: ${String(status).toUpperCase()}` : null,
       sectionA ? formatLabTrackingSummaryLine(labTrackingSummary) : null,
       sectionA
-        ? `Slate record (pooled): ${sectionA.wins}-${sectionA.losses}-${sectionA.pushes} (${sectionA.overallWinRate}%)`
+        ? `Slate record (pooled): ${sectionA.wins ?? 0}-${sectionA.losses ?? 0}-${sectionA.pushes ?? 0} (${sectionA.overallWinRate ?? "—"}%)`
         : null,
       leagueSplit?.byLeague?.NBA
         ? `NBA slate record: ${formatLeagueSplitRecord(leagueSplit.byLeague.NBA)}`

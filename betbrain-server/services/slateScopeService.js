@@ -1,5 +1,6 @@
 import { CONFIG } from "../config.js";
 import { getSlateLockEntry, isSlateLocked } from "./slateLockService.js";
+import { applyMonotonicLabPointer } from "./lifecyclePointerStateService.js";
 import {
   isBestSixDisplayResultsProp,
   isOfficialResultsProp,
@@ -722,10 +723,14 @@ export function buildSlateRotationMetadata(
     viewedSlateDate,
   });
 
+  const monotonicRotation = applyMonotonicLabPointer(rotation, {
+    allowRepairForward: Boolean(context.allowRepairForward),
+  });
+
   const staleUnresolvedSlateDates = collectStaleUnresolvedForRotation(
     trackedProps,
     reports,
-    rotation,
+    monotonicRotation,
     today,
     lockedSlates
   );
@@ -740,7 +745,7 @@ export function buildSlateRotationMetadata(
   for (const slateDate of [...slateDates].filter(Boolean).sort()) {
     lifecycleByDate[slateDate] = classifySlateRotationBucket(
       slateDate,
-      rotation,
+      monotonicRotation,
       archives,
       today,
       quarantinedSlates
@@ -749,37 +754,39 @@ export function buildSlateRotationMetadata(
 
   const rotationDecisionDebug = {
     today,
-    validReportDates: rotation.allReports.map((report) => report.slateDate),
+    validReportDates: monotonicRotation.allReports.map((report) => report.slateDate),
     completedReportDates: mergeCompletedReports(
-      rotation.allReports,
-      rotation.inferredCompletedSlateDates.map((slateDate) => ({
+      monotonicRotation.allReports,
+      monotonicRotation.inferredCompletedSlateDates.map((slateDate) => ({
         slateDate,
         inferredFromTrackedProps: true,
       }))
     ).map((report) => report.slateDate),
-    archivedHistoryDates: [...rotation.historySlateDates],
+    archivedHistoryDates: [...monotonicRotation.historySlateDates],
     labCandidateDates: mergeCompletedReports(
-      rotation.allReports,
+      monotonicRotation.allReports,
       []
     )
       .filter((report) => {
         const slateDate = String(report.slateDate || "");
         return (
           slateDate &&
-          !rotation.historySlateDates.includes(slateDate) &&
-          slateDate !== rotation.activeResultsSlateDate
+          !monotonicRotation.historySlateDates.includes(slateDate) &&
+          slateDate !== monotonicRotation.activeResultsSlateDate
         );
       })
       .map((report) => report.slateDate),
-    inferredCompletedSlateDates: rotation.inferredCompletedSlateDates,
-    activeResultsSlateDate: rotation.activeResultsSlateDate,
-    currentLabSlateDate: rotation.currentLabSlateDate,
-    viewedSlateDate: rotation.viewedSlateDate,
-    viewingHistorical: rotation.viewingHistorical,
+    inferredCompletedSlateDates: monotonicRotation.inferredCompletedSlateDates,
+    activeResultsSlateDate: monotonicRotation.activeResultsSlateDate,
+    currentLabSlateDate: monotonicRotation.currentLabSlateDate,
+    viewedSlateDate: monotonicRotation.viewedSlateDate,
+    viewingHistorical: monotonicRotation.viewingHistorical,
+    labPointerSource: monotonicRotation.labPointerSource || null,
+    lifecycleIntegrityBlocked: monotonicRotation.lifecycleIntegrityBlocked || false,
   };
 
   return {
-    ...rotation,
+    ...monotonicRotation,
     staleUnresolvedSlateDates,
     lifecycleByDate,
     rotationDecisionDebug,

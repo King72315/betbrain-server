@@ -800,8 +800,33 @@ export default function PropLab() {
         String(item.phase || "").toUpperCase() !== "ARCHIVED"
     );
     if (archive?.props?.length) return archive.props;
+
+    const packetProps = (report?.learningPackets || report?.officialLearningRecords || [])
+      .map((entry: any) => {
+        const packet = entry.learningPacket || entry;
+        const pregame = packet.pregame || entry.pregame || {};
+        return {
+          ...pregame,
+          ...entry,
+          player: entry.player || packet.player || pregame.player,
+          officialPropId: entry.officialPropId || packet.officialPropId || pregame.officialPropId,
+          league: entry.league || packet.league || pregame.league || "WNBA",
+          trackingType: "OFFICIAL",
+          recordType: "OFFICIAL",
+          controlledBestSixDisplayTracked: true,
+          status:
+            packet.postgame?.status ||
+            entry.postgame?.status ||
+            entry.status ||
+            pregame.status,
+          slateDate: currentLabSlateDate,
+        };
+      })
+      .filter((p: any) => p.player);
+    if (packetProps.length) return packetProps;
+
     return [];
-  }, [currentLabSlateDate, archives]);
+  }, [currentLabSlateDate, archives, report]);
 
   const labTrackingSummary = useMemo(
     () => computeLabSlateTrackingSummary(slateTrackedProps, sectionA),
