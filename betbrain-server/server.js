@@ -231,6 +231,7 @@ import {
   getOfficialFreezeInfo,
   LAB_SLATE_BUNDLE_CATALOG,
   OFFICIAL_FREEZE_CATALOG,
+  persistSealedSlateBundle,
   rehydrateLockedSlatesOnStartup,
   restoreCompletedLabSlate,
   restoreOfficialSlate,
@@ -288,7 +289,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-persist-rescue-v1";
+const SERVER_BUILD = "courteedge-persist-guard-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2345,6 +2346,29 @@ async function refreshAllPicks() {
   const todayCards = [...todayNba.gameCards, ...todayWnba.gameCards];
   const tomorrowCards = [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards];
 
+  // Empty/failed odds refresh must not touch Official tracked membership or wipe board.
+  const previousBoard = getReadOnlyBoard();
+  if (
+    todayCards.length === 0 &&
+    tomorrowCards.length === 0 &&
+    Array.isArray(previousBoard?.games) &&
+    previousBoard.games.length > 0
+  ) {
+    console.log(
+      "REFRESH SKIPPED TRACKED MUTATIONS: empty board — preserving existing board cache"
+    );
+    return {
+      ...previousBoard,
+      ok: true,
+      incomplete: true,
+      preservedBoard: true,
+      message:
+        "Refresh returned empty board — preserved existing board and skipped tracked mutations",
+      serverBuild: SERVER_BUILD,
+      lastUpdated: previousBoard.lastUpdated || new Date().toISOString(),
+    };
+  }
+
   const games = ensureWnbaGateOnGames([
     ...todayCards.map((g) => ({
       ...g,
@@ -2417,6 +2441,11 @@ async function refreshAllPicks() {
       sealRow.slateDate
     ) {
       applySlateLockFreeze(sealRow.slateDate, sealRow.props);
+      persistSealedSlateBundle(sealRow.slateDate, sealRow.props, {
+        serverBuild: SERVER_BUILD,
+        sealReason: sealRow.sealReason || "FULL_BEST_SIX",
+        lockReason: sealRow.sealReason || "official_tomorrow_seal",
+      });
     }
   }
 
@@ -2465,6 +2494,12 @@ async function refreshAllPicks() {
         todayFallbackSeal.props.length
       ) {
         applySlateLockFreeze(resultsSlateDate, todayFallbackSeal.props);
+        persistSealedSlateBundle(resultsSlateDate, todayFallbackSeal.props, {
+          serverBuild: SERVER_BUILD,
+          sealReason:
+            todayFallbackSeal.sealReason || "FINAL_THIN_SLATE_TODAY_FALLBACK",
+          lockReason: "today_fallback_seal",
+        });
       }
       if (todayFallbackSeal?.sealed || todayFallbackSeal?.alreadySealed) {
         todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
@@ -3266,11 +3301,18 @@ app.post("/clear-tracked-props", requireAdminSecret, (req, res) => {
     });
   }
 
-  const result = clearTrackedProps();
+  const result = clearTrackedProps({
+    force: req.body?.force === true,
+  });
+
+  if (!result.ok) {
+    return res.status(400).json(result);
+  }
 
   res.json({
     ...result,
     message:
+      result.message ||
       "Tracked props cleared. Saved picks were not affected. Use only for research resets.",
   });
 });
@@ -3892,7 +3934,7 @@ app.get("/diagnostics", (req, res) => {
   }
 });
 
-app.post("/admin/backup", (req, res) => {
+app.post("/admin/backup", requireAdminSecret, (req, res) => {
   try {
     const reason = String(req.body?.reason || "manual");
     const manifest = createBackup(reason);
@@ -3901,6 +3943,7 @@ app.post("/admin/backup", (req, res) => {
       ok: true,
       message: `Backup created: ${manifest.backupId}`,
       backup: manifest,
+      serverBuild: SERVER_BUILD,
     });
   } catch (error) {
     console.log("BACKUP ERROR:", error.message);
@@ -3961,10 +4004,11 @@ app.post("/admin/reset-chi-dal-bad-grades", requireAdminSecret, (req, res) => {
   }
 });
 
-app.post("/admin/restore", (req, res) => {
+app.post("/admin/restore", requireAdminSecret, (req, res) => {
   try {
     const backupId = String(req.body?.backupId || "");
     const confirm = Boolean(req.body?.confirm);
+    const merge = req.body?.merge !== false;
 
     if (!confirm) {
       return res.status(400).json({
@@ -3974,8 +4018,16 @@ app.post("/admin/restore", (req, res) => {
       });
     }
 
+    if (!merge && req.body?.forceFullReplace !== true) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "Full restore (merge: false) also requires forceFullReplace: true — refusing wipe of live Official props",
+      });
+    }
+
     const result = restoreFromBackup(backupId, {
-      merge: req.body?.merge !== false,
+      merge,
       preserveGrades: req.body?.preserveGrades !== false,
     });
 
@@ -3983,7 +4035,7 @@ app.post("/admin/restore", (req, res) => {
       return res.status(404).json(result);
     }
 
-    res.json(result);
+    res.json({ ...result, serverBuild: SERVER_BUILD });
   } catch (error) {
     console.log("RESTORE ERROR:", error.message);
 
@@ -4883,6 +4935,11 @@ if (process.env.RUN_AUDIT === "1") {
     }
 
     if (process.env.COURTEDGE_LAB_WIPE_V1 === "true") {
+      if (process.env.COURTEDGE_ALLOW_DESTRUCTIVE_STARTUP !== "true") {
+        console.error(
+          "STARTUP LAB WIPE BLOCKED: COURTEDGE_LAB_WIPE_V1=true requires COURTEDGE_ALLOW_DESTRUCTIVE_STARTUP=true"
+        );
+      } else {
       try {
         const wipeResult = resetLabNoRestore({
           backupReason: "startup-lab-wipe-v1",
@@ -4900,6 +4957,7 @@ if (process.env.RUN_AUDIT === "1") {
         );
       } catch (error) {
         console.log("STARTUP LAB WIPE V1 ERROR:", error.message);
+      }
       }
     } else if (process.env.COURTEDGE_HISTORY_REBUILD_V1 === "true") {
       try {

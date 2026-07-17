@@ -85,6 +85,121 @@ export const LAB_SLATE_BUNDLE_CATALOG = {
   },
 };
 
+/** Discover on-disk bundles so newly sealed dates survive redeploy without code edits. */
+export function registerDiscoveredSlateBundles() {
+  const discovered = [];
+  for (const rootName of ["active-bundles", "lab-bundles"]) {
+    const root = path.join(SERVER_ROOT, rootName);
+    if (!fs.existsSync(root)) continue;
+    for (const name of fs.readdirSync(root)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(name)) continue;
+      const dir = path.join(root, name);
+      if (!fs.statSync(dir).isDirectory()) continue;
+      const trackedRaw = readJSON(path.join(dir, "tracked-props.json"), null);
+      const props = Array.isArray(trackedRaw?.props)
+        ? trackedRaw.props
+        : Array.isArray(trackedRaw)
+          ? trackedRaw
+          : [];
+      const slateProps = props.filter((p) => String(p.slateDate || "") === name);
+      if (!slateProps.length) continue;
+      const bundleDir = `${rootName}/${name}`;
+      if (rootName === "lab-bundles") {
+        if (!LAB_SLATE_BUNDLE_CATALOG[name]) {
+          LAB_SLATE_BUNDLE_CATALOG[name] = {
+            bundleDir,
+            expectedPropCount: slateProps.length,
+            phase: SLATE_PHASE.LAB,
+            discovered: true,
+          };
+          discovered.push({ slateDate: name, catalog: "LAB", bundleDir });
+        }
+      } else if (!ACTIVE_SLATE_BUNDLE_CATALOG[name]) {
+        ACTIVE_SLATE_BUNDLE_CATALOG[name] = {
+          bundleDir,
+          expectedPropCount: slateProps.length,
+          phase: SLATE_PHASE.ACTIVE,
+          discovered: true,
+          lockReason: "discovered_active_bundle",
+        };
+        discovered.push({ slateDate: name, catalog: "ACTIVE", bundleDir });
+      }
+    }
+  }
+  return discovered;
+}
+
+/**
+ * Write a sealed Official slate to active-bundles/{date} so the next deploy
+ * can rehydrate it even when Render ephemeral disk is wiped.
+ */
+export function persistSealedSlateBundle(slateDate, props = [], options = {}) {
+  const date = String(slateDate || "").trim();
+  const list = (Array.isArray(props) ? props : []).filter((p) => p?.player);
+  if (!date || !list.length) {
+    return { ok: false, message: "Missing slateDate or props" };
+  }
+
+  const dir = path.join(SERVER_ROOT, "active-bundles", date);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  const snapshot =
+    getLockedSnapshot(date) ||
+    options.snapshot || {
+      slateDate: date,
+      lockedAt: new Date().toISOString(),
+      lockReason: options.lockReason || "persist_sealed_bundle",
+      autoLocked: true,
+      phase: SLATE_PHASE.ACTIVE,
+      propCount: list.length,
+      immutableOfficial: true,
+      officialSeal: {
+        sealed: true,
+        status: "SEALED",
+        sealedAt: new Date().toISOString(),
+        sealReason: options.sealReason || "PERSIST_SEALED_BUNDLE",
+      },
+      props: list,
+    };
+
+  writeJSON(path.join(dir, "tracked-props.json"), { props: list });
+  writeJSON(path.join(dir, "slate-snapshot.json"), snapshot);
+  writeJSON(path.join(dir, "locked-slate-entry.json"), {
+    slateDate: date,
+    phase: SLATE_PHASE.ACTIVE,
+    lockedAt: snapshot.lockedAt || new Date().toISOString(),
+    lockReason: options.lockReason || snapshot.lockReason || "persist_sealed_bundle",
+    autoLocked: true,
+    propCount: list.length,
+    immutableOfficial: true,
+    snapshotFile: `slate-snapshots/${date}.json`,
+  });
+  writeJSON(path.join(dir, "manifest.json"), {
+    slateDate: date,
+    expectedPropCount: list.length,
+    builtAt: new Date().toISOString(),
+    serverBuild: options.serverBuild || null,
+  });
+
+  // Also keep slate-snapshots copy for lock rehydrate.
+  if (!fs.existsSync(SNAPSHOTS_DIR)) fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+  writeJSON(path.join(SNAPSHOTS_DIR, `${date}.json`), snapshot);
+
+  ACTIVE_SLATE_BUNDLE_CATALOG[date] = {
+    bundleDir: `active-bundles/${date}`,
+    expectedPropCount: list.length,
+    phase: SLATE_PHASE.ACTIVE,
+    lockReason: options.lockReason || "persist_sealed_bundle",
+  };
+
+  return {
+    ok: true,
+    slateDate: date,
+    propCount: list.length,
+    bundleDir: `active-bundles/${date}`,
+  };
+}
+
 function readJSON(file, fallback = null) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -459,15 +574,30 @@ export function needsCompletedLabRestore(slateDate) {
   const today = getTodayLocalDate();
   if (date >= today) return false;
 
-  const tracked = getTrackedProps();
-  const propCount = countPropsForSlate(tracked, date);
+  // Only restore props when the slate is completely missing from tracked.
+  // Missing report/archive alone must NOT overwrite live graded membership.
+  return countPropsForSlate(getTrackedProps(), date) === 0;
+}
+
+/**
+ * Repair Lab report/archive/registry when props exist but metadata is incomplete.
+ * Never replaces live tracked props for the date.
+ */
+export function needsCompletedLabMetadataRepair(slateDate) {
+  const date = String(slateDate || "");
+  if (!LAB_SLATE_BUNDLE_CATALOG[date]) return false;
+  const today = getTodayLocalDate();
+  if (date >= today) return false;
+
+  const propCount = countPropsForSlate(getTrackedProps(), date);
+  if (propCount === 0) return false;
+
   const report = getDailySlateReport(date);
   const reportProps =
     report?.sections?.A?.totalOfficialProps ??
     (Array.isArray(report?.props) ? report.props.length : 0);
 
   return (
-    propCount === 0 ||
     !hasHistoryArchive(date) ||
     !report ||
     reportProps === 0 ||
@@ -514,6 +644,7 @@ function mergeLabRegistryEntry(slateDate, registryEntry = {}) {
 
 /**
  * Merge a completed Lab slate bundle into runtime JSON without touching other dates.
+ * Never overwrites live props for the date unless forceReplace is set.
  */
 export function restoreCompletedLabSlate(slateDate, options = {}) {
   const date = String(slateDate || "");
@@ -532,6 +663,47 @@ export function restoreCompletedLabSlate(slateDate, options = {}) {
   const loaded = loadLabBundle(date);
   if (!loaded.ok) return loaded;
 
+  const existing = readJSON(TRACKED_FILE, []);
+  const liveSlateProps = existing.filter((p) => String(p.slateDate || "") === date);
+  const forceReplace = options.forceReplace === true;
+
+  if (liveSlateProps.length > 0 && !forceReplace) {
+    // Metadata-only repair — preserve live graded membership.
+    if (loaded.report) {
+      upsertDailySlateReport(loaded.report);
+    }
+    writeSlateHistoryArchive(date, {
+      props: liveSlateProps,
+      report: loaded.report || loaded.historyArchive?.report || null,
+      phase: SLATE_PHASE.LAB,
+    });
+    if (!fs.existsSync(SNAPSHOTS_DIR)) {
+      fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+    }
+    if (!getLockedSnapshot(date)?.props?.length && loaded.snapshot?.props?.length) {
+      writeJSON(path.join(SNAPSHOTS_DIR, `${date}.json`), loaded.snapshot);
+    }
+    const registryEntry = mergeLabRegistryEntry(
+      date,
+      loaded.registryEntry || {
+        slateDate: date,
+        phase: SLATE_PHASE.LAB,
+        propCount: liveSlateProps.length,
+      }
+    );
+    applySlateLockFreeze(date, liveSlateProps);
+    return {
+      ok: true,
+      skippedProps: true,
+      message: `Lab ${date} props preserved (${liveSlateProps.length}); metadata repaired only`,
+      slateDate: date,
+      mode: "lab_metadata_only",
+      propCount: liveSlateProps.length,
+      registryEntry,
+      source: options.source || loaded.source,
+    };
+  }
+
   let backupId = null;
   try {
     const backup = createBackup(`pre-lab-restore-${date}`);
@@ -540,7 +712,6 @@ export function restoreCompletedLabSlate(slateDate, options = {}) {
     console.log("LAB RESTORE BACKUP WARNING:", err.message);
   }
 
-  const existing = readJSON(TRACKED_FILE, []);
   const preserved = existing.filter((p) => String(p.slateDate || "") !== date);
   const merged = [...preserved, ...loaded.props];
   writeJSON(TRACKED_FILE, merged);
@@ -730,6 +901,11 @@ export function restoreOfficialSlate(slateDate, options = {}) {
  */
 export function rehydrateLockedSlatesOnStartup() {
   const results = [];
+  const discovered = registerDiscoveredSlateBundles();
+  if (discovered.length) {
+    results.push({ action: "discovered_bundles", discovered });
+  }
+
   const registry = getLockedSlatesRegistry();
 
   for (const date of Object.keys(ACTIVE_SLATE_BUNDLE_CATALOG)) {
@@ -747,6 +923,67 @@ export function rehydrateLockedSlatesOnStartup() {
       action: restored.ok ? "restored_active_bundle" : "active_restore_failed",
       ...restored,
     });
+  }
+
+  // Also restore any on-disk active-bundles/{date} not yet in the static catalog
+  // (written at seal time so redeploys can rehydrate without a code change).
+  try {
+    const activeRoot = path.join(SERVER_ROOT, "active-bundles");
+    if (fs.existsSync(activeRoot)) {
+      for (const name of fs.readdirSync(activeRoot)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(name)) continue;
+        if (ACTIVE_SLATE_BUNDLE_CATALOG[name]) continue;
+        if (countPropsForSlate(getTrackedProps(), name) > 0) {
+          results.push({ slateDate: name, action: "skip_disk_bundle_intact" });
+          continue;
+        }
+        const dir = path.join(activeRoot, name);
+        const trackedRaw = readJSON(path.join(dir, "tracked-props.json"), null);
+        const props = Array.isArray(trackedRaw?.props)
+          ? trackedRaw.props
+          : Array.isArray(trackedRaw)
+            ? trackedRaw
+            : [];
+        const slateProps = props.filter((p) => String(p.slateDate || "") === name);
+        if (!slateProps.length) continue;
+        const existing = readJSON(TRACKED_FILE, []);
+        writeJSON(TRACKED_FILE, [
+          ...existing.filter((p) => String(p.slateDate || "") !== name),
+          ...slateProps,
+        ]);
+        const snap =
+          readJSON(path.join(dir, "slate-snapshot.json"), null) || {
+            slateDate: name,
+            props: slateProps,
+            propCount: slateProps.length,
+            immutableOfficial: true,
+          };
+        if (!fs.existsSync(SNAPSHOTS_DIR)) fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
+        writeJSON(path.join(SNAPSHOTS_DIR, `${name}.json`), snap);
+        if (!isSlateLocked(name)) {
+          lockSlate(name, {
+            reason: "startup_rehydrate_disk_active_bundle",
+            trackedProps: slateProps,
+            getTrackedProps: () => slateProps,
+            allowFutureOfficialSeal: true,
+            officialSeal: snap.officialSeal || {
+              sealed: true,
+              status: "SEALED",
+              sealedAt: new Date().toISOString(),
+              sealReason: "DISK_ACTIVE_BUNDLE",
+            },
+          });
+        }
+        applySlateLockFreeze(name, slateProps);
+        results.push({
+          slateDate: name,
+          action: "restored_disk_active_bundle",
+          propCount: slateProps.length,
+        });
+      }
+    }
+  } catch (err) {
+    console.log("DISK ACTIVE BUNDLE SCAN WARNING:", err.message);
   }
 
   for (const date of Object.keys(LAB_SLATE_BUNDLE_CATALOG)) {
@@ -903,11 +1140,10 @@ export function rehydrateLocksFromTrackedProps(options = {}) {
 
     const officialish = props.filter(
       (p) =>
-        p.slateLocked === true ||
         p.immutableOfficial === true ||
-        String(p.trackingType || "").toUpperCase() === "OFFICIAL" ||
-        String(p.trackingAdmissionSource || "") === "CONTROLLED_BEST_SIX_DISPLAY" ||
-        String(p.sourcePool || "") === "CONTROLLED_BEST_SIX_DISPLAY"
+        Boolean(p.officialPropId) ||
+        p.slateLocked === true ||
+        String(p.trackingType || "").toUpperCase() === "OFFICIAL"
     );
     if (!officialish.length) continue;
 

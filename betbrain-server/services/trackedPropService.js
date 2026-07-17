@@ -2930,22 +2930,47 @@ export function mergeLockedSlateFreezeIntoTracked(
 
 export function persistResolvedTrackedProps(updated = [], options = {}) {
   const props = Array.isArray(updated) ? updated : [];
-  const verify = options.verify !== false;
+  const existing = readJSON(TRACKED_FILE, []);
+  const incomingKeys = new Set(
+    props
+      .map((p) => String(p.trackedKey || p.trackedId || getStableTrackedPropKey(p) || ""))
+      .filter(Boolean)
+  );
 
-  writeJSON(TRACKED_FILE, props);
+  // Never drop sealed/locked Official rows if resolve payload omitted them.
+  const sealedPreserved = existing.filter((p) => {
+    const date = String(p.slateDate || "");
+    const key = String(p.trackedKey || p.trackedId || getStableTrackedPropKey(p) || "");
+    if (!date || !key || incomingKeys.has(key)) return false;
+    return (
+      p.immutableOfficial === true ||
+      p.slateLocked === true ||
+      isOfficialSlateSealed(date) ||
+      isSlateLocked(date)
+    );
+  });
+
+  const next = sealedPreserved.length ? [...props, ...sealedPreserved] : props;
+  if (sealedPreserved.length) {
+    console.log(
+      `RESOLVE PERSIST PRESERVED ${sealedPreserved.length} sealed props missing from resolve payload`
+    );
+  }
+
+  writeJSON(TRACKED_FILE, next);
 
   let syncResults = [];
   try {
-    syncResults = syncLockedSlateGradesFromLive(props);
+    syncResults = syncLockedSlateGradesFromLive(next);
   } catch (err) {
     console.log("LOCKED SLATE GRADE SYNC WARNING:", err.message);
   }
 
   let verification = null;
   let verified = null;
-  if (verify) {
+  if (options.verify !== false) {
     const readBack = readJSON(TRACKED_FILE, []);
-    verification = verifyResolvedPropsPersisted(props, readBack);
+    verification = verifyResolvedPropsPersisted(next, readBack);
     verified = verification.ok;
     if (!verification.ok) {
       logLifecycleIntegrityEvent({
@@ -2958,11 +2983,12 @@ export function persistResolvedTrackedProps(updated = [], options = {}) {
   }
 
   return {
-    props,
+    props: next,
     persisted: true,
     verified,
     verification,
     syncResults,
+    sealedPreservedCount: sealedPreserved.length,
   };
 }
 
@@ -3016,24 +3042,73 @@ export function writeTrackedProps(props = [], options = {}) {
   const existingByKey = new Map();
 
   for (const item of existing) {
-    const key = String(item.trackedKey || item.trackedId || "");
+    const key = String(
+      item.trackedKey || item.trackedId || getStableTrackedPropKey(item) || ""
+    );
     if (key) existingByKey.set(key, item);
   }
 
-  const guarded = incoming.map((item) => {
-    const key = String(item.trackedKey || item.trackedId || "");
-    const prev = key ? existingByKey.get(key) : null;
-    if (!prev) return item;
-    return applyGradeMonotonicityGuard(prev, item, {
-      sourcePath: options.sourcePath || "writeTrackedProps",
-      slateDate: item.slateDate || prev.slateDate,
-      allowGradeCorrection: options.allowGradeCorrection,
-      gradeCorrectionReason: options.gradeCorrectionReason,
-    }).result;
-  });
+  // Full replace only when explicitly allowed (admin wipe / intentional reset).
+  if (options.allowFullReplace === true) {
+    const guarded = incoming.map((item) => {
+      const key = String(
+        item.trackedKey || item.trackedId || getStableTrackedPropKey(item) || ""
+      );
+      const prev = key ? existingByKey.get(key) : null;
+      if (!prev) return item;
+      return applyGradeMonotonicityGuard(prev, item, {
+        sourcePath: options.sourcePath || "writeTrackedProps",
+        slateDate: item.slateDate || prev.slateDate,
+        allowGradeCorrection: options.allowGradeCorrection,
+        gradeCorrectionReason: options.gradeCorrectionReason,
+      }).result;
+    });
+    writeJSON(TRACKED_FILE, guarded);
+    return guarded;
+  }
 
-  writeJSON(TRACKED_FILE, guarded);
-  return guarded;
+  // Default: merge-only — never drop existing keys (prevents accidental store wipes).
+  const byKey = new Map(existingByKey);
+  for (const item of incoming) {
+    const key = String(
+      item.trackedKey || item.trackedId || getStableTrackedPropKey(item) || ""
+    );
+    if (!key || !item?.player) continue;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, item);
+      continue;
+    }
+    byKey.set(
+      key,
+      applyGradeMonotonicityGuard(prev, item, {
+        sourcePath: options.sourcePath || "writeTrackedProps.merge",
+        slateDate: item.slateDate || prev.slateDate,
+        allowGradeCorrection: options.allowGradeCorrection,
+        gradeCorrectionReason: options.gradeCorrectionReason,
+      }).result
+    );
+  }
+
+  const next = [...byKey.values()];
+
+  // Refuse shrink of sealed/locked slate membership.
+  for (const date of new Set(
+    existing.map((p) => String(p.slateDate || "")).filter(Boolean)
+  )) {
+    if (!(isOfficialSlateSealed(date) || isSlateLocked(date))) continue;
+    const before = existing.filter((p) => String(p.slateDate || "") === date).length;
+    const after = next.filter((p) => String(p.slateDate || "") === date).length;
+    if (after < before) {
+      console.log(
+        `WRITE TRACKED BLOCKED: sealed/locked ${date} would shrink ${before}→${after}`
+      );
+      return existing;
+    }
+  }
+
+  writeJSON(TRACKED_FILE, next);
+  return next;
 }
 
 /** Replace all tracked props for one slate date; returns full merged list. */
@@ -3041,6 +3116,38 @@ export function replaceTrackedPropsForSlate(slateDate, nextSlateProps = [], opti
   const date = String(slateDate || "");
   const tracked = readJSON(TRACKED_FILE, []);
   const existingSlate = tracked.filter((prop) => String(prop.slateDate || "") === date);
+
+  if (
+    date &&
+    (isOfficialSlateSealed(date) || isSlateLocked(date)) &&
+    options.allowOfficialReplace !== true
+  ) {
+    // Grade-safe merge only — never drop or replace sealed membership.
+    const byKey = new Map();
+    for (const item of existingSlate) {
+      const key = String(item.trackedKey || item.trackedId || "");
+      if (key) byKey.set(key, item);
+    }
+    for (const incoming of Array.isArray(nextSlateProps) ? nextSlateProps : []) {
+      const key = String(incoming.trackedKey || incoming.trackedId || "");
+      if (!key || !byKey.has(key)) continue;
+      const prev = byKey.get(key);
+      byKey.set(
+        key,
+        applyGradeMonotonicityGuard(prev, incoming, {
+          sourcePath: options.sourcePath || "replaceTrackedPropsForSlate.sealedMerge",
+          slateDate: date,
+          allowGradeCorrection: options.allowGradeCorrection,
+          gradeCorrectionReason: options.gradeCorrectionReason,
+        }).result
+      );
+    }
+    const preserved = tracked.filter((prop) => String(prop.slateDate || "") !== date);
+    const merged = [...preserved, ...byKey.values()];
+    writeJSON(TRACKED_FILE, merged);
+    return merged;
+  }
+
   const existingByKey = new Map();
   for (const item of existingSlate) {
     const key = String(item.trackedKey || item.trackedId || "");
@@ -3207,8 +3314,25 @@ export function deleteTrackedProp(id) {
   return { ok: true, message: "Tracked prop deleted", props: next };
 }
 
-export function clearTrackedProps() {
+export function clearTrackedProps(options = {}) {
   const existing = readJSON(TRACKED_FILE, []);
+  const sealedOrLocked = existing.filter((p) => {
+    const date = String(p.slateDate || "");
+    return (
+      p.immutableOfficial === true ||
+      p.slateLocked === true ||
+      (date && (isOfficialSlateSealed(date) || isSlateLocked(date)))
+    );
+  });
+
+  if (sealedOrLocked.length && options.force !== true) {
+    return {
+      ok: false,
+      message: `Refusing clear — ${sealedOrLocked.length} sealed/locked Official props present. Pass force: true to wipe.`,
+      sealedOrLockedCount: sealedOrLocked.length,
+      props: existing,
+    };
+  }
 
   if (existing.length > 0 && !fs.existsSync(BACKUP_FILE)) {
     writeJSON(BACKUP_FILE, existing);
