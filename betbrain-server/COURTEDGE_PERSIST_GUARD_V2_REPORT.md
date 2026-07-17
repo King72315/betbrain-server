@@ -32,11 +32,12 @@ Render free disk is ephemeral. Durability of a newly sealed slate across redeplo
 
 This build writes the bundle on seal so the next commit captures it; tracked merge + startup rehydrate recover when bundles ship with the deploy.
 
-## Verify checklist
+## Hotfix v2.1
 
-1. `/health` → `courteedge-persist-guard-v2`
-2. Jul 15 / Jul 16 still present + graded after refresh
-3. `/refresh-picks` restores board; second empty refresh must not wipe tracked
-4. `/clear-tracked-props` without admin → denied
-5. `/admin/restore` without admin → denied
-6. After Tomorrow seals, `active-bundles/{tomorrow}/` exists on server disk
+`mergeLockedSlateFreezeIntoTracked` previously only updated existing tracked rows.
+Sealed Tomorrow/Today Official props that were not already in `tracked-props.json`
+never got inserted — locks/snapshots existed, but `/tracked-props` omitted them
+(seen live for 2026-07-17).
+
+Fix: freeze merge now **inserts** missing sealed props with `slateLocked` +
+`immutableOfficial`.

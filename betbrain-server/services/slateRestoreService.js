@@ -1107,6 +1107,25 @@ export function rehydrateLockedSlatesOnStartup() {
     );
   }
 
+  // Ensure every locked snapshot membership exists in tracked-props (insert missing).
+  for (const entry of getLockedSlatesRegistry().slates || []) {
+    const date = String(entry.slateDate || "");
+    if (!date) continue;
+    const snap = getLockedSnapshot(date);
+    if (!snap?.props?.length) continue;
+    const before = countPropsForSlate(getTrackedProps(), date);
+    applySlateLockFreeze(date, snap.props);
+    const after = countPropsForSlate(getTrackedProps(), date);
+    if (after > before) {
+      results.push({
+        slateDate: date,
+        action: "synced_snapshot_props_into_tracked",
+        before,
+        after,
+      });
+    }
+  }
+
   const integrity = runTrackedPropStartupIntegrityCheck();
 
   return { ok: true, results, startupIntegrity: integrity };

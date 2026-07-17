@@ -2905,7 +2905,9 @@ export function addTrackedProps(picks = [], options = {}) {
   return working;
 }
 
-/** Pure merge: locked snapshot identity with live resolved grades preserved. */
+/** Pure merge: locked snapshot identity with live resolved grades preserved.
+ * Also INSERTS sealed props that are missing from tracked (Tomorrow/Today seal path).
+ */
 export function mergeLockedSlateFreezeIntoTracked(
   tracked = [],
   slateDate,
@@ -2914,18 +2916,45 @@ export function mergeLockedSlateFreezeIntoTracked(
   const date = String(slateDate || "");
   if (!date || !frozenProps.length) return tracked;
 
-  const frozenByKey = new Map(
-    frozenProps.map((prop) => [prop.trackedKey || prop.trackedId, prop])
-  );
+  const frozenByKey = new Map();
+  for (const prop of frozenProps) {
+    const key = String(
+      prop.trackedKey || prop.trackedId || getStableTrackedPropKey({ ...prop, slateDate: date }) || ""
+    );
+    if (!key) continue;
+    frozenByKey.set(key, {
+      ...prop,
+      slateDate: date,
+      slateLocked: true,
+      immutableOfficial: true,
+      trackedKey: prop.trackedKey || key,
+      trackedId: prop.trackedId || prop.trackedKey || key,
+    });
+  }
 
-  return tracked.map((item) => {
+  const seen = new Set();
+  const next = tracked.map((item) => {
     if (String(item.slateDate || "") !== date) return item;
-    const key = item.trackedKey || item.trackedId;
-    const frozen = frozenByKey.get(key);
-    if (!frozen) return item;
+    const key = String(
+      item.trackedKey || item.trackedId || getStableTrackedPropKey(item) || ""
+    );
+    const frozen = key ? frozenByKey.get(key) : null;
+    if (!frozen) return { ...item, slateLocked: true };
+    seen.add(key);
     const [merged] = mergeSnapshotPropsWithLiveGrades([frozen], [item]);
-    return { ...merged, slateLocked: true };
+    return {
+      ...merged,
+      slateLocked: true,
+      immutableOfficial: true,
+    };
   });
+
+  for (const [key, frozen] of frozenByKey.entries()) {
+    if (seen.has(key)) continue;
+    next.push(frozen);
+  }
+
+  return next;
 }
 
 export function persistResolvedTrackedProps(updated = [], options = {}) {
