@@ -1,0 +1,10 @@
+{
+  "slateDate": "2026-07-17",
+  "phase": "ACTIVE",
+  "lockedAt": "2026-07-17T03:39:13.421Z",
+  "lockReason": "FULL_BEST_SIX",
+  "autoLocked": true,
+  "propCount": 6,
+  "immutableOfficial": true,
+  "snapshotFile": "slate-snapshots/2026-07-17.json"
+}
