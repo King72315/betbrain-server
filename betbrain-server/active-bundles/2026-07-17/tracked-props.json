@@ -4700,7 +4700,30 @@
       },
       "trackedKey": "20260717-wnba-nnekaogwumike-losangelessparks-chicagosky-points-over",
       "trackedId": "20260717-wnba-nnekaogwumike-losangelessparks-chicagosky-points-over",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "LOSANGELESSPARKS vs CHICAGOSKY",
+      "supportDangerGap": 94,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "neutral",
+        "h2hSignal": "supports_side",
+        "opponentDefenseSignal": "WEAK_RESISTANCE",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "weak_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "65-69",
+        "projectionEdgeBucket": "2.5-3.9",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "OVER",
+        "auditSideMatch": false
+      }
     },
     {
       "player": "Dominique Malonga",
@@ -9907,7 +9930,30 @@
       },
       "trackedKey": "20260717-wnba-dominiquemalonga-seattlestorm-indianafever-points-under",
       "trackedId": "20260717-wnba-dominiquemalonga-seattlestorm-indianafever-points-under",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "SEATTLESTORM vs INDIANAFEVER",
+      "supportDangerGap": 51,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "neutral",
+        "h2hSignal": "not enough data",
+        "opponentDefenseSignal": "NO_DIRECT_HISTORY",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "adequate_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "Under 55",
+        "projectionEdgeBucket": "2.5-3.9",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "UNDER",
+        "auditSideMatch": false
+      }
     },
     {
       "player": "Isabelle Harrison",
@@ -14963,7 +15009,30 @@
       },
       "trackedKey": "20260717-wnba-isabelleharrison-torontotempo-atlantadream-points-over",
       "trackedId": "20260717-wnba-isabelleharrison-torontotempo-atlantadream-points-over",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "ATLANTADREAM vs TORONTOTEMPO",
+      "supportDangerGap": 48,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "supports_side",
+        "h2hSignal": "supports_side",
+        "opponentDefenseSignal": "WEAK_RESISTANCE",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "weak_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "Under 55",
+        "projectionEdgeBucket": "1.5-2.4",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "OVER",
+        "auditSideMatch": false
+      }
     },
     {
       "player": "Rhyne Howard",
@@ -19926,7 +19995,30 @@
       },
       "trackedKey": "20260717-wnba-rhynehoward-atlantadream-torontotempo-points-under",
       "trackedId": "20260717-wnba-rhynehoward-atlantadream-torontotempo-points-under",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "ATLANTADREAM vs TORONTOTEMPO",
+      "supportDangerGap": 40,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "supports_side",
+        "h2hSignal": "opposes_side",
+        "opponentDefenseSignal": "SLIGHT_WEAK_RESISTANCE",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "adequate_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "55-59",
+        "projectionEdgeBucket": "1.5-2.4",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "UNDER",
+        "auditSideMatch": false
+      }
     },
     {
       "player": "Kelsey Mitchell",
@@ -24880,7 +24972,30 @@
       },
       "trackedKey": "20260717-wnba-kelseymitchell-indianafever-seattlestorm-points-over",
       "trackedId": "20260717-wnba-kelseymitchell-indianafever-seattlestorm-points-over",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "SEATTLESTORM vs INDIANAFEVER",
+      "supportDangerGap": 73,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "neutral",
+        "h2hSignal": "opposes_side",
+        "opponentDefenseSignal": "STRONG_RESISTANCE",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "adequate_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "65-69",
+        "projectionEdgeBucket": "2.5-3.9",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "OVER",
+        "auditSideMatch": false
+      }
     },
     {
       "player": "Naz Hillmon",
@@ -29879,7 +29994,30 @@
       },
       "trackedKey": "20260717-wnba-nazhillmon-atlantadream-torontotempo-points-under",
       "trackedId": "20260717-wnba-nazhillmon-atlantadream-torontotempo-points-under",
-      "trackedLifecycleState": null
+      "trackedLifecycleState": null,
+      "gameLabel": "ATLANTADREAM vs TORONTOTEMPO",
+      "supportDangerGap": 40,
+      "supportDangerGapBucket": "20+",
+      "signalSnapshot": {
+        "last5Signal": "supports_side",
+        "seasonAverageSignal": "neutral",
+        "h2hSignal": "supports_side",
+        "opponentDefenseSignal": "SLIGHT_STRONG_RESISTANCE",
+        "usageMinutesSignal": "stable",
+        "injuryAvailabilitySignal": "not enough data",
+        "homeAwaySignal": "not enough data",
+        "restTravelSignal": "not enough data",
+        "paceSignal": "not enough data",
+        "marketSignal": "adequate_market",
+        "supportDangerGapBucket": "20+",
+        "confidenceBucket": "Under 55",
+        "projectionEdgeBucket": "Under 1.5",
+        "tier": "WATCHLIST",
+        "signalStrength": "STRONG",
+        "riskLabel": "Medium Risk",
+        "fairLineSide": "UNDER",
+        "auditSideMatch": false
+      }
     }
   ]
 }
