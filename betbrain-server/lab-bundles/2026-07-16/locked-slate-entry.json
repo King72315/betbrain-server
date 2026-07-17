@@ -1,0 +1,10 @@
+{
+  "slateDate": "2026-07-16",
+  "phase": "LAB",
+  "lockedAt": "2026-07-16T23:00:00.000Z",
+  "lockReason": "RESCUE_IMPORT",
+  "autoLocked": true,
+  "propCount": 3,
+  "immutableOfficial": true,
+  "snapshotFile": "slate-snapshots/2026-07-16.json"
+}

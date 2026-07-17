@@ -940,6 +940,72 @@ export function resolveResultsPropsFromOfficialSlate(slateDate = "", fallbackPro
 }
 
 /**
+ * When Today has no sealed Official slate (inherit failed) but the Today Best 6
+ * board still has props and the pregame window is closed, seal that thin/full
+ * Today cohort as FINAL_THIN_SLATE so Results do not vanish on refresh/redeploy.
+ * Never reseals an already-sealed slate. Does not change Tomorrow seal rules.
+ */
+export function sealTodayFallbackOfficialSlate(picks = [], options = {}) {
+  const today = String(options.todayLocalDate || getTodayLocalDate()).trim();
+  if (!today) {
+    return { ok: false, sealed: false, message: "Missing todayLocalDate" };
+  }
+
+  if (isOfficialSlateSealed(today) || isSlateLocked(today)) {
+    return {
+      ok: true,
+      alreadySealed: true,
+      sealed: true,
+      slateDate: today,
+      message: `Today ${today} already sealed — fallback skipped`,
+    };
+  }
+
+  const todayPicks = (Array.isArray(picks) ? picks : [])
+    .filter((p) => {
+      if (!p?.player) return false;
+      const dayBucket = String(p.dayBucket || "").toUpperCase();
+      const dateLabel = String(p.dateLabel || "").toLowerCase();
+      const slateDate = String(p.slateDate || "").trim();
+      return (
+        dayBucket === "TODAY" ||
+        dateLabel === "today" ||
+        slateDate === today ||
+        (!dayBucket && !dateLabel && !slateDate)
+      );
+    })
+    .map((p) => ({
+      ...p,
+      slateDate: today,
+      dayBucket: "TODAY",
+      dateLabel: p.dateLabel || "Today",
+      trackingAdmissionSource:
+        p.trackingAdmissionSource || "CONTROLLED_BEST_SIX_DISPLAY",
+      sourcePool: p.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
+      controlledBestSixDisplay: true,
+    }));
+
+  if (!todayPicks.length) {
+    return {
+      ok: true,
+      sealed: false,
+      slateDate: today,
+      reason: "NO_TODAY_PROPS",
+      message: `No Today props to seal for ${today}`,
+    };
+  }
+
+  return sealOfficialSlate(todayPicks, {
+    ...options,
+    slateDate: today,
+    todayLocalDate: today,
+    generationWindowClosed: true,
+    forceThinSeal: true,
+    reason: options.reason || "FINAL_THIN_SLATE_TODAY_FALLBACK",
+  });
+}
+
+/**
  * Process Tomorrow Best 6 from refresh: upsert DRAFT, seal only when eligible.
  * Partial boards (1–5 while window open) never seal.
  */

@@ -179,11 +179,14 @@ import {
 
 import {
   sealTomorrowOfficialSlates,
+  sealTodayFallbackOfficialSlate,
   inheritTodayResultsFromSealedSlate,
   buildOfficialSlateDiagnostics,
   validateOfficialSlateLifecycle,
   OFFICIAL_SLATE_BUILD_TAG,
 } from "./services/officialSlateService.js";
+
+import { importRuntimeState } from "./services/runtimeStateImportService.js";
 
 import {
   createBackup,
@@ -285,7 +288,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-reader-gate-align-v1";
+const SERVER_BUILD = "courteedge-persist-rescue-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2398,18 +2401,87 @@ async function refreshAllPicks() {
     ...(controlledSelection.bestSixDisplayWNBA || []),
     ...(controlledSelection.bestSixDisplayNBA || []),
   ];
-  const officialSealResult = sealTomorrowOfficialSlates(tomorrowDisplayBestSix, {
-    todayLocalDate: getTodayLocalDate(),
+  const officialSealResult = sealTomorrowOfficialSlates(
+    tomorrowDisplayBestSix,
+    {
+      todayLocalDate: getTodayLocalDate(),
+      serverBuild: SERVER_BUILD,
+      selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+    }
+  );
+  for (const sealRow of officialSealResult?.results || []) {
+    if (
+      (sealRow.sealed || sealRow.alreadySealed) &&
+      Array.isArray(sealRow.props) &&
+      sealRow.props.length &&
+      sealRow.slateDate
+    ) {
+      applySlateLockFreeze(sealRow.slateDate, sealRow.props);
+    }
+  }
+
+  // Date rollover — Today Results inherits sealed Tomorrow slate when present.
+  // If inherit fails (thin Today never sealed as yesterday's Tomorrow), seal the
+  // closed Today board as FINAL_THIN so Results/Lab cannot vanish on refresh.
+  const resultsSlateDate = cohortBundle.audit.slateDate || getTodayLocalDate();
+  let todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
     serverBuild: SERVER_BUILD,
-    selectorVersion: CONTROLLED_BEST_SIX_VERSION,
   });
 
-  // Date rollover — Today Results inherits sealed Tomorrow slate only.
-  // Never reseal from a refreshed Today Best 6 cohort.
-  const resultsSlateDate = cohortBundle.audit.slateDate || getTodayLocalDate();
-  const todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
-    serverBuild: SERVER_BUILD,
-  });
+  if (!todayOfficialSeal?.inherited) {
+    const todayDisplayBestSix = [
+      ...(cohortBundle.bestSixDisplayTodayWNBA || []),
+      ...(cohortBundle.bestSixDisplayTodayNBA || []),
+    ].map((p) => ({
+      ...p,
+      slateDate: resultsSlateDate,
+      dayBucket: "TODAY",
+      dateLabel: p.dateLabel || "Today",
+      trackingAdmissionSource:
+        p.trackingAdmissionSource || "CONTROLLED_BEST_SIX_DISPLAY",
+      sourcePool: p.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
+      controlledBestSixDisplay: true,
+    }));
+
+    if (todayDisplayBestSix.length) {
+      // Admit into tracked store BEFORE lock — post-seal inserts are blocked.
+      addTrackedProps(todayDisplayBestSix, {
+        skipTopPickReferences: true,
+        preFilteredCohort: true,
+        allowLockedBestSixBackfill: false,
+      });
+      const todayFallbackSeal = sealTodayFallbackOfficialSlate(
+        todayDisplayBestSix,
+        {
+          todayLocalDate: resultsSlateDate,
+          serverBuild: SERVER_BUILD,
+          selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+          generationWindowClosed: true,
+        }
+      );
+      if (
+        (todayFallbackSeal?.sealed || todayFallbackSeal?.alreadySealed) &&
+        Array.isArray(todayFallbackSeal.props) &&
+        todayFallbackSeal.props.length
+      ) {
+        applySlateLockFreeze(resultsSlateDate, todayFallbackSeal.props);
+      }
+      if (todayFallbackSeal?.sealed || todayFallbackSeal?.alreadySealed) {
+        todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
+          serverBuild: SERVER_BUILD,
+        });
+        todayOfficialSeal = {
+          ...todayOfficialSeal,
+          todayFallbackSeal,
+        };
+      } else {
+        todayOfficialSeal = {
+          ...todayOfficialSeal,
+          todayFallbackSeal,
+        };
+      }
+    }
+  }
 
   saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
     slateDate: resultsSlateDate,
@@ -3185,7 +3257,15 @@ app.delete("/tracked-props/:id", (req, res) => {
   res.json(result);
 });
 
-app.post("/clear-tracked-props", (req, res) => {
+app.post("/clear-tracked-props", requireAdminSecret, (req, res) => {
+  if (req.body?.confirm !== true) {
+    return res.status(400).json({
+      ok: false,
+      message:
+        "clear-tracked-props requires confirm: true and x-admin-secret. Refusing unauthenticated wipe.",
+    });
+  }
+
   const result = clearTrackedProps();
 
   res.json({
@@ -3193,6 +3273,44 @@ app.post("/clear-tracked-props", (req, res) => {
     message:
       "Tracked props cleared. Saved picks were not affected. Use only for research resets.",
   });
+});
+
+app.post("/admin/runtime-state-import", requireAdminSecret, (req, res) => {
+  try {
+    if (req.body?.confirm !== true && req.body?.dryRun !== true) {
+      return res.status(400).json({
+        ok: false,
+        message: "runtime-state-import requires confirm: true or dryRun: true",
+      });
+    }
+
+    const result = importRuntimeState(
+      {
+        trackedProps: req.body?.trackedProps,
+        slateSnapshots: req.body?.slateSnapshots,
+        lockSlateDates: req.body?.lockSlateDates,
+      },
+      {
+        dryRun: Boolean(req.body?.dryRun),
+        backupReason: req.body?.backupReason || "pre-runtime-state-import-v1",
+        lockReason: req.body?.lockReason || "runtime_state_import_rescue",
+        sealReason: req.body?.sealReason || "RESCUE_IMPORT",
+      }
+    );
+
+    res.json({
+      ...result,
+      serverBuild: SERVER_BUILD,
+    });
+  } catch (error) {
+    console.log("RUNTIME STATE IMPORT ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "runtime-state-import failed",
+      error: error.message,
+      serverBuild: SERVER_BUILD,
+    });
+  }
 });
 
 app.get("/daily-slate-reports", (req, res) => {

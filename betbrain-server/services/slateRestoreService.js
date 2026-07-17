@@ -57,6 +57,14 @@ export const ACTIVE_SLATE_BUNDLE_CATALOG = {
     lockReason: "auto_results_track",
     phase: SLATE_PHASE.ACTIVE,
   },
+  "2026-07-16": {
+    bundleDir: "lab-bundles/2026-07-16",
+    expectedPropCount: 3,
+    expectedGraded: 3,
+    expectedPending: 0,
+    lockReason: "FINAL_THIN_SLATE_TODAY_FALLBACK",
+    phase: SLATE_PHASE.ACTIVE,
+  },
 };
 
 /** Completed Lab/History bundles — rehydrated after Render disk wipes. */
@@ -66,6 +74,13 @@ export const LAB_SLATE_BUNDLE_CATALOG = {
     expectedPropCount: 14,
     expectedGraded: 14,
     expectedRecord: "5-9-0",
+    phase: SLATE_PHASE.LAB,
+  },
+  "2026-07-15": {
+    bundleDir: "lab-bundles/2026-07-15",
+    expectedPropCount: 6,
+    expectedGraded: 6,
+    expectedRecord: "3-3-0",
     phase: SLATE_PHASE.LAB,
   },
 };
@@ -844,9 +859,116 @@ export function rehydrateLockedSlatesOnStartup() {
     console.log("STARTUP SLATE REHYDRATION:", JSON.stringify(results, null, 2));
   }
 
+  // After Render wipes locked-slates.json, rebuild locks from tracked props that
+  // were already admitted as official/locked — never deletes, never invents lines.
+  const trackedLockRebuild = rehydrateLocksFromTrackedProps();
+  if (trackedLockRebuild.locked?.length) {
+    results.push(...trackedLockRebuild.results);
+    console.log(
+      "STARTUP TRACKED LOCK REBUILD:",
+      JSON.stringify(trackedLockRebuild, null, 2)
+    );
+  }
+
   const integrity = runTrackedPropStartupIntegrityCheck();
 
   return { ok: true, results, startupIntegrity: integrity };
+}
+
+/**
+ * When the lock registry is empty/missing dates but tracked-props still has
+ * official/slateLocked rows, recreate locks + snapshots from those rows.
+ */
+export function rehydrateLocksFromTrackedProps(options = {}) {
+  const tracked = getTrackedProps();
+  const today = getTodayLocalDate();
+  const byDate = new Map();
+
+  for (const prop of tracked) {
+    const date = String(prop.slateDate || "").trim();
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push(prop);
+  }
+
+  const results = [];
+  const locked = [];
+  const maxAgeDays = Number(options.maxAgeDays) || 21;
+
+  for (const [date, props] of byDate.entries()) {
+    if (isSlateLocked(date)) {
+      results.push({ slateDate: date, action: "skip_already_locked" });
+      continue;
+    }
+
+    const officialish = props.filter(
+      (p) =>
+        p.slateLocked === true ||
+        p.immutableOfficial === true ||
+        String(p.trackingType || "").toUpperCase() === "OFFICIAL" ||
+        String(p.trackingAdmissionSource || "") === "CONTROLLED_BEST_SIX_DISPLAY" ||
+        String(p.sourcePool || "") === "CONTROLLED_BEST_SIX_DISPLAY"
+    );
+    if (!officialish.length) continue;
+
+    // Only rebuild recent calendar slates (avoid resurrecting ancient labs as ACTIVE).
+    const ageDays = (() => {
+      const [y, m, d] = today.split("-").map(Number);
+      const [yy, mm, dd] = date.split("-").map(Number);
+      if (!y || !yy) return 999;
+      const a = Date.UTC(y, m - 1, d);
+      const b = Date.UTC(yy, mm - 1, dd);
+      return Math.floor((a - b) / 86400000);
+    })();
+    if (ageDays < 0 || ageDays > maxAgeDays) {
+      results.push({
+        slateDate: date,
+        action: "skip_outside_window",
+        ageDays,
+      });
+      continue;
+    }
+
+    const sealProps = officialish.map((p) => ({
+      ...p,
+      slateLocked: true,
+      immutableOfficial: true,
+    }));
+    const lockResult = lockSlate(date, {
+      reason: "startup_rehydrate_from_tracked",
+      trackedProps: sealProps,
+      getTrackedProps: () => sealProps,
+      allowFutureOfficialSeal: true,
+      officialSeal: {
+        sealed: true,
+        status: "SEALED",
+        sealedAt: new Date().toISOString(),
+        sealReason: "STARTUP_REHYDRATE_FROM_TRACKED",
+        sourcePool: "TRACKED_PROPS_STORE",
+        lifecycleStage: ageDays >= 1 ? SLATE_PHASE.LAB : SLATE_PHASE.ACTIVE,
+        stage: ageDays >= 1 ? SLATE_PHASE.LAB : SLATE_PHASE.ACTIVE,
+      },
+    });
+
+    if (lockResult.ok || lockResult.alreadyLocked) {
+      applySlateLockFreeze(date, lockResult.snapshot?.props || sealProps);
+      locked.push(date);
+      results.push({
+        slateDate: date,
+        action: "rebuilt_lock_from_tracked",
+        propCount: sealProps.length,
+        lockOk: Boolean(lockResult.ok || lockResult.alreadyLocked),
+      });
+    } else {
+      results.push({
+        slateDate: date,
+        action: "rebuild_lock_failed",
+        message: lockResult.message,
+      });
+    }
+  }
+
+  return { ok: true, locked, results };
 }
 
 export function getLabBundleInfo(slateDate) {
