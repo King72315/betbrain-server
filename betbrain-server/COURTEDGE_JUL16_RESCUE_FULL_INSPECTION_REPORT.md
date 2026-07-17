@@ -190,14 +190,21 @@ Tests: `scripts/testOfficialSlateLifecycle.js` → **13/13 PASS**
 
 ---
 
-## 10. Remaining operational risk
+## 11. Post-deploy verification (live)
 
-Render free disk is still ephemeral. Durability now depends on:
-1. Committed `tracked-props.json` + lab/active bundles + snapshots
-2. Startup rehydrate + tracked lock rebuild
-3. Today fallback seal so thin Today boards become Official before wipe
+Deploy commit: `3b72f94`  
+Live `/health` build: **`courteedge-persist-rescue-v1`**
 
-Long-term: attach a **persistent disk** on Render for `tracked-props.json`, `locked-slates.json`, `slate-snapshots/`, `board-cache.json`, `history-archive/`.
+| Check | Result |
+|-------|--------|
+| Jul 16 trio in tracked | **YES** — Carleton LOSS 6, Citron LOSS 8, Austin LOSS 19 |
+| Jul 15 graded 3-3 | **YES** |
+| Locks | 07-15 LAB(6), 07-16 ACTIVE(3), 07-17 Tomorrow ACTIVE(6) after refresh |
+| Lab pointer | **2026-07-16** |
+| History | includes 07-15, 07-14, 07-08, 06-21 |
+| Board after `/refresh-picks` | **4 games**, **6 WNBA display Best 6**, `lastUpdated` set |
+
+Jul 16 is in Lab (fully graded thin Official). Tomorrow 07-17 sealed full 6 for next Results cycle.
 
 ---
 
