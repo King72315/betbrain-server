@@ -38,12 +38,13 @@ import {
   SLATE_SAME_TEAM_COLLISION_VERSION,
 } from "../decisionIntelligence/slateSameTeamCollisionV1.js";
 import { applyEvidenceFinalConfidenceToPick } from "../wnba/playerIntelligence/evidenceFinalConfidenceV1.js";
+import { applySameTeamOpportunityV2Layer } from "../wnba/playerIntelligence/sameTeamOpportunityEngineV2.js";
 import {
   finalizeCanonicalDecision,
   computeDecisionHash,
   buildCanonicalDecisionBundle,
 } from "../decisionIntelligence/sideSelectionTrustV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-over-balance-v3";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-same-team-opp-v2";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -190,7 +191,10 @@ function applySlateCollisionLayer(candidates = [], audit = {}) {
     unrealisticClusters: evaluation.unrealisticClusters,
     teamClusters: evaluation.teamClusters,
   };
-  return applySlateCollisionAdjustments(candidates, evaluation).map((pick) => {
+  const collisionAdjusted = applySlateCollisionAdjustments(
+    candidates,
+    evaluation
+  ).map((pick) => {
     // Recompute evidence-final confidence after slate opportunity evidence is complete.
     if (String(pick.league || "").toUpperCase() !== "WNBA") return pick;
     const ddi = pick.decisionDataIntelligence || {};
@@ -212,6 +216,9 @@ function applySlateCollisionLayer(candidates = [], audit = {}) {
       },
     });
   });
+
+  // V2 decision engine: primary Over + secondary Under arbitration before Best 6.
+  return applySameTeamOpportunityV2Layer(collisionAdjusted, audit);
 }
 
 function compareByScore(a = {}, b = {}) {
@@ -963,6 +970,22 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       audit.hidden.push({
         reason: "hidden_due_to_same_team",
         teamKey,
+        safetyScore: computeSafetyScore(pick),
+        pick: summarizePickForAudit(pick),
+      });
+      continue;
+    }
+
+    if (
+      pick.sameTeamOpportunityV2Demoted === true ||
+      pick.topPickBlockedBySameTeamOpportunityV2 === true ||
+      pick.sameTeamOpportunityV2?.role === "SECONDARY_DEMOTED"
+    ) {
+      audit.hiddenDueToSameTeamOpportunityV2 =
+        (audit.hiddenDueToSameTeamOpportunityV2 || 0) + 1;
+      audit.hidden.push({
+        reason: "hidden_due_to_same_team_opportunity_v2_demotion",
+        primaryPlayer: pick.sameTeamOpportunityV2?.primaryPlayer || null,
         safetyScore: computeSafetyScore(pick),
         pick: summarizePickForAudit(pick),
       });

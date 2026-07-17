@@ -120,7 +120,7 @@ test("03 promotion does not duplicate SIDE_RESCUE_BOARD_ONLY flag", () => {
 });
 
 test("04 controlled selector version bumped", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v3");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-same-team-opp-v2");
 });
 
 test("05 Jul 7 trust-inspect slate exposes flip-first on best six", () => {

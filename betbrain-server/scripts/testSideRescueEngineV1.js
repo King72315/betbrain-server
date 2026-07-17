@@ -388,7 +388,7 @@ test("18 Dearica retro dearicaStyleCases populated", () => {
 });
 
 test("19 controlled best six version side-rescue-v1", () => {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v3");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-same-team-opp-v2");
 });
 
 test("20 BOARD_ONLY rescue excluded from Best 6", () => {

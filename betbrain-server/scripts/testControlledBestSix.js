@@ -663,7 +663,7 @@ function testDisplayDoesNotPreFilterBoardOnly() {
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-over-balance-v3");
+  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-same-team-opp-v2");
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],

@@ -289,7 +289,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-persist-guard-v2.1";
+const SERVER_BUILD = "courteedge-same-team-opportunity-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

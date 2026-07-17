@@ -102,6 +102,17 @@ export {
 } from "./sameTeamOpportunityEngineV1.js";
 
 export {
+  SAME_TEAM_OPPORTUNITY_V2_VERSION,
+  SAME_TEAM_OPPORTUNITY_V2_BUILD,
+  isMeaningfulScorer,
+  computeOpportunityStrengthScore,
+  reevaluatePropAsUnderCandidate,
+  underCandidateQualifies,
+  arbitrateSameTeamOpportunityV2,
+  applySameTeamOpportunityV2Layer,
+} from "./sameTeamOpportunityEngineV2.js";
+
+export {
   HISTORICAL_CALIBRATION_VERSION,
   recordGradedPropCalibration,
   getLearnedCalibrationForProfile,
