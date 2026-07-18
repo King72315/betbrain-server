@@ -1,0 +1,11 @@
+{
+  "savedAt": "2026-07-18T12:39:53.789Z",
+  "name": "sd_qkey_nba_team_season_stats",
+  "status": 401,
+  "url": "https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/2026?key=REDACTED",
+  "count": null,
+  "body": {
+    "statusCode": 401,
+    "message": "Access denied due to invalid subscription key. Make sure to provide a valid key for an active subscription."
+  }
+}

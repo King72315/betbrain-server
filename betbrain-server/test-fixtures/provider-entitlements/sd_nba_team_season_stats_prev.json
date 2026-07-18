@@ -1,0 +1,18 @@
+{
+  "savedAt": "2026-07-18T12:39:16.497Z",
+  "name": "sd_nba_team_season_stats_prev",
+  "status": 401,
+  "url": "https://api.sportsdata.io/v3/nba/scores/json/TeamSeasonStats/2025",
+  "count": null,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 1,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "statusCode": 401,
+    "message": "Access denied due to invalid subscription key. Make sure to provide a valid key for an active subscription."
+  }
+}

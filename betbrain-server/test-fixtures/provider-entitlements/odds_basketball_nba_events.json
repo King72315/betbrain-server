@@ -1,0 +1,13 @@
+{
+  "savedAt": "2026-07-18T12:39:05.513Z",
+  "name": "odds_basketball_nba_events",
+  "status": 200,
+  "url": "https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey=REDACTED",
+  "count": 0,
+  "scramble": {
+    "lookScrambled": null,
+    "reason": "empty_or_non_array",
+    "sampleSize": 0
+  },
+  "body": []
+}

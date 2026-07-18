@@ -209,8 +209,11 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   );
   flag(
     "defense",
-    num(defenseResult.defenseScore) <= 0 && !defenseResult.context,
-    "Opponent defense context missing"
+    defenseResult.available !== true ||
+      defenseResult.status === "UNAVAILABLE" ||
+      (defenseResult.defenseScore == null && !defenseResult.context),
+    defenseResult.defenseAudit?.unavailableReason ||
+      "Opponent defense context unavailable"
   );
   flag(
     "matchup",
@@ -529,17 +532,33 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     },
     teammateUsageShift,
     opponentDefense: {
-      score: num(defenseResult.defenseScore),
+      score:
+        defenseResult.defenseScore === null ||
+        defenseResult.defenseScore === undefined
+          ? null
+          : num(defenseResult.defenseScore),
+      status:
+        defenseResult.status ||
+        defenseResult.defenseAudit?.status ||
+        (defenseResult.defenseScore == null ? "UNAVAILABLE" : "CALCULATED"),
+      available: defenseResult.available === true,
       label: defenseResult.defenseLabel || defenseResult.label || null,
       context: defenseResult.context || defenseResult.wnbaDefenseProbe || null,
       proxyUsed:
-        defenseResult.proxyUsed === true ||
-        (defenseResult.source === "default" && num(defenseResult.defenseScore) === 50),
-      defenseSource: defenseResult.source || "unknown",
+        defenseResult.available === true &&
+        (defenseResult.proxyUsed === true ||
+          String(defenseResult.source || "").includes("proxy")),
+      defenseSource: defenseResult.source || "unavailable",
       opponentPPG: defenseResult.opponentPPG ?? null,
+      paceProxy: defenseResult.paceProxy ?? defenseResult.recentGameTotalAvg ?? null,
+      last5PointsAllowed: defenseResult.last5PointsAllowed ?? null,
+      last10PointsAllowed: defenseResult.last10PointsAllowed ?? null,
+      sampleGames: defenseResult.sampleGames ?? null,
       unavailableReason:
         defenseResult.defenseAudit?.unavailableReason ||
-        (defenseResult.proxyUsed ? defenseResult.reasons?.[0] : null),
+        (defenseResult.status === "UNAVAILABLE"
+          ? defenseResult.reasons?.[0]
+          : null),
     },
     gameEnvironment: {
       spread: wnbaGameContext?.spread ?? null,

@@ -1,0 +1,41 @@
+{
+  "savedAt": "2026-07-18T12:39:08.532Z",
+  "name": "bdl_wnba_players_search_stewart",
+  "status": 200,
+  "url": "https://api.balldontlie.io/wnba/v1/players?search=Stewart",
+  "count": 1,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0.333,
+    "numericFieldsChecked": 3,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "data": [
+      {
+        "id": 468,
+        "first_name": "Breanna",
+        "last_name": "Stewart",
+        "position": "F",
+        "position_abbreviation": "F",
+        "height": "6' 4\"",
+        "weight": "UConn",
+        "jersey_number": "30",
+        "college": null,
+        "age": 31,
+        "team": {
+          "id": 1,
+          "conference": "Eastern Conference",
+          "city": "New York",
+          "name": "Liberty",
+          "full_name": "New York Liberty",
+          "abbreviation": "NY"
+        }
+      }
+    ],
+    "meta": {
+      "per_page": 25
+    }
+  }
+}

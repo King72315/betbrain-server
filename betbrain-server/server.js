@@ -90,6 +90,8 @@ import { evaluateSideSelection, finalizeSideTrackingDecision } from "./engines/s
 import { evaluateWnbaAvailability } from "./services/wnbaAvailabilityService.js";
 import { buildWnbaGameContext, enrichWnbaGameContextForTeam } from "./services/wnbaGameContextService.js";
 import { buildWnbaOpponentDefenseContext } from "./services/wnbaOpponentContextService.js";
+import { PROVIDER_FALLBACK_POLICY } from "./services/providerFallbackPolicy.js";
+import { COURTEDGE_PLAYER_EVIDENCE_VERSION } from "./services/courtEdgePlayerEvidenceV1.js";
 import {
   applyWnbaShadowRecalibration,
   buildWnbaDefenseShadowContext,
@@ -293,7 +295,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lifecycle-stale-sealed-v1";
+const SERVER_BUILD = "courteedge-evidence-defense-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2670,6 +2672,13 @@ app.get("/health", (req, res) => {
     serverBuild: SERVER_BUILD,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
+    providerPolicy: {
+      version: PROVIDER_FALLBACK_POLICY.version,
+      sportsDataWnbaGeneration:
+        PROVIDER_FALLBACK_POLICY.sportsDataWnbaGeneration,
+      bdlTeamSeasonAverages: PROVIDER_FALLBACK_POLICY.bdlTeamSeasonAverages,
+      evidenceVersion: COURTEDGE_PLAYER_EVIDENCE_VERSION,
+    },
     time: new Date().toISOString(),
   });
 });
@@ -3819,6 +3828,22 @@ app.get("/diagnostics", (req, res) => {
     serverBuild: SERVER_BUILD,
     engines: ENGINE_LOAD_FLAGS,
     trackingMode: TRACKING_MODE,
+    providerHealth: {
+      keysLoaded: checkConfig(),
+      evidenceV1Enabled: CONFIG.COURTEDGE_EVIDENCE_V1_ENABLED,
+      wnbaDefenseV2Enabled: CONFIG.COURTEDGE_WNBA_DEFENSE_V2_ENABLED,
+      wnbaSportsDataSecondaryEnabled:
+        CONFIG.COURTEDGE_WNBA_SPORTSDATA_SECONDARY_ENABLED,
+      projectionCalibrationV2Enabled:
+        CONFIG.COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED,
+      fallbackPolicy: PROVIDER_FALLBACK_POLICY,
+      evidenceVersion: COURTEDGE_PLAYER_EVIDENCE_VERSION,
+      notes: [
+        "SportsData WNBA generation disabled — entitlement 401",
+        "BDL team_season_averages disabled — endpoint 404",
+        "WNBA defense uses BDL final-games proxy when available; else UNAVAILABLE (not fake 50)",
+      ],
+    },
     officialSlate: officialSlateDiagnostics,
     staleSealedLifecycle,
     activeSlate: activeSlates[activeSlates.length - 1] || null,

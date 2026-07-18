@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, ".env") });
+dotenv.config(); // also allow process cwd / platform env to override
 
 function num(value, fallback) {
   const n = Number(value);
@@ -49,6 +53,28 @@ export const CONFIG = {
 
   COURTEDGE_WNBA_V2: process.env.COURTEDGE_WNBA_V2 !== "false",
 
+  /** Attach courtEdgePlayerEvidenceV1 to generated props (additive; safe default ON). */
+  COURTEDGE_EVIDENCE_V1_ENABLED:
+    process.env.COURTEDGE_EVIDENCE_V1_ENABLED !== "false",
+
+  /** Honest WNBA defense/pace from BDL games proxy — no fake defenseScore 50 (safe default ON). */
+  COURTEDGE_WNBA_DEFENSE_V2_ENABLED:
+    process.env.COURTEDGE_WNBA_DEFENSE_V2_ENABLED !== "false",
+
+  /**
+   * SportsData as WNBA generation secondary — KEEP OFF until live entitlement is 200.
+   * Probe 2026-07-18: WNBA scores/Teams returned 401.
+   */
+  COURTEDGE_WNBA_SPORTSDATA_SECONDARY_ENABLED:
+    process.env.COURTEDGE_WNBA_SPORTSDATA_SECONDARY_ENABLED === "true",
+
+  /**
+   * Projection weight recalibration — KEEP OFF until historical replay reviewed.
+   * Does not change live weights while false.
+   */
+  COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED:
+    process.env.COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED === "true",
+
   NODE_ENV: process.env.NODE_ENV || "development",
 };
 
@@ -82,6 +108,12 @@ export function checkConfig() {
     wnbaShadowRecalibration: CONFIG.WNBA_SHADOW_RECALIBRATION,
     courteEdgeWnbaV1: CONFIG.COURTEDGE_WNBA_V1,
     courteEdgeWnbaV2: CONFIG.COURTEDGE_WNBA_V2,
+    courteEdgeEvidenceV1: CONFIG.COURTEDGE_EVIDENCE_V1_ENABLED,
+    courteEdgeWnbaDefenseV2: CONFIG.COURTEDGE_WNBA_DEFENSE_V2_ENABLED,
+    courteEdgeWnbaSportsDataSecondary:
+      CONFIG.COURTEDGE_WNBA_SPORTSDATA_SECONDARY_ENABLED,
+    courteEdgeProjectionCalibrationV2:
+      CONFIG.COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED,
 
     environment: CONFIG.NODE_ENV,
   };

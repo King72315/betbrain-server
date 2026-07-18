@@ -36,6 +36,9 @@ import {
   getHistoricalAccuracyForPlayer,
   getLearnedCalibrationForProfile,
 } from "./playerIntelligence/index.js";
+import { buildCourtEdgePlayerEvidenceV1 } from "../../services/courtEdgePlayerEvidenceV1.js";
+import { buildProviderIdentity } from "../../services/providerIdentityLayer.js";
+import { PROVIDER_FALLBACK_POLICY } from "../../services/providerFallbackPolicy.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
 const CONFIDENCE_BLEND_VERSION = "v2-data-directional-side-symmetry";
@@ -195,6 +198,55 @@ export async function evaluateWnbaPropDecision(context = {}) {
       matchupGames,
     }
   );
+
+  const identity = buildProviderIdentity({
+    playerName,
+    team,
+    opponent,
+    league: "WNBA",
+    oddsEventId: game.gameId || game.id || null,
+    bdlPlayerId: playerState?.playerId || dataCard?.playerId || null,
+  });
+
+  const playerEvidence =
+    CONFIG.COURTEDGE_EVIDENCE_V1_ENABLED !== false
+      ? buildCourtEdgePlayerEvidenceV1({
+          league: "WNBA",
+          playerName,
+          team,
+          opponent,
+          playerId: identity.bdlPlayerId,
+          wnbaPlayerId: identity.bdlPlayerId,
+          game,
+          gameId: game.gameId || game.id,
+          slateDate: game.date,
+          commenceTime: game.commenceTime || game.time,
+          prop,
+          line: prop.line,
+          last5,
+          bdlSeasonGames,
+          seasonAverage,
+          matchupGames,
+          opportunity,
+          availabilityGate,
+          defenseResult,
+          wnbaGameContext,
+          marketSnapshot,
+          playerState,
+          dataCard,
+          identity,
+          projection: dataCard.projection?.projection,
+          projectionResult: dataCard.projection,
+          fairLine: dataCard.fairLine,
+          sportsProjection: null,
+          roleTrend: dataCard.roleTrend,
+          volumeProfile,
+          playerRoleProfile: dataCard.playerRoleProfile,
+          teammateUsageShift: dataCard.teammateUsageShift,
+          bookCount: prop.bookCount,
+          blowoutRisk,
+        })
+      : null;
 
   const projection = dataCard.projection?.projection || 0;
   const reader = readWnbaProp(dataCard);
@@ -469,6 +521,10 @@ export async function evaluateWnbaPropDecision(context = {}) {
     marketIntelligence,
     availabilityGate,
     defenseResult,
+    providerIdentity: identity,
+    courtEdgePlayerEvidence: playerEvidence,
+    courtEdgePlayerEvidenceVersion: playerEvidence?.schemaVersion || null,
+    providerFallbackPolicyVersion: PROVIDER_FALLBACK_POLICY.version,
     dataMode: playerState.dataMode,
     snapshotId: marketSnapshot.snapshotId,
     snapshotTime: marketSnapshot.snapshotTime,

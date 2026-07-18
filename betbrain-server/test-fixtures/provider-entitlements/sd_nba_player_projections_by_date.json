@@ -1,0 +1,13 @@
+{
+  "savedAt": "2026-07-18T12:39:16.858Z",
+  "name": "sd_nba_player_projections_by_date",
+  "status": 200,
+  "url": "https://api.sportsdata.io/api/nba/fantasy/json/PlayerGameProjectionStatsByDate/2026-07-18",
+  "count": 0,
+  "scramble": {
+    "lookScrambled": null,
+    "reason": "empty_or_non_array",
+    "sampleSize": 0
+  },
+  "body": []
+}

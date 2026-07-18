@@ -317,12 +317,34 @@ function scoreEnvironment(side, card = {}) {
     supports.push("Blowout risk supports under");
   }
 
-  const defScore = num(card.opponentDefense?.score);
-  if (side === "OVER" && defScore >= 70) {
+  const defenseStatus = String(
+    card.opponentDefense?.status ||
+      card.opponentDefense?.defenseStatus ||
+      ""
+  ).toUpperCase();
+  const defScoreRaw = card.opponentDefense?.score;
+  const defScore =
+    defScoreRaw === null || defScoreRaw === undefined
+      ? null
+      : num(defScoreRaw);
+  // Missing/unavailable defense contributes ZERO side influence (never fake-50 Under).
+  const defenseUsable =
+    defScore !== null &&
+    defenseStatus !== "UNAVAILABLE" &&
+    card.opponentDefense?.available !== false &&
+    !(
+      card.opponentDefense?.proxyUsed === true &&
+      defScore === 50 &&
+      !card.opponentDefense?.opponentPPG &&
+      defenseStatus !== "CALCULATED_NEUTRAL" &&
+      defenseStatus !== "CALCULATED"
+    );
+
+  if (defenseUsable && side === "OVER" && defScore >= 70) {
     score -= 5;
     disagrees.push("Strong opponent defense vs over");
   }
-  if (side === "UNDER" && defScore >= 65) {
+  if (defenseUsable && side === "UNDER" && defScore >= 65) {
     score += 4;
     supports.push("Strong defense supports under");
   }

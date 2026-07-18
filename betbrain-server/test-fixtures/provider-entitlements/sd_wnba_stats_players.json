@@ -1,0 +1,18 @@
+{
+  "savedAt": "2026-07-18T12:39:15.702Z",
+  "name": "sd_wnba_stats_players",
+  "status": 404,
+  "url": "https://api.sportsdata.io/v3/wnba/stats/json/Players",
+  "count": null,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 1,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "statusCode": 404,
+    "message": "Resource not found"
+  }
+}

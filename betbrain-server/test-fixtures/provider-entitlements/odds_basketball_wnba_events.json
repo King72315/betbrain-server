@@ -1,0 +1,40 @@
+{
+  "savedAt": "2026-07-18T12:39:05.838Z",
+  "name": "odds_basketball_wnba_events",
+  "status": 200,
+  "url": "https://api.the-odds-api.com/v4/sports/basketball_wnba/events?apiKey=REDACTED",
+  "count": 5,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 0,
+    "sampleSize": 5,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": [
+    {
+      "id": "cb4f9fb87d3e9c98bee6b12fbd21fdab",
+      "sport_key": "basketball_wnba",
+      "sport_title": "WNBA",
+      "commence_time": "2026-07-19T00:00:00Z",
+      "home_team": "Indiana Fever",
+      "away_team": "New York Liberty"
+    },
+    {
+      "id": "f8783a888cf81cf55788aa06d2273f16",
+      "sport_key": "basketball_wnba",
+      "sport_title": "WNBA",
+      "commence_time": "2026-07-19T00:00:00Z",
+      "home_team": "Minnesota Lynx",
+      "away_team": "Portland Fire"
+    },
+    {
+      "id": "d24612bd3abe34a240d8fd2f3ced9d4f",
+      "sport_key": "basketball_wnba",
+      "sport_title": "WNBA",
+      "commence_time": "2026-07-19T00:30:00Z",
+      "home_team": "Golden State Valkyries",
+      "away_team": "Washington Mystics"
+    }
+  ]
+}

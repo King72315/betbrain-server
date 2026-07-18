@@ -1,0 +1,18 @@
+{
+  "savedAt": "2026-07-18T12:39:15.932Z",
+  "name": "sd_wnba_scores_players",
+  "status": 401,
+  "url": "https://api.sportsdata.io/v3/wnba/scores/json/Players",
+  "count": null,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 1,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "statusCode": 401,
+    "message": "Access denied due to invalid subscription key. Make sure to provide a valid key for an active subscription."
+  }
+}

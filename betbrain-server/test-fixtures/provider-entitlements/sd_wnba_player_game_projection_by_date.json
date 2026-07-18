@@ -1,0 +1,18 @@
+{
+  "savedAt": "2026-07-18T12:39:17.662Z",
+  "name": "sd_wnba_player_game_projection_by_date",
+  "status": 404,
+  "url": "https://api.sportsdata.io/v3/wnba/projections/json/PlayerGameProjectionStatsByDate/2026-07-18",
+  "count": null,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 1,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "statusCode": 404,
+    "message": "Resource not found"
+  }
+}

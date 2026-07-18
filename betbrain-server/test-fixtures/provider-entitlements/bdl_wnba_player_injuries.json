@@ -1,0 +1,97 @@
+{
+  "savedAt": "2026-07-18T12:39:09.338Z",
+  "name": "bdl_wnba_player_injuries",
+  "status": 200,
+  "url": "https://api.balldontlie.io/wnba/v1/player_injuries",
+  "count": 25,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 0,
+    "sampleSize": 8,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "data": [
+      {
+        "player": {
+          "id": 733,
+          "first_name": "Te-Hina",
+          "last_name": "Paopao",
+          "position": "G",
+          "position_abbreviation": "G",
+          "height": "5' 9\"",
+          "weight": "South Carolina",
+          "jersey_number": "2",
+          "college": null,
+          "age": 23,
+          "team": {
+            "id": 4,
+            "conference": "Eastern Conference",
+            "city": "Atlanta",
+            "name": "Dream",
+            "full_name": "Atlanta Dream",
+            "abbreviation": "ATL"
+          }
+        },
+        "status": "Out",
+        "return_date": "Jul 19",
+        "comment": "Jul 17: Paopao (leg) won't play Friday in Toronto."
+      },
+      {
+        "player": {
+          "id": 66990,
+          "first_name": "Indya",
+          "last_name": "Nivar",
+          "position": "G",
+          "position_abbreviation": "G",
+          "height": "5' 10\"",
+          "weight": "North Carolina",
+          "jersey_number": "21",
+          "college": null,
+          "age": 22,
+          "team": {
+            "id": 4,
+            "conference": "Eastern Conference",
+            "city": "Atlanta",
+            "name": "Dream",
+            "full_name": "Atlanta Dream",
+            "abbreviation": "ATL"
+          }
+        },
+        "status": "Out",
+        "return_date": "Jul 19",
+        "comment": "Jul 17: Nivar (coach's decision) has been ruled out for Friday's game against the Tempo."
+      },
+      {
+        "player": {
+          "id": 751,
+          "first_name": "Maddy",
+          "last_name": "Westbeld",
+          "position": "F",
+          "position_abbreviation": "F",
+          "height": "6' 3\"",
+          "weight": "Notre Dame",
+          "jersey_number": "21",
+          "college": null,
+          "age": 23,
+          "team": {
+            "id": 6,
+            "conference": "Eastern Conference",
+            "city": "Chicago",
+            "name": "Sky",
+            "full_name": "Chicago Sky",
+            "abbreviation": "CHI"
+          }
+        },
+        "status": "Out",
+        "return_date": "Jul 19",
+        "comment": "Jul 17: Westbeld (coach's decision) is out for Friday's game against the Sparks."
+      }
+    ],
+    "meta": {
+      "next_cursor": 239940,
+      "per_page": 25
+    }
+  }
+}

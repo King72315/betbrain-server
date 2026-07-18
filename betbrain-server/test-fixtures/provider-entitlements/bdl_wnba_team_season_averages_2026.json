@@ -1,0 +1,17 @@
+{
+  "savedAt": "2026-07-18T12:39:07.302Z",
+  "name": "bdl_wnba_team_season_averages_2026",
+  "status": 404,
+  "url": "https://api.balldontlie.io/wnba/v1/team_season_averages?season=2026",
+  "count": null,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0,
+    "numericFieldsChecked": 0,
+    "sampleSize": 1,
+    "reason": "insufficient_numeric_fields"
+  },
+  "body": {
+    "error": "Route not found"
+  }
+}

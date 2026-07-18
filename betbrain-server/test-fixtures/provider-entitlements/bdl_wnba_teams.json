@@ -1,0 +1,42 @@
+{
+  "savedAt": "2026-07-18T12:39:06.449Z",
+  "name": "bdl_wnba_teams",
+  "status": 200,
+  "url": "https://api.balldontlie.io/wnba/v1/teams",
+  "count": 35,
+  "scramble": {
+    "lookScrambled": false,
+    "zeroOrNullRatio": 0.385,
+    "numericFieldsChecked": 13,
+    "sampleSize": 8,
+    "reason": "values_look_populated"
+  },
+  "body": {
+    "data": [
+      {
+        "id": 2,
+        "conference": "Eastern Conference",
+        "city": "Connecticut",
+        "name": "Sun",
+        "full_name": "Connecticut Sun",
+        "abbreviation": "CON"
+      },
+      {
+        "id": 34,
+        "conference": null,
+        "city": "Team Coop",
+        "name": "TEAM COOP",
+        "full_name": "TEAM COOP",
+        "abbreviation": "COOP"
+      },
+      {
+        "id": 35,
+        "conference": null,
+        "city": "Team Spoon",
+        "name": "TEAM SPOON",
+        "full_name": "TEAM SPOON",
+        "abbreviation": "SPO"
+      }
+    ]
+  }
+}

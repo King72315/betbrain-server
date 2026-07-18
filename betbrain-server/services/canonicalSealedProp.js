@@ -126,6 +126,15 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       phase: pick.lifecyclePhase || null,
     },
     pregameSnapshot: pick.pregameSnapshot || null,
+    courtEdgePlayerEvidence:
+      pick.courtEdgePlayerEvidence ||
+      pick.canonicalSealedProp?.courtEdgePlayerEvidence ||
+      null,
+    courtEdgePlayerEvidenceVersion:
+      pick.courtEdgePlayerEvidenceVersion ||
+      pick.courtEdgePlayerEvidence?.schemaVersion ||
+      null,
+    providerIdentity: pick.providerIdentity || null,
   };
 }
 

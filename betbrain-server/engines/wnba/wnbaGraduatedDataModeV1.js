@@ -266,26 +266,41 @@ export function buildImpliedTeamTotalAudit(pick = {}, dataCard = null) {
 }
 
 export function buildDefenseContextAudit(defenseResult = {}, cardDefense = {}) {
-  const score = num(defenseResult.defenseScore ?? cardDefense.score, 0);
+  const status = String(
+    defenseResult.status || cardDefense.status || cardDefense.defenseStatus || ""
+  ).toUpperCase();
+  const rawScore = defenseResult.defenseScore ?? cardDefense.score;
+  const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
+  const score = hasScore ? num(rawScore, null) : null;
   const source =
     defenseResult.source ||
     cardDefense.defenseSource ||
-    (score === 50 && !defenseResult.opponentPPG && !cardDefense.opponentPPG
-      ? "default"
-      : "unknown");
-  const proxyUsed =
-    defenseResult.proxyUsed === true ||
-    cardDefense.proxyUsed === true ||
+    (status === "UNAVAILABLE" || !hasScore ? "unavailable" : "unknown");
+  const unavailable =
+    status === "UNAVAILABLE" ||
+    source === "unavailable" ||
     source === "default" ||
-    (source === "wnba_opponent_proxy_v1" && score === 50 && !defenseResult.opponentPPG);
+    !hasScore;
+  const proxyUsed =
+    !unavailable &&
+    (defenseResult.proxyUsed === true ||
+      cardDefense.proxyUsed === true ||
+      String(source).includes("proxy"));
 
   return {
-    resolvedDefenseScore: score > 0 ? score : 50,
-    defenseSource: source,
-    proxyUsed,
+    resolvedDefenseScore: unavailable ? null : score,
+    defenseSource: unavailable ? "unavailable" : source,
+    status: unavailable
+      ? "UNAVAILABLE"
+      : status || (score === 50 ? "CALCULATED_NEUTRAL" : "CALCULATED"),
+    proxyUsed: unavailable ? false : proxyUsed,
     opponentPPG: defenseResult.opponentPPG ?? cardDefense.opponentPPG ?? null,
-    unavailableReason: proxyUsed
-      ? defenseResult.reasons?.[0] || cardDefense.unavailableReason || "defense_proxy_default"
+    paceProxy: defenseResult.paceProxy ?? cardDefense.paceProxy ?? null,
+    unavailableReason: unavailable
+      ? defenseResult.defenseAudit?.unavailableReason ||
+        defenseResult.reasons?.[0] ||
+        cardDefense.unavailableReason ||
+        "defense_unavailable"
       : null,
   };
 }
