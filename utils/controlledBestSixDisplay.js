@@ -731,30 +731,29 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
   const team = pick.team || "—";
   const opponent = pick.opponent || "—";
   const game = pick.game || `${team} vs ${opponent}`;
-  const trackDecision = resolveTrackEligibility(pick);
+  const trackDecision = "TRACK";
   const trueRisk = resolveTrueRisk(pick);
-  const why =
-    pick.displayResultsReason ||
+  const whyRaw =
     pick.displayWhy ||
     pick.decisionIntelligence?.simpleExplanation ||
-    pick.wnbaTrackingReason ||
     "";
-  const resultsNote =
-    pick.resultsAdmissionEligible === false && pick.displayResultsReason
-      ? `Results: ${pick.displayResultsReason}`
-      : pick.resultsAdmissionEligible === false && pick.resultsAdmissionReason
-        ? `Results: ${pick.resultsAdmissionReason}`
-        : null;
-  const sideRescueAction =
-    pick.displaySideRescueAction ??
-    pick.sideRescueAction ??
-    pick.sideRescue?.action ??
-    null;
-  const sideRescueExplanation =
-    pick.displaySideRescueExplanation ??
-    pick.sideRescueExplanation ??
-    pick.sideRescue?.simpleExplanation ??
-    "";
+  const why = String(whyRaw)
+    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?)\b/gi, "")
+    .replace(/prior gate:\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const sameTeamFlip = Boolean(
+    pick.sameTeamArbitrationFlip ||
+      pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
+  );
+  const originalModelSide =
+    pick.originalModelSide || pick.sameTeamArbitration?.originalModelSide || null;
+  const sideRescueAction = sameTeamFlip
+    ? "SAME_TEAM_ARBITRATION"
+    : pick.displaySideRescueAction ??
+      pick.sideRescueAction ??
+      pick.sideRescue?.action ??
+      null;
   const flipLabels =
     pick.displayFlipFirstLabels ??
     pick.flipFirstLabels ??
@@ -766,14 +765,19 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (${leagueCode})`,
     `  Game: ${game}`,
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
-    `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | True Risk: ${trueRisk} | Decision: ${trackDecision}`,
+    `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | Risk: ${trueRisk} | Decision: ${trackDecision}`,
+    sameTeamFlip
+      ? `  Model Side: ${originalModelSide || "OVER"} → Final Side: UNDER | Same-Team Arbitration: Applied`
+      : null,
     flipLabels
-      ? `  Flip-First: Usage ${flipLabels.usage} | Collision ${flipLabels.collision} | Market ${flipLabels.market} | Avail ${flipLabels.availability} | Proj ${flipLabels.projectionQuality} | ${flipLabels.flipCheck}`
+      ? `  Signals: Usage ${flipLabels.usage} | Collision ${flipLabels.collision} | Market ${flipLabels.market} | Avail ${flipLabels.availability} | Proj ${flipLabels.projectionQuality}`
       : null,
     why ? `  Why: ${why}` : null,
-    resultsNote,
-    sideRescueAction ? `  Side Rescue: ${sideRescueAction}` : null,
-    sideRescueExplanation ? `  Rescue: ${sideRescueExplanation}` : null,
+    sideRescueAction &&
+    sideRescueAction !== "KEEP_ORIGINAL" &&
+    !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction))
+      ? `  ${sameTeamFlip ? "Arbitration" : "Side Rescue"}: ${sideRescueAction}`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -812,10 +816,9 @@ export function buildLeagueControlledBestSixReportText({
     `Results Tracked: ${resultsTrack}/${bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Board Candidates: ${boardCandidates}`,
-    `Natural Track (board): ${summary.boardTrack ?? track}`,
+    `Selected / Tracked: ${resultsTrack}/${bestSixLimit}`,
     `High Risk (board): ${highRisk || 0}`,
-    `No Bet: ${noBet}`,
-    other ? `Other: ${other}` : null,
+    other ? `Other (internal): ${other}` : null,
     "",
     "--- Controlled Best 6 ---",
     bestSixCards.length

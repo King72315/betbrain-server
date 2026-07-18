@@ -83,7 +83,24 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       role: sameTeam.role || null,
       primaryPlayer: sameTeam.primaryPlayer || null,
       independentlyQualifiedUnder: sameTeam.independentlyQualifiedUnder ?? null,
+      originalModelSide:
+        pick.originalModelSide ||
+        pick.sameTeamArbitration?.originalModelSide ||
+        null,
+      finalSide: side,
+      organicUnderEvidence:
+        pick.sameTeamArbitration?.organicUnderEvidence || null,
+      conflictScore: pick.sameTeamArbitration?.conflictScore ?? null,
     },
+    originalModelSide:
+      pick.originalModelSide ||
+      pick.sameTeamArbitration?.originalModelSide ||
+      null,
+    finalCourtEdgeSide: side,
+    originalModelConfidence: num(
+      pick.originalModelConfidence ??
+        pick.sameTeamArbitration?.originalModelConfidence
+    ),
     sideRescue: {
       action: pick.sideRescue?.action || pick.sideRescueAction || null,
       explanation:

@@ -286,7 +286,7 @@ function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
       debtItem({
         code: "MISSING_OPPONENT_DEFENSE",
         severity: "LOW",
-        reason: "Opponent defense uses neutral proxy.",
+        reason: "Opponent defense data unavailable.",
         side: "BOTH",
         repairable: false,
       })
@@ -890,10 +890,25 @@ export function promoteBestSixCohortPick(pick = {}) {
   }
 
   const gateReason = di.gateReason || pick.wnbaTrackingReason || "";
-  const simpleExplanation =
-    qualityFlags.length > 0
-      ? `TRACK — Safest available pick; prior gate: ${qualityFlags.join(", ")}.${gateReason ? ` ${gateReason}.` : ""} True risk ${trueRisk}.`
-      : di.simpleExplanation || `TRACK — True risk ${trueRisk}.`;
+  // User-facing copy must not expose BOARD_ONLY / NO_BET / prior-gate labels.
+  // Those remain on originalGateEligibility / naturalDecision for diagnostics.
+  const simpleExplanation = pick.sameTeamArbitrationFlip
+    ? di.simpleExplanation ||
+      pick.displayWhy ||
+      `TRACK — Same-team arbitration applied. True risk ${trueRisk}.`
+    : di.simpleExplanation &&
+        !/BOARD_ONLY|NO_BET|SHADOW_ONLY|prior gate|Natural Track|READER_UNCERTAIN/i.test(
+          String(di.simpleExplanation)
+        )
+      ? di.simpleExplanation
+      : `TRACK — True risk ${trueRisk}.${
+          gateReason &&
+          !/BOARD_ONLY|NO_BET|SHADOW_ONLY|READER_UNCERTAIN|Natural Track/i.test(
+            String(gateReason)
+          )
+            ? ` ${gateReason}.`
+            : ""
+        }`;
 
   const updatedDi = {
     ...di,
@@ -907,8 +922,15 @@ export function promoteBestSixCohortPick(pick = {}) {
     promotedForBestSix: qualityFlags.length > 0,
     promotedDecision: "TRACK",
     promotionReasons: qualityFlags,
-    simpleExplanation,
+    simpleExplanation: String(simpleExplanation).trim(),
     riskAfterDecision: riskLabelFromTrueRisk(trueRisk),
+    // Internal audit only — not user-facing decision labels
+    internalGateAudit: {
+      originalEligibility,
+      qualityFlags,
+      sideRescueAction: sideRescueAction || null,
+      gateReason: gateReason || null,
+    },
   };
 
   return {

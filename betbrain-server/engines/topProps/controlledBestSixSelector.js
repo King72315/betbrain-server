@@ -730,12 +730,7 @@ export function annotateResultsAdmission(pick = {}) {
     },
   });
   const di = promoted.decisionIntelligence || {};
-  const qualityNote =
-    promoted.bestSixQualityFlags?.length > 0
-      ? di.simpleExplanation ||
-        pick.wnbaTrackingReason ||
-        `Prior gate: ${promoted.bestSixQualityFlags.join(", ")}`
-      : "";
+  const qualityNote = ""; // keep prior-gate text out of user-facing Results reasons
 
   // Final Controlled Best 6 / Results row: user-facing decision is always TRACK.
   // Preserve pre-selection gate labels only in audit / naturalDecision fields.
@@ -748,6 +743,7 @@ export function annotateResultsAdmission(pick = {}) {
     wnbaTrackingDecision: "TRACK",
     trackingEligibility: "TRACK",
     displayTrackEligibility: "TRACK",
+    userFacingDecision: "TRACK",
     selectedForLearning: true,
     resultsTracked: true,
     resultsAdmissionEligible: true,
@@ -766,6 +762,10 @@ export function annotateResultsAdmission(pick = {}) {
         naturalDecision ||
         null,
       naturalDecision,
+      simpleExplanation:
+        promoted.displayWhy ||
+        di.simpleExplanation ||
+        `TRACK — True risk ${di.trueRisk || "MEDIUM"}.`,
     },
   };
 }

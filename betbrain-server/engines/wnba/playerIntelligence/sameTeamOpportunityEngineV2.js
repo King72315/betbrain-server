@@ -18,6 +18,7 @@ import { syncWnbaDataModeOnPick } from "../wnbaGateInputs.js";
 import { runFlipFirstDecisionPipeline } from "../../decisionIntelligence/decisionDataIntelligenceV1.js";
 import { finalizeCanonicalDecision } from "../../decisionIntelligence/sideSelectionTrustV1.js";
 import { resolveImpliedTeamTotal } from "./sameTeamOpportunityEngineV1.js";
+import { finalizeSameTeamForcedUnderPresentation } from "./sameTeamForcedSidePresentationV1.js";
 
 export const SAME_TEAM_OPPORTUNITY_V2_VERSION = "same-team-opportunity-v2";
 export const SAME_TEAM_OPPORTUNITY_V2_BUILD =
@@ -436,19 +437,21 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
         pick: "Under",
         initialSide: "UNDER",
       };
-      const underPick = {
-        ...underPickRaw,
-        side: "Under",
-        pick: "Under",
-        lockedSide: undefined,
-        sameTeamArbitrationFlip: true,
-        sameTeamArbitrationReason: "SAME_TEAM_ARBITRATION_FLIP",
-        flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
-        decisionRecomputeReason:
-          underPickRaw.decisionRecomputeReason || "same_team_arbitration_flip",
-      };
       const independentlyQualified =
-        underResult.ok && underCandidateQualifies(underPick);
+        underResult.ok && underCandidateQualifies(underPickRaw);
+      // Preserve organic Over analysis; force final Under with honest presentation.
+      const underPick = finalizeSameTeamForcedUnderPresentation({
+        originalPick: secondary.pick,
+        forcedPick: {
+          ...underPickRaw,
+          side: "Under",
+          pick: "Under",
+          decisionRecomputeReason:
+            underPickRaw.decisionRecomputeReason || "same_team_arbitration_flip",
+        },
+        primaryPlayer: primary.pick.player,
+        independentlyQualifiedUnder: independentlyQualified,
+      });
 
       decisions.set(pickKey(secondary.pick), {
         role: "SECONDARY_UNDER",
@@ -530,18 +533,24 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
     }
 
     if (decision.role === "SECONDARY_UNDER") {
+      // Presentation already finalized on replacedPick; reinforce locked fields.
       next.side = "Under";
       next.pick = "Under";
-      next.initialSide = next.initialSide || "UNDER";
+      next.finalCourtEdgeSide = "UNDER";
+      next.originalModelSide = next.originalModelSide || "OVER";
       next.sameTeamArbitrationFlip = true;
       next.sameTeamArbitrationReason = "SAME_TEAM_ARBITRATION_FLIP";
       next.flipReasonCode = "SAME_TEAM_ARBITRATION_FLIP";
+      next.flipFirstAction = "SAME_TEAM_ARBITRATION_FLIP";
+      next.userFacingDecision = "TRACK";
       if (decision.policyFlip) {
         next.sameTeamOpportunityV2 = {
           ...(next.sameTeamOpportunityV2 || {}),
           policyFlip: true,
           flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
           independentlyQualifiedUnder: decision.underQualified === true,
+          originalModelSide: "OVER",
+          finalSide: "UNDER",
         };
       }
     }

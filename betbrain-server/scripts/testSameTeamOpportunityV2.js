@@ -252,6 +252,13 @@ test("policy flip applies even when Under does not independently qualify", () =>
     secondary.sameTeamOpportunityV2.independentlyQualifiedUnder,
     false
   );
+  assert.equal(secondary.originalModelSide, "OVER");
+  assert.equal(secondary.finalCourtEdgeSide, "UNDER");
+  assert.equal(secondary.flipFirstAction, "SAME_TEAM_ARBITRATION_FLIP");
+  assert.ok(secondary.confidence < weakOver.confidence);
+  assert.ok(["MEDIUM", "HIGH"].includes(secondary.trueRisk));
+  assert.ok(/Original model lean: Over/i.test(secondary.displayWhy || ""));
+  assert.ok(!/FLIPPED_TO_OVER/i.test(String(secondary.flipFirstAction)));
 });
 
 test("bench role below minutes floor is not a meaningful conflict peer", () => {

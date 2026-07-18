@@ -300,9 +300,11 @@ export default function LeagueControlledBestSixScreen({
                 value={`${summary.topPicks}/${summary.topPickLimit}`}
               />
               <SummaryMetric label="Board Candidates" value={summary.boardCandidates} />
-              <SummaryMetric label="Natural Track" value={summary.boardTrack ?? summary.track ?? 0} />
+              <SummaryMetric
+                label="Selected"
+                value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
+              />
               <SummaryMetric label="High Risk" value={summary.highRisk ?? 0} />
-              <SummaryMetric label="No Bet" value={summary.noBet} />
             </View>
           </View>
         ) : null}

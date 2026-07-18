@@ -133,8 +133,26 @@ export default function PropCard({
     const trackDecision = "TRACK";
     const displayTrueRisk =
       pick.displayTrueRisk || trueRisk || pick.riskAfterCeiling || "—";
-    const whyText =
+    const sameTeamFlip = Boolean(
+      pick.sameTeamArbitrationFlip ||
+        pick.sameTeamArbitration?.applied ||
+        pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
+    );
+    const originalModelSide =
+      pick.originalModelSide ||
+      pick.sameTeamArbitration?.originalModelSide ||
+      null;
+    const finalCourtEdgeSide =
+      pick.finalCourtEdgeSide ||
+      (String(side).toUpperCase().startsWith("U") ? "UNDER" : "OVER");
+    const whyTextRaw =
       pick.displayWhy || decisionExplanation || wnbaTrackingReason || "";
+    const whyText = String(whyTextRaw)
+      .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?)\b/gi, "")
+      .replace(/prior gate:\s*/gi, "")
+      .replace(/Natural Track/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
     const riskDebts: string[] =
       pick.displayRiskDebts ||
       (pick.decisionIntelligence?.riskDebts || []).map((d: any) =>
@@ -145,20 +163,44 @@ export default function PropCard({
       (pick.decisionIntelligence?.riskRepairs || []).map((d: any) =>
         typeof d === "string" ? d : d.label || d.code || String(d)
       );
-    const sideRescueAction =
+    // Hide Flip-First / Side Rescue actions that contradict the printed final side.
+    const rawRescue =
       pick.displaySideRescueAction ??
       pick.sideRescueAction ??
       pick.sideRescue?.action ??
       null;
+    const sideRescueAction =
+      sameTeamFlip
+        ? "SAME_TEAM_ARBITRATION"
+        : rawRescue &&
+          !/FLIPPED_TO_OVER|FLIPPED_TO_UNDER|BOARD_ONLY|NO_BET/i.test(String(rawRescue))
+          ? rawRescue
+          : sameTeamFlip
+            ? "SAME_TEAM_ARBITRATION"
+            : rawRescue === "KEEP_ORIGINAL"
+              ? null
+              : rawRescue && /FLIPPED_TO_/i.test(String(rawRescue))
+                ? null
+                : rawRescue;
     const sideRescueExplanation =
-      pick.displaySideRescueExplanation ??
-      pick.sideRescueExplanation ??
-      pick.sideRescue?.simpleExplanation ??
-      "";
+      sameTeamFlip
+        ? whyText
+        : pick.displaySideRescueExplanation ??
+          pick.sideRescueExplanation ??
+          pick.sideRescue?.simpleExplanation ??
+          "";
     const flipLabels =
       pick.displayFlipFirstLabels ??
       pick.flipFirstLabels ??
       pick.decisionDataIntelligence?.flipFirstLabels ??
+      null;
+    const opponentDefenseStatus =
+      pick.defenseResult?.status ||
+      pick.courtEdgePlayerEvidence?.opponentContext?.defenseStatus ||
+      null;
+    const opponentDefenseScore =
+      pick.defenseResult?.defenseScore ??
+      pick.courtEdgePlayerEvidence?.opponentContext?.defenseScore ??
       null;
 
     return (
@@ -196,10 +238,21 @@ export default function PropCard({
         </View>
 
         <View style={styles.bestSixMetricRow}>
-          <Metric label="True Risk" value={displayTrueRisk} />
+          <Metric label="Risk" value={displayTrueRisk} />
           <Metric label="Decision" value={trackDecision} />
           <Metric label="Data" value={dataIntegrityLabel} />
         </View>
+
+        {sameTeamFlip ? (
+          <View style={styles.bestSixFlipRow}>
+            <Metric
+              label="Model Side"
+              value={originalModelSide || "OVER"}
+            />
+            <Metric label="Final Side" value={finalCourtEdgeSide || "UNDER"} />
+            <Metric label="Arbitration" value="Applied" />
+          </View>
+        ) : null}
 
         {flipLabels ? (
           <View style={styles.bestSixFlipRow}>
@@ -211,17 +264,20 @@ export default function PropCard({
         {flipLabels ? (
           <View style={styles.bestSixFlipRow}>
             <Metric label="Availability" value={flipLabels.availability || "—"} />
-            <Metric label="Opp Hist" value={flipLabels.opponentHistory || "—"} />
+            <Metric
+              label="Opponent"
+              value={
+                opponentDefenseStatus &&
+                String(opponentDefenseStatus).toUpperCase() !== "UNAVAILABLE"
+                  ? `${opponentDefenseScore ?? "—"} (${opponentDefenseStatus})`
+                  : flipLabels.opponentHistory || "—"
+              }
+            />
             <Metric label="Proj Q" value={flipLabels.projectionQuality || "—"} />
           </View>
         ) : null}
-        {flipLabels ? (
-          <View style={styles.bestSixFlipRow}>
-            <Metric label="Flip" value={flipLabels.flipCheck || "—"} />
-          </View>
-        ) : null}
 
-        {opponentHistoryLabel ? (
+        {opponentHistoryLabel && !sameTeamFlip ? (
           <Text style={styles.bestSixOppHistLine}>
             Opponent History: {opponentHistoryLabel}
           </Text>
@@ -234,20 +290,27 @@ export default function PropCard({
           </View>
         ) : null}
 
-        {pick.resultsAdmissionEligible === false &&
-        (pick.displayResultsReason || pick.resultsAdmissionReason) ? (
-          <View style={styles.bestSixResultsBox}>
-            <Text style={styles.bestSixResultsTitle}>Not in Results</Text>
-            <Text style={styles.bestSixResultsText}>
-              {pick.displayResultsReason || pick.resultsAdmissionReason}
-            </Text>
-          </View>
-        ) : null}
-
         {riskDebts.length > 0 ? (
           <View style={styles.bestSixDebtBox}>
             <Text style={styles.bestSixDebtTitle}>Risk Debt</Text>
-            {riskDebts.slice(0, 3).map((line, i) => (
+            {riskDebts
+              .filter((line) => {
+                const s = String(line);
+                if (/BOARD_ONLY|NO_BET|NATURAL_TRACK|READER_UNCERTAIN/i.test(s)) {
+                  return false;
+                }
+                if (
+                  /neutral proxy|missing opponent defense/i.test(s) &&
+                  String(opponentDefenseStatus || "")
+                    .toUpperCase()
+                    .startsWith("CALCULATED")
+                ) {
+                  return false;
+                }
+                return true;
+              })
+              .slice(0, 3)
+              .map((line, i) => (
               <Text key={`debt-${i}`} style={styles.bestSixDebtLine}>
                 • {line}
               </Text>
@@ -266,14 +329,16 @@ export default function PropCard({
           </View>
         ) : null}
 
-        {sideRescueAction && sideRescueAction !== "KEEP_ORIGINAL" ? (
+        {sideRescueAction &&
+        sideRescueAction !== "KEEP_ORIGINAL" &&
+        !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction)) ? (
           <View style={styles.bestSixRescueBox}>
             <Text style={styles.bestSixRescueTitle}>
-              Side Rescue: {sideRescueAction}
+              {sameTeamFlip ? "Same-Team Arbitration" : `Side Rescue: ${sideRescueAction}`}
             </Text>
             {sideRescueExplanation ? (
-              <Text style={styles.bestSixRescueText} numberOfLines={2}>
-                {sideRescueExplanation.replace(/^Side Rescue: [^—]+ — /, "")}
+              <Text style={styles.bestSixRescueText} numberOfLines={3}>
+                {String(sideRescueExplanation).replace(/^Side Rescue: [^—]+ — /, "")}
               </Text>
             ) : null}
           </View>

@@ -40,9 +40,24 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
   const defenseResult = pick.defenseResult || {};
   const cardDefense = card.opponentDefense || {};
   const defenseAudit = buildDefenseContextAudit(defenseResult, cardDefense);
-  const defenseProxyUsed =
-    pick.defenseProxyUsed === true ||
-    defenseAudit.proxyUsed === true;
+  const evidenceDefense = pick.courtEdgePlayerEvidence?.opponentContext || {};
+  const defenseCalculated =
+    String(defenseAudit.status || defenseResult.status || evidenceDefense.defenseStatus || "")
+      .toUpperCase()
+      .startsWith("CALCULATED") ||
+    (defenseResult.available === true &&
+      defenseResult.defenseScore != null &&
+      Number.isFinite(Number(defenseResult.defenseScore)));
+  // Calculated games-proxy is real opponent data — not "missing/neutral".
+  // Only UNAVAILABLE / null scores count as missing for gates and debts.
+  const defenseMissing =
+    !defenseCalculated &&
+    (String(defenseAudit.status || "").toUpperCase() === "UNAVAILABLE" ||
+      defenseAudit.resolvedDefenseScore == null ||
+      defenseResult.available === false ||
+      pick.defenseMissing === true);
+  // Legacy metric name: treat as unavailable flag (not "any proxy path").
+  const defenseProxyUsed = defenseMissing;
   const missingFlags = (card.dataMissingFlags || pick.dataMissingFlags || []).filter(
     (f) => f?.missing
   );
@@ -63,7 +78,7 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
           bookCount: num(pick.bookCount ?? card.bookCount),
           projection: num(pick.projection ?? card.projection?.projection ?? pick.expectedPoints),
           availabilityDataMissing,
-          defenseMissing: defenseProxyUsed,
+          defenseMissing,
           matchupMissing:
             num(card.matchupAverage ?? pick.matchupAverage) <= 0 &&
             !(card.matchupGames || pick.matchupGames || []).length,
@@ -138,6 +153,7 @@ export function resolveQualityGateInputs(pick = {}, dataCard = null, reader = nu
     seasonPtsPerFGA,
     availabilityDataMissing,
     defenseProxyUsed,
+    defenseMissing,
     defenseAudit,
     missingFlags,
     card,

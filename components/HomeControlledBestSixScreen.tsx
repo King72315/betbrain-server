@@ -92,8 +92,8 @@ function LeagueDateSection({
             />
             <SummaryMetric label="Candidates" value={summary.boardCandidates} />
             <SummaryMetric
-              label="Natural Track"
-              value={summary.boardTrack ?? summary.track ?? 0}
+              label="Selected"
+              value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
             />
           </View>
         </View>
