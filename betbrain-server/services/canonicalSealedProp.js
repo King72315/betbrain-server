@@ -53,11 +53,30 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
     gameId: pick.gameId || null,
     league: String(pick.league || "WNBA").toUpperCase() === "NBA" ? "NBA" : "WNBA",
     side,
-    line: num(pick.officialLine ?? pick.line),
+    line: num(pick.officialLine ?? pick.sealedLine ?? pick.selectedLine ?? pick.line),
+    openingLine: num(
+      pick.openingLine ?? pregame.marketBookData?.openingLine ?? pick.line
+    ),
+    selectedLine: num(pick.selectedLine ?? pick.officialLine ?? pick.line),
+    sealedLine: num(
+      pick.sealedLine ??
+        pick.officialLine ??
+        (pick.immutableOfficial ? pick.line : null)
+    ),
+    currentLine: num(pick.currentLine ?? pick.latestLine ?? pick.line),
+    lineSource: pick.lineSource || "odds-consensus",
+    lineCapturedAt: pick.lineCapturedAt || pick.snapshotTime || null,
+    sealedAt: pick.sealedAt || pick.officialSealedAt || null,
+    lineMovement: num(pick.lineMovement),
     finalProjection: num(
       pick.projection ?? pick.projectedPoints ?? pregame.projection
     ),
+    originalProjection: num(pick.originalProjection ?? pick.projection),
     confidence: num(pick.confidence ?? pick.winProbability),
+    originalModelConfidence: num(
+      pick.originalModelConfidence ??
+        pick.sameTeamArbitration?.originalModelConfidence
+    ),
     risk: first(di.trueRisk, pick.trueRisk, pick.riskLabel, "MEDIUM"),
     finalDecision: "TRACK",
     naturalDecision: first(

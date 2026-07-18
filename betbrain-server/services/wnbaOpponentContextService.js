@@ -296,7 +296,7 @@ export async function buildWnbaOpponentDefenseContext({
   ];
   if (paceProxy != null) {
     reasons.push(
-      `Pace proxy (avg game total) ${paceProxy} — not official possessions`
+      `Scoring-environment proxy (avg game total) ${paceProxy} — not official possessions`
     );
   }
   if (status === "CALCULATED_NEUTRAL") {
@@ -309,7 +309,8 @@ export async function buildWnbaOpponentDefenseContext({
     source: "wnba_games_proxy_v2",
     opponentPPG,
     pace: null,
-    paceProxy,
+    scoringEnvironmentProxy: paceProxy,
+    paceProxy, // alias — avg combined game total, NOT official possessions
     recentGameTotalAvg,
     sampleGames: allowed.length,
     last5PointsAllowed,

@@ -6,6 +6,11 @@
  * analysis from the final CourtEdge selection for honest cards.
  */
 
+import {
+  applySideChangeKeepLine,
+  buildLineAuditFields,
+} from "../../../services/lineIntegrityV1.js";
+
 export const SAME_TEAM_FORCED_SIDE_PRESENTATION_VERSION =
   "same-team-forced-side-presentation-v1";
 
@@ -155,6 +160,7 @@ export function recalibrateForcedUnderConfidenceRisk({
  * Finalize a same-team forced Under for display + Results.
  * Preserves organic Over analysis; sets Final Side Under without claiming
  * Flip-First/Side Rescue organically chose Under.
+ * RULE: side may change; line must not.
  */
 export function finalizeSameTeamForcedUnderPresentation({
   originalPick = {},
@@ -182,6 +188,22 @@ export function finalizeSameTeamForcedUnderPresentation({
 
   const originalModelSide = "OVER";
   const finalSide = "UNDER";
+  const lineLocked = applySideChangeKeepLine(
+    {
+      ...forcedPick,
+      // Prefer original candidate line (pre-arbitration), never a rebuilt alternate.
+      line: originalPick.line ?? forcedPick.line,
+      sportsbookLine: originalPick.sportsbookLine ?? forcedPick.sportsbookLine,
+      selectedLine: originalPick.selectedLine ?? originalPick.line,
+      openingLine: originalPick.openingLine ?? forcedPick.openingLine,
+      currentLine: forcedPick.currentLine ?? originalPick.currentLine,
+      consensusLine: originalPick.consensusLine ?? forcedPick.consensusLine,
+      officialLine: originalPick.officialLine ?? forcedPick.officialLine,
+    },
+    "UNDER",
+    { reason: "SAME_TEAM_ARBITRATION_FLIP" }
+  );
+  const lineAudit = buildLineAuditFields(lineLocked);
   const organicSideRescue =
     originalPick.sideRescue || originalPick.sideRescueAction
       ? {
@@ -194,7 +216,7 @@ export function finalizeSameTeamForcedUnderPresentation({
       : null;
 
   const reasonLines = [
-    `Same-team arbitration: ${primaryPlayer || "stronger teammate"} retained as stronger Over; ${player} forced to Under`,
+    `Same-team arbitration: ${primaryPlayer || "stronger teammate"} retained as stronger Over; ${player} forced to Under ${lineAudit.selectedLine}`,
     `Original model lean: Over`,
     `Organic Under evidence: ${organicUnderEvidence}`,
     conflict.conflictScore >= 20
@@ -215,7 +237,10 @@ export function finalizeSameTeamForcedUnderPresentation({
   const di = forcedPick.decisionIntelligence || {};
 
   return {
-    ...forcedPick,
+    ...lineLocked,
+    ...lineAudit,
+    originalProjection:
+      originalPick.projection ?? forcedPick.projection ?? null,
     side: "Under",
     pick: "Under",
     lockedSide: "Under",
@@ -234,6 +259,8 @@ export function finalizeSameTeamForcedUnderPresentation({
       conflictScore: conflict.conflictScore,
       conflictFactors: conflict.factors,
       policyOverridePenalty: calib.policyOverridePenalty,
+      lineUnchanged: true,
+      lockedLine: lineAudit.selectedLine,
     },
     sameTeamArbitrationFlip: true,
     sameTeamArbitrationReason: "SAME_TEAM_ARBITRATION_FLIP",

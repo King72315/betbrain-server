@@ -224,6 +224,7 @@ import {
 
 import {
   buildStaleSealedLifecycleDiagnostics,
+  recoverStaleSealedSlates,
 } from "./services/staleSealedRecoveryService.js";
 
 import {
@@ -295,7 +296,8 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-best6-presentation-v1";
+const SERVER_BUILD = "courteedge-line-lifecycle-calibration-v1";
+const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -1619,6 +1621,19 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
               league,
             });
 
+      const priorOpening = getOpeningLine({
+        league,
+        gameDate: game.date,
+        player: playerName,
+        stat: "Points",
+        gameId: game.gameId || game.id || "",
+      });
+      const trackedSeed = getTrackedProps().find(
+        (t) =>
+          String(t.player || "").toLowerCase() === String(playerName).toLowerCase() &&
+          String(t.slateDate || t.gameDate || "").slice(0, 10) ===
+            String(game.date || "").slice(0, 10)
+      );
       const marketSnapshot = appendMarketSnapshot({
         league,
         gameDate: game.date,
@@ -1626,6 +1641,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         player: playerName,
         team: safeTeam,
         opponent,
+        gameId: game.gameId || game.id || "",
         stat: "Points",
         bookLine: prop.line,
         bookCount: prop.bookCount,
@@ -1633,6 +1649,11 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         lineSpread: prop.lineSpread,
         overOdds: prop.overOdds,
         underOdds: prop.underOdds,
+        seedOpeningLine:
+          priorOpening?.openingLine ||
+          trackedSeed?.openingLine ||
+          trackedSeed?.officialLine ||
+          null,
       });
 
       const playoff = buildPlayoffContext({
@@ -2670,6 +2691,7 @@ app.get("/health", (req, res) => {
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
+    boardSchemaVersion: BOARD_SCHEMA_VERSION,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
     providerPolicy: {
@@ -2723,7 +2745,12 @@ app.get("/picks", async (req, res) => {
       archives: getAllHistoryArchives(),
       lockedSlates: getLockedSlatesRegistry().slates || [],
     });
-    return res.json({ ...sanitized, readOnly: true, serverBuild: SERVER_BUILD });
+    return res.json({
+      ...sanitized,
+      readOnly: true,
+      serverBuild: SERVER_BUILD,
+      boardSchemaVersion: BOARD_SCHEMA_VERSION,
+    });
   } catch (error) {
     console.log("GET PICKS ERROR:", error.message);
 
@@ -4610,6 +4637,35 @@ app.get("/admin/lifecycle-integrity-audit", requireAdminSecret, (req, res) => {
     res.status(500).json({
       ok: false,
       message: "Lifecycle integrity audit failed",
+      error: error.message,
+    });
+  }
+});
+
+/** Recover sealed-but-ungraded official props for a slate date (idempotent). */
+app.post("/admin/recover-stale-sealed", requireAdminSecret, async (req, res) => {
+  try {
+    const date = String(req.body?.date || req.query?.date || "").trim();
+    const apply =
+      req.body?.apply === true ||
+      String(req.query?.apply || "").toLowerCase() === "true";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({
+        ok: false,
+        message: "date required as YYYY-MM-DD",
+      });
+    }
+    const result = await recoverStaleSealedSlates({
+      slateDate: date,
+      dryRun: !apply,
+      apply,
+    });
+    res.json({ ok: true, dryRun: !apply, apply, ...result });
+  } catch (error) {
+    console.log("RECOVER STALE SEALED ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Stale sealed recovery failed",
       error: error.message,
     });
   }

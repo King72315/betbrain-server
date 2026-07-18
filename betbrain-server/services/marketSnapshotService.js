@@ -62,8 +62,15 @@ function buildSnapshotKey({
   gameDate = "",
   player = "",
   stat = "Points",
+  gameId = "",
 } = {}) {
-  return [clean(league), clean(gameDate), clean(player), clean(stat)]
+  return [
+    clean(league),
+    clean(gameDate),
+    clean(player),
+    clean(stat),
+    clean(gameId),
+  ]
     .filter(Boolean)
     .join("|");
 }
@@ -73,11 +80,21 @@ export function getOpeningLine({
   gameDate = "",
   player = "",
   stat = "Points",
+  gameId = "",
 } = {}) {
-  const key = buildSnapshotKey({ league, gameDate, player, stat });
+  const key = buildSnapshotKey({ league, gameDate, player, stat, gameId });
+  const keyNoGame = buildSnapshotKey({ league, gameDate, player, stat });
   const snapshots = readSnapshots();
 
-  const match = snapshots.find((s) => buildSnapshotKey(s) === key);
+  const match =
+    snapshots.find((s) => buildSnapshotKey(s) === key) ||
+    snapshots.find((s) => buildSnapshotKey({ ...s, gameId: "" }) === keyNoGame) ||
+    snapshots.find(
+      (s) =>
+        clean(s.player) === clean(player) &&
+        clean(s.gameDate) === clean(gameDate) &&
+        clean(s.league) === clean(league)
+    );
 
   if (!match) return null;
 
@@ -103,10 +120,12 @@ export function appendMarketSnapshot({
   lineSpread = 0,
   overOdds = null,
   underOdds = null,
+  gameId = "",
+  seedOpeningLine = null,
   snapshotTime = new Date().toISOString(),
 } = {}) {
   const snapshots = readSnapshots();
-  const key = buildSnapshotKey({ league, gameDate, player, stat });
+  const key = buildSnapshotKey({ league, gameDate, player, stat, gameId });
   const currentLine = num(bookLine);
 
   const existingIndex = snapshots.findIndex(
@@ -123,9 +142,14 @@ export function appendMarketSnapshot({
 
   if (existingIndex >= 0) {
     const existing = snapshots[existingIndex];
+    // Never overwrite a previously captured opening line.
+    const preservedOpening = num(
+      existing.openingLine ?? existing.bookLine ?? seedOpeningLine ?? currentLine
+    );
     const updated = {
       ...existing,
       snapshotTime,
+      gameId: existing.gameId || gameId || "",
       currentLine,
       bookLine: currentLine,
       bookCount: num(bookCount),
@@ -133,7 +157,8 @@ export function appendMarketSnapshot({
       lineSpread: num(lineSpread),
       overOdds,
       underOdds,
-      openingLine: num(existing.openingLine ?? existing.bookLine ?? currentLine),
+      openingLine: preservedOpening,
+      lineMovement: Number((currentLine - preservedOpening).toFixed(1)),
     };
 
     snapshots[existingIndex] = updated;
@@ -142,6 +167,7 @@ export function appendMarketSnapshot({
     return updated;
   }
 
+  const openingLine = num(seedOpeningLine ?? currentLine);
   const snapshot = {
     snapshotId,
     snapshotTime,
@@ -151,10 +177,12 @@ export function appendMarketSnapshot({
     player,
     team,
     opponent,
+    gameId: gameId || "",
     stat,
     bookLine: currentLine,
     currentLine,
-    openingLine: currentLine,
+    openingLine,
+    lineMovement: Number((currentLine - openingLine).toFixed(1)),
     bookCount: num(bookCount),
     marketQuality: num(marketQuality),
     lineSpread: num(lineSpread),

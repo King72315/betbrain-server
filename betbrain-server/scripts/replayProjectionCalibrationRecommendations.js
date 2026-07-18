@@ -129,7 +129,9 @@ const recommendations = {
       shotVolumeTrend: 0.08,
       opponentDefense: 0.1,
       matchupHistory: 0.06,
-      paceProxy: 0.04,
+      // Avg combined game total — NOT official possessions; do not treat as true pace.
+      scoringEnvironmentProxy: 0.04,
+      paceProxy: 0.04, // alias for back-compat reads only
       impliedTeamTotal: 0.04,
       spreadBlowout: 0.02,
       vendorProjection: 0.02,

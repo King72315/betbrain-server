@@ -1149,12 +1149,10 @@ function getDecisionStyle(decision: string) {
   if (normalized === "TRACK") {
     return { backgroundColor: "#14532d", color: "#bbf7d0" };
   }
-  if (normalized === "BOARD_ONLY") {
-    return { backgroundColor: "#713f12", color: "#fef9c3" };
+  if (normalized === "NOT SELECTED" || normalized === "NOT_SELECTED") {
+    return { backgroundColor: "#334155", color: "#e2e8f0" };
   }
-  if (normalized === "NO_BET") {
-    return { backgroundColor: "#7f1d1d", color: "#fecaca" };
-  }
+  // Legacy gate labels must never paint as user-facing categories.
   return { backgroundColor: "#334155", color: "#e2e8f0" };
 }
 

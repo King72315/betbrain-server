@@ -278,4 +278,55 @@ test("10 organic under grade weak when Over-dominant", () => {
   assert.ok(calib.confidence < 70);
 });
 
+test("11 same-team flips side but never line (17.5 Over → 17.5 Under)", () => {
+  const original = basePick({ line: 17.5, sportsbookLine: 17.5, selectedLine: 17.5 });
+  const forced = finalizeSameTeamForcedUnderPresentation({
+    originalPick: original,
+    forcedPick: {
+      ...original,
+      side: "Under",
+      pick: "Under",
+      // Simulate a bad alternate line that must NOT win.
+      line: 16.5,
+      sportsbookLine: 16.5,
+      currentLine: 16.5,
+    },
+    primaryPlayer: "Kayla McBride",
+  });
+  assert.equal(forced.line, 17.5);
+  assert.equal(forced.selectedLine, 17.5);
+  assert.equal(forced.sportsbookLine, 17.5);
+  assert.equal(String(forced.side).toLowerCase(), "under");
+  assert.equal(forced.originalModelSide, "OVER");
+  assert.equal(forced.finalCourtEdgeSide, "UNDER");
+  assert.equal(forced.lineLockedThroughSideChange, true);
+  assert.ok(/Under 17\.5/i.test(forced.displayWhy));
+});
+
+test("12 arbitration path keeps teammate line locked", () => {
+  const mcbride = basePick({
+    player: "Kayla McBride",
+    projection: 20,
+    line: 17.5,
+    confidence: 80,
+    expectedMinutes: 33,
+    expectedFGA: 16,
+  });
+  const miles = basePick({
+    player: "Olivia Miles",
+    projection: 21,
+    line: 17.5,
+    confidence: 68,
+    expectedMinutes: 29,
+    expectedFGA: 13,
+  });
+  const { candidates } = arbitrateSameTeamOpportunityV2([mcbride, miles]);
+  const secondary = candidates.find(
+    (p) => p.sameTeamOpportunityV2?.role === "SECONDARY_UNDER"
+  );
+  assert.ok(secondary);
+  assert.equal(Number(secondary.line), 17.5);
+  assert.equal(String(secondary.side).toLowerCase(), "under");
+});
+
 console.log("\nAll Best 6 presentation V1 tests passed.");

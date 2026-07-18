@@ -1026,18 +1026,18 @@ export default function PropLab() {
               value={String(labTrackingSummary.officialProps)}
             />
             <MetricRow
-              label="Test / Watchlist Props"
+              label="Nonselected / board candidates"
               value={String(labTrackingSummary.testWatchlistProps)}
             />
             {labTrackingSummary.legacyLeanProps > 0 ? (
               <MetricRow
-                label="Legacy LEAN Props"
+                label="Legacy lean props"
                 value={String(labTrackingSummary.legacyLeanProps)}
               />
             ) : null}
             {labTrackingSummary.legacyWatchlistProps > 0 ? (
               <MetricRow
-                label="Legacy WATCHLIST Props"
+                label="Legacy nonselected props"
                 value={String(labTrackingSummary.legacyWatchlistProps)}
               />
             ) : null}
@@ -1490,15 +1490,15 @@ export default function PropLab() {
               value={String(sectionQ?.underGatePassCount ?? "—")}
             />
             <MetricRow
-              label="Board-only"
+              label="Board candidates (nonselected)"
               value={String(sectionN.boardOnlyCount ?? 0)}
             />
             <MetricRow
-              label="Shadow-only"
+              label="Shadow-only (internal)"
               value={String(sectionN.shadowOnlyCount ?? 0)}
             />
             <MetricRow
-              label="Blocked (NO_BET)"
+              label="Blocked (internal)"
               value={String(sectionN.blockedCount ?? 0)}
             />
             <MetricRow
@@ -1570,7 +1570,7 @@ export default function PropLab() {
               value={String(sectionS.trackEligibilityRecords?.TRACK?.record || "—")}
             />
             <MetricRow
-              label="BOARD_ONLY record"
+              label="Nonselected cohort record"
               value={String(sectionS.trackEligibilityRecords?.BOARD_ONLY?.record || "—")}
             />
           </SectionCard>
@@ -1601,11 +1601,11 @@ export default function PropLab() {
               value={String(sectionU.upgradedToTrack?.length ?? 0)}
             />
             <MetricRow
-              label="Demoted to BOARD_ONLY"
+              label="Demoted to nonselected"
               value={String(sectionU.demotedToBoardOnly?.length ?? 0)}
             />
             <MetricRow
-              label="Blocked NO_BET"
+              label="Blocked (internal)"
               value={String(sectionU.blockedNoBet?.length ?? 0)}
             />
             <MetricRow
@@ -1634,11 +1634,11 @@ export default function PropLab() {
               value={String(sectionV.actionRecords?.FLIP_SIDE?.record || "—")}
             />
             <MetricRow
-              label="BOARD_ONLY"
+              label="Nonselected action"
               value={String(sectionV.actionRecords?.BOARD_ONLY?.record || "—")}
             />
             <MetricRow
-              label="NO_BET"
+              label="Blocked action (internal)"
               value={String(sectionV.actionRecords?.NO_BET?.record || "—")}
             />
             <MetricRow

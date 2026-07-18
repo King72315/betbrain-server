@@ -800,10 +800,7 @@ export function buildLeagueControlledBestSixReportText({
   const controlledTotal = summary.controlledBestSixTotal ?? bestSixCards.length;
   const topPicks = summary.topPicks ?? 0;
   const boardCandidates = summary.boardCandidates ?? 0;
-  const track = summary.track ?? 0;
   const highRisk = summary.highRisk ?? 0;
-  const noBet = summary.noBet ?? 0;
-  const other = summary.other ?? 0;
   const resultsTrack = summary.controlledBestSixTrack ?? summary.controlledBestSix ?? 0;
 
   const lines = [
@@ -818,7 +815,6 @@ export function buildLeagueControlledBestSixReportText({
     `Board Candidates: ${boardCandidates}`,
     `Selected / Tracked: ${resultsTrack}/${bestSixLimit}`,
     `High Risk (board): ${highRisk || 0}`,
-    other ? `Other (internal): ${other}` : null,
     "",
     "--- Controlled Best 6 ---",
     bestSixCards.length

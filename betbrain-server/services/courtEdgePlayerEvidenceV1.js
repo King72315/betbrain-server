@@ -270,9 +270,10 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
       recentPointsAllowedLast5: num(defense.last5PointsAllowed),
       recentPointsAllowedLast10: num(defense.last10PointsAllowed),
       defensiveRating: null,
-      pace: num(defense.pace),
-      paceProxy: num(defense.paceProxy ?? defense.recentGameTotalAvg),
-      paceLabel: defense.paceProxy != null ? "GAME_TOTAL_PROXY" : null,
+      pace: null,
+      scoringEnvironmentProxy: num(defense.paceProxy ?? defense.recentGameTotalAvg),
+      paceProxy: num(defense.paceProxy ?? defense.recentGameTotalAvg), // alias — NOT possession pace
+      paceLabel: defense.paceProxy != null ? "SCORING_ENVIRONMENT_PROXY" : null,
       recentPace: num(defense.paceProxy),
       opponentForm: null,
       homeAwaySplit: null,
