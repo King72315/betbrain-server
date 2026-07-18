@@ -56,6 +56,7 @@ export default function LeagueControlledBestSixScreen({
   const [games, setGames] = useState<any[]>([]);
   const [bestSix, setBestSix] = useState<any[]>([]);
   const [bestSixDisplay, setBestSixDisplay] = useState<any[]>([]);
+  const [bestSixDisplayToday, setBestSixDisplayToday] = useState<any[]>([]);
   const [topProps, setTopProps] = useState<any[]>([]);
   const [slateSummary, setSlateSummary] = useState<{
     bestSixLimit?: number;
@@ -81,12 +82,22 @@ export default function LeagueControlledBestSixScreen({
         league,
         bestSix,
         bestSixDisplay,
+        bestSixDisplayToday,
         topProps,
         games,
         dateView: effectiveDateView,
         bestSixLimit: slateSummary?.bestSixLimit ?? BEST_SIX_LIMIT,
       }),
-    [league, bestSix, bestSixDisplay, topProps, games, effectiveDateView, slateSummary]
+    [
+      league,
+      bestSix,
+      bestSixDisplay,
+      bestSixDisplayToday,
+      topProps,
+      games,
+      effectiveDateView,
+      slateSummary,
+    ]
   );
 
   const groupedGames = useMemo(() => {
@@ -107,6 +118,7 @@ export default function LeagueControlledBestSixScreen({
       setGames(payload.games);
       setBestSix(payload.bestSix);
       setBestSixDisplay(payload.bestSixDisplay);
+      setBestSixDisplayToday(payload.bestSixDisplayToday);
       setTopProps(payload.topProps);
       setSlateSummary({
         bestSixLimit: data.bestSixLimit ?? BEST_SIX_LIMIT,
@@ -119,6 +131,7 @@ export default function LeagueControlledBestSixScreen({
       setGames([]);
       setBestSix([]);
       setBestSixDisplay([]);
+      setBestSixDisplayToday([]);
       setTopProps([]);
       setLoadError(String(err));
     } finally {

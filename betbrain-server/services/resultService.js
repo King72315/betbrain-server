@@ -592,7 +592,7 @@ export function getPickQueryDates(savedPick = {}) {
 
 const GAME_LIKELY_FINISHED_MS = 3 * 60 * 60 * 1000;
 
-function getPickStartTime(savedPick = {}) {
+export function getPickStartTime(savedPick = {}) {
   const commenceSource = savedPick.commenceTime || savedPick.time || null;
 
   if (commenceSource) {
@@ -683,6 +683,13 @@ export function evaluateGradingBlock(savedPick = {}, now = new Date()) {
 
   return {
     blocked,
+    reason: blockedByFutureGame
+      ? "future_slate"
+      : blockedByCommenceTime
+        ? "commence_in_future"
+        : blockedByGameNotStarted
+          ? "game_not_started"
+          : null,
     slateDate,
     today,
     gameStarted,

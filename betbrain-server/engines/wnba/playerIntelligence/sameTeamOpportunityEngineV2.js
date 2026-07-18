@@ -422,67 +422,55 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
     audit.primaryKeptOver += 1;
 
     for (const secondary of secondaries) {
+      // LOCKED PRODUCT RULE: deterministic same-team arbitration.
+      // Keep stronger Over; always flip weaker teammate to Under.
+      // Do not require Under to independently qualify before flipping.
       const underResult = reevaluatePropAsUnderCandidate(secondary.pick, {
         slateCandidates: list,
         teamCandidates: overs,
         impliedTeamTotal: teamTotal || options.impliedTeamTotal,
       });
-      const underPick = underResult.pick || secondary.pick;
-      const qualifies = underResult.ok && underCandidateQualifies(underPick);
+      const underPickRaw = underResult.pick || {
+        ...secondary.pick,
+        side: "Under",
+        pick: "Under",
+        initialSide: "UNDER",
+      };
+      const underPick = {
+        ...underPickRaw,
+        side: "Under",
+        pick: "Under",
+        lockedSide: undefined,
+        sameTeamArbitrationFlip: true,
+        sameTeamArbitrationReason: "SAME_TEAM_ARBITRATION_FLIP",
+        flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+        decisionRecomputeReason:
+          underPickRaw.decisionRecomputeReason || "same_team_arbitration_flip",
+      };
+      const independentlyQualified =
+        underResult.ok && underCandidateQualifies(underPick);
 
-      if (qualifies) {
-        decisions.set(pickKey(secondary.pick), {
-          role: "SECONDARY_UNDER",
-          opportunityStrengthScore: secondary.opportunityStrengthScore,
-          opportunityStrengthComponents: secondary.components,
-          rankingBoost: 0,
-          rankingPenalty: 0,
-          primaryPlayer: primary.pick.player,
-          clusterKey,
-          underQualified: true,
-          replacedPick: underPick,
-        });
-        audit.secondaryFlippedUnder += 1;
-        clusterAudit.secondaries.push({
-          player: secondary.pick.player,
-          score: secondary.opportunityStrengthScore,
-          action: "FLIP_TO_UNDER",
-          underQualified: true,
-        });
-      } else {
-        decisions.set(pickKey(secondary.pick), {
-          role: "SECONDARY_DEMOTED",
-          opportunityStrengthScore: secondary.opportunityStrengthScore,
-          opportunityStrengthComponents: secondary.components,
-          rankingBoost: 0,
-          rankingPenalty: DEMOTED_RANKING_PENALTY,
-          primaryPlayer: primary.pick.player,
-          clusterKey,
-          underQualified: false,
-          underEvalSide: underResult.finalSide || null,
-          // Keep Over identity; lose Best 6 / Top priority.
-          replacedPick: {
-            ...secondary.pick,
-            sameTeamOpportunityV2UnderEvalAttempt: underPick
-              ? {
-                  finalSide: underResult.finalSide,
-                  eligibility:
-                    underPick.trackingEligibility ||
-                    underPick.wnbaTrackingDecision ||
-                    null,
-                  sideRescue: underPick.sideRescue?.action || null,
-                }
-              : null,
-          },
-        });
-        audit.secondaryDemoted += 1;
-        clusterAudit.secondaries.push({
-          player: secondary.pick.player,
-          score: secondary.opportunityStrengthScore,
-          action: "DEMOTE_KEEP_OVER",
-          underQualified: false,
-        });
-      }
+      decisions.set(pickKey(secondary.pick), {
+        role: "SECONDARY_UNDER",
+        opportunityStrengthScore: secondary.opportunityStrengthScore,
+        opportunityStrengthComponents: secondary.components,
+        rankingBoost: 0,
+        rankingPenalty: 0,
+        primaryPlayer: primary.pick.player,
+        clusterKey,
+        underQualified: independentlyQualified,
+        policyFlip: true,
+        flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+        replacedPick: underPick,
+      });
+      audit.secondaryFlippedUnder += 1;
+      clusterAudit.secondaries.push({
+        player: secondary.pick.player,
+        score: secondary.opportunityStrengthScore,
+        action: "SAME_TEAM_ARBITRATION_FLIP",
+        underQualified: independentlyQualified,
+        policyFlip: true,
+      });
     }
 
     audit.clusters.push(clusterAudit);
@@ -545,6 +533,17 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
       next.side = "Under";
       next.pick = "Under";
       next.initialSide = next.initialSide || "UNDER";
+      next.sameTeamArbitrationFlip = true;
+      next.sameTeamArbitrationReason = "SAME_TEAM_ARBITRATION_FLIP";
+      next.flipReasonCode = "SAME_TEAM_ARBITRATION_FLIP";
+      if (decision.policyFlip) {
+        next.sameTeamOpportunityV2 = {
+          ...(next.sameTeamOpportunityV2 || {}),
+          policyFlip: true,
+          flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+          independentlyQualifiedUnder: decision.underQualified === true,
+        };
+      }
     }
 
     return next;

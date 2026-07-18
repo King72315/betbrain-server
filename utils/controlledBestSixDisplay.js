@@ -123,6 +123,27 @@ export function resolveDayBucket(item = {}) {
   return "LATER";
 }
 
+/** America/Chicago calendar date (YYYY-MM-DD). */
+export function getChicagoCalendarDate(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/**
+ * Home Today pool: prefer slateDate over stale dayBucket=TODAY after Lab promotion.
+ */
+export function filterCalendarTodayHomePool(picks = [], today = getChicagoCalendarDate()) {
+  return (Array.isArray(picks) ? picks : []).filter((pick) => {
+    const d = String(pick.slateDate || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d === today;
+    return resolveDayBucket(pick) === "TODAY";
+  });
+}
+
 export function normalizeLeagueCode(league = "WNBA") {
   const value = String(league || "WNBA").toUpperCase();
   return value === "NBA" ? "NBA" : "WNBA";
@@ -493,16 +514,25 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
       ? data.nbaGames
       : (data.games || []).filter((game) => String(game.league || "").toUpperCase() === "NBA");
 
+  const display = isWNBA
+    ? data.bestSixDisplayWNBA || []
+    : data.bestSixDisplayNBA || [];
+  const bestSix = isWNBA ? data.bestSixWNBA || [] : data.bestSixNBA || [];
+  const explicitToday = isWNBA
+    ? data.bestSixDisplayTodayWNBA
+    : data.bestSixDisplayTodayNBA;
+  // Never fall back to Results/Lab cohort (bestSix*) for Home Today.
+  const bestSixDisplayToday =
+    Array.isArray(explicitToday) && explicitToday.length
+      ? explicitToday
+      : filterBestSixByDateView(display.length ? display : bestSix, "today");
+
   return {
     league: leagueCode,
     games,
-    bestSix: isWNBA ? data.bestSixWNBA || [] : data.bestSixNBA || [],
-    bestSixDisplay: isWNBA
-      ? data.bestSixDisplayWNBA || []
-      : data.bestSixDisplayNBA || [],
-    bestSixDisplayToday: isWNBA
-      ? data.bestSixDisplayTodayWNBA || data.bestSixWNBA || []
-      : data.bestSixDisplayTodayNBA || data.bestSixNBA || [],
+    bestSix,
+    bestSixDisplay: display.length ? display : bestSix,
+    bestSixDisplayToday,
     topProps: isWNBA ? data.topWNBAProps || [] : data.topNBAProps || [],
   };
 }
@@ -519,9 +549,12 @@ export function buildLeagueBestSixBoard({
 } = {}) {
   const leagueCode = normalizeLeagueCode(league);
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
-  const serverTodayPool = (bestSixDisplayToday?.length
-    ? bestSixDisplayToday
-    : filterBestSixByDateView(bestSix, "today")
+  const today = getChicagoCalendarDate();
+  const serverTodayPool = filterCalendarTodayHomePool(
+    bestSixDisplayToday?.length
+      ? bestSixDisplayToday
+      : filterBestSixByDateView(bestSix, "today"),
+    today
   ).slice(0, bestSixLimit);
   const scopedPool =
     dateView === "full_board"
@@ -530,12 +563,27 @@ export function buildLeagueBestSixBoard({
           collectLeagueCandidatesFromGames(games, leagueCode),
           { limit: bestSixLimit }
         )
-      : dateView === "today" && serverTodayPool.length >= bestSixLimit
+      : dateView === "today" && serverTodayPool.length > 0
         ? applyDisplaySideBalance(
             serverTodayPool,
             collectLeagueCandidatesFromGames(games, leagueCode),
             { limit: bestSixLimit }
           )
+        : dateView === "today"
+          ? applyDisplaySideBalance(
+              filterCalendarTodayHomePool(
+                resolveDateScopedDisplayPool(
+                  displayPool,
+                  games,
+                  leagueCode,
+                  dateView,
+                  bestSixLimit
+                ),
+                today
+              ),
+              collectLeagueCandidatesFromGames(games, leagueCode),
+              { limit: bestSixLimit }
+            )
         : resolveDateScopedDisplayPool(
           displayPool,
           games,

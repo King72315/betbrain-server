@@ -22,6 +22,7 @@ import {
 import { getTodayLocalDate } from "./slateScopeService.js";
 import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
 import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
+import { attachCanonicalSealedProp } from "./canonicalSealedProp.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -135,7 +136,7 @@ export function freezeOfficialProp(pick = {}, options = {}) {
   const flip = pregameSnapshot.flipFirst?.raw || pick.flipFirstDecision || null;
   const profile = pregameSnapshot.playerIntelligenceProfile || pick.playerRoleProfile || null;
 
-  return {
+  const frozen = {
     ...pick,
     officialPropId,
     officialSlateId: slateDate,
@@ -159,6 +160,10 @@ export function freezeOfficialProp(pick = {}, options = {}) {
     bestSixRank: pregameSnapshot.rank ?? pick.bestSixRank ?? pick.controlledBestSixRank ?? null,
     controlledBestSixDisplay: true,
     controlledBestSixDisplayTracked: true,
+    finalDecision: "TRACK",
+    resultsDecisionLabel: "TRACK",
+    trackingEligibility: "TRACK",
+    league: String(pick.league || "WNBA").toUpperCase() === "NBA" ? "NBA" : "WNBA",
     trackingAdmissionSource: "CONTROLLED_BEST_SIX_DISPLAY",
     sourcePool: pick.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
     controlledBestSixVersion:
@@ -186,6 +191,8 @@ export function freezeOfficialProp(pick = {}, options = {}) {
     lockedPlayerState: pick.lockedPlayerState ?? pick.playerState ?? null,
     lockedVolumeProfile: pick.lockedVolumeProfile ?? pick.volumeProfile ?? null,
   };
+
+  return attachCanonicalSealedProp(frozen, { slateDate, sealedAt });
 }
 
 export function isOfficialSlateSealed(slateDate = "") {

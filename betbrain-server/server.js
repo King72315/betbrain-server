@@ -221,6 +221,10 @@ import {
 } from "./services/slateScopeService.js";
 
 import {
+  buildStaleSealedLifecycleDiagnostics,
+} from "./services/staleSealedRecoveryService.js";
+
+import {
   buildSlateLifecycleMap,
   buildTrackedPropsLifecycleDiagnostics,
   classifyTrackedPropsByLifecycle,
@@ -289,7 +293,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-same-team-opportunity-v2";
+const SERVER_BUILD = "courteedge-lifecycle-stale-sealed-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -2968,10 +2972,19 @@ function buildSchedulerHandlers() {
     },
     refreshBoard: async () => refreshAllPicks(),
     gradeTracked: async () => {
+      // Grade active + all sealed unresolved dates (ignore frozen isStarted).
       const { props, summary } = await resolveTrackedProps({
         requireLikelyFinished: true,
       });
-      return { props, summary, providerStatus: "ok" };
+      const stale = buildStaleSealedLifecycleDiagnostics({
+        trackedProps: props || getTrackedProps(),
+      });
+      return {
+        props,
+        summary,
+        providerStatus: "ok",
+        staleSealedLifecycle: stale,
+      };
     },
     runLifecycle: async () => {
       const props = getTrackedProps();
@@ -3790,6 +3803,16 @@ app.get("/diagnostics", (req, res) => {
     rawReports,
     archives
   ).length;
+  const staleSealedLifecycle = buildStaleSealedLifecycleDiagnostics({
+    todayLocalDate: getTodayLocalDate(),
+    trackedProps: tracked,
+    lockedSlates: registry.slates || [],
+    reports: rawReports,
+  });
+  courtEdgeFlow.staleSealedLifecycle = staleSealedLifecycle;
+  if (staleSealedLifecycle.warning) {
+    courtEdgeFlow.staleSealedWarning = staleSealedLifecycle.warning;
+  }
 
   res.json({
     ok: true,
@@ -3797,6 +3820,7 @@ app.get("/diagnostics", (req, res) => {
     engines: ENGINE_LOAD_FLAGS,
     trackingMode: TRACKING_MODE,
     officialSlate: officialSlateDiagnostics,
+    staleSealedLifecycle,
     activeSlate: activeSlates[activeSlates.length - 1] || null,
     activeSlates,
     lockedSlates: registry.slates || [],

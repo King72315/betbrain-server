@@ -153,6 +153,7 @@ function buildBoardForView(
     league,
     bestSix: payload.bestSix,
     bestSixDisplay: payload.bestSixDisplay,
+    bestSixDisplayToday: payload.bestSixDisplayToday,
     topProps: payload.topProps,
     games: payload.games,
     dateView,

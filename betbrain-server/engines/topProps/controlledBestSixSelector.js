@@ -44,7 +44,7 @@ import {
   computeDecisionHash,
   buildCanonicalDecisionBundle,
 } from "../decisionIntelligence/sideSelectionTrustV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-same-team-opp-v2";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-lifecycle-stale-sealed-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -737,9 +737,17 @@ export function annotateResultsAdmission(pick = {}) {
         `Prior gate: ${promoted.bestSixQualityFlags.join(", ")}`
       : "";
 
+  // Final Controlled Best 6 / Results row: user-facing decision is always TRACK.
+  // Preserve pre-selection gate labels only in audit / naturalDecision fields.
   return {
     ...promoted,
     naturalDecision,
+    finalDecision: "TRACK",
+    decision: "TRACK",
+    trackingDecision: "TRACK",
+    wnbaTrackingDecision: "TRACK",
+    trackingEligibility: "TRACK",
+    displayTrackEligibility: "TRACK",
     selectedForLearning: true,
     resultsTracked: true,
     resultsAdmissionEligible: true,
@@ -748,6 +756,17 @@ export function annotateResultsAdmission(pick = {}) {
     resultsAdmissionReason: qualityNote,
     displayResultsReason: qualityNote,
     controlledBestSixDisplayTracked: true,
+    decisionIntelligence: {
+      ...di,
+      trackEligibility: "TRACK",
+      bestSixEligibility: true,
+      originalGateEligibility:
+        di.originalGateEligibility ||
+        di.trackEligibility ||
+        naturalDecision ||
+        null,
+      naturalDecision,
+    },
   };
 }
 
@@ -986,6 +1005,25 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       audit.hidden.push({
         reason: "hidden_due_to_same_team_opportunity_v2_demotion",
         primaryPlayer: pick.sameTeamOpportunityV2?.primaryPlayer || null,
+        safetyScore: computeSafetyScore(pick),
+        pick: summarizePickForAudit(pick),
+      });
+      continue;
+    }
+
+    const finalDecision = String(
+      pick.finalDecision ||
+        pick.resultsDecisionLabel ||
+        pick.decision ||
+        pick.trackingEligibility ||
+        ""
+    ).toUpperCase();
+    if (finalDecision === "NO_BET" || finalDecision === "BOARD_ONLY") {
+      audit.hiddenDueToRejectedDecision =
+        (audit.hiddenDueToRejectedDecision || 0) + 1;
+      audit.hidden.push({
+        reason: "hidden_due_to_rejected_final_decision",
+        finalDecision,
         safetyScore: computeSafetyScore(pick),
         pick: summarizePickForAudit(pick),
       });

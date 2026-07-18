@@ -5,15 +5,10 @@ import assert from "node:assert/strict";
 import {
   isMeaningfulScorer,
   computeOpportunityStrengthScore,
-  underCandidateQualifies,
   arbitrateSameTeamOpportunityV2,
   SAME_TEAM_OPPORTUNITY_V2_VERSION,
 } from "../engines/wnba/playerIntelligence/sameTeamOpportunityEngineV2.js";
-import {
-  selectControlledBestSix,
-  selectTopTwoFromBestSix,
-  CONTROLLED_BEST_SIX_VERSION,
-} from "../engines/topProps/controlledBestSixSelector.js";
+import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
 
 function basePick(overrides = {}) {
   const line = overrides.line ?? 18.5;
@@ -86,7 +81,7 @@ function test(name, fn) {
 
 test("version tags present", () => {
   assert.ok(SAME_TEAM_OPPORTUNITY_V2_VERSION.includes("v2"));
-  assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("same-team-opp-v2"));
+  assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("lifecycle-stale-sealed"));
 });
 
 test("single scorer → no arbitration change", () => {
@@ -97,7 +92,7 @@ test("single scorer → no arbitration change", () => {
   assert.ok(!candidates[0].sameTeamOpportunityV2);
 });
 
-test("two scorers → stronger stays Over, weaker can become Under when evidence supports", () => {
+test("two scorers → stronger stays Over, weaker ALWAYS flips Under (policy)", () => {
   const mitchell = basePick({
     player: "Kelsey Mitchell",
     projection: 25.5,
@@ -128,7 +123,6 @@ test("two scorers → stronger stays Over, weaker can become Under when evidence
     expectedMinutes: 24,
     expectedFGA: 8,
     confidence: 55,
-    // Under case already stronger on reader — independent Under path.
     wnbaReader: {
       overGap: 0.7,
       underGap: 2.4,
@@ -157,31 +151,24 @@ test("two scorers → stronger stays Over, weaker can become Under when evidence
   const { candidates, audit } = arbitrateSameTeamOpportunityV2([mitchell, hiedeman]);
   assert.equal(audit.clusters.length, 1);
   assert.equal(audit.clusters[0].primaryPlayer, "Kelsey Mitchell");
+  assert.equal(audit.secondaryFlippedUnder, 1);
+  assert.equal(audit.secondaryDemoted, 0);
 
   const m = candidates.find((p) => p.player === "Kelsey Mitchell");
   const h = candidates.find((p) => p.player === "Natisha Hiedeman");
   assert.equal(String(m.side || m.pick).toLowerCase(), "over");
   assert.equal(m.sameTeamOpportunityV2.role, "PRIMARY_OVER");
-
-  // Weaker either flips to qualifying Under or is demoted Over — never equal primary.
-  assert.ok(
-    h.sameTeamOpportunityV2.role === "SECONDARY_UNDER" ||
-      h.sameTeamOpportunityV2.role === "SECONDARY_DEMOTED"
-  );
-  if (h.sameTeamOpportunityV2.role === "SECONDARY_UNDER") {
-    assert.equal(String(h.side || h.pick).toLowerCase(), "under");
-    assert.equal(audit.secondaryFlippedUnder, 1);
-  } else {
-    assert.equal(h.sameTeamOpportunityV2Demoted, true);
-    assert.ok(numScore(m) > numScore(h));
-  }
+  assert.equal(h.sameTeamOpportunityV2.role, "SECONDARY_UNDER");
+  assert.equal(String(h.side || h.pick).toLowerCase(), "under");
+  assert.equal(h.sameTeamArbitrationReason, "SAME_TEAM_ARBITRATION_FLIP");
+  assert.equal(h.flipReasonCode, "SAME_TEAM_ARBITRATION_FLIP");
 });
 
 function numScore(p) {
   return Number(p.bestPropScore || p.pickScore || 0);
 }
 
-test("three scorers → strongest Over; others independently Under-eval or demote", () => {
+test("three scorers → strongest Over; others ALWAYS flip Under", () => {
   const a = basePick({
     player: "Star A",
     projection: 24,
@@ -213,68 +200,57 @@ test("three scorers → strongest Over; others independently Under-eval or demot
   assert.equal(audit.clusters.length, 1);
   assert.equal(audit.clusters[0].primaryPlayer, "Star A");
   assert.equal(audit.clusters[0].secondaries.length, 2);
+  assert.equal(audit.secondaryFlippedUnder, 2);
+  assert.equal(audit.secondaryDemoted, 0);
 
   const primary = candidates.find((p) => p.player === "Star A");
   assert.equal(primary.sameTeamOpportunityV2.role, "PRIMARY_OVER");
   for (const name of ["Star B", "Star C"]) {
     const row = candidates.find((p) => p.player === name);
-    assert.ok(
-      ["SECONDARY_UNDER", "SECONDARY_DEMOTED"].includes(row.sameTeamOpportunityV2.role)
-    );
+    assert.equal(row.sameTeamOpportunityV2.role, "SECONDARY_UNDER");
+    assert.equal(String(row.side || row.pick).toLowerCase(), "under");
+    assert.equal(row.flipReasonCode, "SAME_TEAM_ARBITRATION_FLIP");
   }
 });
 
-test("failed Under is not forced — demoted Over loses Top priority", () => {
+test("policy flip applies even when Under does not independently qualify", () => {
   const strong = basePick({
     player: "Primary",
-    projection: 23,
-    line: 19.5,
+    projection: 26,
+    line: 22.5,
     expectedMinutes: 34,
-    expectedFGA: 16,
-    confidence: 74,
+    expectedFGA: 18,
+    confidence: 75,
   });
-  // Over-leaning reader so Under should fail independent qualify after re-eval.
-  const weak = basePick({
+  const weakOver = basePick({
     player: "Secondary",
-    projection: 15.5,
-    line: 14.5,
-    overGap: 1,
-    underGap: 0.2,
-    expectedMinutes: 26,
-    expectedFGA: 10,
+    projection: 19,
+    line: 15.5,
+    overGap: 3.5,
+    underGap: -3.5,
+    expectedMinutes: 28,
+    expectedFGA: 12,
     confidence: 58,
     wnbaReader: {
-      overGap: 1,
-      underGap: 0.2,
-      overCase: { score: 14 },
-      underCase: { score: 5 },
+      overGap: 3.5,
+      underGap: -3.5,
+      overCase: { score: 20 },
+      underCase: { score: 2 },
       finalSide: "OVER",
     },
-    wnbaDataCard: {
-      projection: { projection: 15.5, expectedMinutes: 26, expectedFGA: 10, expectedFTA: 2 },
-      last5: { points: 16, minutes: 26, fga: 10, fta: 2 },
-      season: { points: 15 },
-      bookLine: 14.5,
-    },
-    playerRoleIdentity: { identity: "MINUTES_DEPENDENT" },
+    decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "MEDIUM" },
   });
 
-  const { candidates } = arbitrateSameTeamOpportunityV2([strong, weak]);
+  const { candidates, audit } = arbitrateSameTeamOpportunityV2([strong, weakOver]);
   const secondary = candidates.find((p) => p.player === "Secondary");
-  assert.equal(secondary.sameTeamOpportunityV2.role, "SECONDARY_DEMOTED");
-  assert.equal(String(secondary.side).toLowerCase(), "over");
-  assert.equal(secondary.topPickBlockedBySameTeamOpportunityV2, true);
-  assert.equal(underCandidateQualifies(secondary), false);
-
-  const best = selectControlledBestSix(candidates, "WNBA");
-  const top = selectTopTwoFromBestSix(best.bestSix, "WNBA");
-  assert.ok(!(top.topProps || []).some((p) => p.player === "Secondary"));
-  assert.ok(
-    (top.audit?.hiddenDueToSameTeamOpportunityV2 || 0) >= 1 ||
-      !(best.bestSix || []).some((p) => p.player === "Secondary") ||
-      (best.bestSix || []).every(
-        (p) => p.player !== "Secondary" || p.sameTeamOpportunityV2Demoted === true
-      )
+  assert.equal(audit.secondaryFlippedUnder, 1);
+  assert.equal(secondary.sameTeamOpportunityV2.role, "SECONDARY_UNDER");
+  assert.equal(String(secondary.side || secondary.pick).toLowerCase(), "under");
+  assert.equal(secondary.sameTeamArbitrationReason, "SAME_TEAM_ARBITRATION_FLIP");
+  // Policy flip is not claimed as organic Under evidence
+  assert.equal(
+    secondary.sameTeamOpportunityV2.independentlyQualifiedUnder,
+    false
   );
 });
 

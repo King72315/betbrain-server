@@ -475,9 +475,18 @@ export default function History() {
           </Text>
           <CopyReportButton getReportText={getReportText} label="Copy History Report" />
           <TouchableOpacity
+            style={[styles.refreshBtn, (refreshing || loading) && styles.clearBtnDisabled]}
+            onPress={refreshHistory}
+            disabled={refreshing || loading}
+          >
+            <Text style={styles.refreshBtnText}>
+              {refreshing ? "Refreshing..." : "Refresh History"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.resetBtn, resetting && styles.clearBtnDisabled]}
             onPress={handleResetHistory}
-            disabled={resetting || loading}
+            disabled={resetting || loading || refreshing}
           >
             <Text style={styles.resetBtnText}>
               {resetting ? "Resetting..." : "Reset Server History"}
@@ -486,7 +495,7 @@ export default function History() {
           <TouchableOpacity
             style={[styles.clearBtn, clearing && styles.clearBtnDisabled]}
             onPress={handleClearHistory}
-            disabled={clearing || loading || retainedEntries.length === 0}
+            disabled={clearing || loading || refreshing || retainedEntries.length === 0}
           >
             <Text style={styles.clearBtnText}>
               {clearing ? "Clearing..." : "Clear History Display"}
@@ -773,6 +782,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     marginTop: 10,
+  },
+  refreshBtn: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    backgroundColor: "#14532d",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+  },
+  refreshBtnText: {
+    color: "#bbf7d0",
+    fontSize: 13,
+    fontWeight: "900",
   },
   clearBtn: {
     marginTop: 10,

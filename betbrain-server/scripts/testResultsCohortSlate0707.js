@@ -103,13 +103,14 @@ test("previewSplitResultsCohortRepair finds split Best 6 props", () => {
   assert.strictEqual(preview.wouldRealign[0].player, "Brittney Griner");
 });
 
-test("buildControlledTrackingCohort uses blocking slate for cohort date", () => {
+test("buildControlledTrackingCohort keeps overnight Results date without admitting today board", () => {
+  const lateGame = makePick({ player: "Late Game" });
   const bundle = buildControlledTrackingCohort(
     {
       gameCards: [
         {
           league: "WNBA",
-          picks: [makePick({ player: "Late Game" })],
+          picks: [lateGame],
         },
       ],
     },
@@ -120,14 +121,17 @@ test("buildControlledTrackingCohort uses blocking slate for cohort date", () => 
         { slateDate: "2026-07-07", status: "pending", trackingType: "OFFICIAL" },
       ],
       controlledSelection: {
-        bestSixDisplayWNBA: [makePick({ player: "Late Game" })],
+        bestSixDisplayWNBA: [lateGame],
         bestSixDisplayNBA: [],
         topProps: [],
       },
     }
   );
   assert.strictEqual(bundle.audit.slateDate, "2026-07-07");
-  assert.strictEqual(bundle.trackingCohort[0]?.slateDate, "2026-07-07");
+  assert.strictEqual(bundle.audit.admissionPath, "OVERNIGHT_RESULTS_HOLD_NO_NEW_ADMISSION");
+  assert.strictEqual(bundle.trackingCohort.length, 0);
+  assert.strictEqual(bundle.bestSixDisplayTodayWNBA.length, 1);
+  assert.strictEqual(bundle.bestSixDisplayTodayWNBA[0].player, "Late Game");
 });
 
 test("getBlockingActiveResultsSlateDate ignores unlocked prior unresolved cohort", () => {

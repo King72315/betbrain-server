@@ -382,9 +382,26 @@ export function getBlockingActiveResultsSlateDate(
     reports,
     today
   );
-  const blocking = unresolved[0] || null;
-  if (!blocking) return null;
-  return isRolloverBlockingResultsSlate(blocking, today) ? blocking : null;
+  // Prefer yesterday/today rollover block first (primary Results hold).
+  const rolloverBlock = unresolved.find((date) =>
+    isRolloverBlockingResultsSlate(date, today)
+  );
+  if (rolloverBlock) return rolloverBlock;
+
+  // Permanent protection: any older sealed Official slate with pending grades
+  // still blocks advancing the "active" Results pointer until resolved.
+  const sealedPending = unresolved.find((date) => {
+    if (!isPastSlateDate(date, today)) return false;
+    const props = (trackedProps || []).filter(
+      (p) => getResultsPropSlateDate(p) === date
+    );
+    return props.some(
+      (p) =>
+        (p.immutableOfficial === true || Boolean(p.officialPropId)) &&
+        !["win", "loss", "push"].includes(String(p.status || "").toLowerCase())
+    );
+  });
+  return sealedPending || null;
 }
 
 function getTodayOfficialResultsCohortProps(trackedProps = [], today = getTodayLocalDate()) {

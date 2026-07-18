@@ -1889,7 +1889,7 @@ function getRoleChangeScoreBucket(score = 0) {
   return "Under 50";
 }
 
-function isResolvedStatus(status = "") {
+export function isResolvedStatus(status = "") {
   return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
 }
 
@@ -3235,6 +3235,7 @@ export function getAnalyticsScopeProps(
   }
 
   const scoped = [];
+  const seenIds = new Set();
 
   for (const slateDate of completedDates) {
     if (!isOnOrAfterCleanDataCutoff(slateDate)) continue;
@@ -3242,16 +3243,53 @@ export function getAnalyticsScopeProps(
 
     const archive = archives.find((item) => String(item?.slateDate) === slateDate);
     if (archive?.props?.length) {
-      scoped.push(...archive.props);
+      for (const prop of archive.props) {
+        const id = prop.officialPropId || `${slateDate}|${prop.player}|${prop.line}|${prop.side}`;
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+        scoped.push({
+          ...prop,
+          league:
+            prop.league ||
+            (String(prop.sport || "").toUpperCase() === "NBA" ? "NBA" : "WNBA"),
+        });
+      }
       continue;
     }
 
-    scoped.push(
-      ...trackedList.filter((prop) => {
-        const propDate = String(prop.slateDate || getPickSlateDate(prop) || "");
-        return propDate === slateDate;
-      })
-    );
+    for (const prop of trackedList) {
+      const propDate = String(prop.slateDate || getPickSlateDate(prop) || "");
+      if (propDate !== slateDate) continue;
+      const id = prop.officialPropId || `${propDate}|${prop.player}|${prop.line}|${prop.side}`;
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+      scoped.push({
+        ...prop,
+        league:
+          prop.league ||
+          (String(prop.sport || "").toUpperCase() === "NBA" ? "NBA" : "WNBA"),
+      });
+    }
+  }
+
+  // Safety net: graded sealed Official props must never vanish from all-time
+  // when a daily report row is missing/misclassified (Lab 0-0 class bug).
+  for (const prop of trackedList) {
+    const propDate = String(prop.slateDate || getPickSlateDate(prop) || "");
+    if (!isOnOrAfterCleanDataCutoff(propDate)) continue;
+    if (quarantined.has(propDate)) continue;
+    if (isFutureSlateDate(propDate, today)) continue;
+    if (!isResolvedStatus(prop.status)) continue;
+    if (!(prop.immutableOfficial === true || prop.officialPropId)) continue;
+    const id = prop.officialPropId || `${propDate}|${prop.player}|${prop.line}|${prop.side}`;
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    scoped.push({
+      ...prop,
+      league:
+        prop.league ||
+        (String(prop.sport || "").toUpperCase() === "NBA" ? "NBA" : "WNBA"),
+    });
   }
 
   return scoped;
@@ -3476,15 +3514,28 @@ export async function resolveTrackedProps(options = {}) {
   const isReadyToGrade = requireLikelyFinished
     ? isPickLikelyFinished
     : isPickGameStarted;
+  const slateDateFilter = options.slateDateFilter
+    ? String(options.slateDateFilter).slice(0, 10)
+    : null;
+  const attemptAt = new Date().toISOString();
 
   // BDL/ESPN final checks cache live + null results for the process lifetime;
   // clear each resolve pass so finished games are not stuck behind stale "in".
   clearGameFinalVerificationCache();
 
   const tracked = getTrackedProps();
-  const pending = tracked.filter(
-    (item) => !isResolvedStatus(item.status)
-  );
+  const pending = tracked.filter((item) => {
+    if (isResolvedStatus(item.status)) return false;
+    if (slateDateFilter) {
+      const d = String(getResultsPropSlateDate(item) || item.slateDate || "").slice(
+        0,
+        10
+      );
+      if (d !== slateDateFilter) return false;
+    }
+    return true;
+  });
+  // Readiness uses commenceTime via resultService — never trust frozen isStarted.
   const gradeable = pending.filter((item) => isReadyToGrade(item));
 
   const statsCache = new Map();
@@ -3505,11 +3556,27 @@ export async function resolveTrackedProps(options = {}) {
       continue;
     }
 
+    if (slateDateFilter) {
+      const d = String(getResultsPropSlateDate(item) || item.slateDate || "").slice(
+        0,
+        10
+      );
+      if (d !== slateDateFilter) {
+        updated.push(item);
+        continue;
+      }
+    }
+
     const gradingBlock = evaluateGradingBlock(item);
     if (gradingBlock.blocked) {
       skippedNotReady += 1;
       updated.push({
         ...item,
+        lastResolveAttempt: attemptAt,
+        lastResolveAttemptAt: attemptAt,
+        lastResolveError: gradingBlock.reason || "grading_blocked",
+        lastResolveNextAction: "wait_for_commence_or_final",
+        resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1,
         resolveDebug: {
           ...(item.resolveDebug || {}),
           gameStarted: gradingBlock.gameStarted,
@@ -3518,7 +3585,8 @@ export async function resolveTrackedProps(options = {}) {
           blockedByCommenceTime: gradingBlock.blockedByCommenceTime,
           blockedByGameNotStarted: gradingBlock.blockedByGameNotStarted,
           blocked: true,
-          at: new Date().toISOString(),
+          ignoredFrozenIsStarted: true,
+          at: attemptAt,
         },
       });
       continue;
@@ -3526,7 +3594,23 @@ export async function resolveTrackedProps(options = {}) {
 
     if (!isReadyToGrade(item)) {
       skippedNotReady += 1;
-      updated.push(item);
+      updated.push({
+        ...item,
+        lastResolveAttempt: attemptAt,
+        lastResolveAttemptAt: attemptAt,
+        lastResolveError: "not_ready_to_grade",
+        lastResolveNextAction: requireLikelyFinished
+          ? "retry_when_likely_finished"
+          : "retry_when_started",
+        resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1,
+        resolveDebug: {
+          ...(item.resolveDebug || {}),
+          blocked: false,
+          notReady: true,
+          ignoredFrozenIsStarted: true,
+          at: attemptAt,
+        },
+      });
       continue;
     }
 
@@ -3543,7 +3627,17 @@ export async function resolveTrackedProps(options = {}) {
         ...item,
         status: "pending",
         pendingReason: pendingReason || "Game not final yet.",
-        resolveDebug,
+        lastResolveAttempt: attemptAt,
+        lastResolveAttemptAt: attemptAt,
+        lastResolveError: pendingReason || "game_not_final",
+        lastResolveProvider: matchedSource || resolveDebug?.provider || null,
+        lastResolveNextAction: "retry_when_game_final",
+        resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1,
+        resolveDebug: {
+          ...(resolveDebug || {}),
+          ignoredFrozenIsStarted: true,
+          at: attemptAt,
+        },
         actualStat: null,
         result: null,
         resultMargin: null,
@@ -3558,7 +3652,11 @@ export async function resolveTrackedProps(options = {}) {
 
     const graded = gradeTrackedProp(item, statResult, {
       pendingReason,
-      resolveDebug,
+      resolveDebug: {
+        ...(resolveDebug || {}),
+        ignoredFrozenIsStarted: true,
+        at: attemptAt,
+      },
       gradingNotes,
       matchVerified,
       resultConfidence,
@@ -3567,13 +3665,26 @@ export async function resolveTrackedProps(options = {}) {
       matchedSource,
     });
 
-    if (isResolvedStatus(graded.status)) {
+    const gradedWithAttempt = {
+      ...graded,
+      lastResolveAttempt: attemptAt,
+      lastResolveAttemptAt: attemptAt,
+      lastResolveError: graded.status && !isResolvedStatus(graded.status)
+        ? graded.pendingReason || pendingReason || null
+        : null,
+      lastResolveProvider: matchedSource || graded.matchedSource || null,
+      lastResolveNextAction: isResolvedStatus(graded.status)
+        ? "none"
+        : "retry_when_stats_available",
+      resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1,
+    };
+    if (isResolvedStatus(gradedWithAttempt.status)) {
       gradedCount += 1;
     } else {
       stillPending += 1;
     }
 
-    updated.push(graded);
+    updated.push(gradedWithAttempt);
   }
 
   const calculatedSummary = {
