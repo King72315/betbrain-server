@@ -1375,10 +1375,16 @@ function getActualPoints(statResult = {}) {
 }
 
 function normalizeSide(savedPick = {}) {
-  const side = String(savedPick.side || savedPick.pick || "").toLowerCase();
+  const side = String(
+    savedPick.side ||
+      savedPick.pick ||
+      savedPick.lockedSide ||
+      savedPick.currentEngineSide ||
+      ""
+  ).toLowerCase();
 
-  if (side === "over") return "Over";
-  if (side === "under") return "Under";
+  if (side === "over" || side.startsWith("over")) return "Over";
+  if (side === "under" || side.startsWith("under")) return "Under";
 
   return "";
 }

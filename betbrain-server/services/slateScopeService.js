@@ -260,6 +260,15 @@ export function hasUnresolvedGradingProps(props = []) {
     const pendingReason = String(prop.pendingReason || "").toLowerCase();
     const resolveDebug = prop.resolveDebug || {};
 
+    // Once W/L/P is stored, the prop is resolved for lifecycle — do not keep
+    // blocking Lab/report completion on stale pre-grade finalization flags.
+    if (isResolvedPropStatus(status)) {
+      if (prop.actualStat == null && prop.actualPoints == null && prop.result == null) {
+        return true;
+      }
+      return false;
+    }
+
     if (resolveDebug.blockedByGameNotFinal || resolveDebug.blockedByLiveGame) {
       return true;
     }
@@ -276,19 +285,7 @@ export function hasUnresolvedGradingProps(props = []) {
       return true;
     }
 
-    if (isResolvedPropStatus(status)) {
-      if (prop.actualStat == null || prop.result == null) {
-        return true;
-      }
-
-      if (resolveDebug.gameFinal === false) {
-        return true;
-      }
-
-      return false;
-    }
-
-    return true;
+    return !isResolvedPropStatus(status);
   });
 }
 

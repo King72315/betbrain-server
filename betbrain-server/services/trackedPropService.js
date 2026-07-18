@@ -2187,11 +2187,19 @@ function getGradingLine(tracked = {}) {
 function gradeEngineSide(tracked, statResult, side) {
   const gradingLine = getGradingLine(tracked);
 
+  const gradingSide =
+    side ||
+    tracked.currentEngineSide ||
+    tracked.lockedSide ||
+    tracked.side ||
+    tracked.pick ||
+    "";
+
   const graded = gradePointsPick(
     {
       ...tracked,
-      side,
-      pick: side,
+      side: gradingSide,
+      pick: gradingSide,
       line: gradingLine,
       officialLine: tracked.officialLine ?? gradingLine,
       league: tracked.league,
@@ -2298,7 +2306,13 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     };
   }
 
-  const current = gradeEngineSide(tracked, statResult, tracked.currentEngineSide);
+  const gradingSide =
+    tracked.currentEngineSide ||
+    tracked.lockedSide ||
+    tracked.side ||
+    tracked.pick ||
+    null;
+  const current = gradeEngineSide(tracked, statResult, gradingSide);
 
   let fairShadow = {
     result: null,

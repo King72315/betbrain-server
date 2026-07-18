@@ -153,20 +153,33 @@ All six `gameLikelyFinished: true`. No membership rewrite.
 
 ## 10. July 17 Apply Result
 
-**Production apply** via `POST /admin/recover-stale-sealed` after deploy (creates backup, grades, builds DSR).  
-Local dry-run verified; production apply status filled after live verification section below.
+Local apply (after grading-side fix), membership preserved:
+
+| Player | Side | Line | Status | Actual |
+|---|---|---|---|---|
+| Nneka Ogwumike | Over | 16.5 | WIN | 18 |
+| Dominique Malonga | Under | 16.5 | LOSS | 28 |
+| Isabelle Harrison | Over | 11.5 | LOSS | 10 |
+| Rhyne Howard | Under | 19.5 | WIN | 10 |
+| Kelsey Mitchell | Over | 22.5 | WIN | 30 |
+| Naz Hillmon | Under | 9.5 | LOSS | 24 |
+
+**Root grading bug fixed:** `gradeEngineSide` used empty `currentEngineSide` → “Missing side or line for grading”. Fallback now uses `lockedSide` / `side` / `pick`.
+
+**Report completion bug fixed:** `hasUnresolvedGradingProps` treated graded W/L/P as unresolved when stale `resolveDebug.blockedByGameNotFinal` / `gameFinal===false` remained. Resolved statuses now complete Lab/DSR.
+
+Daily report status: **final** (2026-07-17).
+
+Production apply: deploy this commit then `POST /admin/recover-stale-sealed` with `{date:"2026-07-17", apply:true}` (or local-equivalent on Render disk).
 
 ---
 
 ## 11. July 17 Grades + Lifecycle Location
 
-After successful apply (expected):
-
-- All six graded W/L/P with actual points + `lastResolveAttempt`
-- Daily slate report for 2026-07-17
-- Lab/History rotation per canonical lifecycle (Results advances; Jul 18 remains visible)
-- Analytics include recovered slate
-- No sealed ID/side/line rewrite
+- All six graded with `lastResolveAttempt` and actual points
+- Daily slate report `2026-07-17` status **final**
+- Sealed IDs/sides/lines unchanged
+- Jul 18 Home board remains live after refresh
 
 ---
 
@@ -204,7 +217,12 @@ Locked merges preserve `officialLine` (immutable sealed line). Current market ma
 
 ## 16–17. Fresh Today / Tomorrow Reports
 
-Filled after post-deploy `POST /refresh-picks` live verification (section 23).
+Post-deploy refresh (`courteedge-line-lifecycle-calibration-v1`):
+
+- **Olivia Miles:** Under **17.5**, Original Model Side Over, Final CourtEdge Side Under, TRACK, HIGH risk
+- Today Best 6 cohort includes Stewart / McBride / Miles (Today) + tomorrow board candidates in display pool
+- `bestSixDisplayWNBA` length 6, all TRACK
+- Opening/current lines present; Miles `selectedLine` 17.5
 
 ---
 
@@ -214,6 +232,7 @@ Filled after post-deploy `POST /refresh-picks` live verification (section 23).
 |---|---|
 | `testLineIntegrityV1.js` | PASS (5) |
 | `testBestSixPresentationV1.js` | PASS (12) |
+| `testSealedGradeSideFallback.js` | PASS (2) |
 | `testStaleSealedRecovery.js` | PASS |
 | `testLifecycleIntegrity.js` | PASS (6/6) |
 | Projection calib replay | Ran; flag stays OFF |
@@ -228,15 +247,16 @@ Filled after post-deploy `POST /refresh-picks` live verification (section 23).
 
 ## 20–22. Commit / Push / Deploy
 
-Filled after git push + Render health poll.
+- Commit 1: `0ae7125` — line integrity + presentation + admin recover
+- Follow-up commit: grading side fallback + unresolved-lifecycle fix (this push)
+- Remote: `orgin/betbrain-v2-rebuild` pushed
+- Render auto-deploy verified on first build; re-verify after follow-up
 
 ---
 
 ## 23. Live `/health` Verification
 
-Pre-deploy: `courteedge-best6-presentation-v1`  
-Post-deploy: expect `courteedge-line-lifecycle-calibration-v1` + `boardSchemaVersion: courtedge-board-schema-v2`
-
+Confirmed live: `serverBuild=courteedge-line-lifecycle-calibration-v1`, `boardSchemaVersion=courtedge-board-schema-v2`
 ---
 
 ## 24. Rollback Command
