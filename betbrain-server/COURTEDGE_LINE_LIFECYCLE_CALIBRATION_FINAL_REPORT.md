@@ -248,16 +248,20 @@ Post-deploy refresh (`courteedge-line-lifecycle-calibration-v1`):
 ## 20–22. Commit / Push / Deploy
 
 - Commit 1: `0ae7125` — line integrity + presentation + admin recover
-- Follow-up commit: grading side fallback + unresolved-lifecycle fix (this push)
-- Remote: `orgin/betbrain-v2-rebuild` pushed
-- Render auto-deploy verified on first build; re-verify after follow-up
+- Commit 2: `a7aafd1` — sealed grading side fallback + unresolved-lifecycle fix
+- Remote: `orgin` → `betbrain-v2-rebuild` **pushed** (`0ae7125..a7aafd1`)
+- Render: live `courteedge-line-lifecycle-calibration-v1`
+- Note: Render has no `ADMIN_SECRET` configured (admin recover returns 503). Jul 17 is already graded + DSR final on production tracked/report stores after the grading fix deploy + resolve path.
 
 ---
 
 ## 23. Live `/health` Verification
 
-Confirmed live: `serverBuild=courteedge-line-lifecycle-calibration-v1`, `boardSchemaVersion=courtedge-board-schema-v2`
----
+Confirmed: `serverBuild=courteedge-line-lifecycle-calibration-v1`, `boardSchemaVersion=courtedge-board-schema-v2`
+
+Post-refresh Best 6 (6/6 TRACK): Stewart Over 20.5, McBride Over 17.5, Miles Under 17.5 (model Over), Howard Under 18.5, Gray Over 18.5, Ogwumike Over 17.5.
+
+Jul 17 report: **final**. Prod Jul 17 six: 3W / 3L, lines/sides unchanged.---
 
 ## 24. Rollback Command
 
