@@ -8,6 +8,7 @@ const teamDefenseCache = new Map();
 const DEFENSE_V2_VERSION = "wnba-defense-v2-games-proxy";
 
 function num(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }

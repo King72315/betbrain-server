@@ -295,7 +295,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-evidence-defense-v1";
+const SERVER_BUILD = "courteedge-evidence-defense-v1.1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {

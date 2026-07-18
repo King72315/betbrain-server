@@ -6,6 +6,7 @@
 export const COURTEDGE_PLAYER_EVIDENCE_VERSION = "courtEdgePlayerEvidenceV1";
 
 function num(value, fallback = null) {
+  if (value === null || value === undefined || value === "") return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
