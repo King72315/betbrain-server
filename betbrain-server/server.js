@@ -3664,6 +3664,50 @@ app.post("/clear-tracked-props", requireAdminSecret, (req, res) => {
   });
 });
 
+app.post("/admin/seed-board-cache", requireAdminSecret, (req, res) => {
+  try {
+    if (req.body?.confirm !== true) {
+      return res.status(400).json({
+        ok: false,
+        message: "seed-board-cache requires confirm: true",
+      });
+    }
+    const board = req.body?.board;
+    if (!board || typeof board !== "object" || !Array.isArray(board.games)) {
+      return res.status(400).json({
+        ok: false,
+        message: "seed-board-cache requires board.games array",
+      });
+    }
+    const stamped = {
+      ...board,
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      boardSchemaVersion: BOARD_SCHEMA_VERSION,
+      lastUpdated: new Date().toISOString(),
+      seededBoardCache: true,
+      seedReason: req.body?.reason || "admin-seed-board-cache",
+    };
+    picksCache = stamped;
+    lastRefreshTime = Date.now();
+    saveBoardCache(stamped);
+    return res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      games: stamped.games.length,
+      today: (stamped.bestSixDisplayTodayWNBA || []).length,
+      tomorrow: (stamped.bestSixDisplayTomorrowWNBA || []).length,
+      lastUpdated: stamped.lastUpdated,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "seed-board-cache failed",
+      error: error.message,
+    });
+  }
+});
+
 app.post("/admin/runtime-state-import", requireAdminSecret, (req, res) => {
   try {
     if (req.body?.confirm !== true && req.body?.dryRun !== true) {
@@ -5545,14 +5589,10 @@ if (process.env.RUN_AUDIT === "1") {
       console.log("BOARD CACHE empty ? waiting for scheduler or manual refresh");
     }
 
-    // Delay startup rebuild so health checks stabilize first (avoids restart loops).
-    if (!picksCache?.games?.length || picksCache.serverBuild !== SERVER_BUILD) {
-      console.log(
-        "STARTUP: board empty or build mismatch ? delayed async refresh in 20s"
-      );
-      setTimeout(() => {
-        startRefreshAllPicksBackground("startup-delayed-recover");
-      }, 20000);
+    // Delay startup rebuild disabled: auto-refresh was restart-looping Render.
+    // Recover with POST /refresh-picks after health is stable, or seed-board-cache.
+    if (!picksCache?.games?.length) {
+      console.log("STARTUP: empty board ? awaiting manual/scheduled refresh");
     }
 
     if (rehydrateResult.results?.length) {
