@@ -2633,25 +2633,26 @@ async function refreshAllPicks(options = {}) {
   const tomorrowCards = [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards];
 
   // Empty/failed odds refresh must not touch Official tracked membership or wipe board.
-  const previousBoard = getReadOnlyBoard();
+  // Re-read after progressive Today persist so preserve/LKG see the latest cache.
+  const boardForPreserve = getReadOnlyBoard();
   if (
     todayCards.length === 0 &&
     tomorrowCards.length === 0 &&
-    Array.isArray(previousBoard?.games) &&
-    previousBoard.games.length > 0
+    Array.isArray(boardForPreserve?.games) &&
+    boardForPreserve.games.length > 0
   ) {
     console.log(
       "REFRESH SKIPPED TRACKED MUTATIONS: empty board ? preserving existing board cache"
     );
     return {
-      ...previousBoard,
+      ...boardForPreserve,
       ok: true,
       incomplete: true,
       preservedBoard: true,
       message:
         "Refresh returned empty board ? preserved existing board and skipped tracked mutations",
       serverBuild: SERVER_BUILD,
-      lastUpdated: previousBoard.lastUpdated || new Date().toISOString(),
+      lastUpdated: boardForPreserve.lastUpdated || new Date().toISOString(),
     };
   }
 
@@ -2669,7 +2670,7 @@ async function refreshAllPicks(options = {}) {
   ]);
 
   const lkgTomorrow = mergeLastKnownGoodDayGames(
-    previousBoard,
+    boardForPreserve,
     gamesRaw,
     "TOMORROW"
   );
@@ -2679,7 +2680,7 @@ async function refreshAllPicks(options = {}) {
       mergedGames: lkgTomorrow.mergedCount,
       tomorrowCandidates: countDayBucketCandidates(games, "TOMORROW"),
       previousTomorrowCandidates: countDayBucketCandidates(
-        previousBoard?.games || [],
+        boardForPreserve?.games || [],
         "TOMORROW"
       ),
     });
@@ -3019,6 +3020,7 @@ app.get("/health", (req, res) => {
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
+    recoveryEndpoints: true,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
     providerPolicy: {
