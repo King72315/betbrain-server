@@ -634,6 +634,17 @@ test("40 Full Best 6 and track-all-six rules remain intact", () => {
   assert.ok(bestSix.every((p) => p.finalDecision === "TRACK"));
 });
 
+test("41 Calendar-today Best 6 members stamp TODAY dayBucket", () => {
+  const today = elevenBoardCandidates().map((p) => ({
+    ...p,
+    dayBucket: "TODAY",
+    slateDate: "2026-07-19",
+  }));
+  const { bestSix } = selectBestSixDisplay(today, "WNBA");
+  assert.strictEqual(bestSix.length, 6);
+  assert.ok(bestSix.every((p) => String(p.dayBucket).toUpperCase() === "TODAY"));
+});
+
 test("bonus Side Rescue overlay keeps NO_DECISIVE_RESCUE playable", () => {
   const pick = applySideRescueEligibilityOverlay(basePick(), {
     action: "NO_DECISIVE_RESCUE",

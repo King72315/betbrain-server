@@ -187,6 +187,7 @@ import {
 import {
   sealTomorrowOfficialSlates,
   sealTodayFallbackOfficialSlate,
+  sealOfficialSlate,
   inheritTodayResultsFromSealedSlate,
   buildOfficialSlateDiagnostics,
   validateOfficialSlateLifecycle,
@@ -893,7 +894,7 @@ function strengthFromConfidence(confidence) {
  *   - noPlay (playability veto from riskComparison noPlayReasons)
  *
  * Derivative gates (same underlying inputs, different math/threshold):
- *   - finalConfidence ? raw × (0.55+0.45×evidenceReliability) ? dangerPressure×24
+ *   - finalConfidence ? raw ï¿½ (0.55+0.45ï¿½evidenceReliability) ? dangerPressureï¿½24
  *   - evidenceReliability ? marketQuality (45%, composite book/market signal),
  *     dataCoverage (25%), rawQuality (15%), hasBothSides (5%); bookCount and
  *     consensusBookCount are NOT separate weights (embedded in marketQuality)
@@ -2538,17 +2539,19 @@ async function refreshAllPicks() {
   // If inherit fails (thin Today never sealed as yesterday's Tomorrow), seal the
   // closed Today board as FINAL_THIN so Results/Lab cannot vanish on refresh.
   // Also repair improper thin sealed pregame boards when a full Best 6 is available.
-  const resultsSlateDate = cohortBundle.audit.slateDate || getTodayLocalDate();
+  const calendarToday = getTodayLocalDate();
+  const resultsSlateDate = cohortBundle.audit.slateDate || calendarToday;
   let todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
     serverBuild: SERVER_BUILD,
   });
 
+  // Home Today Best 6 always stamps calendar today â€” never overnight Results hold date.
   const todayDisplayBestSix = [
     ...(cohortBundle.bestSixDisplayTodayWNBA || []),
     ...(cohortBundle.bestSixDisplayTodayNBA || []),
   ].map((p) => ({
     ...p,
-    slateDate: resultsSlateDate,
+    slateDate: calendarToday,
     dayBucket: "TODAY",
     dateLabel: p.dateLabel || "Today",
     trackingAdmissionSource:
@@ -2558,20 +2561,20 @@ async function refreshAllPicks() {
   }));
 
   let todayPregameRepair = null;
-  if (
-    todayDisplayBestSix.length >= 6 &&
-    resultsSlateDate === getTodayLocalDate()
-  ) {
+  let calendarTodaySeal = null;
+
+  // Improper thin seal on calendar today (unstarted, >=6 playable) -> audited reseal.
+  if (todayDisplayBestSix.length >= 6) {
     todayPregameRepair = repairImproperThinSealedPregame(todayDisplayBestSix, {
-      slateDate: resultsSlateDate,
-      todayLocalDate: resultsSlateDate,
+      slateDate: calendarToday,
+      todayLocalDate: calendarToday,
       serverBuild: SERVER_BUILD,
       selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     });
     if (todayPregameRepair?.repaired) {
       const repairedProps = todayPregameRepair.props || todayDisplayBestSix;
-      applySlateLockFreeze(resultsSlateDate, repairedProps);
-      persistSealedSlateBundle(resultsSlateDate, repairedProps, {
+      applySlateLockFreeze(calendarToday, repairedProps);
+      persistSealedSlateBundle(calendarToday, repairedProps, {
         serverBuild: SERVER_BUILD,
         sealReason:
           todayPregameRepair.reason || "PREGAME_REPAIR_FULL_BEST_SIX",
@@ -2582,65 +2585,65 @@ async function refreshAllPicks() {
         preFilteredCohort: true,
         allowLockedBestSixBackfill: true,
       });
-      todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
-        serverBuild: SERVER_BUILD,
-      });
+      calendarTodaySeal = todayPregameRepair;
     }
   }
 
-  if (!todayOfficialSeal?.inherited && !todayPregameRepair?.repaired) {
-    if (todayDisplayBestSix.length) {
-      // Admit into tracked store BEFORE lock - post-seal inserts are blocked.
-      addTrackedProps(todayDisplayBestSix, {
-        skipTopPickReferences: true,
-        preFilteredCohort: true,
-        allowLockedBestSixBackfill: false,
+  // Independent of overnight Results hold: seal calendar-today Best 6 when
+  // unsealed and playable pool is ready (full 6 preferred; thin only if <6).
+  if (!calendarTodaySeal?.repaired && todayDisplayBestSix.length) {
+    addTrackedProps(todayDisplayBestSix, {
+      skipTopPickReferences: true,
+      preFilteredCohort: true,
+      allowLockedBestSixBackfill: false,
+    });
+    // sealTodayFallbackOfficialSlate hardcodes generationWindowClosed/forceThinSeal;
+    // full Best 6 must use sealOfficialSlate for FULL_BEST_SIX eligibility.
+    if (todayDisplayBestSix.length >= 6) {
+      calendarTodaySeal = sealOfficialSlate(todayDisplayBestSix, {
+        slateDate: calendarToday,
+        todayLocalDate: calendarToday,
+        serverBuild: SERVER_BUILD,
+        selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+        reason: "FULL_BEST_SIX_CALENDAR_TODAY",
       });
-      const todayFallbackSeal = sealTodayFallbackOfficialSlate(
-        todayDisplayBestSix,
-        {
-          todayLocalDate: resultsSlateDate,
-          serverBuild: SERVER_BUILD,
-          selectorVersion: CONTROLLED_BEST_SIX_VERSION,
-          generationWindowClosed: true,
-        }
-      );
-      if (
-        (todayFallbackSeal?.sealed || todayFallbackSeal?.alreadySealed) &&
-        Array.isArray(todayFallbackSeal.props) &&
-        todayFallbackSeal.props.length
-      ) {
-        applySlateLockFreeze(resultsSlateDate, todayFallbackSeal.props);
-        persistSealedSlateBundle(resultsSlateDate, todayFallbackSeal.props, {
-          serverBuild: SERVER_BUILD,
-          sealReason:
-            todayFallbackSeal.sealReason || "FINAL_THIN_SLATE_TODAY_FALLBACK",
-          lockReason: "today_fallback_seal",
-        });
-      }
-      if (todayFallbackSeal?.sealed || todayFallbackSeal?.alreadySealed) {
-        todayOfficialSeal = inheritTodayResultsFromSealedSlate(resultsSlateDate, {
-          serverBuild: SERVER_BUILD,
-        });
-        todayOfficialSeal = {
-          ...todayOfficialSeal,
-          todayFallbackSeal,
-        };
-      } else {
-        todayOfficialSeal = {
-          ...todayOfficialSeal,
-          todayFallbackSeal,
-        };
-      }
+    } else {
+      calendarTodaySeal = sealTodayFallbackOfficialSlate(todayDisplayBestSix, {
+        todayLocalDate: calendarToday,
+        serverBuild: SERVER_BUILD,
+        selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+        generationWindowClosed: true,
+        forceThinSeal: true,
+        reason: "FINAL_THIN_SLATE_TODAY_FALLBACK",
+      });
+    }
+    if (
+      (calendarTodaySeal?.sealed || calendarTodaySeal?.alreadySealed) &&
+      Array.isArray(calendarTodaySeal.props) &&
+      calendarTodaySeal.props.length
+    ) {
+      applySlateLockFreeze(calendarToday, calendarTodaySeal.props);
+      persistSealedSlateBundle(calendarToday, calendarTodaySeal.props, {
+        serverBuild: SERVER_BUILD,
+        sealReason:
+          calendarTodaySeal.sealReason ||
+          (todayDisplayBestSix.length >= 6
+            ? "FULL_BEST_SIX_CALENDAR_TODAY"
+            : "FINAL_THIN_SLATE_TODAY_FALLBACK"),
+        lockReason: "calendar_today_seal",
+      });
     }
   }
 
   todayOfficialSeal = {
     ...todayOfficialSeal,
     todayPregameRepair,
+    calendarTodaySeal,
+    calendarToday,
+    resultsSlateDate,
   };
 
-  saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
+  saveBestSixSnapshotsaveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
     slateDate: resultsSlateDate,
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     controlledBestSixAudit: topSelectionAudit,
