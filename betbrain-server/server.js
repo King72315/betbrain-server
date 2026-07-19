@@ -1,4 +1,4 @@
-﻿import cors from "cors";
+import cors from "cors";
 import express from "express";
 
 import { CONFIG, checkConfig } from "./config.js";
@@ -311,7 +311,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-lab-v2-three-slate-v1";
+const SERVER_BUILD = "courteedge-engine-expansion-v1.1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -364,7 +364,7 @@ function requireAdminSecret(req, res, next) {
   if (provided !== secret) {
     return res.status(401).json({
       ok: false,
-      message: "Unauthorized â€” provide x-admin-secret header",
+      message: "Unauthorized — provide x-admin-secret header",
     });
   }
 
@@ -623,7 +623,7 @@ function applyReliabilityAdjustedConfidence({
   ).toUpperCase();
 
   /*
-   * evidenceReliability blend â€” marketQuality is the single book/market composite
+   * evidenceReliability blend — marketQuality is the single book/market composite
    * (oddsService.buildMarketProfile already tiers on bookCount, consensusBookCount,
    * lineSpread, hasBothSides, over/under book counts). Do NOT add separate weights
    * for bookCount or consensusBookCount here; that double-counts the same axis.
@@ -868,30 +868,30 @@ function strengthFromConfidence(confidence) {
 /*
  * PREMIUM tier gate independence (8 checks, not 8 independent axes).
  *
- * Three underlying axes (user model â€” agree with nuance):
- *   1) Edge/signal â€” supportScore vs resistanceScore â†’ netEdge; signalStrength
+ * Three underlying axes (user model — agree with nuance):
+ *   1) Edge/signal — supportScore vs resistanceScore → netEdge; signalStrength
  *      is derived from netEdge + dataQuality + totalEvidence (riskComparisonEngine).
- *   2) Data/market trust â€” marketQuality (composite: bookCount, consensusBookCount,
+ *   2) Data/market trust — marketQuality (composite: bookCount, consensusBookCount,
  *      lineSpread, hasBothSides baked in via buildMarketProfile), dataCoverage,
- *      rawQuality, hasBothSides (5% emphasis) â†’ evidenceReliability; same market
+ *      rawQuality, hasBothSides (5% emphasis) → evidenceReliability; same market
  *      inputs also feed dangerPressure (market weakness) and the marketQuality gate.
- *   3) Risk/danger â€” chosenRisk â†’ riskLabel and dangerPressure; resistance >
+ *   3) Risk/danger — chosenRisk → riskLabel and dangerPressure; resistance >
  *      support, volatility, warnings, extraDangerPressure also feed dangerPressure.
  *
  * Independent gates (test a primary dimension, not a composite formula output):
- *   - signalAndEdge (STRONG + netEdgeâ‰¥10; STRONG already implies netEdgeâ‰¥12)
+ *   - signalAndEdge (STRONG + netEdge≥10; STRONG already implies netEdge≥12)
  *   - noPlay (playability veto from riskComparison noPlayReasons)
  *
  * Derivative gates (same underlying inputs, different math/threshold):
- *   - finalConfidence â€” raw Ã— (0.55+0.45Ã—evidenceReliability) âˆ’ dangerPressureÃ—24
- *   - evidenceReliability â€” marketQuality (45%, composite book/market signal),
+ *   - finalConfidence — raw × (0.55+0.45×evidenceReliability) − dangerPressure×24
+ *   - evidenceReliability — marketQuality (45%, composite book/market signal),
  *     dataCoverage (25%), rawQuality (15%), hasBothSides (5%); bookCount and
  *     consensusBookCount are NOT separate weights (embedded in marketQuality)
- *   - dangerPressure â€” chosenRisk, marketQuality weakness, resistance>support,
+ *   - dangerPressure — chosenRisk, marketQuality weakness, resistance>support,
  *     volatility, roleCertainty, market/risk warnings, extraDangerPressure
- *   - riskLabel â€” bucketed chosenRisk (shares chosenRisk with dangerPressure)
- *   - marketQualityâ‰¥55 â€” direct threshold on input also in evidenceReliability (30%)
- *   - noSevereWarnings â€” marketWarnings + bookCount (overlaps bookCount/hasBothSides
+ *   - riskLabel — bucketed chosenRisk (shares chosenRisk with dangerPressure)
+ *   - marketQuality≥55 — direct threshold on input also in evidenceReliability (30%)
+ *   - noSevereWarnings — marketWarnings + bookCount (overlaps bookCount/hasBothSides
  *     in evidenceReliability)
  *
  * Cross-cluster coupling: finalConfidence re-checks trust+danger axes already gated
@@ -1754,7 +1754,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
         builtPicks.push({
           ...v2Pick,
-          label: `${playerName} — ${safeTeam} ${v2Pick.pick} ${prop.line} Points`,
+          label: `${playerName} � ${safeTeam} ${v2Pick.pick} ${prop.line} Points`,
         });
         continue;
       }
@@ -2245,7 +2245,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       builtPicks.push({
         ...bestPick,
-        label: `${playerName} â€” ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
+        label: `${playerName} — ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
       });
 
       if (riskComparison.pickSide === "OVER") {
@@ -2430,7 +2430,7 @@ async function refreshAllPicks() {
     previousBoard.games.length > 0
   ) {
     console.log(
-      "REFRESH SKIPPED TRACKED MUTATIONS: empty board — preserving existing board cache"
+      "REFRESH SKIPPED TRACKED MUTATIONS: empty board � preserving existing board cache"
     );
     return {
       ...previousBoard,
@@ -2438,7 +2438,7 @@ async function refreshAllPicks() {
       incomplete: true,
       preservedBoard: true,
       message:
-        "Refresh returned empty board — preserved existing board and skipped tracked mutations",
+        "Refresh returned empty board � preserved existing board and skipped tracked mutations",
       serverBuild: SERVER_BUILD,
       lastUpdated: previousBoard.lastUpdated || new Date().toISOString(),
     };
@@ -2495,7 +2495,7 @@ async function refreshAllPicks() {
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
-  // Stage 1 — Upsert Tomorrow Best 6 as DRAFT; seal only when full 6 or FINAL_THIN_SLATE.
+  // Stage 1 � Upsert Tomorrow Best 6 as DRAFT; seal only when full 6 or FINAL_THIN_SLATE.
   const tomorrowDisplayBestSix = [
     ...(controlledSelection.bestSixDisplayWNBA || []),
     ...(controlledSelection.bestSixDisplayNBA || []),
@@ -2524,7 +2524,7 @@ async function refreshAllPicks() {
     }
   }
 
-  // Date rollover — Today Results inherits sealed Tomorrow slate when present.
+  // Date rollover � Today Results inherits sealed Tomorrow slate when present.
   // If inherit fails (thin Today never sealed as yesterday's Tomorrow), seal the
   // closed Today board as FINAL_THIN so Results/Lab cannot vanish on refresh.
   const resultsSlateDate = cohortBundle.audit.slateDate || getTodayLocalDate();
@@ -2548,7 +2548,7 @@ async function refreshAllPicks() {
     }));
 
     if (todayDisplayBestSix.length) {
-      // Admit into tracked store BEFORE lock — post-seal inserts are blocked.
+      // Admit into tracked store BEFORE lock � post-seal inserts are blocked.
       addTrackedProps(todayDisplayBestSix, {
         skipTopPickReferences: true,
         preFilteredCohort: true,
@@ -2772,7 +2772,7 @@ app.get("/picks", async (req, res) => {
     if (!board) {
       return res.json({
         ok: true,
-        message: "No saved board yet — waiting for scheduled or manual refresh",
+        message: "No saved board yet � waiting for scheduled or manual refresh",
         serverBuild: SERVER_BUILD,
         readOnly: true,
         games: [],
@@ -2821,7 +2821,7 @@ app.get("/top-props", async (req, res) => {
         ok: true,
         readOnly: true,
         serverBuild: SERVER_BUILD,
-        message: "No saved board yet — waiting for scheduled or manual refresh",
+        message: "No saved board yet � waiting for scheduled or manual refresh",
         lastUpdated: null,
         topProps: [],
         topNBAProps: [],
@@ -3339,7 +3339,7 @@ app.post("/resolve-tracked-props", async (req, res) => {
       requireLikelyFinished: Boolean(req.body?.requireLikelyFinished),
     });
 
-    // Results UI must only receive the active Results cohort — never Lab/History.
+    // Results UI must only receive the active Results cohort � never Lab/History.
     const classification = classifyTrackedPropsByLifecycle(props, {
       reports: rawReports,
       archives,
@@ -4026,8 +4026,8 @@ app.get("/diagnostics", (req, res) => {
       fallbackPolicy: PROVIDER_FALLBACK_POLICY,
       evidenceVersion: COURTEDGE_PLAYER_EVIDENCE_VERSION,
       notes: [
-        "SportsData WNBA generation disabled — entitlement 401",
-        "BDL team_season_averages disabled — endpoint 404",
+        "SportsData WNBA generation disabled � entitlement 401",
+        "BDL team_season_averages disabled � endpoint 404",
         "WNBA defense uses BDL final-games proxy when available; else UNAVAILABLE (not fake 50)",
       ],
     },
@@ -4258,7 +4258,7 @@ app.post("/admin/restore", requireAdminSecret, (req, res) => {
       return res.status(400).json({
         ok: false,
         message:
-          "Full restore (merge: false) also requires forceFullReplace: true — refusing wipe of live Official props",
+          "Full restore (merge: false) also requires forceFullReplace: true � refusing wipe of live Official props",
       });
     }
 
@@ -4319,7 +4319,7 @@ app.get("/admin/lab-bundle/:slateDate", requireAdminSecret, (req, res) => {
   }
 });
 
-/** Phase 6 — Player Profile Lab internal report */
+/** Phase 6 � Player Profile Lab internal report */
 app.get("/admin/player-profile-lab", requireAdminSecret, (req, res) => {
   try {
     const report = buildPlayerProfileLabReport({
@@ -4338,7 +4338,7 @@ app.get("/admin/player-profile-lab", requireAdminSecret, (req, res) => {
   }
 });
 
-/** Phase 7 — Projection Bias Monitoring internal report */
+/** Phase 7 � Projection Bias Monitoring internal report */
 app.get("/admin/projection-bias", requireAdminSecret, (req, res) => {
   try {
     const report = buildProjectionBiasReport({
@@ -5292,7 +5292,7 @@ if (process.env.RUN_AUDIT === "1") {
         `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`
       );
     } else {
-      console.log("BOARD CACHE empty — waiting for scheduler or manual refresh");
+      console.log("BOARD CACHE empty � waiting for scheduler or manual refresh");
     }
 
     if (rehydrateResult.results?.length) {
