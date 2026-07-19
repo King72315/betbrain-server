@@ -320,7 +320,8 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-best6-playable-pool-repair-v1";
+// Locked for this mission ? do not retag to older Best6 fingerprints.
+const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
