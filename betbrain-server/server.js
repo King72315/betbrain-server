@@ -217,6 +217,16 @@ import {
   buildHistoryThreeSlateGroups,
   HISTORY_THREE_SLATE_GROUPS_VERSION,
 } from "./services/historyThreeSlateGroupsV1.js";
+import {
+  buildHistoryThreeSlateGroupsV2,
+  HISTORY_THREE_SLATE_GROUPS_V2,
+} from "./services/historyThreeSlateGroupsV2.js";
+import {
+  buildCourtEdgeLabV2,
+  attachLabV2ToReport,
+  LAB_V2_BUILD,
+  LAB_V2_VERSION,
+} from "./services/courtEdgeLabV2.js";
 import { SIGNAL_PERFORMANCE_VERSION } from "./services/signalPerformanceV1.js";
 
 import {
@@ -301,7 +311,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-engine-expansion-v1.1";
+const SERVER_BUILD = "courteedge-lab-v2-three-slate-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -3464,9 +3474,29 @@ app.get("/daily-slate-reports", (req, res) => {
     today,
   });
 
-  const historyThreeSlateGroups = buildHistoryThreeSlateGroups(archives, {
+  const historyThreeSlateGroups = buildHistoryThreeSlateGroupsV2({
+    archives,
+    reports: rawReports,
+    trackedProps,
+    persist: true,
+  });
+  // Keep V1 shape available for older History clients via v1Groups
+  const historyThreeSlateGroupsV1 = buildHistoryThreeSlateGroups(archives, {
     historySlateDates: rotation.historySlateDates,
   });
+
+  let labV2 = null;
+  try {
+    labV2 = buildCourtEdgeLabV2({
+      slateDate: rotation.currentLabSlateDate || viewedSlateDate,
+      trackedProps,
+      archives,
+      reports: rawReports,
+      persistThreeSlate: true,
+    });
+  } catch (err) {
+    console.error("LAB_V2_BUILD_FAILED", err?.message || err);
+  }
 
   res.json({
     ok: true,
@@ -3474,8 +3504,13 @@ app.get("/daily-slate-reports", (req, res) => {
     count: reports.length,
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
-    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_VERSION,
+    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_V2,
+    historyThreeSlateGroupsV1Version: HISTORY_THREE_SLATE_GROUPS_VERSION,
     historyThreeSlateGroups,
+    historyThreeSlateGroupsV1,
+    labV2,
+    labV2Version: LAB_V2_VERSION,
+    labV2Build: LAB_V2_BUILD,
     currentLabSlateDate: rotation.currentLabSlateDate,
     activeResultsSlateDate: rotation.activeResultsSlateDate,
     viewedSlateDate: rotation.viewedSlateDate,
@@ -3513,9 +3548,22 @@ app.get("/daily-slate-reports/:slateDate", (req, res) => {
     });
   }
 
+  const archives = getAllHistoryArchives();
+  const withLab =
+    report.labV2
+      ? report
+      : attachLabV2ToReport(report, {
+          trackedProps,
+          archives,
+          reports: [report],
+          persistThreeSlate: true,
+        });
+
   res.json({
     ok: true,
-    report: normalizeDailySlateReport(report),
+    report: normalizeDailySlateReport(withLab),
+    labV2: withLab.labV2 || null,
+    serverBuild: SERVER_BUILD,
   });
 });
 
@@ -3654,7 +3702,13 @@ app.get("/slates/locked", (req, res) => {
 
 app.get("/history-archives", (req, res) => {
   const archives = getAllHistoryArchives();
-  const historyThreeSlateGroups = buildHistoryThreeSlateGroups(archives);
+  const trackedProps = getTrackedProps();
+  const historyThreeSlateGroups = buildHistoryThreeSlateGroupsV2({
+    archives,
+    trackedProps,
+    reports: getRawDailySlateReports(),
+    persist: true,
+  });
 
   res.json({
     ok: true,
@@ -3662,9 +3716,77 @@ app.get("/history-archives", (req, res) => {
     count: archives.length,
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
-    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_VERSION,
+    historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_V2,
     historyThreeSlateGroups,
   });
+});
+
+app.get("/courtedge/lab", (req, res) => {
+  try {
+    const trackedProps = getTrackedProps();
+    const archives = getAllHistoryArchives();
+    const reports = getRawDailySlateReports();
+    const slateDate = req.query?.slateDate ? String(req.query.slateDate) : null;
+    const labV2 = buildCourtEdgeLabV2({
+      slateDate,
+      trackedProps,
+      archives,
+      reports,
+      persistThreeSlate: true,
+      rawPage: Number(req.query?.page || 1),
+      rawPageSize: Number(req.query?.pageSize || 100),
+      includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
+    });
+    res.json({
+      ok: true,
+      labV2,
+      serverBuild: SERVER_BUILD,
+      labV2Version: LAB_V2_VERSION,
+      labV2Build: LAB_V2_BUILD,
+    });
+  } catch (error) {
+    console.log("COURTEDGE LAB V2 ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab V2 build failed",
+      error: error.message,
+      serverBuild: SERVER_BUILD,
+    });
+  }
+});
+
+app.get("/courtedge/lab/:slateDate", (req, res) => {
+  try {
+    const trackedProps = getTrackedProps();
+    const archives = getAllHistoryArchives();
+    const reports = getRawDailySlateReports();
+    const labV2 = buildCourtEdgeLabV2({
+      slateDate: String(req.params.slateDate),
+      trackedProps,
+      archives,
+      reports,
+      persistThreeSlate: true,
+      rawPage: Number(req.query?.page || 1),
+      rawPageSize: Number(req.query?.pageSize || 100),
+      includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
+    });
+    res.json({
+      ok: true,
+      slateDate: String(req.params.slateDate),
+      labV2,
+      serverBuild: SERVER_BUILD,
+      labV2Version: LAB_V2_VERSION,
+      labV2Build: LAB_V2_BUILD,
+    });
+  } catch (error) {
+    console.log("COURTEDGE LAB V2 SLATE ERROR:", error.message);
+    res.status(500).json({
+      ok: false,
+      message: "Lab V2 build failed",
+      error: error.message,
+      serverBuild: SERVER_BUILD,
+    });
+  }
 });
 
 function sendHistoryArchiveByDate(req, res) {

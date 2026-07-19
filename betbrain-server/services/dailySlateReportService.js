@@ -26,6 +26,7 @@ import {
 } from "./topPicksSnapshotService.js";
 import { attachOfficialLearningToReport } from "./officialLearningRecordBuilder.js";
 import { enrichGradedPropsForLab } from "./labLearningEnrichmentService.js";
+import { attachLabV2ToReport } from "./courtEdgeLabV2.js";
 import {
   mergeMembershipWithLiveGrades,
   resolveOfficialSlateMembership,
@@ -1319,7 +1320,14 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   };
 
   // Lab enrichment: mine locked props into durable learning records (no rebuild).
-  return attachOfficialLearningToReport(baseReport, slateProps);
+  const withLearning = attachOfficialLearningToReport(baseReport, slateProps);
+  // Lab V2: one authoritative analysis payload (does not mutate sealed pregame).
+  return attachLabV2ToReport(withLearning, {
+    trackedProps: getTrackedProps(),
+    archives: getAllHistoryArchives(),
+    reports: [withLearning],
+    persistThreeSlate: true,
+  });
 }
 
 function sortReportsByDateDesc(reports = []) {

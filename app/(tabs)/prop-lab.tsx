@@ -1,3 +1,8 @@
+/**
+ * CourtEdge Prop Lab V2 — consumer learning/calibration screen.
+ * Consumes authoritative courtEdgeLabV2 payload (same as copy report).
+ * Analysis-only UI — no pick classification labels, no weight writes.
+ */
 import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
@@ -12,61 +17,30 @@ import {
 
 import {
   buildDailySlateReports,
-  fetchDailySlateReport,
+  fetchCourtEdgeLabV2,
   fetchDailySlateReports,
-  fetchHistoryArchives,
-  fetchTrackedAnalytics,
   resolveTrackedProps,
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
-import { buildPropLabReport } from "../../utils/reportBuilders";
-import {
-  computeSlateRotation,
-  filterCompletedDailyReports,
-  filterValidDailyReports,
-} from "../../utils/slateRotation";
-import { formatPropLabelLine } from "../../utils/propLabels";
-import {
-  computeContradictionPerformance,
-  computeTrackingTypeRecord,
-  getTrackedPropStatus,
-  isOfficialTrackingProp,
-  isReaderOfficialDemotedProp,
-  isReaderUncertainTestProp,
-  isTestTrackingProp,
-} from "../../utils/resultsQueue";
-import {
-  buildSlateResultsSnapshot,
-  type SlateSnapshotEntry,
-} from "../../utils/slateResultsSnapshot";
-import {
-  computeLabSlateTrackingSummary,
-  formatLabTrackingSummaryLine,
-} from "../../utils/labTrackingInference";
-import {
-  formatMeasuredValue,
-  formatModuleList,
-  LAB_AGGREGATE_DIMENSION_LABELS,
-} from "../../utils/labDeepLearning";
-import { formatSlateMessageDate } from "../../utils/slateMessages";
-import {
-  formatImpactLabel,
-  formatSignalRecord,
-  getImpactStatusColor,
-  getSignalPerformanceFromReport,
-  groupRowsByCategory,
-  type SignalPerformanceRow,
-} from "../../utils/signalPerformance";
+import { buildPropLabV2Report } from "../../utils/reportBuilders";
 
-function SnapshotPropLine({ entry }: { entry: SlateSnapshotEntry }) {
-  return (
-    <Text style={styles.snapshotLine}>
-      {entry.formattedLine}
-      {entry.isTopPick ? " • TOP" : ""}
-      {entry.bestSixRank ? ` • B6 #${entry.bestSixRank}` : ""}
-    </Text>
-  );
-}
+type LabFilters = {
+  league: "ALL" | "NBA" | "WNBA";
+  side: "ALL" | "OVER" | "UNDER";
+  risk: "ALL" | "LOW" | "MEDIUM" | "HIGH";
+  top: "ALL" | "TOP" | "NON_TOP";
+  result: "ALL" | "win" | "loss" | "push";
+  engine: string;
+};
+
+const DEFAULT_FILTERS: LabFilters = {
+  league: "ALL",
+  side: "ALL",
+  risk: "ALL",
+  top: "ALL",
+  result: "ALL",
+  engine: "ALL",
+};
 
 function formatPct(value: number | null | undefined) {
   if (value === null || value === undefined) return "—";
@@ -74,13 +48,15 @@ function formatPct(value: number | null | undefined) {
 }
 
 function formatNum(value: number | null | undefined, digits = 1) {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
   return Number(value).toFixed(digits);
 }
 
-function formatRecord(wins = 0, losses = 0, pushes = 0, winRate?: number | null) {
-  const rate = winRate !== null && winRate !== undefined ? ` (${winRate}%)` : "";
-  return `${wins}-${losses}-${pushes}${rate}`;
+function formatRecord(stats: any) {
+  if (!stats) return "—";
+  const rate =
+    stats.winRate !== null && stats.winRate !== undefined ? ` (${stats.winRate}%)` : "";
+  return `${stats.wins ?? 0}-${stats.losses ?? 0}-${stats.pushes ?? 0}${rate}`;
 }
 
 function formatSlateLabel(slateDate: string) {
@@ -95,26 +71,25 @@ function formatSlateLabel(slateDate: string) {
   });
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const isFinal = status === "final";
-  return (
-    <View style={[styles.badge, isFinal ? styles.badgeFinal : styles.badgeProgress]}>
-      <Text style={styles.badgeText}>{isFinal ? "FINAL" : "IN PROGRESS"}</Text>
-    </View>
-  );
-}
-
 function SectionCard({
   title,
   children,
+  defaultOpen = true,
 }: {
   title: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+      <TouchableOpacity onPress={() => setOpen((v) => !v)} activeOpacity={0.8}>
+        <Text style={styles.sectionTitle}>
+          {open ? "▾ " : "▸ "}
+          {title}
+        </Text>
+      </TouchableOpacity>
+      {open ? <View style={styles.sectionBody}>{children}</View> : null}
     </View>
   );
 }
@@ -128,2543 +103,760 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SignalImpactBadge({ status }: { status: string }) {
-  const normalized = String(status || "neutral").toLowerCase() as "helped" | "hurt" | "neutral";
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View
-      style={[
-        styles.impactBadge,
-        normalized === "helped"
-          ? styles.impactHelped
-          : normalized === "hurt"
-            ? styles.impactHurt
-            : styles.impactNeutral,
-      ]}
+    <TouchableOpacity
+      style={[styles.chip, active ? styles.chipActive : null]}
+      onPress={onPress}
     >
-      <Text style={styles.impactBadgeText}>{formatImpactLabel(normalized)}</Text>
-    </View>
+      <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
-function SignalPerformanceTableSection({ rows }: { rows: SignalPerformanceRow[] }) {
-  if (!rows.length) {
-    return <Text style={styles.muted}>No signal performance rows yet.</Text>;
-  }
-
-  const byCategory = groupRowsByCategory(rows);
-
+function DeltaLine({ label, delta }: { label: string; delta: any }) {
+  if (!delta) return null;
+  const diff =
+    delta.difference === null || delta.difference === undefined
+      ? "—"
+      : `${delta.difference > 0 ? "+" : ""}${delta.difference}`;
   return (
-    <>
-      {Object.entries(byCategory).map(([category, categoryRows]) => (
-        <View key={category} style={styles.signalPerfCategory}>
-          <Text style={styles.signalPerfCategoryTitle}>{category}</Text>
-          {categoryRows.map((row, index) => (
-            <View key={`${category}-${row.value}-${index}`} style={styles.signalPerfRow}>
-              <View style={styles.signalPerfRowHeader}>
-                <Text style={styles.signalPerfValue}>{row.value}</Text>
-                <SignalImpactBadge status={row.impactStatus} />
-              </View>
-              <Text style={styles.signalPerfMeta}>
-                n={row.n} • {formatSignalRecord(row)}
-              </Text>
-              {row.smallSampleNote ? (
-                <Text style={styles.signalPerfSmallSample}>{row.smallSampleNote}</Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-      ))}
-    </>
+    <MetricRow
+      label={label}
+      value={`Prev ${formatNum(delta.previous)} → Cur ${formatNum(delta.current)} (${diff})`}
+    />
   );
 }
 
-function SignalPerformanceSummary({
-  summary,
-}: {
-  summary?: {
-    helped?: SignalPerformanceRow[];
-    hurt?: SignalPerformanceRow[];
-    neutral?: SignalPerformanceRow[];
-    smallSampleCount?: number;
-  };
-}) {
-  if (!summary) return null;
-
-  const renderList = (title: string, items: SignalPerformanceRow[] = [], color: string) => {
-    if (!items.length) return null;
-    return (
-      <View style={styles.signalSummaryBlock}>
-        <Text style={[styles.signalSummaryTitle, { color }]}>{title}</Text>
-        {items.slice(0, 5).map((row, index) => (
-          <Text key={`${title}-${index}`} style={styles.signalSummaryLine}>
-            {row.signalCategory} → {row.value}: {formatSignalRecord(row)}
-          </Text>
-        ))}
-      </View>
-    );
-  };
-
-  return (
-    <View style={styles.signalSummaryWrap}>
-      {renderList("Top helpers", summary.helped, getImpactStatusColor("helped"))}
-      {renderList("Top hurters", summary.hurt, getImpactStatusColor("hurt"))}
-      {renderList("Neutral / noisy", summary.neutral, getImpactStatusColor("neutral"))}
-      {summary.smallSampleCount ? (
-        <Text style={styles.muted}>
-          {summary.smallSampleCount} bucket(s) marked small sample (still visible).
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function BucketPerfTable({
-  title,
-  buckets,
-}: {
-  title: string;
-  buckets: Record<string, any> | undefined;
-}) {
-  if (!buckets || Object.keys(buckets).length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.bucketBlock}>
-      <Text style={styles.bucketTitle}>{title}</Text>
-      {Object.entries(buckets).map(([key, stats]) => (
-        <Text key={key} style={styles.bucketLine}>
-          {key}: {stats.total || 0} props •{" "}
-          {formatRecord(stats.wins, stats.losses, stats.pushes, stats.accuracy)}
-          {stats.pending ? ` • pending ${stats.pending}` : ""}
-        </Text>
-      ))}
-    </View>
-  );
-}
-
-function TierBreakdownSection({
-  slateProps,
-  sectionD,
-}: {
-  slateProps: any[];
-  sectionD: any;
-}) {
-  const tierGroups = sectionD?.groups?.tier || {};
-  const hasReportTiers = Object.keys(tierGroups).length > 0;
-
-  const tierCounts = slateProps.reduce<Record<string, number>>((acc, prop) => {
-    const tier = String(prop.tier || "UNKNOWN").toUpperCase();
-    acc[tier] = (acc[tier] || 0) + 1;
-    return acc;
-  }, {});
-
-  return (
-    <View style={styles.breakdownSection}>
-      <Text style={styles.breakdownTitle}>Tier mix (all tracked)</Text>
-      {Object.entries(tierCounts).map(([tier, count]) => (
-        <Text key={tier} style={styles.breakdownLine}>
-          {tier}: {count}
-          {hasReportTiers && tierGroups[tier]
-            ? ` • graded ${formatRecord(
-                tierGroups[tier].wins,
-                tierGroups[tier].losses,
-                tierGroups[tier].pushes,
-                tierGroups[tier].winRate
-              )}`
-            : ""}
-        </Text>
-      ))}
-    </View>
-  );
-}
-
-function SlateAnalyticsBreakdown({
-  slateProps,
-  analytics,
-}: {
-  slateProps: any[];
-  analytics: any;
-}) {
-  const filterBucket = (bucketName: string) => {
-    const bucket = analytics?.[bucketName];
-    if (!bucket) return undefined;
-
-    const slatePlayers = new Set(slateProps.map((prop) => prop.player));
-    const filtered: Record<string, any> = {};
-
-    for (const [key, stats] of Object.entries(bucket)) {
-      const totalOnSlate = slateProps.filter((prop) => {
-        if (bucketName === "byTier") {
-          return String(prop.tier || "UNKNOWN").toUpperCase() === key;
-        }
-        if (bucketName === "byRiskLabel") {
-          return (prop.riskLabel || "UNKNOWN") === key;
-        }
-        if (bucketName === "byCurrentEngineSide") {
-          return (prop.currentEngineSide || "UNKNOWN") === key;
-        }
-        if (bucketName === "byBookCountBucket") {
-          return (prop.bookCountBucket || "UNKNOWN") === key;
-        }
-        if (bucketName === "byConfidenceBucket") {
-          return (prop.confidenceBucket || "UNKNOWN") === key;
-        }
-        if (bucketName === "byDataMode") {
-          return (prop.dataMode || "UNKNOWN") === key;
-        }
-        return slatePlayers.has(prop.player);
-      }).length;
-
-      if (totalOnSlate > 0) {
-        filtered[key] = { ...stats, total: totalOnSlate };
-      }
-    }
-
-    return filtered;
-  };
-
-  return (
-    <View style={styles.breakdownSection}>
-      <BucketPerfTable title="Risk bucket" buckets={filterBucket("byRiskLabel")} />
-      <BucketPerfTable title="Over / Under" buckets={filterBucket("byCurrentEngineSide")} />
-      <BucketPerfTable title="Book count" buckets={filterBucket("byBookCountBucket")} />
-      <BucketPerfTable
-        title="Confidence bucket"
-        buckets={filterBucket("byConfidenceBucket")}
-      />
-      <BucketPerfTable title="Data mode" buckets={filterBucket("byDataMode")} />
-      <BucketPerfTable title="Tier performance" buckets={filterBucket("byTier")} />
-    </View>
-  );
-}
-function GroupPerfTable({
-  groups,
-}: {
-  groups: Record<string, any> | undefined;
-}) {
-  if (!groups || Object.keys(groups).length === 0) {
-    return <Text style={styles.muted}>No signal group data yet.</Text>;
-  }
-
-  return Object.entries(groups).map(([key, perf]) => (
-    <View key={key} style={styles.groupRow}>
-      <Text style={styles.groupKey}>{key}</Text>
-      <Text style={styles.groupStat}>
-        {perf.sample || 0} props • {formatRecord(perf.wins, perf.losses, perf.pushes, perf.winRate)}
-        {perf.needsMoreData ? " • small sample" : ""}
-      </Text>
-    </View>
-  ));
-}
-
-function EngineStatusBadge({ status }: { status: string }) {
-  const normalized = String(status || "").toUpperCase();
-  let badgeStyle = styles.engineStatusNeutral;
-  if (normalized === "WORKING") badgeStyle = styles.engineStatusWorking;
-  else if (normalized === "WEAK") badgeStyle = styles.engineStatusWeak;
-  else if (normalized === "FAILING") badgeStyle = styles.engineStatusFailing;
-
-  return (
-    <View style={[styles.engineBadge, badgeStyle]}>
-      <Text style={styles.engineBadgeText}>{normalized.replace(/_/g, " ")}</Text>
-    </View>
-  );
-}
-
-function EngineScorecardCard({ engine }: { engine: any }) {
-  return (
-    <View style={styles.engineCard}>
-      <View style={styles.engineCardHeader}>
-        <Text style={styles.engineName}>{engine.engine}</Text>
-        <EngineStatusBadge status={engine.status} />
-      </View>
-      <Text style={styles.engineStatLine}>
-        {engine.record} • {formatPct(engine.winRate)} • n={engine.sampleSize}
-        {engine.gradedCount !== undefined ? ` (${engine.gradedCount} decided)` : ""}
-      </Text>
-      <Text style={styles.engineStatLine}>
-        Avg margin: {formatNum(engine.avgMargin)} •{" "}
-        {engine.earlySignal ? "early signal" : engine.hasData === false ? "no field data" : "graded sample"}
-      </Text>
-      <Text style={styles.engineLesson}>{engine.lesson}</Text>
-    </View>
-  );
-}
-
-function EngineScorecardSection({ scorecard }: { scorecard: any }) {
-  const engines = scorecard?.engines || [];
-  if (!engines.length) {
-    return <Text style={styles.muted}>No engine scorecard data yet.</Text>;
-  }
-
-  const summary = scorecard.summary;
-
-  return (
-    <View style={styles.engineGrid}>
-      {summary ? (
-        <Text style={styles.engineSummary}>
-          {summary.working} working • {summary.weak} weak • {summary.failing} failing •{" "}
-          {summary.notEnoughData} need data
-        </Text>
-      ) : null}
-      {engines.map((engine: any) => (
-        <EngineScorecardCard key={engine.engine} engine={engine} />
-      ))}
-    </View>
-  );
-}
-
-function MistakeBreakdownSection({
-  breakdown,
-  slateDate,
-}: {
-  breakdown: any;
-  slateDate?: string | null;
-}) {
-  if (!breakdown) {
-    return <Text style={styles.muted}>No mistake breakdown yet.</Text>;
-  }
-
-  if ((breakdown.totalLosses || 0) === 0) {
-    return (
-      <Text style={styles.muted}>
-        No losses on {formatSlateMessageDate(slateDate)} slate.
-      </Text>
-    );
-  }
-
-  const categories = Object.values(breakdown.categories || {}).filter(
-    (cat: any) => cat.count > 0
-  ) as any[];
-
-  return (
-    <View style={styles.mistakeSection}>
-      <Text style={styles.mistakeTotal}>{breakdown.totalLosses} loss(es) classified</Text>
-      {categories.map((cat) => (
-        <View key={cat.key} style={styles.mistakeCategory}>
-          <Text style={styles.mistakeCategoryTitle}>
-            {cat.label} — {cat.count} ({cat.pct}%)
-          </Text>
-          {(cat.losses || []).slice(0, 3).map((loss: any, index: number) => (
-            <Text key={`${cat.key}-${index}`} style={styles.mistakeItem}>
-              {loss.player} {loss.side} {loss.line} — {loss.explanation}
-            </Text>
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function CalibrationRulesSection({ rules }: { rules: any }) {
-  if (!rules?.rules?.length) {
-    return <Text style={styles.muted}>No calibration rules triggered yet.</Text>;
-  }
-
-  return (
-    <View style={styles.rulesSection}>
-      {rules.doNotAdjustYet ? (
-        <Text style={styles.warnNote}>Do not adjust yet — sample too small.</Text>
-      ) : null}
-      {rules.rules.map((item: any, index: number) => (
-        <View key={`${item.id}-${index}`} style={styles.ruleRow}>
-          <Text style={styles.rulePriority}>[{String(item.priority).toUpperCase()}]</Text>
-          <Text style={styles.ruleText}>{item.rule}</Text>
-          <Text style={styles.ruleReason}>{item.reason}</Text>
-        </View>
-      ))}
-      {rules.note ? <Text style={styles.muted}>{rules.note}</Text> : null}
-    </View>
-  );
-}
-
-function LeagueSplitSection({
-  leagueSplit,
-  leagueCalibration,
-}: {
-  leagueSplit: any;
-  leagueCalibration: any;
-}) {
-  if (!leagueSplit?.byLeague && !leagueCalibration) {
-    return <Text style={styles.muted}>No league-split calibration data yet.</Text>;
-  }
-
-  const structural =
-    leagueSplit?.structuralNotes || leagueCalibration?.structuralNotes || null;
-
-  return (
-    <View style={styles.breakdownSection}>
-      {structural ? (
-        <View style={styles.structuralBlock}>
-          <Text style={styles.breakdownTitle}>WNBA structural gaps (pick pipeline)</Text>
-          <Text style={styles.structuralLine}>
-            Availability gate: {structural.availabilityGate || "—"}
-          </Text>
-          <Text style={styles.structuralLine}>
-            Defense score: {structural.defenseScore || "—"}
-          </Text>
-          <Text style={styles.structuralLine}>
-            Primary stat source: {structural.primaryStatSource || "—"}
-          </Text>
-        </View>
-      ) : null}
-
-      {(["NBA", "WNBA"] as const).map((league) => {
-        const slate = leagueSplit?.byLeague?.[league];
-        const allTime = leagueCalibration?.[league];
-        if (!slate && !allTime) return null;
-
-        return (
-          <View key={league} style={styles.leagueBlock}>
-            <Text style={styles.breakdownTitle}>{league}</Text>
-            {slate?.record ? (
-              <MetricRow
-                label="Slate record"
-                value={formatRecord(
-                  slate.record.wins,
-                  slate.record.losses,
-                  slate.record.pushes,
-                  slate.record.winRate
-                )}
-              />
-            ) : null}
-            {slate?.premium ? (
-              <MetricRow
-                label="PREMIUM (slate)"
-                value={formatRecord(
-                  slate.premium.wins,
-                  slate.premium.losses,
-                  slate.premium.pushes,
-                  slate.premium.winRate
-                )}
-              />
-            ) : null}
-            {slate?.playable ? (
-              <MetricRow
-                label="PLAYABLE (slate)"
-                value={formatRecord(
-                  slate.playable.wins,
-                  slate.playable.losses,
-                  slate.playable.pushes,
-                  slate.playable.winRate
-                )}
-              />
-            ) : null}
-            {allTime ? (
-              <MetricRow
-                label="All-time tracked"
-                value={formatRecord(
-                  allTime.wins,
-                  allTime.losses,
-                  allTime.pushes,
-                  allTime.accuracy
-                )}
-              />
-            ) : null}
-            {allTime?.premium?.total > 0 ? (
-              <MetricRow
-                label="All-time PREMIUM"
-                value={formatRecord(
-                  allTime.premium.wins,
-                  allTime.premium.losses,
-                  allTime.premium.pushes,
-                  allTime.premium.accuracy
-                )}
-              />
-            ) : null}
-            {slate?.riskBuckets
-              ? Object.entries(slate.riskBuckets)
-                  .filter(([, stats]: [string, any]) => (stats.total || 0) > 0)
-                  .map(([bucket, stats]: [string, any]) => (
-                    <Text key={`${league}-${bucket}`} style={styles.breakdownLine}>
-                      {bucket} risk:{" "}
-                      {formatRecord(stats.wins, stats.losses, stats.pushes, stats.winRate)}
-                    </Text>
-                  ))
-              : null}
-          </View>
-        );
-      })}
-
-      {leagueSplit?.note ? (
-        <Text style={styles.muted}>{leagueSplit.note}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function SlateLessonSection({ lesson }: { lesson: any }) {
-  if (!lesson) {
-    return <Text style={styles.muted}>No slate lesson yet.</Text>;
-  }
-
-  return (
-    <View style={styles.lessonSection}>
-      <Text style={styles.lessonHeadline}>{lesson.headline}</Text>
-      {lesson.body ? <Text style={styles.lessonBody}>{lesson.body}</Text> : null}
-      {(lesson.bullets || []).map((bullet: string, index: number) => (
-        <Text key={index} style={styles.lessonBullet}>
-          • {bullet}
-        </Text>
-      ))}
-    </View>
-  );
-}
-
-export default function PropLab() {
-  const [reports, setReports] = useState<any[]>([]);
-  const [report, setReport] = useState<any>(null);
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [archives, setArchives] = useState<any[]>([]);
+export default function PropLabScreen() {
+  const [labV2, setLabV2] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
-  const [rotationMeta, setRotationMeta] = useState<{
-    currentLabSlateDate: string | null;
-    viewingHistorical: boolean;
-    historySlateDates: string[];
-    fromServer: boolean;
-  }>({
-    currentLabSlateDate: null,
-    viewingHistorical: false,
-    historySlateDates: [],
-    fromServer: false,
-  });
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<LabFilters>(DEFAULT_FILTERS);
+  const [expandedPacket, setExpandedPacket] = useState<string | null>(null);
+  const [rawPage, setRawPage] = useState(1);
+  const [selectedBlock, setSelectedBlock] = useState<"active" | "previous">("active");
 
-  const slateRotation = useMemo(() => {
-    const base = computeSlateRotation(reports, { archives });
-    if (!rotationMeta.fromServer) return base;
-    return {
-      ...base,
-      currentLabSlateDate: rotationMeta.currentLabSlateDate,
-      viewingHistorical: rotationMeta.viewingHistorical,
-      historySlateDates: rotationMeta.historySlateDates,
-    };
-  }, [reports, archives, rotationMeta]);
-  const currentLabSlateDate = rotationMeta.fromServer
-    ? rotationMeta.currentLabSlateDate
-    : slateRotation.currentLabSlateDate;
-  const viewedSlateDate = currentLabSlateDate;
-  const isViewingHistoricalReport = false;
-  const validCompletedReports = useMemo(
-    () => filterCompletedDailyReports(reports),
-    [reports]
-  );
-  const currentLabReport = useMemo(() => {
-    if (!currentLabSlateDate) return null;
-    return (
-      validCompletedReports.find(
-        (report) => String(report.slateDate) === currentLabSlateDate
-      ) || null
-    );
-  }, [currentLabSlateDate, validCompletedReports]);
-  const historySlateCount =
-    rotationMeta.historySlateDates.length || slateRotation.historySlates.length;
-  const hasCompletedLabSlate = Boolean(viewedSlateDate && report);
-
-  const loadReportForSlate = async (slateDate: string, validReports: any[], rawReports: any[] = []) => {
-    const frozenReport =
-      validReports.find(
-        (r) =>
-          r.slateDate === slateDate && (r.frozen === true || r.locked === true)
-      ) ||
-      rawReports.find(
-        (r) =>
-          r.slateDate === slateDate && (r.frozen === true || r.locked === true)
-      ) ||
-      null;
-    const detail = frozenReport
-      ? { ok: true, report: frozenReport }
-      : await fetchDailySlateReport(slateDate);
-    setReport(
-      detail.report ||
-        validReports.find((r) => r.slateDate === slateDate) ||
-        rawReports.find((r) => r.slateDate === slateDate) ||
-        null
-    );
-  };
-
-  const loadReports = async () => {
-    const list = await fetchDailySlateReports();
-    const rawReports = list.reports || [];
-    const lifecycleDates = [
-      list.currentLabSlateDate,
-      ...(list.historySlateDates || []),
-    ].filter(Boolean);
-    const validReports = filterValidDailyReports(rawReports);
-    for (const slateDate of lifecycleDates) {
-      if (validReports.some((report) => report.slateDate === slateDate)) continue;
-      const match = rawReports.find((report) => report.slateDate === slateDate);
-      if (match) validReports.push(match);
-    }
-    setReports(validReports);
-    setRotationMeta({
-      currentLabSlateDate: list.currentLabSlateDate || null,
-      viewingHistorical: Boolean(list.viewingHistorical),
-      historySlateDates: list.historySlateDates || [],
-      fromServer: true,
-    });
-
-    const labDate = list.currentLabSlateDate || null;
-
-    if (labDate) {
-      await loadReportForSlate(labDate, validReports, rawReports);
-    } else {
-      setReport(null);
-    }
-  };
-
-  const loadData = async () => {
+  const load = useCallback(async (opts?: { refreshGrades?: boolean }) => {
+    setError(null);
     try {
-      setLoading(true);
-      const [analyticsData, archiveData] = await Promise.all([
-        fetchTrackedAnalytics(),
-        fetchHistoryArchives(),
-      ]);
-      setAnalytics(analyticsData.analytics || null);
-      setArchives(archiveData.archives || []);
-      await loadReports();
-    } catch (err) {
-      console.log("LOAD PROP LAB ERROR:", err);
+      if (opts?.refreshGrades) {
+        setBuilding(true);
+        await resolveTrackedProps({ force: true });
+        await buildDailySlateReports({ force: true });
+      }
+      const list = await fetchDailySlateReports();
+      const slateDate = list.currentLabSlateDate || null;
+      const labRes = await fetchCourtEdgeLabV2({
+        slateDate: slateDate || undefined,
+        page: rawPage,
+        pageSize: 50,
+      });
+      if (!labRes.ok || !labRes.labV2) {
+        // Fallback: labV2 embedded on daily reports response
+        if (list.labV2) {
+          setLabV2(list.labV2);
+        } else {
+          setError(labRes.error || labRes.message || "Lab V2 unavailable");
+          setLabV2(null);
+        }
+      } else {
+        setLabV2(labRes.labV2);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to load Prop Lab");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const refreshData = async () => {
-    try {
-      setRefreshing(true);
-      await resolveTrackedProps({ requireLikelyFinished: true });
-      await buildDailySlateReports();
-      const [analyticsData, archiveData] = await Promise.all([
-        fetchTrackedAnalytics(),
-        fetchHistoryArchives(),
-      ]);
-      setAnalytics(analyticsData.analytics || null);
-      setArchives(archiveData.archives || []);
-      await loadReports();
-    } catch (err) {
-      console.log("REFRESH PROP LAB ERROR:", err);
-    } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handleBuildReport = async () => {
-    try {
-      setBuilding(true);
-      await resolveTrackedProps({ requireLikelyFinished: false });
-      await buildDailySlateReports();
-      await loadReports();
-    } catch (err) {
-      console.log("BUILD REPORT ERROR:", err);
-    } finally {
       setBuilding(false);
     }
-  };
+  }, [rawPage]);
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [])
+      setLoading(true);
+      load();
+    }, [load])
   );
 
-  const sectionA = report?.sections?.A;
-  const sectionB = report?.sections?.B;
-  const sectionC = report?.sections?.C;
-  const sectionD = report?.sections?.D;
-  const sectionE = report?.sections?.E;
-  const sectionF = report?.sections?.F;
-  const sectionM = report?.sections?.M || report?.topPicksReview;
-  const sectionO = report?.sections?.O || report?.bestSixReview;
-  const sectionN = report?.sections?.N || report?.qualityGatePerformance;
-  const sectionQ = report?.sections?.Q || report?.wnbaV2GateReview;
-  const sectionR = report?.sections?.R || report?.retroGateSimulation;
-  const sectionS = report?.sections?.S || report?.decisionIntelligenceReview;
-  const sectionT = report?.sections?.T || report?.riskHonestyReview;
-  const sectionU = report?.sections?.U || report?.upgradeDemotionReview;
-  const sectionV = report?.sections?.V || report?.sideRescueReview;
-  const sectionW = report?.sections?.W || report?.sideRescueRetroSimulation;
-  const sectionP = report?.sections?.P || report?.slateResultsSnapshot;
-  const signalPerformance = getSignalPerformanceFromReport(report);
-  const engineScorecard = report?.engineScorecard || report?.sections?.G;
-  const mistakeBreakdown = report?.mistakeBreakdown || report?.sections?.H;
-  const calibrationRules = report?.calibrationRules || report?.sections?.I;
-  const slateLesson = report?.slateLesson || report?.sections?.J;
-  const leagueSplit = report?.leagueSplit || report?.sections?.L;
-  const learningPackets = useMemo(() => {
-    if (Array.isArray(report?.learningPackets) && report.learningPackets.length) {
-      return report.learningPackets;
-    }
-    return (report?.officialLearningRecords || [])
-      .map((rec: any) => ({
-        officialPropId: rec.officialPropId,
-        player: rec.player,
-        ...(rec.learningPacket || {}),
-      }))
-      .filter((p: any) => p.player);
-  }, [report]);
-  const labDailySummary = report?.officialLabDailySummary || null;
-  const labAggregateBreakdown =
-    report?.labAggregateBreakdown || labDailySummary?.aggregateBreakdown || null;
-
-  const slateTrackedProps = useMemo(() => {
-    if (!currentLabSlateDate) return [];
-    const archive = archives.find(
-      (item) =>
-        String(item.slateDate) === currentLabSlateDate &&
-        String(item.phase || "").toUpperCase() !== "ARCHIVED"
-    );
-    if (archive?.props?.length) return archive.props;
-
-    const packetProps = (report?.learningPackets || report?.officialLearningRecords || [])
-      .map((entry: any) => {
-        const packet = entry.learningPacket || entry;
-        const pregame = packet.pregame || entry.pregame || {};
-        return {
-          ...pregame,
-          ...entry,
-          player: entry.player || packet.player || pregame.player,
-          officialPropId: entry.officialPropId || packet.officialPropId || pregame.officialPropId,
-          league: entry.league || packet.league || pregame.league || "WNBA",
-          trackingType: "OFFICIAL",
-          recordType: "OFFICIAL",
-          controlledBestSixDisplayTracked: true,
-          status:
-            packet.postgame?.status ||
-            entry.postgame?.status ||
-            entry.status ||
-            pregame.status,
-          slateDate: currentLabSlateDate,
-        };
-      })
-      .filter((p: any) => p.player);
-    if (packetProps.length) return packetProps;
-
-    return [];
-  }, [currentLabSlateDate, archives, report]);
-
-  const labTrackingSummary = useMemo(
-    () => computeLabSlateTrackingSummary(slateTrackedProps, sectionA),
-    [slateTrackedProps, sectionA]
-  );
-
-  const officialSlateProps = useMemo(() => {
-    return slateTrackedProps.filter(isOfficialTrackingProp);
-  }, [slateTrackedProps]);
-
-  const testSlateProps = useMemo(() => {
-    return slateTrackedProps.filter(isTestTrackingProp);
-  }, [slateTrackedProps]);
-
-  const officialRecord = useMemo(
-    () => computeTrackingTypeRecord(officialSlateProps, getTrackedPropStatus),
-    [officialSlateProps]
-  );
-
-  const testRecord = useMemo(
-    () => computeTrackingTypeRecord(testSlateProps, getTrackedPropStatus),
-    [testSlateProps]
-  );
-
-  const readerOfficialDemotedProps = useMemo(
-    () => testSlateProps.filter(isReaderOfficialDemotedProp),
-    [testSlateProps]
-  );
-
-  const readerUncertainTestProps = useMemo(
-    () => testSlateProps.filter(isReaderUncertainTestProp),
-    [testSlateProps]
-  );
-
-  const readerOfficialDemotedRecord = useMemo(
-    () => computeTrackingTypeRecord(readerOfficialDemotedProps, getTrackedPropStatus),
-    [readerOfficialDemotedProps]
-  );
-
-  const readerUncertainTestRecord = useMemo(
-    () => computeTrackingTypeRecord(readerUncertainTestProps, getTrackedPropStatus),
-    [readerUncertainTestProps]
-  );
-
-  const labSnapshot = useMemo(() => {
-    if (!viewedSlateDate) return null;
-    if (sectionP && !sectionP.snapshotMissing) return sectionP;
-    return buildSlateResultsSnapshot(slateTrackedProps, {
-      slateDate: viewedSlateDate,
+  const filteredResults = useMemo(() => {
+    const rows = labV2?.officialBestSixResults || [];
+    return rows.filter((row: any) => {
+      if (filters.league !== "ALL" && row.league !== filters.league) return false;
+      if (filters.side !== "ALL" && row.finalSide !== filters.side) return false;
+      if (filters.risk !== "ALL" && row.risk !== filters.risk) return false;
+      if (filters.top === "TOP" && !row.isTopPick) return false;
+      if (filters.top === "NON_TOP" && row.isTopPick) return false;
+      if (filters.result !== "ALL" && row.result !== filters.result) return false;
+      return true;
     });
-  }, [sectionP, slateTrackedProps, viewedSlateDate]);
+  }, [labV2, filters]);
 
-  const contradictionPerf = useMemo(
-    () => computeContradictionPerformance(testSlateProps),
-    [testSlateProps]
-  );
-
-  const allTimeRecord = useMemo(() => {
-    if (!hasCompletedLabSlate) return null;
-    const o = analytics?.overall?.currentEngine;
-    if (!o || (o.wins + o.losses + o.pushes === 0 && analytics?.overall?.total === 0)) {
-      return null;
-    }
-    return formatRecord(o.wins, o.losses, o.pushes, o.accuracy);
-  }, [analytics, hasCompletedLabSlate]);
-
-  const getReportText = () =>
-    buildPropLabReport({
-      reports,
-      rotation: slateRotation,
-      report,
-      analytics,
-      loading,
-      building,
-      refreshing,
-      viewedSlateDate,
-      isViewingHistoricalReport,
-      labTrackingSummary,
+  const filteredRawRows = useMemo(() => {
+    const rows = labV2?.rawSignalExplorer?.rows || [];
+    return rows.filter((row: any) => {
+      if (filters.league !== "ALL" && row.league !== filters.league) return false;
+      if (filters.side !== "ALL" && row.side !== filters.side) return false;
+      if (filters.risk !== "ALL" && row.risk !== filters.risk) return false;
+      if (filters.top === "TOP" && !row.isTopPick) return false;
+      if (filters.top === "NON_TOP" && row.isTopPick) return false;
+      if (filters.result !== "ALL" && row.result !== filters.result) return false;
+      if (filters.engine !== "ALL" && row.engine !== filters.engine) return false;
+      return true;
     });
+  }, [labV2, filters]);
+
+  const current = labV2?.currentSlate;
+  const activeBlock = labV2?.activeThreeSlateBlock;
+  const previousBlock = labV2?.previousThreeSlateBlock;
+  const comparison = labV2?.threeSlateComparison;
+  const engines = labV2?.engineScorecards || {};
+  const engineKeys = Object.keys(engines);
+
+  const reportText = useMemo(
+    () =>
+      buildPropLabV2Report({
+        labV2,
+        loading,
+        building,
+        refreshing,
+        error,
+      }),
+    [labV2, loading, building, refreshing, error]
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView
-        style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refreshData} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load({ refreshGrades: true });
+            }}
+          />
         }
       >
-        <View style={styles.headerCard}>
-          <Text style={styles.title}>Prop Lab</Text>
-          <Text style={styles.subtitle}>Current Completed Slate — Learning & Calibration</Text>
-          <Text style={styles.note}>
-            Lab analyzes completed slates only — tier, risk, confidence, book count, and data mode
-            breakdowns. Active grading stays in Results until the slate is fully graded.
-          </Text>
-          <MetricRow
-            label="Current Lab Slate"
-            value={currentLabSlateDate ? formatSlateLabel(currentLabSlateDate) : "—"}
-          />
-          <MetricRow
-            label="History Slates"
-            value={String(historySlateCount)}
-          />
-          <CopyReportButton getReportText={getReportText} slateDate={viewedSlateDate} />
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pageTitle}>Prop Lab</Text>
+            <Text style={styles.pageSub}>
+              CourtEdge Lab V2 · analysis only · three-slate calibration
+            </Text>
+          </View>
+          <CopyReportButton reportText={reportText} />
         </View>
 
-        {currentLabSlateDate && currentLabReport ? (
-          <View style={styles.slatePicker}>
-            <View style={[styles.slateChip, styles.slateChipActive]}>
-              <Text style={[styles.slateChipText, styles.slateChipTextActive]}>
-                {formatSlateLabel(currentLabSlateDate)}
-              </Text>
-            </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {loading ? <Text style={styles.muted}>Loading Lab V2…</Text> : null}
+        {building ? <Text style={styles.muted}>Refreshing grades & rebuilding Lab…</Text> : null}
+
+        {/* Filters */}
+        <SectionCard title="Filters" defaultOpen={false}>
+          <Text style={styles.filterLabel}>League</Text>
+          <View style={styles.chipRow}>
+            {(["ALL", "NBA", "WNBA"] as const).map((v) => (
+              <Chip
+                key={v}
+                label={v}
+                active={filters.league === v}
+                onPress={() => setFilters((f) => ({ ...f, league: v }))}
+              />
+            ))}
           </View>
-        ) : null}
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionBtn, building && styles.actionBtnDisabled]}
-            onPress={handleBuildReport}
-            disabled={building || loading}
-          >
-            <Text style={styles.actionBtnText}>
-              {building ? "Building..." : "Build / Refresh Report"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {loading ? <Text style={styles.muted}>Loading reports...</Text> : null}
-
-        {!loading && !report ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No current Lab slate</Text>
-            <Text style={styles.emptyText}>
-              Waiting for the next graded Results slate. Tracked Results props stay
-              in Results until every pick grades, then that slate promotes here
-              automatically. Older Lab data was cleared — History only shows
-              ARCHIVED slates.
-            </Text>
+          <Text style={styles.filterLabel}>Side</Text>
+          <View style={styles.chipRow}>
+            {(["ALL", "OVER", "UNDER"] as const).map((v) => (
+              <Chip
+                key={v}
+                label={v}
+                active={filters.side === v}
+                onPress={() => setFilters((f) => ({ ...f, side: v }))}
+              />
+            ))}
           </View>
-        ) : null}
-
-        {report ? (
-          <View style={styles.labBanner}>
-            {isViewingHistoricalReport ? (
-              <>
-                <Text style={styles.labBannerTitle}>
-                  Viewing Report: {formatSlateLabel(viewedSlateDate || "")}
-                </Text>
-                {currentLabSlateDate ? (
-                  <Text style={styles.activeNote}>
-                    Current Lab Slate: {formatSlateLabel(currentLabSlateDate)}
-                  </Text>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Text style={styles.labBannerTitle}>
-                  Current Lab Slate: {formatSlateLabel(viewedSlateDate || "")}
-                </Text>
-                <Text style={styles.labBannerNote}>
-                  {formatSlateMessageDate(viewedSlateDate)} slate remains in Lab until the next
-                  completed slate replaces it. Older completed slates move to History
-                  automatically.
-                </Text>
-              </>
-            )}
+          <Text style={styles.filterLabel}>Risk</Text>
+          <View style={styles.chipRow}>
+            {(["ALL", "LOW", "MEDIUM", "HIGH"] as const).map((v) => (
+              <Chip
+                key={v}
+                label={v}
+                active={filters.risk === v}
+                onPress={() => setFilters((f) => ({ ...f, risk: v }))}
+              />
+            ))}
           </View>
-        ) : null}
-
-        {sectionA ? (
-          <SectionCard title="Tracked Slate Summary">
-            <MetricRow
-              label="Total Props"
-              value={String(labTrackingSummary.totalProps)}
-            />
-            <MetricRow
-              label="Official Props"
-              value={String(labTrackingSummary.officialProps)}
-            />
-            <MetricRow
-              label="Nonselected / board candidates"
-              value={String(labTrackingSummary.testWatchlistProps)}
-            />
-            {labTrackingSummary.legacyLeanProps > 0 ? (
-              <MetricRow
-                label="Legacy lean props"
-                value={String(labTrackingSummary.legacyLeanProps)}
+          <Text style={styles.filterLabel}>Top</Text>
+          <View style={styles.chipRow}>
+            {(["ALL", "TOP", "NON_TOP"] as const).map((v) => (
+              <Chip
+                key={v}
+                label={v === "NON_TOP" ? "Non-Top" : v === "TOP" ? "Top" : "All"}
+                active={filters.top === v}
+                onPress={() => setFilters((f) => ({ ...f, top: v }))}
               />
-            ) : null}
-            {labTrackingSummary.legacyWatchlistProps > 0 ? (
-              <MetricRow
-                label="Legacy nonselected props"
-                value={String(labTrackingSummary.legacyWatchlistProps)}
+            ))}
+          </View>
+          <Text style={styles.filterLabel}>Result</Text>
+          <View style={styles.chipRow}>
+            {(["ALL", "win", "loss", "push"] as const).map((v) => (
+              <Chip
+                key={v}
+                label={v}
+                active={filters.result === v}
+                onPress={() => setFilters((f) => ({ ...f, result: v }))}
               />
-            ) : null}
-            <MetricRow
-              label="Reader official demoted"
-              value={String(readerOfficialDemotedRecord.total)}
+            ))}
+          </View>
+          <Text style={styles.filterLabel}>Engine</Text>
+          <View style={styles.chipRow}>
+            <Chip
+              label="ALL"
+              active={filters.engine === "ALL"}
+              onPress={() => setFilters((f) => ({ ...f, engine: "ALL" }))}
             />
-            <MetricRow
-              label="Reader uncertain TEST"
-              value={String(readerUncertainTestRecord.total)}
-            />
-          </SectionCard>
-        ) : null}
-
-        {sectionA ? (
-          <SectionCard title="Official Performance">
-            <View style={styles.summaryHeader}>
-              <Text style={styles.slateTitle}>{formatSlateLabel(sectionA.slateDate)}</Text>
-              <StatusBadge status={sectionA.reportStatus || report?.status || ""} />
-            </View>
-            {sectionA.pending > 0 ? (
-              <Text style={styles.pendingNote}>
-                {sectionA.pending} prop(s) still pending — report updates when all grade.
-              </Text>
-            ) : null}
-            <MetricRow label="Official tracked" value={String(officialRecord.total)} />
-            <MetricRow
-              label="Official record"
-              value={formatRecord(
-                officialRecord.wins,
-                officialRecord.losses,
-                officialRecord.pushes,
-                officialRecord.winRate
-              )}
-            />
-            <MetricRow
-              label="Graded / Pending"
-              value={`${officialRecord.graded} / ${officialRecord.pending}`}
-            />
-            <MetricRow label="Leagues" value={(sectionA.leagues || []).join(", ") || "—"} />
-            {leagueSplit?.byLeague?.NBA?.record ? (
-              <MetricRow
-                label="NBA record"
-                value={formatRecord(
-                  leagueSplit.byLeague.NBA.record.wins,
-                  leagueSplit.byLeague.NBA.record.losses,
-                  leagueSplit.byLeague.NBA.record.pushes,
-                  leagueSplit.byLeague.NBA.record.winRate
-                )}
+            {engineKeys.slice(0, 11).map((key) => (
+              <Chip
+                key={key}
+                label={engines[key]?.label || key}
+                active={filters.engine === key}
+                onPress={() => setFilters((f) => ({ ...f, engine: key }))}
               />
-            ) : null}
-            {leagueSplit?.byLeague?.WNBA?.record ? (
-              <MetricRow
-                label="WNBA record"
-                value={formatRecord(
-                  leagueSplit.byLeague.WNBA.record.wins,
-                  leagueSplit.byLeague.WNBA.record.losses,
-                  leagueSplit.byLeague.WNBA.record.pushes,
-                  leagueSplit.byLeague.WNBA.record.winRate
-                )}
-              />
-            ) : null}
-          </SectionCard>
-        ) : null}
-
-        {learningPackets.length > 0 ? (
-          <SectionCard title="Per-Prop Learning Packets">
-            <Text style={styles.muted}>
-              Four layers: frozen pregame · postgame truth · diagnosis · module attribution.
-              Evidence only — Lab does not auto-change the engine.
-            </Text>
-            {labDailySummary?.missTypeCounts ? (
-              <Text style={[styles.muted, { marginBottom: 8 }]}>
-                Miss types:{" "}
-                {Object.entries(labDailySummary.missTypeCounts)
-                  .map(([k, v]) => `${k} ${v}`)
-                  .join(" · ")}
-              </Text>
-            ) : null}
-            {learningPackets.map((pkt: any) => {
-              const pre = pkt.pregame || {};
-              const post = pkt.postgame || {};
-              const diag = pkt.diagnosis || {};
-              const measured = post.measuredFields || {};
-              const modulesHelped = diag.modulesHelped || post.modulesHelped || [];
-              const modulesHurt = diag.modulesHurt || post.modulesHurt || [];
-              const modulesNeutral = diag.modulesNeutral || post.modulesNeutral || [];
-              return (
-                <View
-                  key={pkt.officialPropId || pkt.player}
-                  style={styles.learningPacketCard}
-                >
-                  <Text style={styles.learningPacketTitle}>
-                    {pkt.player}{" "}
-                    <Text style={styles.muted}>
-                      {post.result || "—"} · {diag.missType || post.missType || "—"}
-                      {diag.missSubtype || post.missSubtype
-                        ? ` / ${diag.missSubtype || post.missSubtype}`
-                        : ""}
-                    </Text>
-                  </Text>
-                  <Text style={styles.learningPacketLine}>
-                    ID: {pkt.officialPropId || pre.officialPropId || "—"}
-                  </Text>
-                  <Text style={styles.learningSubheading}>1 · Pregame freeze</Text>
-                  <Text style={styles.learningPacketLine}>
-                    {pre.side || "—"} {pre.line ?? "—"} · rank {pre.rank ?? "—"}
-                    {pre.isTopPick ? " · TOP" : ""}
-                    {"\n"}Raw proj {pre.rawProjection ?? pre.projection ?? "—"} · profile adj{" "}
-                    {pre.profileAdjustedProjection ?? pre.projection ?? "—"} · fair{" "}
-                    {pre.fairLine ?? "—"} · gap {pre.projectionGap ?? pre.projectionEdge ?? "—"}
-                    {"\n"}Exp {pre.expectedMinutes ?? "—"}m / {pre.expectedFGA ?? "—"} FGA /{" "}
-                    {pre.expectedFTA ?? "—"} FTA · conf {pre.confidence ?? "—"} · risk{" "}
-                    {pre.risk || "—"} · safety {pre.safetyScore ?? "—"}
-                    {"\n"}Profile {pre.profileType || "—"} (conf {pre.profileConfidence ?? "—"}) ·
-                    role stab {pre.roleStability ?? "—"} · vol {pre.scoringVolatility ?? "—"}
-                    {"\n"}Gate {pre.gate?.trackEligibility || "—"}
-                    {pre.gate?.gateReason ? ` (${pre.gate.gateReason})` : ""}
-                    {"\n"}Flip {pre.flipFirst?.action || "—"} · Rescue{" "}
-                    {pre.sideRescue?.action || "—"} · Opp{" "}
-                    {pre.sameTeamOpportunity?.opportunityAssessment ||
-                      pre.sameTeamOpportunity?.status ||
-                      "—"}
-                    {"\n"}Books {pre.marketBookData?.bookCount ?? "—"} · open{" "}
-                    {pre.marketBookData?.openingLine ?? "—"} · lock{" "}
-                    {pre.marketBookData?.lockLine ?? pre.line ?? "—"}
-                    {"\n"}Build {pre.buildVersion || "—"}
-                  </Text>
-                  <Text style={styles.learningSubheading}>2 · Postgame truth</Text>
-                  <Text style={styles.learningPacketLine}>
-                    Pts {formatMeasuredValue(measured.actualPoints ?? post.actualPoints)} · min{" "}
-                    {formatMeasuredValue(measured.actualMinutes ?? post.actualMinutes)} · FGA{" "}
-                    {formatMeasuredValue(measured.actualFGA ?? post.actualFGA)} · FTA{" "}
-                    {formatMeasuredValue(measured.actualFTA ?? post.actualFTA)}
-                    {"\n"}FG% {formatMeasuredValue(measured.actualFGPct ?? post.actualFGPct)} · TS%{" "}
-                    {formatMeasuredValue(measured.actualTSPct ?? post.actualTSPct)} · score{" "}
-                    {formatMeasuredValue(measured.teamFinalScore ?? post.teamFinalScore)}-
-                    {formatMeasuredValue(measured.opponentFinalScore ?? post.opponentFinalScore)}
-                    {"\n"}Close {formatMeasuredValue(measured.closingLine ?? post.closingLine)} ·
-                    CLV {formatMeasuredValue(measured.closingLineValue ?? post.closingLineValue)}
-                    {"\n"}Proj err {post.projectionError ?? post.signedError ?? "—"} · margin{" "}
-                    {post.resultMargin ?? post.margin ?? "—"}
-                  </Text>
-                  <Text style={styles.learningSubheading}>3 · Diagnosis</Text>
-                  {(diag.calibrationLesson || post.calibrationLesson) ? (
-                    <Text style={styles.learningLesson}>
-                      {diag.calibrationLesson || post.calibrationLesson}
-                    </Text>
-                  ) : null}
-                  <Text style={styles.learningPacketLine}>
-                    Chosen side correct:{" "}
-                    {diag.chosenSideCorrect == null ? "—" : String(diag.chosenSideCorrect)}
-                    {"\n"}Opposite would win:{" "}
-                    {diag.oppositeSideWouldWin == null
-                      ? "—"
-                      : String(diag.oppositeSideWouldWin)}
-                    {"\n"}Flip-First:{" "}
-                    {diag.flipFirstEffect ??
-                      (diag.counterfactual?.flipFirstHelped == null
-                        ? "—"
-                        : String(diag.counterfactual.flipFirstHelped))}
-                    {"\n"}Side Rescue: {diag.sideRescueEffect ?? "—"} · Avoid?{" "}
-                    {diag.shouldHaveAvoided == null ? "—" : String(diag.shouldHaveAvoided)}
-                  </Text>
-                  <Text style={styles.learningSubheading}>4 · Modules</Text>
-                  <Text style={styles.learningPacketLine}>
-                    Helped: {formatModuleList(modulesHelped)}
-                    {"\n"}Hurt: {formatModuleList(modulesHurt)}
-                    {"\n"}Neutral: {formatModuleList(modulesNeutral)}
-                  </Text>
-                </View>
-              );
-            })}
-          </SectionCard>
-        ) : null}
-
-        {labAggregateBreakdown?.dimensionIndex ? (
-          <SectionCard title="Signal Learning Aggregates">
-            <Text style={styles.muted}>
-              Every official prop rolled up by signal — small samples stay visible.
-            </Text>
-            {labAggregateBreakdown.overall ? (
-              <Text style={styles.learningPacketLine}>
-                Slate: {labAggregateBreakdown.overall.record} · WR{" "}
-                {labAggregateBreakdown.overall.winRate ?? "—"}% · avg margin{" "}
-                {labAggregateBreakdown.overall.avgMargin ?? "—"} · avg proj err{" "}
-                {labAggregateBreakdown.overall.avgProjectionError ?? "—"}
-              </Text>
-            ) : null}
-            {Object.entries(labAggregateBreakdown.dimensionIndex as Record<string, any[]>)
-              .slice(0, 12)
-              .map(([dimension, rows]) => {
-                if (!rows?.length) return null;
-                const label = LAB_AGGREGATE_DIMENSION_LABELS[dimension] || dimension;
-                return (
-                  <View key={dimension} style={{ marginTop: 10 }}>
-                    <Text style={styles.learningSubheading}>{label}</Text>
-                    {rows.slice(0, 4).map((row: any) => (
-                      <Text key={`${dimension}-${row.value}`} style={styles.learningPacketLine}>
-                        {row.value}: {row.record} · {row.winRate ?? "—"}% · n={row.n}
-                        {row.smallSample ? " (small)" : ""}
-                      </Text>
-                    ))}
-                  </View>
-                );
-              })}
-          </SectionCard>
-        ) : null}
-
-        {sectionO && !sectionO.snapshotMissing ? (
-          <SectionCard title="Controlled Best 6 Performance">
-            <Text style={styles.muted}>
-              Original tracked Best 6 props — not double-counted with Top Picks references.
-            </Text>
-            <MetricRow
-              label="Overall Best 6 record"
-              value={formatRecord(
-                sectionO.record?.wins ?? 0,
-                sectionO.record?.losses ?? 0,
-                sectionO.record?.pushes ?? 0,
-                sectionO.record?.winRate
-              )}
-            />
-            {sectionO.winningProps?.length ? (
-              <>
-                <Text style={styles.snapshotHeading}>Winning Props</Text>
-                {sectionO.winningProps.map((entry: SlateSnapshotEntry) => (
-                  <SnapshotPropLine key={`o-win-${entry.trackedKey || entry.player}`} entry={entry} />
-                ))}
-              </>
-            ) : sectionO.picks?.length ? (
-              (() => {
-                const bestSixSnapshot = buildSlateResultsSnapshot(sectionO.picks, {
-                  slateDate: sectionO.slateDate,
-                });
-                if (!bestSixSnapshot.winningProps.length) return null;
-                return (
-                  <>
-                    <Text style={styles.snapshotHeading}>Winning Props</Text>
-                    {bestSixSnapshot.winningProps.map((entry) => (
-                      <SnapshotPropLine key={`o-win-${entry.trackedKey || entry.player}`} entry={entry} />
-                    ))}
-                  </>
-                );
-              })()
-            ) : null}
-            {sectionO.losingProps?.length ? (
-              <>
-                <Text style={styles.snapshotHeading}>Losing Props</Text>
-                {sectionO.losingProps.map((entry: SlateSnapshotEntry) => (
-                  <SnapshotPropLine key={`o-loss-${entry.trackedKey || entry.player}`} entry={entry} />
-                ))}
-              </>
-            ) : sectionO.picks?.length ? (
-              (() => {
-                const bestSixSnapshot = buildSlateResultsSnapshot(sectionO.picks, {
-                  slateDate: sectionO.slateDate,
-                });
-                if (!bestSixSnapshot.losingProps.length) return null;
-                return (
-                  <>
-                    <Text style={styles.snapshotHeading}>Losing Props</Text>
-                    {bestSixSnapshot.losingProps.map((entry) => (
-                      <SnapshotPropLine key={`o-loss-${entry.trackedKey || entry.player}`} entry={entry} />
-                    ))}
-                  </>
-                );
-              })()
-            ) : null}
-            {sectionO.nbaBestSixReview?.record ? (
-              <MetricRow
-                label="NBA Best 6 record"
-                value={formatRecord(
-                  sectionO.nbaBestSixReview.record.wins,
-                  sectionO.nbaBestSixReview.record.losses,
-                  sectionO.nbaBestSixReview.record.pushes,
-                  sectionO.nbaBestSixReview.record.winRate
-                )}
-              />
-            ) : null}
-            {sectionO.wnbaBestSixReview?.record ? (
-              <MetricRow
-                label="WNBA Best 6 record"
-                value={formatRecord(
-                  sectionO.wnbaBestSixReview.record.wins,
-                  sectionO.wnbaBestSixReview.record.losses,
-                  sectionO.wnbaBestSixReview.record.pushes,
-                  sectionO.wnbaBestSixReview.record.winRate
-                )}
-              />
-            ) : null}
-            <MetricRow
-              label="Official vs TEST"
-              value={`${sectionO.officialVsTest?.officialRecord?.total ?? 0} official / ${sectionO.officialVsTest?.testRecord?.total ?? 0} test`}
-            />
-          </SectionCard>
-        ) : sectionO?.snapshotMissing ? (
-          <SectionCard title="Controlled Best 6 Performance">
-            <Text style={styles.muted}>
-              {sectionO.message ||
-                `No Best 6 snapshot found for ${formatSlateMessageDate(viewedSlateDate)} slate.`}
-            </Text>
-          </SectionCard>
-        ) : null}
-
-        {labSnapshot && !labSnapshot.snapshotMissing ? (
-          <SectionCard title="Slate Results Snapshot">
-            <MetricRow
-              label="Graded record"
-              value={`${labSnapshot.winsCount}W / ${labSnapshot.lossesCount}L / ${labSnapshot.pushesCount}P`}
-            />
-            {labSnapshot.biggestWins?.map((entry: SlateSnapshotEntry) => (
-              <SnapshotPropLine key={`p-win-${entry.trackedKey}`} entry={entry} />
             ))}
-            {labSnapshot.biggestMisses?.map((entry: SlateSnapshotEntry) => (
-              <SnapshotPropLine key={`p-loss-${entry.trackedKey}`} entry={entry} />
-            ))}
-          </SectionCard>
-        ) : labSnapshot?.snapshotMissing ? (
-          <SectionCard title="Slate Results Snapshot">
-            <Text style={styles.muted}>
-              No graded props yet — snapshot appears after grading completes.
-            </Text>
-          </SectionCard>
-        ) : null}
-
-        {sectionM ? (
-          <>
-            {sectionM.snapshotMissing ? (
-              <SectionCard title="Top Picks Selection Review">
-                <Text style={styles.muted}>
-                  {sectionM.message ||
-                    `No Top Picks snapshot found for ${formatSlateMessageDate(viewedSlateDate)} slate.`}
-                </Text>
-              </SectionCard>
-            ) : (
-              <>
-            <SectionCard title="NBA Top Picks Record">
-              <Text style={styles.muted}>
-                Reference-only best-2 NBA snapshot — subset analysis, not double-counted in slate record.
-              </Text>
-              <MetricRow
-                label="NBA top picks record"
-                value={formatRecord(
-                  sectionM.nbaTopPicksReview?.record?.wins ?? 0,
-                  sectionM.nbaTopPicksReview?.record?.losses ?? 0,
-                  sectionM.nbaTopPicksReview?.record?.pushes ?? 0,
-                  sectionM.nbaTopPicksReview?.record?.winRate
-                )}
-              />
-              {sectionM.nbaTopPicksReview?.pickOne ? (
-                <Text style={styles.breakdownLine}>
-                  {sectionM.nbaTopPicksReview.pickOne.topPickLabel || "Top NBA #1"}{" "}
-                  {sectionM.nbaTopPicksReview.pickOne.player} — score{" "}
-                  {formatNum(sectionM.nbaTopPicksReview.pickOne.bestPropScore)} —{" "}
-                  {String(sectionM.nbaTopPicksReview.pickOne.status || "pending").toUpperCase()}
-                </Text>
-              ) : null}
-              {sectionM.nbaTopPicksReview?.pickTwo ? (
-                <Text style={styles.breakdownLine}>
-                  {sectionM.nbaTopPicksReview.pickTwo.topPickLabel || "Top NBA #2"}{" "}
-                  {sectionM.nbaTopPicksReview.pickTwo.player} — score{" "}
-                  {formatNum(sectionM.nbaTopPicksReview.pickTwo.bestPropScore)} —{" "}
-                  {String(sectionM.nbaTopPicksReview.pickTwo.status || "pending").toUpperCase()}
-                </Text>
-              ) : null}
-            </SectionCard>
-
-            <SectionCard title="WNBA Top Picks Record">
-              <Text style={styles.muted}>
-                Reference-only best-2 WNBA snapshot — subset analysis, not double-counted in slate record.
-              </Text>
-              <MetricRow
-                label="WNBA top picks record"
-                value={formatRecord(
-                  sectionM.wnbaTopPicksReview?.record?.wins ?? 0,
-                  sectionM.wnbaTopPicksReview?.record?.losses ?? 0,
-                  sectionM.wnbaTopPicksReview?.record?.pushes ?? 0,
-                  sectionM.wnbaTopPicksReview?.record?.winRate
-                )}
-              />
-              {sectionM.wnbaTopPicksReview?.pickOne ? (
-                <Text style={styles.breakdownLine}>
-                  {sectionM.wnbaTopPicksReview.pickOne.topPickLabel || "Top WNBA #1"}{" "}
-                  {sectionM.wnbaTopPicksReview.pickOne.player} — score{" "}
-                  {formatNum(sectionM.wnbaTopPicksReview.pickOne.bestPropScore)} —{" "}
-                  {String(sectionM.wnbaTopPicksReview.pickOne.status || "pending").toUpperCase()}
-                </Text>
-              ) : null}
-              {sectionM.wnbaTopPicksReview?.pickTwo ? (
-                <Text style={styles.breakdownLine}>
-                  {sectionM.wnbaTopPicksReview.pickTwo.topPickLabel || "Top WNBA #2"}{" "}
-                  {sectionM.wnbaTopPicksReview.pickTwo.player} — score{" "}
-                  {formatNum(sectionM.wnbaTopPicksReview.pickTwo.bestPropScore)} —{" "}
-                  {String(sectionM.wnbaTopPicksReview.pickTwo.status || "pending").toUpperCase()}
-                </Text>
-              ) : null}
-            </SectionCard>
-
-            <SectionCard title="Top Picks vs Rest of Slate">
-              <MetricRow
-                label="All top picks record"
-                value={formatRecord(
-                  sectionM.record?.wins ?? 0,
-                  sectionM.record?.losses ?? 0,
-                  sectionM.record?.pushes ?? 0,
-                  sectionM.record?.winRate
-                )}
-              />
-              <MetricRow
-                label="Rest of slate"
-                value={formatRecord(
-                  sectionM.vsRestOfSlate?.restRecord?.wins ?? 0,
-                  sectionM.vsRestOfSlate?.restRecord?.losses ?? 0,
-                  sectionM.vsRestOfSlate?.restRecord?.pushes ?? 0,
-                  sectionM.vsRestOfSlate?.restRecord?.winRate
-                )}
-              />
-            </SectionCard>
-              </>
-            )}
-          </>
-        ) : (
-          <SectionCard title="Top Picks Selection Review">
-            <Text style={styles.muted}>
-              No Top Picks snapshot found for {formatSlateMessageDate(viewedSlateDate)} slate.
-            </Text>
-          </SectionCard>
-        )}
-
-        {sectionN ? (
-          <SectionCard title="WNBA v2 Gate Review">
-            <Text style={styles.muted}>
-              Tracks how many WNBA candidates passed Tracking Gate v2 vs board-only / blocked.
-            </Text>
-            <MetricRow
-              label="Gate version"
-              value={String(sectionN.gateVersion || sectionN.qualityGateVersion || "—")}
-            />
-            <MetricRow
-              label="WNBA tracked (TRACK)"
-              value={String(sectionN.wnbaTrackedCount ?? sectionN.trackedCount ?? 0)}
-            />
-            <MetricRow
-              label="Over gate pass"
-              value={String(sectionQ?.overGatePassCount ?? "—")}
-            />
-            <MetricRow
-              label="Under gate pass"
-              value={String(sectionQ?.underGatePassCount ?? "—")}
-            />
-            <MetricRow
-              label="Board candidates (nonselected)"
-              value={String(sectionN.boardOnlyCount ?? 0)}
-            />
-            <MetricRow
-              label="Shadow-only (internal)"
-              value={String(sectionN.shadowOnlyCount ?? 0)}
-            />
-            <MetricRow
-              label="Blocked (internal)"
-              value={String(sectionN.blockedCount ?? 0)}
-            />
-            <MetricRow
-              label="Avg gate score (tracked)"
-              value={
-                sectionN.avgQualityGateScore != null
-                  ? String(sectionN.avgQualityGateScore)
-                  : "—"
-              }
-            />
-            {sectionN.blockReasons && Object.keys(sectionN.blockReasons).length > 0 ? (
-              <>
-                <Text style={styles.breakdownTitle}>Top block reasons</Text>
-                {Object.entries(sectionN.blockReasons)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([reason, count]) => (
-                    <Text key={reason} style={styles.breakdownLine}>
-                      {reason}: {count}
-                    </Text>
-                  ))}
-              </>
-            ) : null}
-          </SectionCard>
-        ) : null}
-
-        {sectionQ?.lossReviews?.length ? (
-          <SectionCard title="WNBA v2 Loss Review">
-            <Text style={styles.muted}>
-              Would the new v2 gate have blocked this loss?
-            </Text>
-            {sectionQ.lossReviews.slice(0, 8).map((loss, index) => (
-              <View key={`loss-review-${index}`} style={styles.rawPropRow}>
-                <Text style={styles.rawPropTitle}>
-                  {loss.player} — {loss.prop} — {String(loss.status || "").toUpperCase()}
-                </Text>
-                <Text style={styles.rawPropMeta}>
-                  Gate: {loss.newGateDecision} — {loss.newGateReason || "—"}
-                </Text>
-                <Text style={styles.rawPropMeta}>
-                  Would block now: {loss.wouldBlockNow ? "YES" : "NO"} — danger stack:{" "}
-                  {loss.dangerGateCount ?? 0}
-                </Text>
-              </View>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {sectionS ? (
-          <SectionCard title="Decision Intelligence Review">
-            <MetricRow
-              label="Version"
-              value={String(sectionS.version || "—")}
-            />
-            <MetricRow
-              label="Low Risk record"
-              value={String(sectionS.trueRiskRecords?.LOW?.record || "—")}
-            />
-            <MetricRow
-              label="Medium Risk record"
-              value={String(sectionS.trueRiskRecords?.MEDIUM?.record || "—")}
-            />
-            <MetricRow
-              label="High Risk record"
-              value={String(sectionS.trueRiskRecords?.HIGH?.record || "—")}
-            />
-            <MetricRow
-              label="TRACK record"
-              value={String(sectionS.trackEligibilityRecords?.TRACK?.record || "—")}
-            />
-            <MetricRow
-              label="Nonselected cohort record"
-              value={String(sectionS.trackEligibilityRecords?.BOARD_ONLY?.record || "—")}
-            />
-          </SectionCard>
-        ) : null}
-
-        {sectionT ? (
-          <SectionCard title="Risk Honesty Review">
-            <Text style={styles.muted}>{sectionT.question || "Was risk honest?"}</Text>
-            <MetricRow label="Low Risk count" value={String(sectionT.lowRiskCount ?? 0)} />
-            <MetricRow label="Low Risk wins" value={String(sectionT.lowRiskActedLow ?? 0)} />
-            <MetricRow label="Low Risk losses" value={String(sectionT.lowRiskFailed ?? 0)} />
-            <MetricRow
-              label="High Risk excluded"
-              value={String(sectionT.highRiskCorrectlyExcluded ?? 0)}
-            />
-            {sectionT.mostPredictiveDebts?.slice(0, 5).map((item: any, index: number) => (
-              <Text key={`debt-${index}`} style={styles.breakdownLine}>
-                {item.code}: {item.lossCount} losses
-              </Text>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {sectionU ? (
-          <SectionCard title="Upgrade/Demotion Review">
-            <MetricRow
-              label="Upgraded to TRACK"
-              value={String(sectionU.upgradedToTrack?.length ?? 0)}
-            />
-            <MetricRow
-              label="Demoted to nonselected"
-              value={String(sectionU.demotedToBoardOnly?.length ?? 0)}
-            />
-            <MetricRow
-              label="Blocked (internal)"
-              value={String(sectionU.blockedNoBet?.length ?? 0)}
-            />
-            <MetricRow
-              label="Blocked would-have-won"
-              value={String(sectionU.blockedWouldHaveWon?.length ?? 0)}
-            />
-            {sectionU.allowedLost?.slice(0, 4).map((item: any, index: number) => (
-              <Text key={`allowed-loss-${index}`} style={styles.breakdownLine}>
-                LOSS kept {item.player} {item.side} {item.line}
-              </Text>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {sectionV ? (
-          <SectionCard title="Side Rescue Review">
-            <Text style={styles.muted}>{sectionV.question || "Did Side Rescue improve direction?"}</Text>
-            <MetricRow label="Version" value={String(sectionV.version || "—")} />
-            <MetricRow label="Evaluated" value={String(sectionV.evaluatedCount ?? 0)} />
-            <MetricRow
-              label="KEEP_ORIGINAL"
-              value={String(sectionV.actionRecords?.KEEP_ORIGINAL?.record || "—")}
-            />
-            <MetricRow
-              label="FLIP_SIDE"
-              value={String(sectionV.actionRecords?.FLIP_SIDE?.record || "—")}
-            />
-            <MetricRow
-              label="Nonselected action"
-              value={String(sectionV.actionRecords?.BOARD_ONLY?.record || "—")}
-            />
-            <MetricRow
-              label="Blocked action (internal)"
-              value={String(sectionV.actionRecords?.NO_BET?.record || "—")}
-            />
-            <MetricRow
-              label="WNBA Under rescue"
-              value={String(sectionV.wnbaUnderRescueRecord?.record || "—")}
-            />
-            <MetricRow
-              label="FTA rebound cases"
-              value={String(sectionV.ftaReboundRiskRecord?.record || "—")}
-            />
-            {sectionV.entries?.slice(0, 6).map((item: any, index: number) => (
-              <Text key={`side-rescue-${index}`} style={styles.breakdownLine}>
-                {item.player} {item.originalSide}→{item.finalSide || item.originalSide} — {item.action}
-              </Text>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {sectionW?.available !== false && sectionW?.simulatedSideRescueRecord ? (
-          <SectionCard title="Side Rescue Retro Simulation">
-            <Text style={styles.muted}>Report-only — does not change historical grades.</Text>
-            <MetricRow
-              label="Actual tracked record"
-              value={String(sectionW.actualTrackedRecord?.record || "—")}
-            />
-            <MetricRow
-              label="Simulated Side Rescue record"
-              value={String(sectionW.simulatedSideRescueRecord?.record || "—")}
-            />
-            <MetricRow
-              label="Losses would stay original"
-              value={String(sectionW.lossesWouldStayOriginal ?? 0)}
-            />
-            <MetricRow
-              label="Losses would flip"
-              value={String(sectionW.lossesWouldFlip ?? 0)}
-            />
-            <MetricRow
-              label="Losses would board-only"
-              value={String(sectionW.lossesWouldBoardOnly ?? 0)}
-            />
-            <MetricRow
-              label="Wins lost by rule change"
-              value={String(sectionW.winsLostByRuleChange ?? 0)}
-            />
-            <MetricRow label="Assessment" value={String(sectionW.assessment || "—")} />
-            {sectionW.dearicaStyleCases?.slice(0, 4).map((item: any, index: number) => (
-              <Text key={`dearica-case-${index}`} style={styles.breakdownLine}>
-                {item.player} {item.originalSide}→{item.finalSide} — {item.action}
-              </Text>
-            ))}
-          </SectionCard>
-        ) : sectionW?.available === false ? (
-          <SectionCard title="Side Rescue Retro Simulation">
-            <Text style={styles.muted}>
-              {sectionW.message || "Retro simulation runs when slate is fully graded."}
-            </Text>
-          </SectionCard>
-        ) : null}
-
-        {sectionR?.available !== false && sectionR?.simulatedRecord ? (
-          <SectionCard title="Decision Intelligence Retro Simulation">
-            <Text style={styles.muted}>Report-only — does not change historical grades.</Text>
-            <MetricRow
-              label="Actual record"
-              value={String(sectionR.actualRecord?.record || "—")}
-            />
-            <MetricRow
-              label="Simulated TRACK record"
-              value={String(sectionR.simulatedRecord?.record || "—")}
-            />
-            <MetricRow
-              label="Would track"
-              value={String(sectionR.simulatedRecord?.wouldTrack ?? 0)}
-            />
-            <MetricRow
-              label="Losses blocked"
-              value={String(sectionR.lossesWouldBeBlocked?.length ?? 0)}
-            />
-            <MetricRow
-              label="Wins kept"
-              value={String(sectionR.winsWouldStillTrack?.length ?? 0)}
-            />
-            <MetricRow
-              label="Wins blocked"
-              value={String(sectionR.winsWouldBeBlocked?.length ?? 0)}
-            />
-            {sectionR.lossesWouldBeBlocked?.slice(0, 6).map((item, index) => (
-              <Text key={`retro-loss-${index}`} style={styles.breakdownLine}>
-                BLOCK {item.player} {item.prop}: {item.reason}
-              </Text>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {readerOfficialDemotedRecord.total > 0 ? (
-          <SectionCard title="Reader Official Demoted (TEST)">
-            <Text style={styles.muted}>
-              Reader called OFFICIAL but v1/tier gates demoted to TEST — separate calibration bucket.
-            </Text>
-            <MetricRow label="Demoted tracked" value={String(readerOfficialDemotedRecord.total)} />
-            <MetricRow
-              label="Demoted record"
-              value={formatRecord(
-                readerOfficialDemotedRecord.wins,
-                readerOfficialDemotedRecord.losses,
-                readerOfficialDemotedRecord.pushes,
-                readerOfficialDemotedRecord.winRate
-              )}
-            />
-            {readerOfficialDemotedProps.slice(0, 4).map((prop, index) => (
-              <View key={prop.trackedKey || `demoted-${index}`} style={styles.rawPropRow}>
-                <Text style={styles.rawPropTitle}>
-                  {prop.player} — {prop.currentEngineSide} {prop.line}
-                </Text>
-                <Text style={styles.rawPropMeta}>
-                  {prop.officialDemotionReason || prop.trackingReason || "Official gate demotion"}
-                </Text>
-              </View>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {readerUncertainTestRecord.total > 0 ? (
-          <SectionCard title="Reader Uncertain TEST">
-            <MetricRow label="Uncertain TEST tracked" value={String(readerUncertainTestRecord.total)} />
-            <MetricRow
-              label="Uncertain TEST record"
-              value={formatRecord(
-                readerUncertainTestRecord.wins,
-                readerUncertainTestRecord.losses,
-                readerUncertainTestRecord.pushes,
-                readerUncertainTestRecord.winRate
-              )}
-            />
-          </SectionCard>
-        ) : null}
-
-        {testRecord.total > 0 ? (
-          <SectionCard title="Test / Learning Performance">
-            <MetricRow label="Test tracked" value={String(testRecord.total)} />
-            <MetricRow
-              label="Test record"
-              value={formatRecord(
-                testRecord.wins,
-                testRecord.losses,
-                testRecord.pushes,
-                testRecord.winRate
-              )}
-            />
-            <MetricRow
-              label="Graded / Pending"
-              value={`${testRecord.graded} / ${testRecord.pending}`}
-            />
-            {Object.keys(contradictionPerf).length > 0 ? (
-              <>
-                <Text style={styles.breakdownTitle}>Contradiction performance (test)</Text>
-                {Object.entries(contradictionPerf).map(([key, stats]) => (
-                  <Text key={key} style={styles.breakdownLine}>
-                    {key}: {formatRecord(stats.wins, stats.losses, stats.pushes)}
-                  </Text>
-                ))}
-              </>
-            ) : null}
-            {testSlateProps.slice(0, 6).map((prop, index) => (
-              <View key={prop.trackedKey || index} style={styles.rawPropRow}>
-                <Text style={styles.rawPropTitle}>
-                  {prop.player} — {prop.currentEngineSide} {prop.line}
-                </Text>
-                <Text style={styles.rawPropMeta}>
-                  Side audit: {prop.sideSelectionDecision || "—"} • trust{" "}
-                  {prop.sideTrustScore ?? "—"}
-                </Text>
-                {prop.trackingReason || prop.testReason ? (
-                  <Text style={styles.rawPropMeta}>
-                    Tracking reason: {prop.trackingReason || prop.testReason}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {leagueSplit || analytics?.leagueCalibration ? (
-          <SectionCard title="League-Split Calibration">
-            <LeagueSplitSection
-              leagueSplit={leagueSplit}
-              leagueCalibration={analytics?.leagueCalibration}
-            />
-          </SectionCard>
-        ) : null}
-
-        {slateLesson ? (
-          <SectionCard title="Slate Lesson">
-            <SlateLessonSection lesson={slateLesson} />
-          </SectionCard>
-        ) : null}
-
-        {engineScorecard ? (
-          <SectionCard title="Engine Scorecard">
-            <EngineScorecardSection scorecard={engineScorecard} />
-          </SectionCard>
-        ) : null}
-
-        {mistakeBreakdown ? (
-          <SectionCard title="Mistake Breakdown">
-            <MistakeBreakdownSection breakdown={mistakeBreakdown} slateDate={viewedSlateDate} />
-          </SectionCard>
-        ) : null}
-
-        {calibrationRules ? (
-          <SectionCard title="Calibration Rules">
-            <CalibrationRulesSection rules={calibrationRules} />
-          </SectionCard>
-        ) : null}
-
-        {sectionB ? (
-          <SectionCard title="Risk Calibration (Detail)">
-            {Object.entries(sectionB.buckets || {}).map(([bucket, stats]: [string, any]) => (
-              <View key={bucket} style={styles.bucketBlock}>
-                <Text style={styles.bucketTitle}>{bucket}</Text>
-                <Text style={styles.bucketLine}>
-                  {stats.total} props • {formatRecord(stats.wins, stats.losses, stats.pushes, stats.winRate)} • pending {stats.pending}
-                </Text>
-                <Text style={styles.bucketMeta}>
-                  Avg conf {formatNum(stats.avgConfidence)} • edge {formatNum(stats.avgFairLineEdge)} • gap {formatNum(stats.avgSupportDangerGap)}
-                </Text>
-                {stats.smallSampleNote ? (
-                  <Text style={styles.smallNote}>{stats.smallSampleNote}</Text>
-                ) : null}
-              </View>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {sectionC ? (
-          <SectionCard title="Projection / Fair Line (Detail)">
-            {sectionC.needsMoreData ? (
-              <Text style={styles.muted}>Not enough graded projection data yet.</Text>
-            ) : null}
-            <MetricRow label="Sample" value={String(sectionC.sample || 0)} />
-            <MetricRow label="Proj side win rate" value={formatPct(sectionC.projectionSideWinRate)} />
-            <MetricRow label="Avg projected" value={formatNum(sectionC.avgProjected)} />
-            <MetricRow label="Avg fair line" value={formatNum(sectionC.avgFairLine)} />
-            <MetricRow label="Avg actual" value={formatNum(sectionC.avgActual)} />
-            <MetricRow label="Avg error" value={formatNum(sectionC.avgError)} />
-            <MetricRow label="Avg abs error" value={formatNum(sectionC.avgAbsError)} />
-            <MetricRow label="Bias" value={sectionC.bias || "—"} />
-            {sectionC.bestCall ? (
-              <Text style={styles.highlight}>
-                Best: {sectionC.bestCall.player} ({sectionC.bestCall.side} {sectionC.bestCall.line}, actual {sectionC.bestCall.actualStat})
-              </Text>
-            ) : null}
-            {sectionC.worstMiss ? (
-              <Text style={styles.highlightBad}>
-                Worst: {sectionC.worstMiss.player} ({sectionC.worstMiss.side} {sectionC.worstMiss.line}, actual {sectionC.worstMiss.actualStat})
-              </Text>
-            ) : null}
-          </SectionCard>
-        ) : null}
-
-        {sectionD ? (
-          <SectionCard title="Signal Groups (Detail)">
-            <TierBreakdownSection slateProps={slateTrackedProps} sectionD={sectionD} />
-            {Object.entries(sectionD.groups || {}).map(([groupName, groups]) => (
-              <View key={groupName} style={styles.signalGroup}>
-                <Text style={styles.signalGroupTitle}>{groupName}</Text>
-                <GroupPerfTable groups={groups as Record<string, any>} />
-              </View>
-            ))}
-          </SectionCard>
-        ) : null}
-
-        {signalPerformance?.rows?.length ? (
-          <SectionCard title="Signal Performance (All Signals)">
-            <Text style={styles.muted}>
-              Per-slate signal buckets with helped/hurt/neutral classification. Small samples are shown, not hidden.
-            </Text>
-            <SignalPerformanceSummary summary={signalPerformance.summary} />
-            <SignalPerformanceTableSection rows={signalPerformance.rows} />
-          </SectionCard>
-        ) : null}
-
-        {slateTrackedProps.length > 0 ? (
-          <SectionCard title="Slate Breakdown — Tier / Risk / Books / Data">
-            <SlateAnalyticsBreakdown
-              slateProps={slateTrackedProps}
-              analytics={analytics}
-            />
-          </SectionCard>
-        ) : null}
-
-        {sectionE ? (
-          <SectionCard title="Loss Detail (Legacy)">
-            {(sectionE.losses || []).length === 0 ? (
-              <Text style={styles.muted}>
-                No losses on {formatSlateMessageDate(viewedSlateDate)} slate.
-              </Text>
-            ) : (
-              sectionE.losses.map((loss: any, index: number) => (
-                <View key={`${loss.player}-${index}`} style={styles.lossRow}>
-                  <Text style={styles.lossPlayer}>
-                    {loss.player} — {loss.side} {loss.line}
-                  </Text>
-                  <Text style={styles.lossMeta}>
-                    {loss.game} • actual {loss.actualStat ?? "—"} • {loss.missType}
-                  </Text>
-                  <Text style={styles.lossExplain}>{loss.explanation}</Text>
-                </View>
-              ))
-            )}
-          </SectionCard>
-        ) : null}
-
-        {sectionF ? (
-          <SectionCard title="Legacy Calibration Notes">
-            {sectionF.doNotAdjustYet ? (
-              <Text style={styles.warnNote}>Do not adjust yet — sample too small.</Text>
-            ) : null}
-            <Text style={styles.recLabel}>Trust more</Text>
-            {(sectionF.signalsToTrustMore || []).length === 0 ? (
-              <Text style={styles.muted}>None flagged yet.</Text>
-            ) : (
-              sectionF.signalsToTrustMore.map((item: string, i: number) => (
-                <Text key={i} style={styles.recItem}>+ {item}</Text>
-              ))
-            )}
-            <Text style={styles.recLabel}>Trust less</Text>
-            {(sectionF.signalsToTrustLess || []).length === 0 ? (
-              <Text style={styles.muted}>None flagged yet.</Text>
-            ) : (
-              sectionF.signalsToTrustLess.map((item: string, i: number) => (
-                <Text key={i} style={styles.recItemBad}>- {item}</Text>
-              ))
-            )}
-            {(sectionF.riskBucketNotes || []).map((note: string, i: number) => (
-              <Text key={`risk-${i}`} style={styles.recNote}>{note}</Text>
-            ))}
-            {(sectionF.projectionNotes || []).map((note: string, i: number) => (
-              <Text key={`proj-${i}`} style={styles.recNote}>{note}</Text>
-            ))}
-            <Text style={styles.recNote}>{sectionF.nextAdjustment}</Text>
-            <Text style={styles.muted}>{sectionF.note}</Text>
-          </SectionCard>
-        ) : null}
-
-        <SectionCard title="All-Time Analytics">
-          <MetricRow label="Tracked engine (pooled)" value={allTimeRecord || "—"} />
-          {hasCompletedLabSlate && analytics?.leagueCalibration?.NBA ? (
-            <MetricRow
-              label="NBA all-time"
-              value={formatRecord(
-                analytics.leagueCalibration.NBA.wins,
-                analytics.leagueCalibration.NBA.losses,
-                analytics.leagueCalibration.NBA.pushes,
-                analytics.leagueCalibration.NBA.accuracy
-              )}
-            />
-          ) : null}
-          {hasCompletedLabSlate && analytics?.leagueCalibration?.WNBA ? (
-            <MetricRow
-              label="WNBA all-time"
-              value={formatRecord(
-                analytics.leagueCalibration.WNBA.wins,
-                analytics.leagueCalibration.WNBA.losses,
-                analytics.leagueCalibration.WNBA.pushes,
-                analytics.leagueCalibration.WNBA.accuracy
-              )}
-            />
-          ) : null}
-          <MetricRow
-            label="Fair line shadow"
-            value={
-              hasCompletedLabSlate && analytics?.overall?.fairLineShadow
-                ? formatRecord(
-                    analytics.overall.fairLineShadow.wins,
-                    analytics.overall.fairLineShadow.losses,
-                    analytics.overall.fairLineShadow.pushes,
-                    analytics.overall.fairLineShadow.accuracy
-                  )
-                : "—"
-            }
-          />
-          <MetricRow
-            label="Total tracked"
-            value={String(hasCompletedLabSlate ? analytics?.overall?.total || 0 : 0)}
-          />
+          </View>
         </SectionCard>
 
-        <SectionCard title="Raw Tracked Props (Slate Sample)">
-          {slateTrackedProps.length === 0 ? (
-            <Text style={styles.muted}>
-              No tracked props for {formatSlateMessageDate(viewedSlateDate)} slate.
-            </Text>
+        {/* 1. Current Completed Slate Summary */}
+        <SectionCard title="1. Current Completed Slate Summary">
+          {!current ? (
+            <Text style={styles.muted}>No completed official slate yet.</Text>
           ) : (
-            slateTrackedProps.slice(0, 24).map((prop, index) => (
-              <View key={prop.trackedId || prop.trackedKey || index} style={styles.rawPropRow}>
-                <Text style={styles.rawPropTitle}>
-                  {prop.player} — {prop.currentEngineSide} {prop.line} ({prop.league})
+            <>
+              <MetricRow label="Slate" value={formatSlateLabel(current.slateDate)} />
+              <MetricRow
+                label="Leagues"
+                value={(current.leagueCoverage || []).join(", ") || "—"}
+              />
+              <MetricRow label="Official props" value={String(current.totalProps ?? 0)} />
+              <MetricRow label="Graded / Pending" value={`${current.graded ?? 0} / ${current.pending ?? 0}`} />
+              <MetricRow label="W-L-P" value={formatRecord(current)} />
+              <MetricRow label="Win rate" value={formatPct(current.winRate)} />
+              <MetricRow label="Avg margin" value={formatNum(current.avgResultMargin ?? current.avgMargin)} />
+              <MetricRow label="Avg proj error" value={formatNum(current.avgProjectionError)} />
+              <MetricRow label="Avg |proj error|" value={formatNum(current.avgAbsProjectionError)} />
+              <MetricRow label="Avg CLV" value={formatNum(current.avgClv)} />
+              <MetricRow label="Top picks" value={formatRecord(current.topPickRecord)} />
+              <MetricRow label="Over" value={formatRecord(current.overRecord)} />
+              <MetricRow label="Under" value={formatRecord(current.underRecord)} />
+              <MetricRow label="NBA" value={formatRecord(current.nbaRecord)} />
+              <MetricRow label="WNBA" value={formatRecord(current.wnbaRecord)} />
+            </>
+          )}
+        </SectionCard>
+
+        {/* 2. Three-Slate Improvement Block */}
+        <SectionCard title="2. Three-Slate Improvement Block">
+          <View style={styles.chipRow}>
+            <Chip
+              label="Active block"
+              active={selectedBlock === "active"}
+              onPress={() => setSelectedBlock("active")}
+            />
+            <Chip
+              label="Previous block"
+              active={selectedBlock === "previous"}
+              onPress={() => setSelectedBlock("previous")}
+            />
+          </View>
+
+          {selectedBlock === "active" ? (
+            !activeBlock ? (
+              <Text style={styles.muted}>No active three-slate block yet.</Text>
+            ) : (
+              <>
+                <MetricRow
+                  label="Progress"
+                  value={`${activeBlock.progress || `${activeBlock.slateCount}/3`}${
+                    activeBlock.slateCount === 3 ? " — Block Complete" : ""
+                  }`}
+                />
+                <MetricRow
+                  label="Dates"
+                  value={(activeBlock.slateDates || []).map(formatSlateLabel).join(" · ") || "—"}
+                />
+                <MetricRow label="Combined W-L-P" value={formatRecord(activeBlock)} />
+                <MetricRow label="Win rate" value={formatPct(activeBlock.winRate)} />
+                <MetricRow label="Avg |proj error|" value={formatNum(activeBlock.avgAbsProjectionError)} />
+                <MetricRow label="Avg CLV" value={formatNum(activeBlock.avgClv)} />
+                {(activeBlock.perSlate || []).map((s: any) => (
+                  <MetricRow
+                    key={s.slateDate}
+                    label={formatSlateLabel(s.slateDate)}
+                    value={formatRecord(s)}
+                  />
+                ))}
+              </>
+            )
+          ) : !previousBlock ? (
+            <Text style={styles.muted}>No previous frozen three-slate block yet.</Text>
+          ) : (
+            <>
+              <MetricRow
+                label="Dates"
+                value={(previousBlock.slateDates || []).map(formatSlateLabel).join(" · ") || "—"}
+              />
+              <MetricRow label="Combined W-L-P" value={formatRecord(previousBlock)} />
+              <MetricRow label="Win rate" value={formatPct(previousBlock.winRate)} />
+              <MetricRow label="Avg |proj error|" value={formatNum(previousBlock.avgAbsProjectionError)} />
+              <MetricRow label="Avg CLV" value={formatNum(previousBlock.avgClv)} />
+            </>
+          )}
+
+          {comparison?.metrics ? (
+            <>
+              <Text style={styles.subhead}>Improvement comparison</Text>
+              <DeltaLine label="Win rate" delta={comparison.metrics.winRate} />
+              <DeltaLine label="Avg margin" delta={comparison.metrics.avgMargin} />
+              <DeltaLine label="|Proj error|" delta={comparison.metrics.avgAbsProjectionError} />
+              <DeltaLine label="CLV" delta={comparison.metrics.avgClv} />
+              <DeltaLine label="WNBA win rate" delta={comparison.wnba?.winRate} />
+              <DeltaLine label="NBA win rate" delta={comparison.nba?.winRate} />
+            </>
+          ) : (
+            <Text style={styles.muted}>
+              {comparison?.notes?.[0] || "Comparison available after a prior frozen block exists."}
+            </Text>
+          )}
+        </SectionCard>
+
+        {/* 3. Official Best 6 Results */}
+        <SectionCard title="3. Official Best 6 Results">
+          {!filteredResults.length ? (
+            <Text style={styles.muted}>No official Best 6 props for this slate.</Text>
+          ) : (
+            filteredResults.map((row: any) => (
+              <View key={row.officialPropId || `${row.player}-${row.bestSixRank}`} style={styles.propCard}>
+                <Text style={styles.propTitle}>
+                  B6 #{row.bestSixRank || "—"}
+                  {row.isTopPick ? " · TOP" : ""} · {row.player}
                 </Text>
-                <Text style={styles.rawPropMeta}>{formatPropLabelLine(prop)}</Text>
-                <Text style={styles.rawPropMeta}>
-                  {String(prop.status || "pending").toUpperCase()} • proj {formatNum(prop.projection)} • fair {formatNum(prop.fairLine)}
+                <Text style={styles.propMeta}>
+                  {row.matchup} · {row.finalSide} {formatNum(row.sealedLine, 1)} · {String(row.result || "").toUpperCase()}
                 </Text>
+                <MetricRow label="Actual / margin" value={`${formatNum(row.actualPoints)} / ${formatNum(row.resultMargin)}`} />
+                <MetricRow label="Conf / risk" value={`${formatNum(row.confidence, 0)}% / ${row.risk || "—"}`} />
+                <MetricRow label="Proj / fair / err" value={`${formatNum(row.projection)} / ${formatNum(row.fairLine)} / ${formatNum(row.projectionError)}`} />
+                <MetricRow label="Open → close / CLV" value={`${formatNum(row.openingLine)} → ${formatNum(row.closingLine)} / ${formatNum(row.clv)}`} />
+                <MetricRow label="Organic → final" value={`${row.originalModelSide || "—"} → ${row.finalCourtEdgeSide || "—"}`} />
+                <MetricRow
+                  label="Same-team"
+                  value={row.sameTeamArbitration?.forced ? "Forced" : "Organic"}
+                />
+                <MetricRow label="Diagnosis" value={String(row.diagnosisSummary || "—")} />
+                <MetricRow
+                  label="Engine signals"
+                  value={row.engineSignalsAvailable ? "Sealed" : "Unavailable (legacy)"}
+                />
               </View>
             ))
           )}
         </SectionCard>
+
+        {/* 4. Per-Prop Learning Packets */}
+        <SectionCard title="4. Per-Prop Learning Packets" defaultOpen={false}>
+          {(labV2?.perPropPackets || []).map((packet: any) => {
+            const id = packet.officialPropId || packet.player;
+            const open = expandedPacket === id;
+            return (
+              <View key={id} style={styles.propCard}>
+                <TouchableOpacity onPress={() => setExpandedPacket(open ? null : id)}>
+                  <Text style={styles.propTitle}>
+                    {open ? "▾" : "▸"} {packet.player} ({packet.league})
+                  </Text>
+                </TouchableOpacity>
+                {open ? (
+                  <>
+                    <Text style={styles.subhead}>Layer 1 — Freeze</Text>
+                    <MetricRow label="Side / line" value={`${packet.layers?.freeze?.side} ${formatNum(packet.layers?.freeze?.sealedLine)}`} />
+                    <MetricRow label="B6 / Top" value={`#${packet.layers?.freeze?.bestSixRank || "—"} / ${packet.layers?.freeze?.topPickRank || "—"}`} />
+                    <MetricRow label="Organic → final" value={`${packet.layers?.freeze?.originalModelSide} → ${packet.layers?.freeze?.finalSide}`} />
+                    <MetricRow label="Proj / fair" value={`${formatNum(packet.layers?.freeze?.projection)} / ${formatNum(packet.layers?.freeze?.fairLine)}`} />
+                    <MetricRow label="Conf / risk" value={`${formatNum(packet.layers?.freeze?.confidence, 0)}% / ${packet.layers?.freeze?.risk || "—"}`} />
+
+                    <Text style={styles.subhead}>Layer 2 — Pregame Engine Evidence</Text>
+                    {!packet.layers?.pregameEngineEvidence?.signalsAvailable ? (
+                      <Text style={styles.muted}>
+                        Expansion signals unavailable
+                        {packet.layers?.pregameEngineEvidence?.unavailableReason
+                          ? ` (${packet.layers.pregameEngineEvidence.unavailableReason})`
+                          : ""}
+                      </Text>
+                    ) : null}
+                    {Object.entries(packet.layers?.pregameEngineEvidence?.engines || {}).map(
+                      ([key, eng]: [string, any]) => (
+                        <View key={key} style={styles.engineRow}>
+                          <Text style={styles.engineName}>{eng.label || key}</Text>
+                          <Text style={styles.propMeta}>
+                            {eng.available
+                              ? `avail · norm ${formatNum(eng.normalizedSignal, 2)} · conf ${formatNum(eng.confidenceAdjustment, 2)} · ${eng.directionalAttribution?.kind || "—"}`
+                              : `unavailable${eng.unavailableReason ? ` · ${eng.unavailableReason}` : ""}`}
+                          </Text>
+                        </View>
+                      )
+                    )}
+
+                    <Text style={styles.subhead}>Layer 3 — Decision Path</Text>
+                    <MetricRow label="Flip-First" value={String(packet.layers?.decisionPath?.flipFirstAction || "—")} />
+                    <MetricRow label="Side Rescue" value={String(packet.layers?.decisionPath?.sideRescueAction || "—")} />
+                    <MetricRow
+                      label="Same-team"
+                      value={packet.layers?.decisionPath?.sameTeamArbitration?.forced ? "Forced" : "Organic"}
+                    />
+                    <MetricRow
+                      label="Final side"
+                      value={String(packet.layers?.decisionPath?.finalCourtEdgeSide || "—")}
+                    />
+
+                    <Text style={styles.subhead}>Layer 4 — Postgame Truth</Text>
+                    <MetricRow label="Actual" value={formatNum(packet.layers?.postgameTruth?.actualPoints)} />
+                    <MetricRow label="Result / margin" value={`${packet.layers?.postgameTruth?.result || "—"} / ${formatNum(packet.layers?.postgameTruth?.resultMargin)}`} />
+                    <MetricRow label="Proj error / CLV" value={`${formatNum(packet.layers?.postgameTruth?.projectionError)} / ${formatNum(packet.layers?.postgameTruth?.clv)}`} />
+
+                    <Text style={styles.subhead}>Layer 5 — Diagnosis</Text>
+                    <MetricRow label="Primary" value={String(packet.layers?.diagnosis?.primaryCause || "—")} />
+                    <MetricRow
+                      label="Helped"
+                      value={(packet.layers?.diagnosis?.enginesHelped || []).join(", ") || "—"}
+                    />
+                    <MetricRow
+                      label="Hurt"
+                      value={(packet.layers?.diagnosis?.enginesHurt || []).join(", ") || "—"}
+                    />
+                  </>
+                ) : null}
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        {/* 5. Engine Expansion Scoreboard */}
+        <SectionCard title="5. Engine Expansion Scoreboard">
+          {engineKeys.map((key) => {
+            const card = engines[key];
+            const cur = card?.currentSlate || {};
+            return (
+              <View key={key} style={styles.engineRow}>
+                <Text style={styles.engineName}>{card?.label || key}</Text>
+                <MetricRow
+                  label="Coverage"
+                  value={`${cur.availableCount ?? 0} avail / ${cur.unavailableCount ?? 0} unavail (${formatPct(cur.coveragePct)})`}
+                />
+                <MetricRow
+                  label="Directional"
+                  value={`${cur.directionalCorrect ?? 0}/${cur.directionalOpportunities ?? 0} (${formatPct(cur.directionalAccuracy)}) · H/U/N ${cur.helped}/${cur.hurt}/${cur.neutral}`}
+                />
+                <MetricRow
+                  label="Calibration"
+                  value={`H/U/N ${cur.calibrationHelped}/${cur.calibrationHurt}/${cur.calibrationNeutral}`}
+                />
+                <DeltaLine label="Block Δ accuracy" delta={card?.change?.directionalAccuracy} />
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        {/* 6. Decision-Path Accuracy */}
+        <SectionCard title="6. Decision-Path Accuracy" defaultOpen={false}>
+          {(["currentSlate", "activeThreeSlateBlock"] as const).map((scope) => {
+            const path = labV2?.decisionPathAnalysis?.[scope];
+            if (!path) return null;
+            return (
+              <View key={scope}>
+                <Text style={styles.subhead}>{scope === "currentSlate" ? "Current slate" : "Active block"}</Text>
+                <MetricRow label="Reader kept" value={formatRecord(path.reader?.kept)} />
+                <MetricRow label="Reader changed" value={formatRecord(path.reader?.laterChanged)} />
+                <MetricRow label="Flip-First flips" value={`${formatRecord(path.flipFirst?.flip)} · correct ${path.flipFirst?.correctFlips ?? 0} / incorrect ${path.flipFirst?.incorrectFlips ?? 0}`} />
+                <MetricRow label="Side Rescue flips" value={`${formatRecord(path.sideRescue?.flip)} · correct ${path.sideRescue?.correctRescues ?? 0} / incorrect ${path.sideRescue?.incorrectRescues ?? 0}`} />
+                <MetricRow label="Same-team forced" value={formatRecord(path.sameTeamArbitration?.combinedForced)} />
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        {/* 7. Projection Calibration */}
+        <SectionCard title="7. Projection and Fair-Line Calibration" defaultOpen={false}>
+          {(["currentSlate", "activeThreeSlateBlock"] as const).map((scope) => {
+            const cal = labV2?.projectionCalibration?.[scope];
+            if (!cal) return null;
+            return (
+              <View key={scope}>
+                <Text style={styles.subhead}>{scope === "currentSlate" ? "Current slate" : "Active block"}</Text>
+                <MetricRow label="Overall |err|" value={formatNum(cal.overall?.absoluteProjectionError)} />
+                <MetricRow label="NBA |err|" value={formatNum(cal.byLeague?.NBA?.absoluteProjectionError)} />
+                <MetricRow label="WNBA |err|" value={formatNum(cal.byLeague?.WNBA?.absoluteProjectionError)} />
+                <MetricRow label="Over bias" value={formatNum(cal.bySide?.OVER?.signedProjectionError)} />
+                <MetricRow label="Under bias" value={formatNum(cal.bySide?.UNDER?.signedProjectionError)} />
+              </View>
+            );
+          })}
+        </SectionCard>
+
+        {/* 8. Confidence and Risk Honesty */}
+        <SectionCard title="8. Confidence and Risk Honesty" defaultOpen={false}>
+          <Text style={styles.subhead}>Confidence buckets</Text>
+          {Object.entries(labV2?.confidenceCalibration?.currentSlate?.buckets || {}).map(
+            ([key, bucket]: [string, any]) => (
+              <MetricRow
+                key={key}
+                label={key}
+                value={`${formatRecord(bucket)} · gap ${formatNum(bucket.calibrationGap, 1)}`}
+              />
+            )
+          )}
+          <Text style={styles.subhead}>Risk</Text>
+          {Object.entries(labV2?.riskCalibration?.currentSlate?.buckets || {}).map(
+            ([key, bucket]: [string, any]) => (
+              <MetricRow key={key} label={key} value={formatRecord(bucket)} />
+            )
+          )}
+          <MetricRow
+            label="Same-team forced"
+            value={formatRecord(labV2?.confidenceCalibration?.currentSlate?.sameTeamForced)}
+          />
+        </SectionCard>
+
+        {/* 9. Market and Line */}
+        <SectionCard title="9. Market and Line Performance" defaultOpen={false}>
+          <MetricRow
+            label="Avg CLV"
+            value={formatNum(labV2?.marketLineAnalysis?.currentSlate?.avgClv)}
+          />
+          <MetricRow
+            label="Favorable sealed"
+            value={formatRecord(labV2?.marketLineAnalysis?.currentSlate?.favorableSealedLine)}
+          />
+          <MetricRow
+            label="Unfavorable sealed"
+            value={formatRecord(labV2?.marketLineAnalysis?.currentSlate?.unfavorableSealedLine)}
+          />
+        </SectionCard>
+
+        {/* 10. Role / Volume / Dist / Vol */}
+        <SectionCard title="10. Role / Volume / Distribution / Volatility" defaultOpen={false}>
+          <Text style={styles.muted}>
+            {labV2?.roleVolumeAnalysis?.currentSlate?.note ||
+              "Scored via sealed expansion engines when available."}
+          </Text>
+          {(["roleVelocity", "distribution", "volatility", "teammateImpact"] as const).map(
+            (key) => {
+              const card =
+                labV2?.roleVolumeAnalysis?.currentSlate?.engineCoverage?.[key] ||
+                engines[key]?.currentSlate;
+              return (
+                <MetricRow
+                  key={key}
+                  label={engines[key]?.label || key}
+                  value={`cov ${formatPct(card?.coveragePct)} · dir ${formatPct(card?.directionalAccuracy)}`}
+                />
+              );
+            }
+          )}
+        </SectionCard>
+
+        {/* 11. Opponent and Game Context */}
+        <SectionCard title="11. Opponent and Game Context" defaultOpen={false}>
+          <Text style={styles.muted}>
+            {labV2?.opponentGameContextAnalysis?.currentSlate?.note || ""}
+          </Text>
+          {(["defensiveArchetype", "pacePossession", "restFatigue"] as const).map((key) => {
+            const card =
+              labV2?.opponentGameContextAnalysis?.currentSlate?.[key] ||
+              engines[key]?.currentSlate;
+            return (
+              <MetricRow
+                key={key}
+                label={engines[key]?.label || key}
+                value={`cov ${formatPct(card?.coveragePct)} · dir ${formatPct(card?.directionalAccuracy)}`}
+              />
+            );
+          })}
+        </SectionCard>
+
+        {/* 12. Miss and Win Diagnosis */}
+        <SectionCard title="12. Miss and Win Diagnosis" defaultOpen={false}>
+          <MetricRow
+            label="Wins"
+            value={formatRecord(labV2?.outcomeDiagnosis?.currentSlate?.wins)}
+          />
+          <MetricRow
+            label="Losses"
+            value={formatRecord(labV2?.outcomeDiagnosis?.currentSlate?.losses)}
+          />
+          <Text style={styles.subhead}>Miss types</Text>
+          {Object.entries(labV2?.outcomeDiagnosis?.currentSlate?.missTypeCounts || {}).map(
+            ([key, count]) => (
+              <MetricRow key={key} label={key} value={String(count)} />
+            )
+          )}
+        </SectionCard>
+
+        {/* 13. Adjustment Review */}
+        <SectionCard title="13. Adjustment Review (manual only)" defaultOpen={false}>
+          <Text style={styles.muted}>
+            {labV2?.adjustmentReview?.note ||
+              "Recommendations are for human review only. Lab does not modify live weights."}
+          </Text>
+          <MetricRow
+            label="Writes live weights"
+            value={labV2?.adjustmentReview?.writesLiveWeights ? "YES" : "NO"}
+          />
+          <MetricRow
+            label="Calibration Feedback Engine"
+            value={labV2?.adjustmentReview?.calibrationFeedbackEngine ? "YES" : "NO"}
+          />
+          {(labV2?.adjustmentReview?.suggestions || []).map((s: any, idx: number) => (
+            <View key={`${s.engine}-${idx}`} style={styles.propCard}>
+              <Text style={styles.propTitle}>{s.label || s.engine}</Text>
+              <MetricRow label="Suggestion" value={String(s.suggestedAdjustmentType)} />
+              <MetricRow
+                label="Perf"
+                value={`Prev ${formatNum(s.previousPerformance)} → Cur ${formatNum(s.currentPerformance)} (${s.difference > 0 ? "+" : ""}${formatNum(s.difference)})`}
+              />
+              <MetricRow label="Auto-apply" value={s.appliesAutomatically ? "YES" : "NO"} />
+            </View>
+          ))}
+          {!labV2?.adjustmentReview?.suggestions?.length ? (
+            <Text style={styles.muted}>No adjustment candidates above threshold.</Text>
+          ) : null}
+        </SectionCard>
+
+        {/* 14. Raw Signal Explorer */}
+        <SectionCard title="14. Raw Signal Explorer" defaultOpen={false}>
+          <MetricRow
+            label="Rows"
+            value={`${filteredRawRows.length} shown · ${labV2?.rawSignalExplorer?.totalRows ?? 0} total`}
+          />
+          <View style={styles.chipRow}>
+            <Chip
+              label="Prev page"
+              active={false}
+              onPress={() => setRawPage((p) => Math.max(1, p - 1))}
+            />
+            <Chip label={`Page ${rawPage}`} active onPress={() => load()} />
+            <Chip
+              label="Next page"
+              active={false}
+              onPress={() => setRawPage((p) => p + 1)}
+            />
+          </View>
+          {filteredRawRows.map((row: any, idx: number) => (
+            <View
+              key={`${row.officialPropId}-${row.engine}-${idx}`}
+              style={styles.engineRow}
+            >
+              <Text style={styles.engineName}>
+                {row.player} · {row.engineLabel || row.engine}
+              </Text>
+              <Text style={styles.propMeta}>
+                {row.available ? "available" : `unavailable${row.unavailableReason ? ` (${row.unavailableReason})` : ""}`}
+                {` · ${row.result || "—"} · margin ${formatNum(row.resultMargin)}`}
+              </Text>
+            </View>
+          ))}
+        </SectionCard>
+
+        {/* 15. All-Time Context */}
+        <SectionCard title="15. All-Time Context" defaultOpen={false}>
+          <MetricRow label="Graded" value={String(labV2?.allTimeContext?.graded ?? 0)} />
+          <MetricRow label="W-L-P" value={formatRecord(labV2?.allTimeContext)} />
+          <MetricRow label="NBA" value={formatRecord(labV2?.allTimeContext?.nba)} />
+          <MetricRow label="WNBA" value={formatRecord(labV2?.allTimeContext?.wnba)} />
+          <MetricRow label="Over" value={formatRecord(labV2?.allTimeContext?.over)} />
+          <MetricRow label="Under" value={formatRecord(labV2?.allTimeContext?.under)} />
+          <MetricRow label="Same-team forced" value={formatRecord(labV2?.allTimeContext?.sameTeamForced)} />
+          <MetricRow label="Avg |proj err|" value={formatNum(labV2?.allTimeContext?.avgAbsProjectionError)} />
+          <MetricRow label="Avg CLV" value={formatNum(labV2?.allTimeContext?.avgClv)} />
+        </SectionCard>
+
+        <Text style={styles.footer}>
+          Build {labV2?.buildVersion || "—"} · analysis-only · no live weight writes
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: "#020617",
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 12,
-  },
-  headerCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  title: {
-    color: "#f8fafc",
-    fontSize: 24,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: "#94a3b8",
-    fontSize: 14,
-    marginTop: 4,
-    fontWeight: "700",
-  },
-  note: {
-    color: "#64748b",
-    fontSize: 12,
-    marginTop: 8,
-    lineHeight: 18,
-  },
-  actionRow: {
-    flexDirection: "row",
-  },
-  actionBtn: {
-    flex: 1,
-    backgroundColor: "#1d4ed8",
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  actionBtnDisabled: {
-    opacity: 0.6,
-  },
-  actionBtnText: {
-    color: "#dbeafe",
-    fontWeight: "900",
-    textAlign: "center",
-    fontSize: 14,
-  },
-  slatePicker: {
-    maxHeight: 44,
-  },
-  slatePickerContent: {
-    gap: 8,
-    paddingVertical: 4,
-  },
-  slateChip: {
-    backgroundColor: "#1e293b",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  slateChipActive: {
-    backgroundColor: "#14532d",
-    borderColor: "#22c55e",
-  },
-  slateChipText: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  slateChipTextActive: {
-    color: "#bbf7d0",
-  },
+  safe: { flex: 1, backgroundColor: "#0b1220" },
+  content: { padding: 16, paddingBottom: 48 },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, gap: 12 },
+  pageTitle: { color: "#f8fafc", fontSize: 24, fontWeight: "700" },
+  pageSub: { color: "#94a3b8", fontSize: 12, marginTop: 4 },
   sectionCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 14,
+    backgroundColor: "#111827",
+    borderRadius: 12,
     padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#1e293b",
-    gap: 6,
+    borderColor: "#1f2937",
   },
-  sectionTitle: {
-    color: "#facc15",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  summaryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  slateTitle: {
-    color: "#f8fafc",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  badge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeFinal: {
-    backgroundColor: "#14532d",
-  },
-  badgeProgress: {
-    backgroundColor: "#1e3a8a",
-  },
-  badgeText: {
-    color: "#f8fafc",
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  pendingNote: {
-    color: "#93c5fd",
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
+  sectionTitle: { color: "#e2e8f0", fontSize: 16, fontWeight: "700" },
+  sectionBody: { marginTop: 10 },
   metricRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 3,
-  },
-  metricLabel: {
-    color: "#94a3b8",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  metricValue: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  bucketBlock: {
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 8,
-    marginTop: 4,
-    gap: 2,
-  },
-  bucketTitle: {
-    color: "#38bdf8",
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  bucketLine: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  bucketMeta: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  breakdownSection: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  breakdownTitle: {
-    color: "#facc15",
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  breakdownLine: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  structuralBlock: {
-    gap: 4,
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1e293b",
-  },
-  structuralLine: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "600",
-    lineHeight: 16,
-  },
-  leagueBlock: {
-    gap: 4,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-  },
-  smallNote: {
-    color: "#fbbf24",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  highlight: {
-    color: "#86efac",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  highlightBad: {
-    color: "#fca5a5",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  signalGroup: {
-    marginTop: 6,
-    gap: 4,
-  },
-  signalGroupTitle: {
-    color: "#38bdf8",
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "capitalize",
-  },
-  groupRow: {
-    paddingVertical: 3,
-  },
-  groupKey: {
-    color: "#e2e8f0",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  groupStat: {
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  lossRow: {
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 8,
-    marginTop: 6,
-    gap: 2,
-  },
-  lossPlayer: {
-    color: "#fecaca",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  lossMeta: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  lossExplain: {
-    color: "#64748b",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  recLabel: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "900",
-    marginTop: 6,
-  },
-  recItem: {
-    color: "#86efac",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  recItemBad: {
-    color: "#fca5a5",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  recNote: {
-    color: "#cbd5e1",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  warnNote: {
-    color: "#fbbf24",
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  muted: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  signalPerfCategory: {
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-  },
-  signalPerfCategoryTitle: {
-    color: "#38bdf8",
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 6,
-    textTransform: "uppercase",
-  },
-  signalPerfRow: {
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: "#0f172a",
-  },
-  signalPerfRowHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  signalPerfValue: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "800",
-    flex: 1,
-  },
-  signalPerfMeta: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  signalPerfSmallSample: {
-    color: "#fbbf24",
-    fontSize: 10,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  signalSummaryWrap: {
-    marginBottom: 10,
-    gap: 8,
-  },
-  signalSummaryBlock: {
+    gap: 12,
     marginBottom: 6,
   },
-  signalSummaryTitle: {
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  signalSummaryLine: {
-    color: "#cbd5e1",
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  impactBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  impactHelped: {
-    backgroundColor: "rgba(34, 197, 94, 0.2)",
-  },
-  impactHurt: {
-    backgroundColor: "rgba(239, 68, 68, 0.2)",
-  },
-  impactNeutral: {
-    backgroundColor: "rgba(148, 163, 184, 0.2)",
-  },
-  impactBadgeText: {
-    color: "#f8fafc",
-    fontSize: 9,
-    fontWeight: "900",
-  },
-  snapshotHeading: {
-    color: "#38bdf8",
-    fontSize: 13,
-    fontWeight: "900",
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  snapshotLine: {
-    color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 6,
-    lineHeight: 18,
-  },
-  learningPacketCard: {
-    backgroundColor: "#0b1220",
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-  },
-  learningPacketTitle: {
-    color: "#f8fafc",
-    fontSize: 14,
-    fontWeight: "900",
-    marginBottom: 6,
-  },
-  learningPacketLine: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 4,
-    lineHeight: 16,
-  },
-  learningLesson: {
-    color: "#c8e6c9",
-    fontSize: 13,
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  learningSubheading: {
-    color: "#90caf9",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 8,
-    marginBottom: 2,
-  },
-  emptyCard: {
-    backgroundColor: "#0f172a",
-    borderRadius: 14,
-    padding: 16,
+  metricLabel: { color: "#94a3b8", flex: 1, fontSize: 13 },
+  metricValue: { color: "#f1f5f9", flex: 1.4, fontSize: 13, textAlign: "right" },
+  muted: { color: "#64748b", fontSize: 13, marginBottom: 6 },
+  errorText: { color: "#f87171", marginBottom: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  chip: {
     borderWidth: 1,
     borderColor: "#334155",
-  },
-  emptyTitle: {
-    color: "#f8fafc",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  emptyText: {
-    color: "#94a3b8",
-    fontSize: 12,
-    marginTop: 6,
-    fontWeight: "700",
-  },
-  activeNote: {
-    color: "#93c5fd",
-    fontSize: 12,
-    marginTop: 10,
-    fontWeight: "700",
-  },
-  labBanner: {
-    backgroundColor: "#14532d",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#22c55e",
-    gap: 6,
-  },
-  labBannerTitle: {
-    color: "#bbf7d0",
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  labBannerNote: {
-    color: "#86efac",
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
-  engineGrid: {
-    gap: 8,
-  },
-  engineSummary: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  engineCard: {
-    backgroundColor: "#111827",
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#1e293b",
-    gap: 4,
-  },
-  engineCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  engineName: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "900",
-    flex: 1,
-  },
-  engineBadge: {
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  engineBadgeText: {
-    color: "#f8fafc",
-    fontSize: 9,
-    fontWeight: "900",
-  },
-  engineStatusWorking: {
-    backgroundColor: "#14532d",
-  },
-  engineStatusWeak: {
-    backgroundColor: "#854d0e",
-  },
-  engineStatusFailing: {
-    backgroundColor: "#7f1d1d",
-  },
-  engineStatusNeutral: {
-    backgroundColor: "#334155",
-  },
-  engineStatLine: {
-    color: "#94a3b8",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  engineLesson: {
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: "600",
-    lineHeight: 14,
-  },
-  mistakeSection: {
-    gap: 8,
-  },
-  mistakeTotal: {
-    color: "#fca5a5",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  mistakeCategory: {
+  chipActive: { backgroundColor: "#1d4ed8", borderColor: "#1d4ed8" },
+  chipText: { color: "#cbd5e1", fontSize: 12 },
+  chipTextActive: { color: "#fff", fontWeight: "600" },
+  filterLabel: { color: "#64748b", fontSize: 11, marginBottom: 4, marginTop: 4 },
+  propCard: {
     borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 8,
-    gap: 3,
+    borderTopColor: "#1f2937",
+    paddingTop: 10,
+    marginTop: 8,
   },
-  mistakeCategoryTitle: {
-    color: "#fbbf24",
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  mistakeItem: {
-    color: "#94a3b8",
-    fontSize: 10,
-    fontWeight: "600",
-    lineHeight: 14,
-  },
-  rulesSection: {
-    gap: 8,
-  },
-  ruleRow: {
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 8,
-    gap: 2,
-  },
-  rulePriority: {
-    color: "#38bdf8",
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  ruleText: {
-    color: "#e2e8f0",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  ruleReason: {
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  lessonSection: {
-    gap: 6,
-  },
-  lessonHeadline: {
-    color: "#f8fafc",
-    fontSize: 14,
-    fontWeight: "900",
-    lineHeight: 20,
-  },
-  lessonBody: {
+  propTitle: { color: "#f8fafc", fontWeight: "600", marginBottom: 4 },
+  propMeta: { color: "#94a3b8", fontSize: 12, marginBottom: 6 },
+  subhead: {
     color: "#cbd5e1",
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
-  lessonBullet: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 16,
-  },
-  rawPropRow: {
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-    paddingTop: 8,
-    marginTop: 4,
-    gap: 2,
-  },
-  rawPropTitle: {
-    color: "#e2e8f0",
-    fontSize: 11,
-    fontWeight: "900",
-  },
-  rawPropMeta: {
-    color: "#64748b",
-    fontSize: 10,
     fontWeight: "600",
+    marginTop: 10,
+    marginBottom: 6,
+    fontSize: 13,
   },
+  engineRow: {
+    borderTopWidth: 1,
+    borderTopColor: "#1f2937",
+    paddingTop: 8,
+    marginTop: 6,
+  },
+  engineName: { color: "#e2e8f0", fontWeight: "600", marginBottom: 4, fontSize: 13 },
+  footer: { color: "#475569", fontSize: 11, textAlign: "center", marginTop: 8 },
 });

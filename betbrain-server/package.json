@@ -7,7 +7,8 @@
     "start": "node server.js",
     "test-keys": "node testKeys.js",
     "test:anonymous-access": "node scripts/testAnonymousCoreAccess.js",
-    "test:courtedge-engine-expansion": "node scripts/runCourtEdgeEngineExpansionSuite.js"
+    "test:courtedge-engine-expansion": "node scripts/runCourtEdgeEngineExpansionSuite.js",
+    "test:courtedge-lab-v2": "node scripts/testCourtEdgeLabV2.js"
   },
   "engines": {
     "node": ">=18"

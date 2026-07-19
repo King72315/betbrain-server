@@ -602,6 +602,9 @@ export const fetchDailySlateReports = async () => {
       historyThreeSlateGroups: data.historyThreeSlateGroups || null,
       signalPerformanceVersion: data.signalPerformanceVersion || null,
       historyThreeSlateGroupsVersion: data.historyThreeSlateGroupsVersion || null,
+      labV2: data.labV2 || null,
+      labV2Version: data.labV2Version || null,
+      labV2Build: data.labV2Build || null,
     };
   } catch (err) {
     console.log("FETCH DAILY SLATE REPORTS FAILED:", err);
@@ -623,6 +626,45 @@ export const fetchDailySlateReports = async () => {
       lifecycleByDate: {},
       rotationDecisionDebug: null,
       serverBuild: null,
+      labV2: null,
+    };
+  }
+};
+
+export const fetchCourtEdgeLabV2 = async (options?: {
+  slateDate?: string;
+  page?: number;
+  pageSize?: number;
+  includeAllRawRows?: boolean;
+}) => {
+  try {
+    const params = new URLSearchParams();
+    if (options?.page) params.set("page", String(options.page));
+    if (options?.pageSize) params.set("pageSize", String(options.pageSize));
+    if (options?.includeAllRawRows) params.set("includeAllRawRows", "true");
+    const qs = params.toString();
+    const path = options?.slateDate
+      ? `/courtedge/lab/${encodeURIComponent(options.slateDate)}${qs ? `?${qs}` : ""}`
+      : `/courtedge/lab${qs ? `?${qs}` : ""}`;
+    const res = await fetch(`${BASE_URL}${path}`);
+    const data = await safeJson(res);
+    return {
+      ok: res.ok && (data.ok ?? false),
+      labV2: data.labV2 || null,
+      serverBuild: data.serverBuild || null,
+      labV2Version: data.labV2Version || null,
+      labV2Build: data.labV2Build || null,
+      message: data.message || "",
+      error: data.error || "",
+    };
+  } catch (err: any) {
+    console.log("FETCH COURTEDGE LAB V2 FAILED:", err);
+    return {
+      ok: false,
+      labV2: null,
+      serverBuild: null,
+      message: err?.message || "Lab V2 fetch failed",
+      error: err?.message || "Lab V2 fetch failed",
     };
   }
 };
