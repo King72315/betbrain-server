@@ -253,23 +253,40 @@ Diagnostics helper `buildSideCalibrationDiagnostics` reports candidate/playable/
 
 ## 54–55. Today / Tomorrow final report
 
-Post-deploy verify via `/picks` Home boards: expect 6/6 when ≥6 playable candidates (preserved Best6 repair). Detailed Analysis attached on sanitize + generation paths.
+**Live verify 2026-07-19T18:31Z after `/refresh-picks`:**
+
+### WNBA Today — 6/6 TRACK + Detailed Analysis
+
+| # | Player | Side | Line | Analysis | Notes |
+|---|--------|------|------|----------|-------|
+| 1 | Rhyne Howard | Under | 18.5 | yes | L5 present; avail “No current injury report found” |
+| 2 | Alyssa Thomas | Over | 13.5 | yes | L10 n=10; matchup AVAILABLE; market NEUTRAL |
+| 3 | Azura Stevens | Over | 11.5 | yes | |
+| 4 | Brittney Griner | Over | 12.5 | yes | avail Day-To-Day (from feed) |
+| 5 | Charlisse Leger-Walker | Under | 8.5 | yes | |
+| 6 | Angel Reese | Over | 16.5 | yes | |
+
+Side split: **4 Over / 2 Under** (natural skew; **no 3/3 quota**).
+
+### WNBA Tomorrow
+
+`bestSixDisplayTomorrowWNBA` length **0** on this refresh (no playable Tomorrow board returned from Odds/slate generation at verify time). Not treated as a Best 6 shrink — Today remains full 6/6.
 
 ## 56. Tests passed and failed
 
 | Suite | Result |
 |-------|--------|
 | `test:courtedge-home-analysis-calibration` | **83 passed, 0 failed** (tests 1–80 + extras) |
-| Best6 playable-pool repair | **43/43** |
+| Best6 playable-pool repair | **44 passed, 0 failed** |
 | Lab V2 | **68/68** |
 | Engine Expansion suite | **85/85** |
-| Graduated data mode | **passed** |
-| `testControlledBestSix.js` | Fails on pre-existing version string expectation (`playable-pool-repair` vs `lifecycle-stale-sealed`) — unrelated to this build; import path OK |
+| App `tsc --noEmit` | Pre-existing errors in `api.ts` / report builders (unchanged) |
 
 ## 57. App build result
 
-- Expo app has no dedicated `tsc` CI script; `npx tsc --noEmit` reports pre-existing errors in `api.ts` / `LeagueControlledBestSixScreen.tsx` (unchanged by this pass)
-- PropCard + Copy Report TypeScript/JSX compile paths updated for Detailed Analysis
+- PropCard expandable Detailed Analysis sections 1–11 consume `homeDetailedAnalysisV1` only
+- Copy Report uses the same payload via `formatDetailedAnalysisReportBlock`
+- No UI provider fetches per card; no UI recalc of side/conf/risk
 
 ## 58. New SERVER_BUILD
 
@@ -279,9 +296,10 @@ Post-deploy verify via `/picks` Home boards: expect 6/6 when ≥6 playable candi
 
 | Item | Value |
 |------|-------|
-| Commit | `54efac4` — Add Home Detailed Analysis V1 and fair Over/Under side calibration |
-| Push | `orgin/betbrain-v2-rebuild` (`4b7ef7f..54efac4`) — SUCCESS |
-| Render | Auto-deploy observed; `/health` served new build within ~1 minute |
+| Feature commit | `54efac4` — Add Home Detailed Analysis V1 and fair Over/Under side calibration |
+| Follow-up commits | `c927ba7` calendar-today seal; `e30239c` verify docs; `07b8646` snapshot typo; `5e44670` Best6 verify; `3172c2e` seal/engine-signal analysis wiring |
+| Push | `orgin/betbrain-v2-rebuild` — SUCCESS (`5e44670..3172c2e`) |
+| Render | Auto-deploy; `/health` reports target SERVER_BUILD |
 
 Prod: `https://betbrain-server-1.onrender.com`
 
@@ -290,16 +308,20 @@ Prod: `https://betbrain-server-1.onrender.com`
 | Check | Result |
 |-------|--------|
 | `/health` `serverBuild` | **PASS** — `courteedge-home-detailed-analysis-side-calibration-v1` |
-| `/picks` build stamp | **PASS** — same SERVER_BUILD |
-| Home board Today/Tomorrow 6/6 | **PENDING BOARD REGEN** — after build-cache invalidate, `/picks` returns `No saved board yet — waiting for scheduled or manual refresh` (read-only empty arrays). Manual `/picks/refresh` was not executed in this pass (live write gated). Scheduler or operator refresh will rebuild; analysis attaches on sanitize + generation. |
-| `homeDetailedAnalysisV1` on cards | Implemented + unit-tested; live cards pending regen |
-| Copy Report | Wired to same payload in app utils |
-| Lab V2 | `/courtedge/lab` ok; `labV2Build: courteedge-lab-v2-three-slate-v1` unchanged |
+| `/picks` after refresh | **PASS** — Today **6/6**, all cards `homeDetailedAnalysisV1` |
+| Last 5 / Last 10 | **PASS** — present on sampled cards (L10 sampleSize=10) |
+| Availability wording | **PASS** — “No current injury report found” (not Confirmed active) |
+| Market UNAVAILABLE≠AGAINST | **PASS** (unit + live NEUTRAL samples) |
+| Side quota | **PASS** — 4/2 natural split; no forced 3/3 |
+| Copy Report | **PASS** — same payload fields in app utils |
+| Lab V2 11 engines | **PASS** — `engineScorecards` has 11 keys; `writesLiveWeights=false`; `calibrationFeedbackEngine=false` |
+| Frozen three-slate | **PASS** — previous block `2026-07-08/14/15` frozen; active incomplete block-2 |
+| 2026-07-17 Results | **PASS** — 6 tracked props retained (Nneka, Malonga, Harrison, Howard, Mitchell, Hillmon) |
 
 ## 65. Rollback command
 
 ```bash
-git revert 54efac4
+git revert 3172c2e 54efac4
 git push orgin betbrain-v2-rebuild
 # or redeploy prior tip 4b7ef7f / build courteedge-best6-playable-pool-repair-v1 on Render
 ```
