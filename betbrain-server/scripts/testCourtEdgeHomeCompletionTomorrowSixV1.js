@@ -637,9 +637,15 @@ test("61 Tempo and Valkyries resolve", () => {
 });
 
 test("62 SERVER_BUILD target string documented", () => {
+  const fs = require("fs");
+  const path = require("path");
+  const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
+  const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
+  assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
+    m[1],
     "courteedge-home-completion-tomorrow-six-v1",
-    "courteedge-home-completion-tomorrow-six-v1"
+    "Do not retag SERVER_BUILD away from home-completion-tomorrow-six-v1"
   );
 });
 
