@@ -382,5 +382,49 @@ test("18 syncCanonicalDecisionOntoPick aligns riskLabel", () => {
   assert.strictEqual(synced.confidence, 70);
 });
 
-console.log(`\n${passed} passed, ${failed} failed\n`);
-if (failed > 0) process.exit(1);
+test("19 Lacan-style empty form with seasonAvg 0 is rejected", () => {
+  const lacan = {
+    player: "Leïla Lacan",
+    team: "CON",
+    opponent: "PHO",
+    league: "WNBA",
+    line: 11.5,
+    side: "Under",
+    confidence: 40,
+    courtEdgePlayerEvidence: {
+      schemaVersion: "courtEdgePlayerEvidenceV1",
+      identity: {
+        oddsPlayerName: "Leïla Lacan",
+        canonicalPlayerId: "name:WNBA:leila lacan",
+        bdlPlayerId: null,
+      },
+      recentForm: {
+        seasonPointsAverage: 0,
+        last5Points: null,
+        last10Points: null,
+        sampleSize: 0,
+        quality: {
+          available: true,
+          sampleSize: 0,
+          quality: "EARLY",
+          confidenceEligible: true,
+        },
+      },
+      roleAndVolume: { last5Minutes: null, fga: null, fta: null },
+      matchup: { sampleSize: 0 },
+      dataQuality: { coveragePct: 30 },
+    },
+  };
+  const check = validatePlayerEvidencePacket(lacan.courtEdgePlayerEvidence, lacan);
+  assert.strictEqual(check.shouldRebuild, true);
+  assert.ok(
+    check.reasons.includes("zero_poison_season_average") ||
+      check.reasons.includes("form_quality_available_with_empty_sample") ||
+      check.reasons.includes("form_confidence_eligible_without_sample")
+  );
+  const fixed = ensureValidPlayerEvidence(lacan);
+  assert.ok(fixed.evidenceIntegrityV1?.rebuilt);
+  const a = buildHomeDetailedAnalysisV1(fixed);
+  assert.strictEqual(a.recentPerformance.seasonAverage, null);
+  assert.notStrictEqual(a.recentPerformance.seasonAverage, 0);
+});

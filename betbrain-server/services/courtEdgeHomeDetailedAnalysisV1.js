@@ -404,13 +404,18 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
       : last10Pts.length > 0
         ? last10Pts
         : [];
-  const seasonAvg = num(
+  const seasonAvgRaw = measuredNum(
     first(
       evidence.recentForm?.seasonPointsAverage,
       pick.seasonAverage,
       pick.playerState?.seasonPoints
     )
   );
+  // Zero with no game sample is poison — treat as unavailable.
+  const seasonAvg =
+    seasonAvgRaw === 0 && !last5Pts.length && !last10Display.length
+      ? null
+      : seasonAvgRaw;
   const seasonPts = extractPointsList(pick.bdlSeasonGames || pick.seasonGames || []);
   const trend = scoringTrend(last5Pts.length ? last5Pts : last10Display);
   const lineForHits = sealed ? sealedLine : currentLine ?? sealedLine;

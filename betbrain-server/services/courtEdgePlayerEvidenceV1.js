@@ -104,11 +104,16 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
   const last10Pts = ptsList(last10Source).slice(0, 10);
   const last3Pts = last5Pts.slice(0, 3);
   const seasonPts = ptsList(seasonGames);
-  const seasonAvg = num(
+  const seasonAvgRaw = num(
     ctx.seasonAverage ??
       ctx.playerState?.seasonPoints ??
       avg(seasonPts)
   );
+  // Never publish season average 0 with an empty sample (zero-default poison).
+  const seasonAvg =
+    seasonAvgRaw === 0 && !last5Pts.length && !seasonPts.length
+      ? null
+      : seasonAvgRaw;
 
   const defenseAvailable =
     defense.available === true &&
@@ -194,51 +199,86 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
         confidenceEligible: last5Pts.length >= 3 || seasonAvg !== null,
       }),
     },
-    roleAndVolume: {
-      seasonMinutes: num(opportunity.seasonMinutes ?? ctx.playerState?.seasonMinutes),
-      last3Minutes: null,
-      last5Minutes: num(opportunity.recentMinutes),
-      last10Minutes: null,
-      minutesTrend: first(ctx.roleTrend, ctx.dataCard?.roleTrend),
-      minutesFloor: null,
-      minutesCeiling: null,
-      fga: num(opportunity.recentFGA),
-      fta: num(opportunity.recentFTA),
-      threePointAttempts: null,
-      startsRecent: null,
-      inferredRole: first(
-        ctx.playerRoleProfile?.inferredRole,
-        ctx.dataCard?.playerRoleProfile?.inferredRole
-      ),
-      roleStability: first(
-        ctx.volumeProfile?.minutesStability,
-        ctx.dataCard?.playerRoleProfile?.roleStability
-      ),
-      shotVolumeStability: first(
-        ctx.volumeProfile?.volumeStability,
-        ctx.dataCard?.usageShotTrend
-      ),
-      teammateOutRoleChange: Boolean(ctx.teammateUsageShift?.active),
-      estimatedUsage: first(
-        opportunity.estimatedUsage,
-        ctx.dataCard?.playerRoleProfile?.estimatedUsage
-      ),
-      estimatedUsageLabel: "ESTIMATE_NOT_PROVIDER",
-      usageTrend: null,
-      roleConfidence: num(opportunity.roleCertainty),
-      quality: qualityBlock({
-        available:
-          num(opportunity.recentMinutes) !== null ||
-          num(opportunity.recentFGA) !== null,
-        provider: "balldontlie",
-        sampleSize: last5.length,
-        quality:
-          num(opportunity.recentMinutes) !== null && num(opportunity.recentFGA) !== null
-            ? "USABLE"
-            : "DEVELOPING",
-        confidenceEligible: num(opportunity.recentMinutes) !== null,
-      }),
-    },
+    roleAndVolume: (() => {
+      // Zero with empty game sample is poison — treat as missing, never USABLE.
+      const hasSample = last5Pts.length > 0 || seasonGames.length > 0;
+      const rawMins = num(opportunity.recentMinutes);
+      const rawFga = num(opportunity.recentFGA);
+      const rawFta = num(opportunity.recentFTA);
+      const rawSeasonMins = num(
+        opportunity.seasonMinutes ?? ctx.playerState?.seasonMinutes
+      );
+      const last5Minutes =
+        rawMins !== null && rawMins < 0
+          ? null
+          : rawMins === 0 && !hasSample
+            ? null
+            : rawMins;
+      const fga =
+        rawFga !== null && rawFga < 0
+          ? null
+          : rawFga === 0 && !hasSample
+            ? null
+            : rawFga;
+      const fta =
+        rawFta !== null && rawFta < 0
+          ? null
+          : rawFta === 0 && !hasSample
+            ? null
+            : rawFta;
+      const seasonMinutes =
+        rawSeasonMins !== null && rawSeasonMins < 0
+          ? null
+          : rawSeasonMins === 0 && !hasSample
+            ? null
+            : rawSeasonMins;
+      const volumeAvailable = last5Minutes !== null || fga !== null;
+      return {
+        seasonMinutes,
+        last3Minutes: null,
+        last5Minutes,
+        last10Minutes: null,
+        minutesTrend: first(ctx.roleTrend, ctx.dataCard?.roleTrend),
+        minutesFloor: null,
+        minutesCeiling: null,
+        fga,
+        fta,
+        threePointAttempts: null,
+        startsRecent: null,
+        inferredRole: first(
+          ctx.playerRoleProfile?.inferredRole,
+          ctx.dataCard?.playerRoleProfile?.inferredRole
+        ),
+        roleStability: first(
+          ctx.volumeProfile?.minutesStability,
+          ctx.dataCard?.playerRoleProfile?.roleStability
+        ),
+        shotVolumeStability: first(
+          ctx.volumeProfile?.volumeStability,
+          ctx.dataCard?.usageShotTrend
+        ),
+        teammateOutRoleChange: Boolean(ctx.teammateUsageShift?.active),
+        estimatedUsage: first(
+          opportunity.estimatedUsage,
+          ctx.dataCard?.playerRoleProfile?.estimatedUsage
+        ),
+        estimatedUsageLabel: "ESTIMATE_NOT_PROVIDER",
+        usageTrend: null,
+        roleConfidence: hasSample ? num(opportunity.roleCertainty) : null,
+        quality: qualityBlock({
+          available: volumeAvailable,
+          provider: "balldontlie",
+          sampleSize: last5.length,
+          quality: !volumeAvailable
+            ? "UNAVAILABLE"
+            : last5Minutes !== null && fga !== null
+              ? "USABLE"
+              : "DEVELOPING",
+          error: !volumeAvailable ? "volume_unavailable_or_zero_poison" : null,
+          confidenceEligible: last5Minutes !== null && hasSample,
+        }),
+      };
+    })(),
     matchup: {
       priorGamesVsOpponent: matchupGames.length,
       points: matchupPts.length ? matchupPts : null,
@@ -372,24 +412,41 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
       roleAdjustedProjection: num(projectionResult.roleAdjusted),
       matchupAdjustedProjection: num(projectionResult.matchupAdjusted),
       gameContextAdjustment: num(projectionResult.gameContextAdjustment),
-      finalProjection: num(
-        projectionResult.finalProjection ??
-          projectionResult.projection ??
-          ctx.projection
-      ),
-      fairLine: num(ctx.fairLine ?? projectionResult.fairLine),
+      finalProjection: (() => {
+        const p = num(
+          projectionResult.finalProjection ??
+            projectionResult.projection ??
+            ctx.projection
+        );
+        // Negative projections are invalid display poison.
+        return p !== null && p < 0 ? null : p;
+      })(),
+      fairLine: (() => {
+        const f = num(ctx.fairLine ?? projectionResult.fairLine);
+        return f !== null && f < 0 ? null : f;
+      })(),
       projectionRange: projectionResult.range || null,
       projectionUncertainty: num(projectionResult.uncertainty),
       quality: qualityBlock({
-        available:
+        available: (() => {
+          const p = num(
+            projectionResult.finalProjection ??
+              projectionResult.projection ??
+              ctx.projection
+          );
+          return p !== null && p >= 0;
+        })(),
+        provider: "internal",
+        quality: "DEVELOPING",
+        confidenceEligible: true,
+        error:
           num(
             projectionResult.finalProjection ??
               projectionResult.projection ??
               ctx.projection
-          ) !== null,
-        provider: "internal",
-        quality: "DEVELOPING",
-        confidenceEligible: true,
+          ) < 0
+            ? "negative_projection_rejected"
+            : null,
       }),
     },
     dataQuality: {

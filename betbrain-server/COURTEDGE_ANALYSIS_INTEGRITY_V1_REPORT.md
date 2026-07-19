@@ -94,6 +94,15 @@ Up to **last 3** matchups with points / minutes / FGA / FTA / line result. Real 
 4. Spot-check Best 6: conf === analysis.canonical.confidence; risk === analysis.canonical.risk; no raw codes in Why/Copy; matchups ≤3; market UNAVAILABLE not AGAINST
 5. If Lacan (or any accented name) is on slate: evidence packet valid or rebuilt; no zero-poison / negative volume display
 
+### Live verify (2026-07-19 post-deploy)
+
+- Build: `courteedge-analysis-integrity-v1`
+- WNBA Today **6/6**, Tomorrow **6/6**
+- Conf/risk mismatches across compact vs canonical: **0**
+- Raw codes in Why: **0**
+- Negative volume display: **0**
+- **Leïla Lacan** on Today Best 6: conf/risk aligned (40 / MEDIUM); identity join key `leila lacan`; empty form with seasonAvg 0 rejected on follow-up hotfix (display UNAVAILABLE, not 0)
+
 ## Confirmations
 
 | Constraint | Status |

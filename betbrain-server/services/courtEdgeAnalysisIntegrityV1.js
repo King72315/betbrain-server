@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CourtEdge Analysis Integrity V1
  *
  * Single owner for consumer-facing finalConfidence / finalRisk, plus display
@@ -24,7 +24,7 @@ export const ANALYSIS_INTEGRITY_BUILD = "courteedge-analysis-integrity-v1";
  * Never prefer winProbability over finalConfidence for consumer display.
  */
 export const CANONICAL_CONFIDENCE_RISK_OWNER =
-  "courtEdgeDecisionPacketV1.finalConfidence|trueRisk → pick.finalConfidence|displayTrueRisk (sealed)";
+  "courtEdgeDecisionPacketV1.finalConfidence|trueRisk ΓåÆ pick.finalConfidence|displayTrueRisk (sealed)";
 
 function first(...values) {
   for (const value of values) {
@@ -59,7 +59,7 @@ export function roundRate(value, decimals = 3) {
 }
 
 /**
- * Measured field wrapper — missing stays null/UNAVAILABLE, never synthetic 0.
+ * Measured field wrapper ΓÇö missing stays null/UNAVAILABLE, never synthetic 0.
  * For volume fields, treat bare 0 with empty sample as missing.
  */
 export function measuredField(value, options = {}) {
@@ -83,7 +83,7 @@ export function measuredField(value, options = {}) {
   return { value: n, status: "AVAILABLE", display: n };
 }
 
-/** Volume / minutes / attempts — never display negative nonsense. */
+/** Volume / minutes / attempts ΓÇö never display negative nonsense. */
 export function nonNegativeVolume(value, options = {}) {
   const field = measuredField(value, {
     zeroMeansMissing: options.zeroMeansMissing !== false,
@@ -132,7 +132,7 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
       packet.confidence,
       pick.finalConfidence,
       pick.confidence
-      // intentionally omit winProbability — competing trail
+      // intentionally omit winProbability ΓÇö competing trail
     )
   );
 
@@ -167,7 +167,7 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
 }
 
 /**
- * Accent / apostrophe-safe person key for joins (Leïla → leilalacan).
+ * Accent / apostrophe-safe person key for joins (Le├»la ΓåÆ leilalacan).
  */
 export function normalizePlayerJoinKey(name = "") {
   return normalizePersonName(name).replace(/\s+/g, "");
@@ -248,6 +248,16 @@ export function validatePlayerEvidencePacket(evidence = {}, pick = {}) {
     if (quality.confidenceEligible === true && !bdlId && sample === 0) {
       reasons.push("confidence_eligible_without_identity_or_sample");
     }
+    const formQuality = form.quality || {};
+    if (formQuality.available === true && (formQuality.sampleSize || 0) === 0) {
+      reasons.push("form_quality_available_with_empty_sample");
+    }
+    if (formQuality.confidenceEligible === true && sample === 0) {
+      reasons.push("form_confidence_eligible_without_sample");
+    }
+    if (numOrNull(form.seasonPointsAverage) === 0) {
+      reasons.push("zero_poison_season_average");
+    }
   }
 
   if (proj !== null && proj < 0) {
@@ -272,7 +282,7 @@ export function validatePlayerEvidencePacket(evidence = {}, pick = {}) {
 }
 
 /**
- * Strip zero-poisoned role/projection fields → null + UNAVAILABLE markers.
+ * Strip zero-poisoned role/projection fields ΓåÆ null + UNAVAILABLE markers.
  */
 export function sanitizeEvidencePacket(evidence = {}) {
   if (!evidence || typeof evidence !== "object") return evidence;
@@ -301,6 +311,19 @@ export function sanitizeEvidencePacket(evidence = {}) {
   scrubZero(role, "estimatedUsage");
   if (numOrNull(role.roleConfidence) === 50 && sample === 0) {
     role.roleConfidence = null;
+  }
+  if (numOrNull(form.seasonPointsAverage) === 0 && sample === 0) {
+    form.seasonPointsAverage = null;
+  }
+  if (form.quality && sample === 0) {
+    form.quality = {
+      ...form.quality,
+      available: false,
+      sampleSize: 0,
+      quality: "UNAVAILABLE",
+      confidenceEligible: false,
+      error: form.quality.error || "empty_sample_zero_poison_rejected",
+    };
   }
   if (role.quality && sample === 0) {
     role.quality = {
@@ -407,7 +430,7 @@ export function rejectOrRebuildEvidencePacket(pick = {}, options = {}) {
         pick.player || pick.playerName || sanitized.identity.oddsPlayerName,
     };
   }
-  // After rebuild, if still empty — mark explicitly unavailable (no fake zeros).
+  // After rebuild, if still empty ΓÇö mark explicitly unavailable (no fake zeros).
   const post = validatePlayerEvidencePacket(sanitized, pick);
   if (!post.valid) {
     sanitized.roleAndVolume = {
