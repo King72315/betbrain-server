@@ -139,15 +139,23 @@ Prop Lab screen rewritten to consume `fetchCourtEdgeLabV2`; copy report uses `bu
 
 ## 31–33. Commit / push / Render
 
-See final message after deploy verification.
+| Item | Value |
+|---|---|
+| Commit | `213d1ce` |
+| Push | `orgin/betbrain-v2-rebuild` (`a1f57b7..213d1ce`) |
+| Render | Live — `/health` returns `courteedge-lab-v2-three-slate-v1` |
 
 ## 34–35. Live verification checklist
 
-1. `/health` → `serverBuild: courteedge-lab-v2-three-slate-v1`  
-2. `GET /courtedge/lab` returns `labV2` with 11 engine scorecards  
-3. Prop Lab shows sections 1–15; no banned pick labels  
-4. Copy report metrics match screen payload  
-5. History three-slate membership matches Lab  
+| Check | Result |
+|---|---|
+| `/health` serverBuild | `courteedge-lab-v2-three-slate-v1` |
+| `GET /courtedge/lab` | `version=courtEdgeLabV2`, 11 engine scorecards |
+| writesLiveWeights | `false` |
+| calibrationFeedbackEngine | `false` |
+| Banned pick labels in body | Absent (only listed in `bannedLabels` meta) |
+| Three-slate | Active progress + previous block dates present |
+| History membership | Shared via `historyThreeSlateGroupsV2` |  
 
 ## 36. Rollback
 
