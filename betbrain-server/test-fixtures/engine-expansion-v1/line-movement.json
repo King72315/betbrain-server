@@ -1,0 +1,15 @@
+{
+  "league": "WNBA",
+  "openingLine": 21.5,
+  "currentLine": 19.5,
+  "selectedLine": 21.5,
+  "sealedLine": 21.5,
+  "organicModelSide": "OVER",
+  "finalSide": "OVER",
+  "bookCount": 6,
+  "lineDispersion": 0.4,
+  "openingOverPrice": -110,
+  "openingUnderPrice": -110,
+  "currentOverPrice": -125,
+  "currentUnderPrice": 105
+}

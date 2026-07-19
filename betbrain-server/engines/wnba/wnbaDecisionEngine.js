@@ -38,6 +38,12 @@ import {
 } from "./playerIntelligence/index.js";
 import { buildCourtEdgePlayerEvidenceV1 } from "../../services/courtEdgePlayerEvidenceV1.js";
 import { buildProviderIdentity } from "../../services/providerIdentityLayer.js";
+import {
+  attachCourtEdgeEngineSignals,
+  applyEngineSignalAdjustments,
+  isEngineExpansionEnabled,
+} from "../../services/courtEdgeEngineSignalsV1.js";
+import { AVAILABILITY_STATE } from "../courtEdgeExpansion/availabilityRosterEngine.js";
 import { PROVIDER_FALLBACK_POLICY } from "../../services/providerFallbackPolicy.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
@@ -674,6 +680,68 @@ export async function evaluateWnbaPropDecision(context = {}) {
   pick.readerSide = normalizeSide(reader.finalSide || pickSide);
   pick.currentSide = normalizeSide(pick.side || pick.pick);
   pick.finalSide = pick.currentSide;
+  pick.originalModelSide =
+    pick.originalModelSide || normalizeSide(pick.side || pickSide);
+
+  if (isEngineExpansionEnabled()) {
+    pick = attachCourtEdgeEngineSignals(pick, {
+      league: "WNBA",
+      playerId: identity.bdlPlayerId || dataCard?.playerId,
+      teamId: identity.teamId || null,
+      opponentId: identity.opponentId || null,
+      gameId: game.gameId || game.id,
+      organicModelSide: pick.originalModelSide,
+      finalSide: pick.finalSide,
+      projection,
+      line: prop.line,
+      openingLine: marketSnapshot.openingLine ?? pick.openingLine,
+      selectedLine: prop.line,
+      sealedLine: prop.line,
+      currentLine: marketSnapshot.currentLine ?? prop.line,
+      gameLogs: bdlSeasonGames,
+      seasonAverage,
+      last10: bdlSeasonGames.slice(0, 10),
+      availabilityStatus:
+        availabilityGate?.status ||
+        availabilityGate?.level ||
+        availabilityGate?.availabilityStatus ||
+        null,
+      injuryFeedOk: availabilityGate?.feedFetchOk !== false,
+      injuryRow: availabilityGate?.injuryRow || null,
+      propMarketActive: (prop.bookCount || 0) >= 1,
+      bookCount: prop.bookCount,
+      overOdds: prop.overOdds,
+      underOdds: prop.underOdds,
+      scoringEnvironmentProxy:
+        defenseResult?.paceProxy ??
+        defenseResult?.scoringEnvironmentProxy ??
+        null,
+      opponentDefenseContext: defenseResult,
+      impliedTeamTotal: pickGameContext?.impliedTeamTotal,
+      originalModelConfidence: pick.confidence,
+      force: true,
+    });
+    pick = applyEngineSignalAdjustments(pick);
+
+    const availState =
+      pick.courtEdgeEngineSignalsV1?.availabilityRoster?.status ||
+      pick.courtEdgeEngineSignalsV1?.engines?.availabilityRoster?.status;
+    if (availState === AVAILABILITY_STATE.OUT) {
+      return {
+        accepted: false,
+        engineHandled: WNBA_ENGINE_HANDLED,
+        dataCard,
+        reader,
+        rejection: {
+          player: playerName,
+          line: prop.line,
+          reason: "confirmed-out",
+          details: ["AVAILABILITY_CONFIRMED_OUT_PRE_SEAL"],
+        },
+      };
+    }
+  }
+
   pick = finalizeCanonicalDecision(pick);
 
   return {

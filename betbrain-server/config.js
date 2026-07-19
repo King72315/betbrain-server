@@ -75,6 +75,13 @@ export const CONFIG = {
   COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED:
     process.env.COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED === "true",
 
+  /**
+   * CourtEdge Engine Expansion V1 — 11 signal engines + static calibration.
+   * Master rollout flag (default ON). No Lab auto-weight feedback.
+   */
+  COURTEDGE_ENGINE_EXPANSION_V1_ENABLED:
+    process.env.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED !== "false",
+
   NODE_ENV: process.env.NODE_ENV || "development",
 };
 
@@ -114,6 +121,8 @@ export function checkConfig() {
       CONFIG.COURTEDGE_WNBA_SPORTSDATA_SECONDARY_ENABLED,
     courteEdgeProjectionCalibrationV2:
       CONFIG.COURTEDGE_PROJECTION_CALIBRATION_V2_ENABLED,
+    courteEdgeEngineExpansionV1:
+      CONFIG.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED,
 
     environment: CONFIG.NODE_ENV,
   };

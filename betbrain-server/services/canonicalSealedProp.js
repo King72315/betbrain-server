@@ -170,6 +170,16 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       pick.courtEdgePlayerEvidenceVersion ||
       pick.courtEdgePlayerEvidence?.schemaVersion ||
       null,
+    courtEdgeEngineSignalsV1:
+      pick.courtEdgeEngineSignalsV1 ||
+      pick.courtEdgeEngineSignals ||
+      pick.canonicalSealedProp?.courtEdgeEngineSignalsV1 ||
+      null,
+    courtEdgeEngineSignalsVersion:
+      pick.courtEdgeEngineSignalsVersion ||
+      pick.courtEdgeEngineSignalsV1?.version ||
+      pick.courtEdgeEngineSignals?.version ||
+      null,
     providerIdentity: pick.providerIdentity || null,
   };
 }

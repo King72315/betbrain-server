@@ -2,6 +2,11 @@
 import express from "express";
 
 import { CONFIG, checkConfig } from "./config.js";
+import {
+  attachCourtEdgeEngineSignals,
+  applyEngineSignalAdjustments,
+  isEngineExpansionEnabled,
+} from "./services/courtEdgeEngineSignalsV1.js";
 
 import {
   buildConsensusPointProps,
@@ -296,7 +301,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-line-lifecycle-calibration-v1";
+const SERVER_BUILD = "courteedge-engine-expansion-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -2193,6 +2198,39 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         } else {
           sideAudit.sideMismatchCount += 1;
         }
+      }
+
+      if (isEngineExpansionEnabled() && !bestPick.courtEdgeEngineSignalsV1) {
+        bestPick = attachCourtEdgeEngineSignals(bestPick, {
+          league,
+          playerId: bestPick.playerId || null,
+          gameId: game.gameId || game.id,
+          organicModelSide: bestPick.side || bestPick.pick,
+          finalSide: bestPick.side || bestPick.pick,
+          projection: bestPick.projection,
+          line: prop.line,
+          openingLine: marketSnapshot.openingLine ?? bestPick.openingLine,
+          currentLine: marketSnapshot.currentLine ?? prop.line,
+          gameLogs: last5 || [],
+          seasonAverage,
+          bookCount: prop.bookCount,
+          overOdds: prop.overOdds,
+          underOdds: prop.underOdds,
+          availabilityStatus: availabilityGate?.status || availabilityGate?.level,
+          injuryFeedOk: availabilityGate?.feedFetchOk !== false,
+          scoringEnvironmentProxy: defenseResult?.paceProxy ?? null,
+          opponentDefenseContext: defenseResult,
+          originalModelConfidence: bestPick.confidence,
+          force: true,
+        });
+        bestPick = applyEngineSignalAdjustments(bestPick);
+        bestPick.originalModelSide =
+          bestPick.originalModelSide ||
+          (String(bestPick.side || bestPick.pick || "")
+            .toUpperCase()
+            .startsWith("U")
+            ? "UNDER"
+            : "OVER");
       }
 
       builtPicks.push({

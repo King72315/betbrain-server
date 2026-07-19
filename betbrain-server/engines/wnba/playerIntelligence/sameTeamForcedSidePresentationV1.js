@@ -10,6 +10,7 @@ import {
   applySideChangeKeepLine,
   buildLineAuditFields,
 } from "../../../services/lineIntegrityV1.js";
+import { applyEngineSignalAdjustments } from "../../../services/courtEdgeEngineSignalsV1.js";
 
 export const SAME_TEAM_FORCED_SIDE_PRESENTATION_VERSION =
   "same-team-forced-side-presentation-v1";
@@ -236,7 +237,7 @@ export function finalizeSameTeamForcedUnderPresentation({
 
   const di = forcedPick.decisionIntelligence || {};
 
-  return {
+  let presented = {
     ...lineLocked,
     ...lineAudit,
     originalProjection:
@@ -315,6 +316,43 @@ export function finalizeSameTeamForcedUnderPresentation({
     },
     presentationVersion: SAME_TEAM_FORCED_SIDE_PRESENTATION_VERSION,
   };
+
+  // Preserve raw engine signals; apply capped confidence/risk only — never invent Under evidence.
+  if (presented.courtEdgeEngineSignalsV1?.aggregation) {
+    const signals = {
+      ...presented.courtEdgeEngineSignalsV1,
+      aggregation: {
+        ...presented.courtEdgeEngineSignalsV1.aggregation,
+        organicModelSide: originalModelSide,
+        sameTeamArbitration: {
+          reason: "SAME_TEAM_ARBITRATION_FLIP",
+          originalModelSide,
+          finalSide: "UNDER",
+          inventedUnderEvidence: false,
+          organicUnderEvidence,
+          conflictScore: conflict.conflictScore,
+        },
+        // Policy conflict: reduce confidence further when organic Over was strong
+        confidenceAdjustment:
+          num(presented.courtEdgeEngineSignalsV1.aggregation.confidenceAdjustment, 0) -
+          (conflict.conflictScore >= 20 ? 8 : 4),
+        riskAdjustment:
+          conflict.conflictScore >= 25 ? "ELEVATE" : presented.courtEdgeEngineSignalsV1.aggregation.riskAdjustment,
+      },
+    };
+    presented = applyEngineSignalAdjustments(
+      { ...presented, courtEdgeEngineSignalsV1: signals, courtEdgeEngineSignals: signals },
+      signals
+    );
+    // Keep presentation calib confidence as authority after same-team
+    presented.confidence = calib.confidence;
+    presented.finalConfidence = calib.confidence;
+    presented.winProbability = calib.confidence;
+    presented.trueRisk = calib.trueRisk;
+    presented.riskLabel = calib.riskLabel;
+  }
+
+  return presented;
 }
 
 /**

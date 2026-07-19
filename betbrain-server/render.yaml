@@ -29,6 +29,8 @@ services:
         value: "false"
       - key: COURTEDGE_HISTORY_REBUILD_V1
         value: "false"
+      - key: COURTEDGE_ENGINE_EXPANSION_V1_ENABLED
+        value: "true"
 
   # Dispatcher only — server decides which jobs are due.
   # Render Cron Job must be created in dashboard if Blueprint cron is unavailable on plan.

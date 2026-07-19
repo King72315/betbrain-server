@@ -1,0 +1,140 @@
+{
+  "league": "WNBA",
+  "seasonAverage": 19.9,
+  "line": 19.5,
+  "projection": 20,
+  "gameLogs": [
+    {
+      "points": 22,
+      "minutes": 32,
+      "fga": 15,
+      "fta": 4,
+      "oreb": 1,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 18,
+      "minutes": 30,
+      "fga": 13,
+      "fta": 3,
+      "oreb": 2,
+      "tov": 2,
+      "teammatesActive": {
+        "STAR": false
+      }
+    },
+    {
+      "points": 25,
+      "minutes": 34,
+      "fga": 16,
+      "fta": 5,
+      "oreb": 1,
+      "tov": 4,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 15,
+      "minutes": 28,
+      "fga": 11,
+      "fta": 2,
+      "oreb": 2,
+      "tov": 2,
+      "teammatesActive": {
+        "STAR": false
+      }
+    },
+    {
+      "points": 20,
+      "minutes": 31,
+      "fga": 14,
+      "fta": 4,
+      "oreb": 1,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 19,
+      "minutes": 29,
+      "fga": 12,
+      "fta": 3,
+      "oreb": 2,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": false
+      }
+    },
+    {
+      "points": 23,
+      "minutes": 33,
+      "fga": 15,
+      "fta": 5,
+      "oreb": 1,
+      "tov": 2,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 17,
+      "minutes": 27,
+      "fga": 12,
+      "fta": 2,
+      "oreb": 2,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": false
+      }
+    },
+    {
+      "points": 21,
+      "minutes": 30,
+      "fga": 14,
+      "fta": 4,
+      "oreb": 1,
+      "tov": 2,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 16,
+      "minutes": 26,
+      "fga": 11,
+      "fta": 3,
+      "oreb": 2,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": false
+      }
+    },
+    {
+      "points": 24,
+      "minutes": 32,
+      "fga": 16,
+      "fta": 4,
+      "oreb": 1,
+      "tov": 2,
+      "teammatesActive": {
+        "STAR": true
+      }
+    },
+    {
+      "points": 19,
+      "minutes": 29,
+      "fga": 13,
+      "fta": 3,
+      "oreb": 2,
+      "tov": 3,
+      "teammatesActive": {
+        "STAR": false
+      }
+    }
+  ]
+}

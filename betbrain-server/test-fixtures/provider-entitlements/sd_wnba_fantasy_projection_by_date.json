@@ -1,8 +1,8 @@
 {
-  "savedAt": "2026-07-18T12:39:17.877Z",
+  "savedAt": "2026-07-19T01:56:51.133Z",
   "name": "sd_wnba_fantasy_projection_by_date",
   "status": 404,
-  "url": "https://api.sportsdata.io/v3/wnba/stats/json/PlayerGameProjectionStatsByDate/2026-07-18",
+  "url": "https://api.sportsdata.io/v3/wnba/stats/json/PlayerGameProjectionStatsByDate/2026-07-19",
   "count": null,
   "scramble": {
     "lookScrambled": false,
