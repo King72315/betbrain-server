@@ -347,7 +347,7 @@ const ENGINE_LOAD_FLAGS = {
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "8mb" }));
 
 function requireAdminSecret(req, res, next) {
   const secret = String(process.env.ADMIN_SECRET || "").trim();
