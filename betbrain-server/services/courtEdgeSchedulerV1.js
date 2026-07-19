@@ -567,6 +567,38 @@ export function classifyProviderError(error, extras = {}) {
   };
 }
 
+function countDayBucketPlayableCandidates(board, dayBucket) {
+  const bucket = String(dayBucket || "").toUpperCase();
+  let n = 0;
+  for (const g of board?.games || []) {
+    if (String(g.dayBucket || "").toUpperCase() !== bucket) continue;
+    n += (g.allGeneratedCandidates || g.picks || []).length;
+  }
+  return n;
+}
+
+function countAllPlayableCandidates(board) {
+  let n = 0;
+  for (const g of board?.games || []) {
+    n += (g.allGeneratedCandidates || g.picks || []).length;
+  }
+  return n;
+}
+
+function countBestSixDisplayTotal(board) {
+  const today =
+    (board?.bestSixDisplayTodayWNBA || []).length +
+    (board?.bestSixDisplayTodayNBA || []).length;
+  const tomorrow =
+    (board?.bestSixDisplayTomorrowWNBA || []).length +
+    (board?.bestSixDisplayTomorrowNBA || []).length;
+  if (today + tomorrow > 0) return today + tomorrow;
+  return (
+    (board?.bestSixDisplayWNBA || board?.bestSixWNBA || []).length +
+    (board?.bestSixDisplayNBA || board?.bestSixNBA || []).length
+  );
+}
+
 export function shouldPreserveExistingBoard(previousBoard, nextBoard, failure) {
   const prevGames = Array.isArray(previousBoard?.games)
     ? previousBoard.games.length
@@ -576,24 +608,68 @@ export function shouldPreserveExistingBoard(previousBoard, nextBoard, failure) {
   const nextGames = Array.isArray(nextBoard?.games) ? nextBoard.games.length : 0;
   if (nextGames === 0) return true;
   if (nextBoard?.ok === false) return true;
-  if (nextBoard?.incomplete === true) return true;
+  // Progressive Today-only persist must not wipe last-known-good Tomorrow.
+  // Incomplete boards are otherwise allowed only when they keep prior day pools
+  // or are explicit emergency seeds.
+  if (
+    nextBoard?.incomplete === true &&
+    nextBoard?.progressivePersist === true &&
+    nextBoard?.emptyBoardGuardBypass !== true
+  ) {
+    const prevTom = countDayBucketPlayableCandidates(previousBoard, "TOMORROW");
+    const nextTom = countDayBucketPlayableCandidates(nextBoard, "TOMORROW");
+    if (prevTom > 0 && nextTom === 0) return true;
+  } else if (nextBoard?.incomplete === true) {
+    return true;
+  }
   const prevDate = String(previousBoard?.slateDate || "").slice(0, 10);
   const nextDate = String(nextBoard?.slateDate || "").slice(0, 10);
   if (prevDate && nextDate && nextDate < prevDate) return true;
 
+  // Never atomically swap a playable LKG board for a zombie (shells, 0 AGC /
+  // 0 Best6 display) when the provider response was partial/failed.
+  const prevCands = countAllPlayableCandidates(previousBoard);
+  const nextCands = countAllPlayableCandidates(nextBoard);
+  const prevBestSix = countBestSixDisplayTotal(previousBoard);
+  const nextBestSix = countBestSixDisplayTotal(nextBoard);
+  if (
+    prevCands >= 6 &&
+    nextCands === 0 &&
+    nextBoard?.allowEmptyCandidateOverwrite !== true &&
+    nextBoard?.emptyBoardGuardBypass !== true
+  ) {
+    return true;
+  }
+  if (
+    prevBestSix >= 6 &&
+    nextBestSix === 0 &&
+    nextBoard?.allowEmptyBestSixOverwrite !== true &&
+    nextBoard?.emptyBoardGuardBypass !== true
+  ) {
+    return true;
+  }
+
+  // Block total Today wipe (0 AGC across Today shells) when prior had a pool.
+  const prevToday = countDayBucketPlayableCandidates(previousBoard, "TODAY");
+  const nextToday = countDayBucketPlayableCandidates(nextBoard, "TODAY");
+  const nextTodayShells = (nextBoard?.games || []).filter(
+    (g) => String(g.dayBucket || "").toUpperCase() === "TODAY"
+  ).length;
+  if (
+    prevToday >= 6 &&
+    nextToday === 0 &&
+    nextTodayShells > 0 &&
+    nextBoard?.allowThinTodayOverwrite !== true &&
+    !nextBoard?.lastKnownGoodTodayMerged
+  ) {
+    return true;
+  }
+
   // Only block a total Tomorrow wipe (0 AGC across Tomorrow shells) when the
   // prior board had a real Tomorrow pool. Per-event starvation is handled by
   // mergeLastKnownGoodDayGames; honest thin boards (<6) must still publish.
-  const countTom = (board) => {
-    let n = 0;
-    for (const g of board?.games || []) {
-      if (String(g.dayBucket || "").toUpperCase() !== "TOMORROW") continue;
-      n += (g.allGeneratedCandidates || g.picks || []).length;
-    }
-    return n;
-  };
-  const prevTom = countTom(previousBoard);
-  const nextTom = countTom(nextBoard);
+  const prevTom = countDayBucketPlayableCandidates(previousBoard, "TOMORROW");
+  const nextTom = countDayBucketPlayableCandidates(nextBoard, "TOMORROW");
   const nextTomShells = (nextBoard?.games || []).filter(
     (g) => String(g.dayBucket || "").toUpperCase() === "TOMORROW"
   ).length;

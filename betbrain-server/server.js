@@ -1,4 +1,4 @@
-import cors from "cors";
+﻿import cors from "cors";
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -320,9 +320,9 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-// MISSION LOCK: courteedge-home-completion-tomorrow-six-v1
-// Do not retag to courteedge-best6-playable-pool-repair-v1 (invalidates live board).
-const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
+// Empty-board guard: never atomically swap LKG playable boards for zombie/empty.
+// Bundled recovery + startup hydrate restore Home after Render ephemeral wipes.
+const SERVER_BUILD = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -2488,7 +2488,12 @@ async function refreshAllPicks(options = {}) {
     // Progressive persist: save Today board before Tomorrow so a crash still
     // leaves a usable Home Today slate.
     try {
-      const interimGames = ensureWnbaGateOnGames([
+      // Keep last-known-good Tomorrow cards during progressive Today persist so a
+      // crash / OOM mid-refresh cannot atomically wipe Home Tomorrow.
+      const priorTomorrowGames = (previousBoard?.games || []).filter(
+        (g) => String(g.dayBucket || "").toUpperCase() === "TOMORROW"
+      );
+      const interimTodayGames = ensureWnbaGateOnGames([
         ...todayNba.gameCards.map((g) => ({
           ...g,
           dateLabel: "Today",
@@ -2500,8 +2505,13 @@ async function refreshAllPicks(options = {}) {
           dayBucket: "TODAY",
         })),
       ]);
-      if (interimGames.length) {
+      const interimGames = [...interimTodayGames, ...priorTomorrowGames];
+      if (interimTodayGames.length) {
         const interimSelection = buildTopPropsFromSelector(interimGames);
+        const priorTomBestSixWnba =
+          previousBoard?.bestSixDisplayTomorrowWNBA || [];
+        const priorTomBestSixNba =
+          previousBoard?.bestSixDisplayTomorrowNBA || [];
         const interimBoard = {
           ok: true,
           incomplete: true,
@@ -2512,28 +2522,53 @@ async function refreshAllPicks(options = {}) {
           games: interimGames,
           wnbaGames: interimGames.filter((g) => g.league === "WNBA"),
           nbaGames: interimGames.filter((g) => g.league === "NBA"),
-          bestSixDisplayWNBA: interimSelection.bestSixDisplayWNBA || [],
-          bestSixDisplayNBA: interimSelection.bestSixDisplayNBA || [],
+          bestSixDisplayWNBA: [
+            ...(interimSelection.bestSixDisplayTodayWNBA || []),
+            ...priorTomBestSixWnba,
+          ],
+          bestSixDisplayNBA: [
+            ...(interimSelection.bestSixDisplayTodayNBA || []),
+            ...priorTomBestSixNba,
+          ],
           bestSixDisplayTodayWNBA: interimSelection.bestSixDisplayTodayWNBA || [],
           bestSixDisplayTodayNBA: interimSelection.bestSixDisplayTodayNBA || [],
-          bestSixDisplayTomorrowWNBA: [],
-          bestSixDisplayTomorrowNBA: [],
-          bestSixWNBA: interimSelection.bestSixWNBA || [],
-          bestSixNBA: interimSelection.bestSixNBA || [],
+          bestSixDisplayTomorrowWNBA: priorTomBestSixWnba,
+          bestSixDisplayTomorrowNBA: priorTomBestSixNba,
+          bestSixWNBA: [
+            ...(interimSelection.bestSixDisplayTodayWNBA || []),
+            ...priorTomBestSixWnba,
+          ],
+          bestSixNBA: [
+            ...(interimSelection.bestSixDisplayTodayNBA || []),
+            ...priorTomBestSixNba,
+          ],
           topProps: interimSelection.topProps || [],
           topWNBAProps: interimSelection.topWNBAProps || [],
           topNBAProps: interimSelection.topNBAProps || [],
           controlledBestSixAudit: interimSelection.controlledBestSixAudit,
           controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
           todayCandidateCount: countDayBucketCandidates(interimGames, "TODAY"),
-          tomorrowCandidateCount: 0,
+          tomorrowCandidateCount: countDayBucketCandidates(
+            interimGames,
+            "TOMORROW"
+          ),
+          lastKnownGoodTomorrowMerged: priorTomorrowGames.length > 0 ? 1 : 0,
         };
-        picksCache = interimBoard;
-        lastRefreshTime = Date.now();
-        saveBoardCache(interimBoard);
+        // Soft-accept: never write a progressive snapshot that the empty-board
+        // guard would reject (e.g. would wipe LKG Tomorrow or zero candidates).
+        if (!shouldPreserveExistingBoard(previousBoard, interimBoard, false)) {
+          picksCache = interimBoard;
+          lastRefreshTime = Date.now();
+          saveBoardCache(interimBoard);
+        } else {
+          console.log(
+            "PROGRESSIVE PERSIST SKIPPED: empty-board guard preserved LKG"
+          );
+        }
         console.log("PROGRESSIVE PERSIST TODAY:", {
           games: interimGames.length,
           todayBestSix: (interimSelection.bestSixDisplayTodayWNBA || []).length,
+          tomorrowBestSixPreserved: priorTomBestSixWnba.length,
         });
       }
     } catch (err) {
@@ -2637,6 +2672,56 @@ async function refreshAllPicks(options = {}) {
   // Empty/failed odds refresh must not touch Official tracked membership or wipe board.
   // Re-read after progressive Today persist so preserve/LKG see the latest cache.
   const boardForPreserve = getReadOnlyBoard();
+  const nextPlayableCount =
+    countDayBucketCandidates(
+      [...todayNba.gameCards, ...todayWnba.gameCards],
+      "TODAY"
+    ) +
+    countDayBucketCandidates(
+      [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards],
+      "TOMORROW"
+    );
+  // Also count raw AGC on day cards (dayBucket may not be stamped yet).
+  const nextRawCandCount = [
+    ...todayNba.gameCards,
+    ...todayWnba.gameCards,
+    ...tomorrowNba.gameCards,
+    ...tomorrowWnba.gameCards,
+  ].reduce(
+    (n, g) => n + (g.allGeneratedCandidates || g.picks || []).length,
+    0
+  );
+  const prevPlayableCount = countDayBucketCandidates(
+    boardForPreserve?.games || [],
+    "TODAY"
+  ) + countDayBucketCandidates(boardForPreserve?.games || [], "TOMORROW");
+  const prevBestSixCount =
+    (boardForPreserve?.bestSixDisplayTodayWNBA || []).length +
+    (boardForPreserve?.bestSixDisplayTodayNBA || []).length +
+    (boardForPreserve?.bestSixDisplayTomorrowWNBA || []).length +
+    (boardForPreserve?.bestSixDisplayTomorrowNBA || []).length;
+  if (
+    Array.isArray(boardForPreserve?.games) &&
+    boardForPreserve.games.length > 0 &&
+    (prevPlayableCount >= 6 || prevBestSixCount >= 6) &&
+    nextRawCandCount === 0 &&
+    nextPlayableCount === 0
+  ) {
+    console.log(
+      "REFRESH SKIPPED TRACKED MUTATIONS: empty/zombie provider board ? preserving LKG"
+    );
+    return {
+      ...boardForPreserve,
+      ok: true,
+      incomplete: true,
+      preservedBoard: true,
+      emptyBoardGuard: "courteedge-empty-board-guard-v1",
+      message:
+        "Refresh returned empty/zombie board ? preserved last-known-good and skipped tracked mutations",
+      serverBuild: SERVER_BUILD,
+      lastUpdated: boardForPreserve.lastUpdated || new Date().toISOString(),
+    };
+  }
   if (
     todayCards.length === 0 &&
     tomorrowCards.length === 0 &&
@@ -2671,12 +2756,27 @@ async function refreshAllPicks(options = {}) {
     })),
   ]);
 
-  const lkgTomorrow = mergeLastKnownGoodDayGames(
+  const lkgToday = mergeLastKnownGoodDayGames(
     boardForPreserve,
     gamesRaw,
+    "TODAY"
+  );
+  const lkgTomorrow = mergeLastKnownGoodDayGames(
+    boardForPreserve,
+    lkgToday.games,
     "TOMORROW"
   );
   const games = lkgTomorrow.games;
+  if (lkgToday.mergedCount > 0) {
+    console.log("LAST-KNOWN-GOOD TODAY MERGE:", {
+      mergedGames: lkgToday.mergedCount,
+      todayCandidates: countDayBucketCandidates(games, "TODAY"),
+      previousTodayCandidates: countDayBucketCandidates(
+        boardForPreserve?.games || [],
+        "TODAY"
+      ),
+    });
+  }
   if (lkgTomorrow.mergedCount > 0) {
     console.log("LAST-KNOWN-GOOD TOMORROW MERGE:", {
       mergedGames: lkgTomorrow.mergedCount,
@@ -2940,6 +3040,7 @@ async function refreshAllPicks(options = {}) {
     bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || [],
     bestSixDisplayTomorrowWNBA,
     bestSixDisplayTomorrowNBA,
+    lastKnownGoodTodayMerged: lkgToday.mergedCount || 0,
     lastKnownGoodTomorrowMerged: lkgTomorrow.mergedCount || 0,
     tomorrowCandidateCount: countDayBucketCandidates(games, "TOMORROW"),
     todayCandidateCount: countDayBucketCandidates(games, "TODAY"),
@@ -5820,13 +5921,49 @@ if (process.env.RUN_AUDIT === "1") {
         `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`
       );
     } else {
-      console.log("BOARD CACHE empty ? waiting for scheduler or manual refresh");
+      // Render ephemeral disk wipes board cache on redeploy. Prefer bundled
+      // recovery over startup auto-refresh (which historically restart-looped).
+      try {
+        const recoveryPath = path.join(
+          __dirname,
+          "recovery",
+          "empty-board-recovery-v1.json"
+        );
+        if (fs.existsSync(recoveryPath)) {
+          const parsed = JSON.parse(fs.readFileSync(recoveryPath, "utf8"));
+          const board =
+            parsed?.board && typeof parsed.board === "object"
+              ? parsed.board
+              : parsed;
+          if (board && Array.isArray(board.games) && board.games.length > 0) {
+            stampAndPersistSeededBoard(
+              board,
+              "startup-empty-board-recovery-v1",
+              true
+            );
+            console.log(
+              `STARTUP: recovered empty board from bundled recovery (${board.games.length} games, today=${(board.bestSixDisplayTodayWNBA || []).length}, tomorrow=${(board.bestSixDisplayTomorrowWNBA || []).length})`
+            );
+          } else {
+            console.log(
+              "STARTUP: empty board ? recovery file present but invalid"
+            );
+          }
+        } else {
+          console.log(
+            "STARTUP: empty board ? awaiting manual/scheduled refresh"
+          );
+        }
+      } catch (err) {
+        console.log("STARTUP EMPTY BOARD RECOVERY ERROR:", err.message);
+        console.log("STARTUP: empty board ? awaiting manual/scheduled refresh");
+      }
     }
 
     // Delay startup rebuild disabled: auto-refresh was restart-looping Render.
     // Recover with POST /refresh-picks after health is stable, or seed-board-cache.
     if (!picksCache?.games?.length) {
-      console.log("STARTUP: empty board ? awaiting manual/scheduled refresh");
+      console.log("STARTUP: empty board still empty after recovery attempt");
     }
 
     if (rehydrateResult.results?.length) {

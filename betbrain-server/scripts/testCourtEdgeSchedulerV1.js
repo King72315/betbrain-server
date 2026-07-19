@@ -358,6 +358,33 @@ test("11 empty provider response does not replace valid slate", () => {
   assert.equal(shouldPreserveExistingBoard(prev, next, false), true);
 });
 
+test("11b zombie zero-candidate board does not replace LKG Best6", () => {
+  const prev = {
+    ...validBoard(),
+    games: [
+      {
+        dayBucket: "TODAY",
+        allGeneratedCandidates: Array.from({ length: 6 }, (_, i) => ({
+          player: `P${i}`,
+        })),
+      },
+    ],
+    bestSixDisplayTodayWNBA: Array.from({ length: 6 }, (_, i) => ({
+      player: `P${i}`,
+    })),
+    bestSixDisplayTomorrowWNBA: Array.from({ length: 6 }, (_, i) => ({
+      player: `T${i}`,
+    })),
+  };
+  const next = {
+    ok: true,
+    games: [{ dayBucket: "TODAY", allGeneratedCandidates: [], rawPropCount: 20 }],
+    bestSixDisplayTodayWNBA: [],
+    bestSixDisplayTomorrowWNBA: [],
+  };
+  assert.equal(shouldPreserveExistingBoard(prev, next, false), true);
+});
+
 await testAsync("12 automatic grading without opening Results", async () => {
   makeTempDir("t12");
   let graded = false;

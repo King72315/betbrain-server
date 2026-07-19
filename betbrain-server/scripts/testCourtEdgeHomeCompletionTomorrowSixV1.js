@@ -1,6 +1,6 @@
 /**
  * CourtEdge Home Completion Tomorrow Six V1 — tests 1–80 + contract checks.
- * SERVER_BUILD: courteedge-home-completion-tomorrow-six-v1
+ * SERVER_BUILD: courteedge-empty-board-guard-v1
  */
 import assert from "assert";
 import fs from "fs";
@@ -638,14 +638,14 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD target string documented", () => {
+test("62 SERVER_BUILD empty-board-guard target", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-home-completion-tomorrow-six-v1",
-    "Do not retag SERVER_BUILD away from home-completion-tomorrow-six-v1"
+    "courteedge-empty-board-guard-v1",
+    "SERVER_BUILD must be courteedge-empty-board-guard-v1"
   );
 });
 
@@ -674,7 +674,87 @@ test("65 combined selection exposes tomorrow key", () => {
   assert.ok(Object.prototype.hasOwnProperty.call(sel, "bestSixDisplayTomorrowWNBA"));
 });
 
-for (let i = 66; i <= 80; i += 1) {
+test("66 empty-board guard blocks zero-candidate swap over LKG", () => {
+  const prev = {
+    games: [
+      makeGame(
+        Array.from({ length: 6 }, (_, i) => basePick({ player: `T${i}` })),
+        "TODAY"
+      ),
+    ],
+    bestSixDisplayTodayWNBA: Array.from({ length: 6 }, (_, i) =>
+      basePick({ player: `T${i}` })
+    ),
+    bestSixDisplayTomorrowWNBA: Array.from({ length: 6 }, (_, i) =>
+      basePick({ player: `M${i}`, dayBucket: "TOMORROW" })
+    ),
+  };
+  const next = {
+    games: [
+      makeGame([], "TODAY", {
+        oddsEventId: "e-today",
+        rawPropCount: 40,
+        consensusPropCount: 10,
+      }),
+    ],
+    bestSixDisplayTodayWNBA: [],
+    bestSixDisplayTomorrowWNBA: [],
+  };
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), true);
+});
+
+test("67 progressive persist cannot wipe LKG Tomorrow", () => {
+  const prev = {
+    games: [
+      makeGame(
+        Array.from({ length: 6 }, (_, i) => basePick({ player: `M${i}` })),
+        "TOMORROW",
+        { oddsEventId: "e-tom" }
+      ),
+    ],
+    bestSixDisplayTomorrowWNBA: Array.from({ length: 6 }, (_, i) =>
+      basePick({ player: `M${i}` })
+    ),
+  };
+  const next = {
+    incomplete: true,
+    progressivePersist: true,
+    games: [
+      makeGame([basePick({ player: "TodayOnly" })], "TODAY", {
+        oddsEventId: "e-today",
+      }),
+    ],
+    bestSixDisplayTodayWNBA: [basePick({ player: "TodayOnly" })],
+    bestSixDisplayTomorrowWNBA: [],
+  };
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), true);
+});
+
+test("68 progressive persist allowed when Tomorrow LKG carried", () => {
+  const tomPicks = Array.from({ length: 6 }, (_, i) =>
+    basePick({ player: `M${i}` })
+  );
+  const prev = {
+    games: [makeGame(tomPicks, "TOMORROW", { oddsEventId: "e-tom" })],
+    bestSixDisplayTomorrowWNBA: tomPicks,
+  };
+  const next = {
+    incomplete: true,
+    progressivePersist: true,
+    games: [
+      makeGame([basePick({ player: "TodayOnly" })], "TODAY", {
+        oddsEventId: "e-today",
+      }),
+      makeGame(tomPicks, "TOMORROW", { oddsEventId: "e-tom" }),
+    ],
+    bestSixDisplayTodayWNBA: [basePick({ player: "TodayOnly" })],
+    bestSixDisplayTomorrowWNBA: tomPicks,
+    lastKnownGoodTomorrowMerged: 1,
+  };
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), false);
+});
+
+for (let i = 69; i <= 80; i += 1) {
   test(`${i} completion contract slot ${i}`, () => {
     assert.ok(PLAYABLE_POOL_CONTRACT_VERSION.includes("playable-pool"));
   });
