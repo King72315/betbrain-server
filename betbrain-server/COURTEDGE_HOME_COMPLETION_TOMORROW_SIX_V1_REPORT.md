@@ -81,7 +81,7 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 5. Charlisse Leger-Walker Under 8.5  
 6. Angel Reese Over 16.5  
 
-**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:50:09Z)
+**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:55:27Z)
 
 1. Kayla McBride Over 18.5  
 2. Breanna Stewart Over 20.5  
