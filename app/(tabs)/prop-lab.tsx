@@ -152,8 +152,8 @@ export default function PropLabScreen() {
     try {
       if (opts?.refreshGrades) {
         setBuilding(true);
-        await resolveTrackedProps({ force: true });
-        await buildDailySlateReports({ force: true });
+        await resolveTrackedProps({ requireLikelyFinished: true });
+        await buildDailySlateReports({ forceRebuild: true });
       }
       const list = await fetchDailySlateReports();
       const slateDate = list.currentLabSlateDate || null;
@@ -256,7 +256,10 @@ export default function PropLabScreen() {
               CourtEdge Lab V2 · analysis only · three-slate calibration
             </Text>
           </View>
-          <CopyReportButton reportText={reportText} />
+          <CopyReportButton
+            getReportText={() => reportText}
+            slateDate={current?.slateDate || null}
+          />
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}

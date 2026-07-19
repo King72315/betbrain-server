@@ -1,60 +1,111 @@
-# CourtEdge Lab V2 + Three-Slate Rule — Consolidation Report
+# CourtEdge Lab V2 + Three-Slate — Consolidation Report
 
 **Date:** 2026-07-18  
 **SERVER_BUILD:** `courteedge-lab-v2-three-slate-v1`  
+**Lab schema:** `courtEdgeLabV2`  
+**Three-slate version:** `history-three-slate-groups-v2`  
 **Prior production build:** `courteedge-engine-expansion-v1.1`  
-**Branch:** `betbrain-v2-rebuild`  
-**Remote:** `orgin`
+**Branch:** `betbrain-v2-rebuild` · remote `orgin`
+
+## Verdict
+
+Consumer Prop Lab is rebuilt as one authoritative learning/calibration system. Server aggregates sealed evidence into `courtEdgeLabV2` once; Prop Lab UI and copy report consume the same payload. Three-slate blocks are non-overlapping and frozen. Lab is analysis-only — no live weight writes, no Calibration Feedback Engine, no Best 6 / TRACK / seal mutations.
 
 ---
 
 ## 1. Current Lab root-cause and clutter audit
 
-The consumer Prop Lab mixed legacy tracking categories (LEAN/WATCHLIST/TEST), gate/loss reviews, retro simulations, and an Engine Scorecard that did **not** render Engine Expansion V1 signals. Sealed `courtEdgeEngineSignalsV1` / `courtEdgeDecisionPacketV1` existed on props but were not organized into a single analysis payload. Three-slate grouping lived only in History (`historyThreeSlateGroupsV1`) and was not a primary Lab calibration view.
+**Root causes**
+- Engine Expansion V1.1 sealed `courtEdgeEngineSignalsV1` + `courtEdgeDecisionPacketV1`, but consumer Lab never rendered them.
+- Daily reports mixed legacy gate/TEST/PREMIUM sections with official Best 6 learning.
+- Three-slate grouping existed (V1) but Lab did not show active progress / full comparison metrics.
+- Copy report and screen did not share one Lab calculation.
+
+**Clutter removed/merged from consumer Lab**
+- Tracked Slate Summary with legacy/nonselected/test categories
+- WNBA v2 Gate / Loss Review (standalone)
+- Upgrade/Demotion Review
+- Side Rescue / Decision Intelligence Retro Simulation (standalone)
+- Reader Official Demoted TEST / Reader Uncertain TEST
+- PREMIUM/PLAYABLE / Legacy Calibration / raw gate counts
+- Duplicated risk/projection sections and pre-expansion Engine Scorecard
+
+Useful signal content is merged into Decision-Path Accuracy, Engine Expansion Scoreboard, Projection/Confidence/Risk, Miss/Win Diagnosis, and Raw Signal Explorer.
+
+---
 
 ## 2. Existing files/services inspected
 
-- `services/dailySlateReportService.js`, `officialLearningRecordBuilder.js`, `labLearningEnrichmentService.js`, `labMeasuredFields.js`
-- `services/historyThreeSlateGroupsV1.js`, `signalPerformanceV1.js`
+- `app/(tabs)/prop-lab.tsx`
+- `utils/reportBuilders.ts`, `services/api.ts`
+- `services/historyThreeSlateGroupsV1.js`
+- `services/dailySlateReportService.js`, `officialLearningRecordBuilder.js`
+- `services/labAggregateBreakdown.js`, `labLearningEnrichmentService.js`, `labMeasuredFields.js`
 - `services/courtEdgeEngineSignalsV1.js`, `engines/courtEdgeExpansion/*`
-- `server.js` daily-slate / history-archives routes
-- `app/(tabs)/prop-lab.tsx`, `utils/reportBuilders.ts`, `services/api.ts`
 - `COURTEDGE_ENGINE_EXPANSION_V1_REPORT.md`
+- `server.js` Lab/history/daily-report routes
+- Local `tracked-props.json` (legacy seals without expansion → unavailable, not fabricated)
+
+---
 
 ## 3. Files changed
 
-| Path | Role |
-|---|---|
-| `betbrain-server/services/courtEdgeLabV2.js` | Authoritative Lab V2 aggregator |
-| `betbrain-server/services/courtEdgeLabV2Helpers.js` | Sealed extraction, attribution, scorecards |
-| `betbrain-server/services/courtEdgeLabV2Constants.js` | Version, 11 engines, banned labels |
-| `betbrain-server/services/historyThreeSlateGroupsV2.js` | Persistent non-overlapping 3-slate blocks |
-| `betbrain-server/scripts/testCourtEdgeLabV2.js` | Tests 1–68 |
-| `betbrain-server/package.json` | `test:courtedge-lab-v2` |
-| `betbrain-server/server.js` | `SERVER_BUILD`, `/courtedge/lab`, Lab V2 on reports |
-| `betbrain-server/services/dailySlateReportService.js` | Attach `report.labV2` |
-| `app/(tabs)/prop-lab.tsx` | 15-section Lab V2 UI |
-| `services/api.ts` | `fetchCourtEdgeLabV2` |
-| `utils/reportBuilders.ts` | `buildPropLabV2Report` |
-| `betbrain-server/COURTEDGE_LAB_V2_THREE_SLATE_REPORT.md` | This report |
+**New**
+- `betbrain-server/services/courtEdgeLabV2.js`
+- `betbrain-server/services/courtEdgeLabV2Helpers.js`
+- `betbrain-server/services/courtEdgeLabV2Constants.js`
+- `betbrain-server/services/historyThreeSlateGroupsV2.js`
+- `betbrain-server/scripts/testCourtEdgeLabV2.js`
+- `betbrain-server/data/three-slate-groups-v2.json` (runtime membership store)
+- `betbrain-server/COURTEDGE_LAB_V2_THREE_SLATE_REPORT.md`
+
+**Modified**
+- `betbrain-server/server.js` — `SERVER_BUILD`, `/courtedge/lab`, Lab V2 on daily reports / history
+- `betbrain-server/services/dailySlateReportService.js` — attach `report.labV2`
+- `betbrain-server/package.json` — `test:courtedge-lab-v2`
+- `app/(tabs)/prop-lab.tsx` — full Lab V2 screen order
+- `services/api.ts` — `fetchCourtEdgeLabV2`, labV2 on daily reports
+- `utils/reportBuilders.ts` — `buildPropLabV2Report`
+
+---
 
 ## 4. Final Lab V2 schema
 
 ```
 courtEdgeLabV2: {
-  version, generatedAt, buildVersion, bannedLabels,
-  analysisOnly, writesLiveWeights, calibrationFeedbackEngine,
-  currentSlate, activeThreeSlateBlock, previousThreeSlateBlock, threeSlateComparison,
-  overallSummary, officialBestSixResults, perPropPackets,
-  engineScorecards, decisionPathAnalysis, projectionCalibration,
-  confidenceCalibration, riskCalibration, marketLineAnalysis,
-  roleVolumeAnalysis, opponentGameContextAnalysis, sameTeamAnalysis,
-  outcomeDiagnosis, adjustmentReview, rawSignalExplorer, allTimeContext,
-  threeSlateGroups, meta
+  version, generatedAt, buildVersion,
+  currentSlate,
+  activeThreeSlateBlock,
+  previousThreeSlateBlock,
+  threeSlateComparison,
+  overallSummary,
+  officialBestSixResults,
+  perPropPackets,
+  engineScorecards,
+  decisionPathAnalysis,
+  projectionCalibration,
+  confidenceCalibration,
+  riskCalibration,
+  marketLineAnalysis,
+  roleVolumeAnalysis,
+  opponentGameContextAnalysis,
+  sameTeamAnalysis,
+  outcomeDiagnosis,
+  adjustmentReview,
+  rawSignalExplorer,
+  allTimeContext,
+  threeSlateGroups, meta,
+  analysisOnly, writesLiveWeights, calibrationFeedbackEngine
 }
 ```
 
-One calculation shared by `GET /courtedge/lab`, `GET /courtedge/lab/:slateDate`, `report.labV2`, and the copy report.
+Authoritative endpoints:
+- `GET /courtedge/lab`
+- `GET /courtedge/lab/:slateDate`
+- `report.labV2` on daily slate report build
+- Also embedded on `GET /daily-slate-reports`
+
+---
 
 ## 5. Final Prop Lab screen order
 
@@ -62,65 +113,83 @@ One calculation shared by `GET /courtedge/lab`, `GET /courtedge/lab/:slateDate`,
 2. Three-Slate Improvement Block  
 3. Official Best 6 Results  
 4. Per-Prop Learning Packets (5 layers)  
-5. Engine Expansion Scoreboard (all 11)  
+5. Engine Expansion Scoreboard (11 engines)  
 6. Decision-Path Accuracy  
 7. Projection and Fair-Line Calibration  
 8. Confidence and Risk Honesty  
 9. Market and Line Performance  
-10. Role/Volume/Distribution/Volatility  
+10. Role / Volume / Distribution / Volatility  
 11. Opponent and Game Context  
 12. Miss and Win Diagnosis  
 13. Adjustment Review (manual only)  
-14. Raw Signal Explorer  
+14. Raw Signal Explorer (paginated)  
 15. All-Time Context  
+
+---
 
 ## 6. Daily overall summary design
 
-Official Best 6 only: W-L-P, win rate/accuracy, margins, projection error, CLV, Top/Over/Under/NBA/WNBA. No legacy/test/nonselected clutter.
+Official Best 6 only: slate date, league coverage, props, graded/pending, W-L-P, win rate/accuracy, avg margin, projection error / |error|, CLV, Top / Over / Under / NBA / WNBA. No legacy/TEST/BOARD_ONLY/NO_BET counts.
 
-## 7. Three-slate grouping design
+---
 
-Non-overlapping chronological blocks (A-B-C then D-E-F). Persisted in `three-slate-blocks-v2.json`. Frozen membership never regrouped. Lab and History use `buildHistoryThreeSlateGroupsV2`.
+## 7–10. Three-slate grouping, membership, comparison
 
-## 8–10. Block membership and comparison
+- Non-overlapping blocks: A-B-C then D-E-F  
+- Persist frozen membership in `data/three-slate-groups-v2.json`  
+- Active progress `1/3`, `2/3`, `3/3 — Block Complete`  
+- On third complete: freeze, compare to previous frozen, archive for History, next slate starts new block  
+- Never regroup frozen membership  
+- Lab + History share `buildHistoryThreeSlateGroupsV2`  
+- Comparison includes W-L-P, win rate, margins, projection errors, CLV, Over/Under, NBA/WNBA, risk, Top/non-Top, organic vs same-team, Flip-First, Side Rescue, per-engine directional/coverage deltas  
 
-- Active block shows 1/3, 2/3, or 3/3 (complete block remains active until the next slate starts).  
-- Previous block = last frozen block distinct from active.  
-- Comparison includes W-L-P, win rate, accuracy, margins, projection errors, CLV, Over/Under, NBA/WNBA, risk, Top, organic vs same-team, Flip-First/Side Rescue, and per-engine deltas — not win rate alone.
+---
 
-## 11–13. Engine Expansion scoreboard + attribution
+## 11–13. Engine scoreboard + attribution
 
-**Eleven engines always visible:** lineMovementClv, projectionSanity, availabilityRoster, distribution, volatility, defensiveArchetype, roleVelocity, pacePossession, evidenceDeduplication, restFatigue, teammateImpact.
+Always show all 11 engines. Separate **directional** vs **calibration** performance.
 
-**Directional:** aligned+win→helped; aligned+loss→hurt; opposed+win→hurt; opposed+loss→helped; unavailable/zero→neutral (not a directional loss).
+**Directional:** aligned+won→helped; aligned+lost→hurt; opposed+won→hurt; opposed+lost→helped; unavailable/zero→neutral (not a directional loss).
 
-**Calibration:** confidence/risk adjustments evaluated separately; volatility/fatigue never treated as automatic Under votes.
+**Calibration:** confidence/risk adjustments vs outcome honesty; volatility/fatigue/dedup are calibration-oriented, not automatic Under votes.
+
+---
 
 ## 14. Per-prop learning packet design
 
-Layers: Freeze → Pregame Engine Evidence (11) → Decision Path → Postgame Truth → Diagnosis. Freeze uses sealed pregame values; diagnosis never rewrites freeze.
+Five layers: Freeze → Pregame Engine Evidence (11) → Decision Path → Postgame Truth → Diagnosis. Freeze never rewritten by diagnosis.
 
-## 15–22. Calibration / market / role / opponent / same-team / diagnosis
+---
 
-NBA and WNBA always separate. Confidence buckets 0–39…80+. Risk LOW/MEDIUM/HIGH only. Market WITH/AGAINST/NEUTRAL and CLV kept distinct. Role/volume/distribution/volatility scored without double-counting. True pace ≠ scoringEnvironmentProxy; unavailable defense ≠ neutral 50. Same-team forced props analyzed separately. Wins and losses both diagnosed.
+## 15–22. Calibration / market / role / opponent / same-team / diagnosis designs
+
+Implemented as scoped blocks (`currentSlate` / `activeThreeSlateBlock` / `previousThreeSlateBlock`) with NBA/WNBA kept separate. Unavailable defense is not neutral 50. True pace ≠ scoringEnvironmentProxy.
+
+---
 
 ## 23–24. Adjustment review + Raw Signal Explorer
 
-Manual suggestions only (`writesLiveWeights: false`, `calibrationFeedbackEngine: false`, `appliesAutomatically: false`). Raw explorer paginated; small samples never hidden behind “needs more data.”
+Manual suggestions only (`appliesAutomatically: false`, `writesLiveWeights: false`, `calibrationFeedbackEngine: false`). Raw explorer paginated; small samples never hidden behind “needs more data.”
 
-## 25. Legacy sections removed/merged
+---
 
-Tracked Slate Summary clutter, Gate/Loss Review, Upgrade/Demotion, Retro simulations, Reader TEST sections, PREMIUM/PLAYABLE calibration, legacy scorecard — removed from consumer Lab; useful signals merged into Decision-Path, Engine Scoreboard, Projection/Risk, Diagnosis, Raw Explorer.
+## 25. Legacy sections removed or merged
+
+See §1. Underlying sealed/learning data preserved.
+
+---
 
 ## 26–27. Backfill / old-record compatibility
 
-Pre-expansion records remain readable; expansion fields marked unavailable; no fabricated signals; pregameSnapshot never mutated.
+Pre-expansion records remain readable; expansion fields marked unavailable; no fabrication; pregameSnapshot not mutated; aggregates/diagnosis may refresh on rebuild.
+
+---
 
 ## 28. Tests
 
 ```
 npm run test:courtedge-lab-v2
-→ 68 passed, 0 failed
+→ 68 passed, 0 failed (cases 1–67 + calibration helper)
 
 npm run test:courtedge-engine-expansion
 → 85 passed, 0 failed
@@ -129,56 +198,71 @@ node scripts/testHistoryThreeSlateGroupsV1.js
 → 5 passed, 0 failed
 ```
 
+---
+
 ## 29. App build
 
-Prop Lab screen rewritten to consume `fetchCourtEdgeLabV2`; copy report uses `buildPropLabV2Report` on the same payload.
+Prop Lab screen rewritten to consume Lab V2 (`app/(tabs)/prop-lab.tsx`). Copy report via `buildPropLabV2Report` (same `courtEdgeLabV2` payload). Minor TS API alignment: `requireLikelyFinished` / `forceRebuild` / `CopyReportButton.getReportText`.
 
-## 30. New SERVER_BUILD
+---
 
-`courteedge-lab-v2-three-slate-v1`
-
-## 31–33. Commit / push / Render
+## 30–33. SERVER_BUILD / commit / push / Render
 
 | Item | Value |
 |---|---|
-| Commit | `213d1ce` |
-| Push | `orgin/betbrain-v2-rebuild` (`a1f57b7..213d1ce`) |
-| Render | Live — `/health` returns `courteedge-lab-v2-three-slate-v1` |
+| SERVER_BUILD | `courteedge-lab-v2-three-slate-v1` |
+| Implementation commit | `213d1ce` |
+| Deploy doc commit | `c64fa2d` |
+| Push | `orgin/betbrain-v2-rebuild` |
+| Render | live — auto-deploy from branch |
+
+---
 
 ## 34–35. Live verification checklist
 
-| Check | Result |
-|---|---|
-| `/health` serverBuild | `courteedge-lab-v2-three-slate-v1` |
-| `GET /courtedge/lab` | `version=courtEdgeLabV2`, 11 engine scorecards |
-| writesLiveWeights | `false` |
-| calibrationFeedbackEngine | `false` |
-| Banned pick labels in body | Absent (only listed in `bannedLabels` meta) |
-| Three-slate | Active progress + previous block dates present |
-| History membership | Shared via `historyThreeSlateGroupsV2` |  
+1. `/health` → `serverBuild: courteedge-lab-v2-three-slate-v1` ✅  
+2. `GET /courtedge/lab` → `labV2.version=courtEdgeLabV2`, **11 engines**, `writesLiveWeights=false` ✅  
+3. Prop Lab sections 1–15 consume Lab V2; banned labels excluded from consumer payload ✅  
+4. Copy report uses same `labV2` payload as screen ✅  
+5. History three-slate membership via shared V2 builder ✅  
+6. No historical sealed deletes/rewrites ✅  
+
+---
 
 ## 36. Rollback
 
 ```
-git revert <commit>
-git push orgin betbrain-v2-rebuild
+git revert 213d1ce
+# or redeploy prior build
+SERVER_BUILD=courteedge-engine-expansion-v1.1
 ```
-
-Or redeploy prior commit `e440023` (`courteedge-engine-expansion-v1.1`).
-
-## 37–42. Confirmations
-
-| Rule | Status |
-|---|---|
-| No live weight writes | Confirmed (`writesLiveWeights: false`) |
-| No Calibration Feedback Engine | Confirmed |
-| No extra pick classifications | Confirmed (bannedLabels enforced; UI clean) |
-| Three-slate rule intact | Confirmed (non-overlapping, frozen membership) |
-| Best 6 / track-all-six unchanged | Confirmed (analysis-only Lab) |
-| No sealed/history deletes | Confirmed (aggregates only; no mutate pregameSnapshot) |
 
 ---
 
-## Locked product rules (unchanged)
+## 37–42. Confirmations
 
-Controlled Best 6, track-all-six, Results 6/6, TRACK display, LOW/MEDIUM/HIGH, same-team arbitration, sealed lines, Home selection — **not modified**.
+| Confirmation | Status |
+|---|---|
+| 37. No live weights changed | **YES** — Lab analysis-only |
+| 38. No Calibration Feedback Engine | **YES** |
+| 39. No extra pick classifications | **YES** — banned list enforced |
+| 40. Three-slate rule intact | **YES** — V2 frozen non-overlapping |
+| 41. Full Best 6 + track-all-six unchanged | **YES** |
+| 42. No sealed/history deletes or rewrites | **YES** — consume sealed only |
+
+---
+
+## Deploy proof (2026-07-19 UTC)
+
+| Check | Result |
+|---|---|
+| `/health` serverBuild | `courteedge-lab-v2-three-slate-v1` |
+| `GET /courtedge/lab` | ok · `labV2Build=courteedge-lab-v2-three-slate-v1` |
+| Engines on scoreboard | **11/11** |
+| writesLiveWeights | `false` |
+| calibrationFeedbackEngine | `false` |
+| Active block (live) | `2026-07-16` (1/3 progress on next after prior freeze) |
+| Previous block (live) | `2026-07-08`, `2026-07-14`, `2026-07-15` |
+| Local Lab V2 suite | **68/68** |
+| Engine expansion suite | **85/85** |
+| History three-slate V1 suite | **5/5** |
