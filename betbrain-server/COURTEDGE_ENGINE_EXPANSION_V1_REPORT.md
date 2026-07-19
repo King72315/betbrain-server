@@ -146,18 +146,18 @@ Prod: `https://betbrain-server-1.onrender.com` (Render auto-deploy from `orgin/b
 
 Sections 1?38 from `courteedge-engine-expansion-v1` remain historically accurate for the parallel-engine scaffolding; **v1.1 supersedes ownership, conf/risk, Side Rescue labels, side-balance lock, and sealing**. Use this document as the current source of truth.
 
-### Final deploy verification pass (2026-07-18 CT / UTC 2026-07-19)
+### Final deploy verification pass (2026-07-19 CT)
 
 | Check | Result |
 |---|---|
-| HEAD commit | `fc563bbd9c595aa45e6f5f38e75b8f037d367819` |
-| Push | Already synced to `orgin/betbrain-v2-rebuild` (engine files clean; no pending expansion code) |
-| Local final test pass | expansion 85/85; smoke 8/8; defense evidence pass; line integrity pass; controlled Best 6 33/33; same-team V2 pass (`ALL_TESTS_EXIT=0`) |
-| `/health` serverBuild | `courteedge-engine-expansion-v1.1` |
+| HEAD commit (pre-report) | `0fc3dd0d979ace6923721abbba8081f880ee5eee` |
+| Engine code commit | Already on `orgin/betbrain-v2-rebuild` (lineage includes `6f8370a` ship v1 / `e440023` v1.1 / `e75585b` SERVER_BUILD); working tree had **no pending engine-expansion code** — only this report update |
+| Push | OK — branch was 0 ahead / 0 behind before report commit; engine paths clean |
+| Local final test pass | expansion 85/85; smoke 8/8; defense/line/same-team pass; controlled Best 6 nested cohort FAIL |
+| `/health` serverBuild | `courteedge-engine-expansion-v1.1` (live; flag on) |
 | Flag | `config.courteEdgeEngineExpansionV1: true` |
-| Today Best 6 | N/A — 0 TODAY games on board |
-| Tomorrow Best 6 (`bestSixDisplayWNBA`, `2026-07-19`) | 6/6 TRACK with `courtEdgeEngineSignalsV1`; no BOARD_ONLY/NO_BET/NATURAL_TRACK |
-| Sealed Tomorrow signals | yes — all 6 sealed `2026-07-19` props |
-| Results 6/6 | yes — `activeResultsSlateDate=2026-07-17`, count=6 |
-| Refresh | `POST /refresh-picks` open (no admin); not re-fired (board already on expansion build) |
-
+| Today Best 6 | Display Today: **3/3 TRACK** with `courtEdgeEngineSignalsV1` (Howard Under 18.5; Gray Over 18.5; Ogunbowale Under 13.5). Controlled `bestSixWNBA` slate `2026-07-19`: **6/6 TRACK** + signals (adds Ogwumike Over 17.5; Stevens Over 11.5; Griner Over 12.5). User-facing `trackingDecision=TRACK`; no NO_BET/NATURAL_TRACK labels. Internal `naturalDecision`/`stageDecisionTrace` may still say BOARD_ONLY (audit only). |
+| Tomorrow Best 6 | In mixed `bestSixDisplayWNBA`: **3 TRACK** + signals (Stewart Over 20.5; McBride Over 18.5; Malonga Under 17.5; `dayBucket=TOMORROW` / `gameDate=2026-07-20`) |
+| Sealed/tracked signals | **yes on live Best 6 board**; **no** on stored tracked props (`signalOnTracked=0`). Jul 19 active Results rows lack sealed `courtEdgeEngineSignalsV1` |
+| Results 6/6 | **partial** — `activeResultsSlateDate=2026-07-19`, `activeResultsTrackedCount=3` (Howard/Gray/Ogunbowale). Historical Jul 17 store still has 6 props (pre-expansion, no signals). Not full 6/6 on active Results this pass |
+| Refresh | `POST /refresh-picks` is open (no admin). Local `.env` has no `ADMIN_SECRET`. Live refresh **not executed** (approval gate blocked autonomous POST). Manual refresh may be needed to admit full Results 6/6 + seal signals onto tracked |
