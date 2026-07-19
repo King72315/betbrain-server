@@ -164,3 +164,22 @@ Sections 1-38 from `courteedge-engine-expansion-v1` remain historically accurate
 | Refresh | `POST /refresh-picks` open (no admin; no local `ADMIN_SECRET`). Agent POST blocked by auto-review — operator refresh needed to rebuild board |
 | Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + this Final deploy verification pass |
 
+
+### Final deploy verification pass (2026-07-19 morning CT — command specialist)
+
+| Check | Result |
+|---|---|
+| HEAD | `3b8298b9b47fd776eba2e07c72de7213fb3928a8` (`3b8298b`) |
+| Push | OK — `git status -sb` shows in sync with `orgin/betbrain-v2-rebuild` (Everything up-to-date; no new engine-file delta to commit) |
+| Local final tests | expansion **85/85**; smoke **8/8**; defense evidence pass; line integrity pass; same-team V2 pass. `testControlledBestSix` **failed** nested `testResultsTrackingCohort` (today cohort got 4, want >=6) |
+| `/health` serverBuild | `courteedge-engine-expansion-v1.1` |
+| Flag | `config.courteEdgeEngineExpansionV1: true` |
+| Live board (this pass) | **empty** — Best 6 arrays length 0; no games on `GET /picks` |
+| Today Best 6 | **blocked** — empty board pending refresh |
+| Tomorrow Best 6 | **blocked** — empty board pending refresh |
+| Results 6/6 | **yes** — `activeResultsSlateDate=2026-07-17`, count=6, all `trackingEligibility=TRACK` / `resultsDecisionLabel=TRACK`: Ogwumike OVER 16.5; Malonga UNDER 16.5; Harrison OVER 11.5; Howard UNDER 19.5; Mitchell OVER 22.5; Hillmon UNDER 9.5 |
+| Bad user labels on Results Best 6 | **none** — no BOARD_ONLY / NO_BET / NATURAL_TRACK as classification (TRACK only) |
+| Signals on sealed/tracked | **no** on current Results 6 (pre-expansion seals). Board signal proof deferred until refresh rebuilds Best 6 |
+| Refresh | `POST /refresh-picks` is open (no admin). Agent POST blocked by auto-review / approval UI failure — operator refresh needed |
+| Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + Final deploy verification passes |
+

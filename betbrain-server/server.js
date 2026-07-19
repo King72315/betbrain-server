@@ -311,7 +311,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-engine-expansion-v1.1";
+const SERVER_BUILD = "courteedge-best6-playable-pool-repair-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -407,6 +407,21 @@ function persistBoardAfterRefresh(result) {
 
 function cacheFresh() {
   if (!picksCache) return false;
+
+  // Reject stale previous-build packets after deploy.
+  if (
+    picksCache.serverBuild &&
+    picksCache.serverBuild !== SERVER_BUILD
+  ) {
+    return false;
+  }
+
+  if (
+    picksCache.boardSchemaVersion &&
+    picksCache.boardSchemaVersion !== BOARD_SCHEMA_VERSION
+  ) {
+    return false;
+  }
 
   if (
     picksCache.controlledBestSixVersion &&
