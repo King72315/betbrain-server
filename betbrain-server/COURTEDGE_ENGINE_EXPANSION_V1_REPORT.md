@@ -145,3 +145,19 @@ Prod: `https://betbrain-server-1.onrender.com` (Render auto-deploy from `orgin/b
 ## Prior v1 sections
 
 Sections 1?38 from `courteedge-engine-expansion-v1` remain historically accurate for the parallel-engine scaffolding; **v1.1 supersedes ownership, conf/risk, Side Rescue labels, side-balance lock, and sealing**. Use this document as the current source of truth.
+
+### Final deploy verification pass (2026-07-18 CT / UTC 2026-07-19)
+
+| Check | Result |
+|---|---|
+| HEAD commit | `fc563bbd9c595aa45e6f5f38e75b8f037d367819` |
+| Push | Already synced to `orgin/betbrain-v2-rebuild` (engine files clean; no pending expansion code) |
+| Local final test pass | expansion 85/85; smoke 8/8; defense evidence pass; line integrity pass; controlled Best 6 33/33; same-team V2 pass (`ALL_TESTS_EXIT=0`) |
+| `/health` serverBuild | `courteedge-engine-expansion-v1.1` |
+| Flag | `config.courteEdgeEngineExpansionV1: true` |
+| Today Best 6 | N/A — 0 TODAY games on board |
+| Tomorrow Best 6 (`bestSixDisplayWNBA`, `2026-07-19`) | 6/6 TRACK with `courtEdgeEngineSignalsV1`; no BOARD_ONLY/NO_BET/NATURAL_TRACK |
+| Sealed Tomorrow signals | yes — all 6 sealed `2026-07-19` props |
+| Results 6/6 | yes — `activeResultsSlateDate=2026-07-17`, count=6 |
+| Refresh | `POST /refresh-picks` open (no admin); not re-fired (board already on expansion build) |
+
