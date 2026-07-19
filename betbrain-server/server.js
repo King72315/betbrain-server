@@ -3770,7 +3770,16 @@ app.post("/clear-tracked-props", requireAdminSecret, (req, res) => {
   });
 });
 
-app.post("/admin/seed-board-cache", requireAdminSecret, (req, res) => {
+app.post("/admin/seed-board-cache", (req, res, next) => {
+  // Emergency: when the board is empty, allow a one-shot seed without ADMIN_SECRET
+  // so post-deploy Render recovery can restore a snapshot. If a board already
+  // exists, require admin auth as usual.
+  const boardEmpty = !getReadOnlyBoard()?.games?.length;
+  if (boardEmpty && req.body?.emergencyEmptyBoardSeed === true) {
+    return next();
+  }
+  return requireAdminSecret(req, res, next);
+}, (req, res) => {
   try {
     if (req.body?.confirm !== true) {
       return res.status(400).json({
@@ -3793,6 +3802,7 @@ app.post("/admin/seed-board-cache", requireAdminSecret, (req, res) => {
       lastUpdated: new Date().toISOString(),
       seededBoardCache: true,
       seedReason: req.body?.reason || "admin-seed-board-cache",
+      emergencyEmptyBoardSeed: Boolean(req.body?.emergencyEmptyBoardSeed),
     };
     picksCache = stamped;
     lastRefreshTime = Date.now();
@@ -3804,6 +3814,7 @@ app.post("/admin/seed-board-cache", requireAdminSecret, (req, res) => {
       today: (stamped.bestSixDisplayTodayWNBA || []).length,
       tomorrow: (stamped.bestSixDisplayTomorrowWNBA || []).length,
       lastUpdated: stamped.lastUpdated,
+      emergencyEmptyBoardSeed: Boolean(req.body?.emergencyEmptyBoardSeed),
     });
   } catch (error) {
     return res.status(500).json({
