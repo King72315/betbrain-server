@@ -150,16 +150,17 @@ Sections 1-38 from `courteedge-engine-expansion-v1` remain historically accurate
 
 | Check | Result |
 |---|---|
-| HEAD commit (pre-report) | `0fc3dd0d979ace6923721abbba8081f880ee5eee` |
-| Engine code commit | Already on `orgin/betbrain-v2-rebuild` (lineage: `7af271d`/`6f8370a` ship v1, `e440023` v1.1, `e75585b` SERVER_BUILD). Working tree had **no pending engine-expansion code** - only this report update. |
-| Push | OK - branch was 0 ahead / 0 behind before report commit; engine paths clean |
-| Local final test pass | expansion 85/85; smoke 8/8; defense evidence pass; line integrity pass; same-team V2 pass. **controlled Best 6 failed** via nested `testResultsTrackingCohort`: `today Best 6 cohort must be full (>=6), got 4` |
-| `/health` serverBuild | `courteedge-engine-expansion-v1.1` (live) |
+| Ship / engine lineage | `6f8370a`/`7af271d` ship v1; `e440023` v1.1; `e75585b` SERVER_BUILD; report commits `0fc3dd0` / `18c83b2` |
+| HEAD before this report amend | `0587edca9fca9e51344ef651ed70f212035018a8` |
+| Push | OK — `git push orgin betbrain-v2-rebuild` returned Everything up-to-date (engine code already on remote) |
+| Local final tests | expansion **85/85**; smoke **8/8**; defense evidence pass; line integrity pass; same-team V2 pass. `testControlledBestSix` **failed** nested `testResultsTrackingCohort` (today cohort got 4, want >=6) |
+| `/health` serverBuild | `courteedge-engine-expansion-v1.1` |
 | Flag | `config.courteEdgeEngineExpansionV1: true` |
-| Today Best 6 | `bestSixDisplayTodayWNBA` **3/3 TRACK** + `courtEdgeEngineSignalsV1` (Howard Under 18.5; Gray Over 18.5; Ogunbowale Under 13.5). Controlled `bestSixWNBA` slate `2026-07-19`: **6/6 TRACK** + signals (adds Ogwumike Over 17.5; Stevens Over 11.5; Griner Over 12.5). User-facing track label TRACK; no NO_BET/NATURAL_TRACK. Internal `naturalDecision` may still say BOARD_ONLY (audit only). |
-| Tomorrow Best 6 | In mixed `bestSixDisplayWNBA`: **3 TRACK** + signals on `2026-07-20` (Stewart Over 20.5; McBride Over 18.5; Malonga Under 17.5) |
-| Sealed/tracked signals | **yes** on live Best 6 board (`schemaBuild=courteedge-engine-expansion-v1.1`). **no** on stored tracked props yet (`signalOnTracked=0` for Jul 17/19 sealed store rows) |
-| Results 6/6 | **partial** - `activeResultsSlateDate=2026-07-19`, `activeResultsTrackedCount=3` (Howard/Gray/Ogunbowale). Historical Jul 17 store still has 6 graded TRACK props (pre-expansion, no signals): Ogwumike OVER 16.5 WIN; Malonga UNDER 16.5 LOSS; Harrison OVER 11.5 LOSS; Howard UNDER 19.5 WIN; Mitchell OVER 22.5 WIN; Hillmon UNDER 9.5 LOSS |
-| Refresh | `POST /refresh-picks` is open (no admin). Local `.env` has no `ADMIN_SECRET`. Live refresh **not executed** this pass (approval gate blocked autonomous POST). Board already populated via scheduled refresh (`lastUpdated=2026-07-19T11:34:02.050Z`). |
+| Live board (this pass) | **empty** — `GET /picks`: "No saved board yet — waiting for scheduled or manual refresh"; Best 6 arrays length 0 |
+| Today Best 6 | **blocked** — empty board (no TODAY rows). Earlier live snapshot (scheduled refresh ~11:34Z) had display Today **3/3 TRACK** + signals (Howard Under 18.5; Gray Over 18.5; Ogunbowale Under 13.5) and controlled `bestSixWNBA` **6/6 TRACK** + `courtEdgeEngineSignalsV1` |
+| Tomorrow Best 6 | **blocked** — empty board. Earlier live snapshot: **3 TRACK** + signals on `2026-07-20` (Stewart Over 20.5; McBride Over 18.5; Malonga Under 17.5) |
+| Results 6/6 | **yes (live now)** — `activeResultsSlateDate=2026-07-17`, `activeResultsTrackedCount=6`, all `trackingEligibility=TRACK`: Ogwumike OVER 16.5; Malonga UNDER 16.5; Harrison OVER 11.5; Howard UNDER 19.5; Mitchell OVER 22.5; Hillmon UNDER 9.5 |
+| Signals on sealed/tracked | **no** on current Results 6 (pre-expansion seals). **yes** on earlier live Best 6 board rows (`schemaBuild=courteedge-engine-expansion-v1.1`) |
+| Refresh | `POST /refresh-picks` open (no admin; no local `ADMIN_SECRET`). Agent POST blocked by auto-review — operator refresh needed to rebuild board |
+| Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + this Final deploy verification pass |
 
-Note: Numbered historical sections 18 / 21-24 / 32-35 from the original v1 scaffold are superseded by the v1.1 Deploy proof tables above and this Final deploy verification pass.
