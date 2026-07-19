@@ -101,12 +101,15 @@ Up to **last 3** matchups with points / minutes / FGA / FTA / line result. Real 
 
 ### Live verify (2026-07-19 post-deploy)
 
-- Build: `courteedge-analysis-integrity-v1`
+- Build: `courteedge-analysis-integrity-v1` (commit `f52df54` accent-join / Top stamp hotfix pushed to `orgin`)
 - WNBA Today **6/6**, Tomorrow **6/6**
 - Conf/risk mismatches across compact vs canonical: **0**
 - Raw codes in Why: **0**
 - Negative volume display: **0**
-- **Leïla Lacan** on Today Best 6: conf/risk aligned; identity join key `leila lacan`; empty form with seasonAvg 0 rejected (display UNAVAILABLE, not 0); accent-fold hotfix enables BDL hydrate on refresh
+- Zero-poison empty-form seasonAvg 0: **0**
+- Market compact on sample board: **UNAVAILABLE** (not AGAINST) when open/current missing
+- **Leïla Lacan** not on current Best 6 slate after latest board; accent-fold + reject/rebuild covered by unit tests (19/19) and prior live Lacan sample on integrity path
+- Top score-vs-next stamps land on next full Best6/Top rebuild (selector + `stampTopLabelsOnBestSix`); conf/risk already aligned on Top cards (McBride 80/80, Stewart 72/72)
 
 ## Confirmations
 
