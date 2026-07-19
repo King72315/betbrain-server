@@ -183,3 +183,24 @@ Sections 1-38 from `courteedge-engine-expansion-v1` remain historically accurate
 | Refresh | `POST /refresh-picks` is open (no admin). Agent POST blocked by auto-review / approval UI failure — operator refresh needed |
 | Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + Final deploy verification passes |
 
+
+### Final deploy verification pass (2026-07-19 CT — command specialist push)
+
+| Check | Result |
+|---|---|
+| Commit pushed | `a6c16ef1ada1c1820773ab53b5959bde174ecb33` (6c16ef) — report + `SERVER_BUILD` fingerprint change |
+| Push | **OK** — `git push orgin betbrain-v2-rebuild` `3b8298b..a6c16ef` |
+| Engine code commit | Already on remote (no pending `engines/courtEdgeExpansion/` delta this pass); ship lineage includes v1 / v1.1 |
+| Local final tests | expansion **85/85**; smoke **8/8**; defense evidence pass; line integrity pass; same-team V2 pass. `testControlledBestSix` **failed** nested `testResultsTrackingCohort` (today cohort got 4, want >=6) |
+| Deploy poll | Within ~40s after push, `/health` moved `courteedge-engine-expansion-v1.1` → `courteedge-best6-playable-pool-repair-v1` |
+| `/health` serverBuild (live) | `courteedge-best6-playable-pool-repair-v1` |
+| Flag | `config.courteEdgeEngineExpansionV1: true` |
+| Live board | **empty** — `GET /picks`: no saved board / waiting for refresh; Best 6 arrays length 0 |
+| Today Best 6 | **blocked** — empty board (operator `POST /refresh-picks` needed; agent refresh blocked by auto-review) |
+| Tomorrow Best 6 | **blocked** — empty board pending refresh |
+| Results 6/6 | **yes** — `activeResultsSlateDate=2026-07-17`, `activeResultsTrackedCount=6`, all `trackingEligibility=TRACK` / `resultsDecisionLabel=TRACK`: Ogwumike OVER 16.5; Malonga UNDER 16.5; Harrison OVER 11.5; Howard UNDER 19.5; Mitchell OVER 22.5; Hillmon UNDER 9.5 |
+| User-facing bad labels | **none** on Results rows (TRACK only). Internal `naturalDecision=BOARD_ONLY` remains audit-only |
+| Signals on sealed/tracked | **no** on current Results 6 (pre-expansion seals). Board signal proof deferred until refresh |
+| Refresh | `POST /refresh-picks` open (no admin; local `.env` has no `ADMIN_SECRET`). Agent POST not executed (auto-review block) |
+| Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + Final deploy verification passes above |
+
