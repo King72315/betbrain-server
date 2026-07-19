@@ -106,7 +106,9 @@ function isViableMinorityCandidate(pick = {}) {
 }
 
 function clean(value = "") {
-  return String(value)
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -1270,6 +1272,16 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
   const ranked = selected.map((pick, index) => {
     const rank = index + 1;
     const safetyScore = computeSafetyScore(pick);
+    const nextScore =
+      index + 1 < selected.length
+        ? computeSafetyScore(selected[index + 1])
+        : sorted
+            .filter((p) => !selected.includes(p))
+            .map((p) => computeSafetyScore(p))[0] ?? null;
+    const margin =
+      nextScore != null
+        ? Math.round((safetyScore - nextScore) * 10) / 10
+        : null;
     return {
       ...pick,
       rank,
@@ -1277,7 +1289,12 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       leagueRank: rank,
       topPickRank: rank,
       topPickSafetyScore: safetyScore,
+      topPickNextScore: nextScore,
       topPickLabel: buildTopPickLabel(leagueCode, rank),
+      topPickReason:
+        margin != null
+          ? `Selected Top #${rank} — leads next candidate by ${margin} on ranking score.`
+          : `Selected Top #${rank} among Best 6 on relative safety score.`,
       selectedTeamKey: getPickTeamKey(pick),
       selectedFromBestSix: true,
       selectedFromDisplayBestSix: true,

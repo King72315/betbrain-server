@@ -43,7 +43,12 @@ function getSeasonYear(league = "NBA") {
 }
 
 function clean(value = "") {
-  return String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  // NFD + strip diacritics so Leïla → leila (not lela). Apostrophes also fold.
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 function num(value) {

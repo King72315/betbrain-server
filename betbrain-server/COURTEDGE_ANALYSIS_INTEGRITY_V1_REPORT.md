@@ -36,7 +36,8 @@ Competing trails (`riskLabel`, `winProbability`) no longer drive consumer displa
 ## Leïla Lacan / accented identity
 
 - `normalizePersonName` / `normalizePlayerJoinKey` fold accents (Leïla → leila).
-- Invalid packets (identity mismatch, all-zero L5, negative volume, fake-complete coverage) are **rejected and rebuilt** via `rejectOrRebuildEvidencePacket`.
+- **BDL / Best6 / stable-ID `clean()` keys now use NFD diacritic folding** so Odds `Leïla` joins BDL `Leila` (`leilalacan`, not `lelalacan`).
+- Invalid packets (identity mismatch, all-zero L5, negative volume, fake-complete coverage, seasonAvg 0 with empty form) are **rejected and rebuilt** via `rejectOrRebuildEvidencePacket`.
 - Rebuild forces `oddsPlayerName` from pick player so accented names do not keep a wrong join identity.
 
 ## Negative volume
@@ -61,27 +62,31 @@ Up to **last 3** matchups with points / minutes / FGA / FTA / line result. Real 
 
 - Market: `WITH` / `NEUTRAL` / `AGAINST` / `UNAVAILABLE` with explanation; opening / sealed / current distinct; **UNAVAILABLE ≠ AGAINST**.
 - Top: rank, reason, score-vs-next margin, supports/concerns; **does not rewrite** conf/risk.
+- `selectTopTwoFromBestSix` + `stampTopLabelsOnBestSix` stamp `topPickSafetyScore` / `topPickNextScore` / `topPickReason` for transparency only.
 
 ## Files changed
 
 | File | Role |
 |------|------|
-| `services/courtEdgeAnalysisIntegrityV1.js` | **NEW** owner + validate/rebuild + rounding + Top transparency |
+| `services/courtEdgeAnalysisIntegrityV1.js` | Owner + validate/rebuild + rounding + Top transparency |
 | `services/courtEdgeHomeDetailedAnalysisV1.js` | Wire integrity; matchups; scrub; sync trails |
+| `services/courtEdgePlayerEvidenceV1.js` | Zero-poison volume / negative projection reject |
 | `engines/topProps/homeReasonTextV1.js` | Broader code scrub / translations |
 | `components/PropCard.tsx` | Canonical conf/risk; full matchup list; rounding |
 | `utils/controlledBestSixDisplay.js` | Copy Report conf/risk + matchups + scrub |
 | `server.js` | `SERVER_BUILD` → `courteedge-analysis-integrity-v1` |
 | `package.json` | `test:courtedge-analysis-integrity` |
-| `scripts/testCourtEdgeAnalysisIntegrityV1.js` | **NEW** 18 tests |
-| `scripts/testCourtEdgeHomeDetailedAnalysisSideCalibrationV1.js` | Packet-owns-risk assertions |
-| `scripts/testCourtEdgeHomeCompletionTomorrowSixV1.js` | SERVER_BUILD lock |
+| `scripts/testCourtEdgeAnalysisIntegrityV1.js` | Integrity suite (19) |
+| `services/ballService.js` | NFD accent fold in player join `clean()` |
+| `engines/wnba/wnbaPlayerIdResolver.js` | NFD accent fold in stable ID keys |
+| `engines/topProps/controlledBestSixSelector.js` | NFD clean + Top score-vs-next stamps |
+| `services/trackedPropService.js` | stamp Top transparency fields without conf/risk rewrite |
 
 ## Tests
 
 | Suite | Result |
 |-------|--------|
-| `test:courtedge-analysis-integrity` | **18/18** |
+| `test:courtedge-analysis-integrity` | **19/19** |
 | `test:courtedge-home-analysis-calibration` | **84/84** (+7 regression imports) |
 | `test:courtedge-home-completion` | **80/80** |
 | `test:courtedge-best6-repair` | **44/44** |
@@ -92,7 +97,7 @@ Up to **last 3** matchups with points / minutes / FGA / FTA / line result. Real 
 2. Wait for Render deploy of `courteedge-analysis-integrity-v1`
 3. `POST /refresh-picks?wait=1&scope=all`
 4. Spot-check Best 6: conf === analysis.canonical.confidence; risk === analysis.canonical.risk; no raw codes in Why/Copy; matchups ≤3; market UNAVAILABLE not AGAINST
-5. If Lacan (or any accented name) is on slate: evidence packet valid or rebuilt; no zero-poison / negative volume display
+5. If Lacan (or any accented name) is on slate: BDL id resolves after accent fold; evidence packet valid or rebuilt; no zero-poison / negative volume display
 
 ### Live verify (2026-07-19 post-deploy)
 
@@ -101,7 +106,7 @@ Up to **last 3** matchups with points / minutes / FGA / FTA / line result. Real 
 - Conf/risk mismatches across compact vs canonical: **0**
 - Raw codes in Why: **0**
 - Negative volume display: **0**
-- **Leïla Lacan** on Today Best 6: conf/risk aligned (40 / MEDIUM); identity join key `leila lacan`; empty form with seasonAvg 0 rejected on follow-up hotfix (display UNAVAILABLE, not 0)
+- **Leïla Lacan** on Today Best 6: conf/risk aligned; identity join key `leila lacan`; empty form with seasonAvg 0 rejected (display UNAVAILABLE, not 0); accent-fold hotfix enables BDL hydrate on refresh
 
 ## Confirmations
 

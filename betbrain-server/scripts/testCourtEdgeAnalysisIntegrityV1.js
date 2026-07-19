@@ -185,6 +185,16 @@ test("06 missing fields stay null not zero", () => {
 test("07 Lacan accented name normalizes for identity join", () => {
   assert.strictEqual(normalizePersonName("Leïla Lacan"), "leila lacan");
   assert.strictEqual(normalizePersonName("Leila Lacan"), "leila lacan");
+  // Ball/odds join keys must fold accents the same way (Leïla → leila, not lela).
+  const fold = (s) =>
+    String(s || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  assert.strictEqual(fold("Leïla Lacan"), fold("Leila Lacan"));
+  assert.strictEqual(fold("Leïla Lacan"), "leilalacan");
+  assert.notStrictEqual(fold("Leïla Lacan"), "lelalacan");
 });
 
 test("08 Lacan invalid evidence packet rejected and rebuilt", () => {

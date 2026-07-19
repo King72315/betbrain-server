@@ -222,7 +222,9 @@ const SAFE_LOCKED_UPDATE_FIELDS = new Set([
 ]);
 
 function clean(value = "") {
-  return String(value)
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -1083,6 +1085,9 @@ function stampTopLabelsOnBestSix(bestSix = [], league = "WNBA", options = {}) {
       {
         topPickRank: index + 1,
         topPickLabel: `Top ${String(league).toUpperCase()} #${index + 1}`,
+        topPickSafetyScore: pick.topPickSafetyScore,
+        topPickNextScore: pick.topPickNextScore,
+        topPickReason: pick.topPickReason,
       },
     ])
   );
@@ -1092,13 +1097,19 @@ function stampTopLabelsOnBestSix(bestSix = [], league = "WNBA", options = {}) {
       const cleared = { ...pick };
       delete cleared.topPickRank;
       delete cleared.topPickLabel;
+      delete cleared.topPickSafetyScore;
+      delete cleared.topPickNextScore;
+      delete cleared.topPickReason;
       return cleared;
     }
-    // Stamp rank/label only — never rewrite confidence or risk.
+    // Stamp rank/label/transparency only — never rewrite confidence or risk.
     return {
       ...pick,
       topPickRank: stamp.topPickRank,
       topPickLabel: stamp.topPickLabel,
+      topPickSafetyScore: stamp.topPickSafetyScore,
+      topPickNextScore: stamp.topPickNextScore,
+      topPickReason: stamp.topPickReason,
     };
   });
 }
