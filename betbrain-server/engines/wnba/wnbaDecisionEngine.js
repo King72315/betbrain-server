@@ -753,7 +753,9 @@ export async function evaluateWnbaPropDecision(context = {}) {
   }
 
   pick = finalizeCanonicalDecision(pick);
-  pick = attachHomeDetailedAnalysisV1(pick, { useCache: true });
+  // Defer Home Detailed Analysis to board sanitize / Best 6 stamp paths so
+  // full-slate refresh does not OOM or exceed Render life during rebuild.
+  // Analysis is still attached for selected cards via sanitizeHomeBoardForLifecycle.
 
   return {
     accepted: true,

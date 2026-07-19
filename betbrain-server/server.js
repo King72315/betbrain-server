@@ -1475,7 +1475,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     }
 
     const rawProps = await fetchPointsPropsForEvent(oddsEvent.id, league);
-    const props = buildConsensusPointProps(rawProps);
+    const propsAll = buildConsensusPointProps(rawProps);
+    // Cap analyzed consensus props per game to keep Render refresh under
+    // memory/lifetime limits while still leaving ?6 playable candidates when
+    // markets support it. Prefer higher bookCount / marketQuality.
+    const props = [...propsAll]
+      .sort(
+        (a, b) =>
+          Number(b.bookCount || 0) - Number(a.bookCount || 0) ||
+          Number(b.marketQuality || 0) - Number(a.marketQuality || 0)
+      )
+      .slice(0, 14);
     const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
     const wnbaGameContext =
       league === "WNBA" && isCourteEdgeWnbaV1Enabled()
@@ -5535,15 +5545,20 @@ if (process.env.RUN_AUDIT === "1") {
       console.log("BOARD CACHE empty ? waiting for scheduler or manual refresh");
     }
 
-    // After deploy, ephemeral disk / build mismatch often leaves an empty board.
-    // Kick an async refresh so Home recovers without waiting on a proxy-timeout POST.
-    const needsStartupRefresh =
-      !picksCache?.games?.length ||
-      picksCache.serverBuild !== SERVER_BUILD ||
-      !cacheFresh();
-    if (needsStartupRefresh) {
-      console.log("STARTUP ASYNC REFRESH: board empty or build stale");
-      startRefreshAllPicksBackground("startup-empty-or-stale");
+    // Startup auto-refresh disabled: full WNBA rebuild can exceed Render memory/
+    // lifetime and restart-loop the service. Use POST /refresh-picks (async) or
+    // the scheduler after boot is healthy.
+    if (!picksCache?.games?.length) {
+      console.log(
+        "STARTUP: empty board ? call POST /refresh-picks after health is stable"
+      );
+    } else if (picksCache.serverBuild !== SERVER_BUILD) {
+      console.log(
+        "STARTUP: board build mismatch ? schedule async refresh after delay"
+      );
+      setTimeout(() => {
+        startRefreshAllPicksBackground("startup-build-mismatch-delayed");
+      }, 15000);
     }
 
     if (rehydrateResult.results?.length) {
