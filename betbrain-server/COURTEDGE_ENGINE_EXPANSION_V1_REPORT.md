@@ -97,6 +97,21 @@ Aggregates unit suite via child process; nonzero exit on failure. Cases **#76–
 
 Prod: `https://betbrain-server-1.onrender.com` (Render auto-deploy from `orgin/betbrain-v2-rebuild`).
 
+### Deploy proof (2026-07-18 / UTC 2026-07-19)
+
+| Check | Result |
+|---|---|
+| Commit | `e440023` pushed to `orgin/betbrain-v2-rebuild` |
+| `/health` serverBuild | `courteedge-engine-expansion-v1.1` |
+| Flag | `courteEdgeEngineExpansionV1: true` |
+| Local tests | `npm run test:courtedge-engine-expansion` → **85/85** |
+| Refresh | `POST /refresh-picks` succeeded on prod |
+| Board Best 6 (`bestSixDisplayWNBA`) | **6/6 TRACK**; each has `courtEdgeEngineSignalsV1` + `courtEdgeDecisionPacketV1` |
+| Sample sealed signal | `schemaBuild=courteedge-engine-expansion-v1.1`, `alreadyApplied=true`, `confidenceOwner=evidenceDeduplicationLedger` |
+| Official Tomorrow seal | `2026-07-19` sealed FULL_BEST_SIX propCount=6 |
+| Results tracked | **6/6** (active Results cohort = sealed `2026-07-17`; pre-v1.1 packets preserved — no history rewrite) |
+| Same-team lock | unit #81/#82 pass; side-balance audit reports `sameTeamLockedProtected` |
+
 ---
 
 ## Limitations (honest)
