@@ -320,7 +320,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-// MISSION LOCK ? courteedge-home-completion-tomorrow-six-v1
+// MISSION LOCK: courteedge-home-completion-tomorrow-six-v1
 // Do not retag to courteedge-best6-playable-pool-repair-v1 (invalidates live board).
 const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
