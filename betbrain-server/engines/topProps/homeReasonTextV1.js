@@ -49,9 +49,11 @@ export function stripRawDecisionLabels(text = "") {
   return String(text || "")
     .replace(RAW_CODE_RE, "")
     .replace(/prior gate:\s*/gi, "")
+    .replace(/^\s*[—–-]+\s*/g, "")
     .replace(/\s*[—–-]\s*$/g, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+\./g, ".")
+    .replace(/\.\.+/g, ".")
     .trim();
 }
 

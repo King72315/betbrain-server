@@ -142,9 +142,37 @@ Raw codes translated on Home (e.g. UNDER_GAP_BELOW… → readable sentence). Co
 
 ---
 
-## 15–16. Fresh Today / Tomorrow reports
+## 15. Fresh Today report (live post-deploy)
 
-Filled after deploy + refresh (see live verification section below).
+**Captured after** `/health` build `courteedge-best6-playable-pool-repair-v1` + `/refresh-picks` (`lastUpdated=2026-07-19T12:58:10.230Z`).
+
+| Metric | Value |
+|--------|--------|
+| Controlled Best 6 Today | **6/6** |
+| All TRACK | **yes** |
+| Raw code leak in Why | **no** |
+| Markets | NEUTRAL (thin books no longer AGAINST) |
+
+Selected Today:
+1. Rhyne Howard Under 18.5 (Top WNBA #1) — TRACK / MEDIUM  
+2. Arike Ogunbowale Under 13.5 (Top WNBA #2) — TRACK / MEDIUM  
+3. Nneka Ogwumike Over 17.5 — TRACK / MEDIUM  
+4. Azura Stevens Over 11.5 — TRACK / MEDIUM  
+5. Brittney Griner Over 12.5 — TRACK / MEDIUM  
+6. Alyssa Thomas Over 14.5 — TRACK / MEDIUM  
+
+## 16. Fresh Tomorrow report
+
+| Metric | Value |
+|--------|--------|
+| bestSixDisplayWNBA | **6/6** |
+| Markets | **NEUTRAL** (was incorrectly AGAINST) |
+
+Includes Stewart / McBride / Malonga and other playable ranks.  
+
+## Results note
+
+`activeResultsSlateDate` remains **2026-07-17** with **6** tracked (overnight Results hold). Today Home board is independently **6/6**; Today is not admitted into Results while Jul 17 blocks — lifecycle preserved, no sealed rewrite.
 
 ---
 
@@ -178,10 +206,10 @@ Both green (85 + 68). Lab V2 modules and three-slate groups not modified.
 | Item | Value |
 |------|--------|
 | SERVER_BUILD | `courteedge-best6-playable-pool-repair-v1` |
-| Commit | *(filled after commit)* |
-| Push | `orgin/betbrain-v2-rebuild` |
-| Render | auto-deploy from branch |
-| Live `/health` | *(filled after deploy)* |
+| Commit | `694a0a11d637423889ee82a49872bfc7c7dfd163` |
+| Push | `orgin/betbrain-v2-rebuild` (synced) |
+| Render | auto-deploy live |
+| Live `/health` | `serverBuild=courteedge-best6-playable-pool-repair-v1`, `controlledBestSixVersion=controlled-best-six-playable-pool-repair-v1` |
 
 ---
 
