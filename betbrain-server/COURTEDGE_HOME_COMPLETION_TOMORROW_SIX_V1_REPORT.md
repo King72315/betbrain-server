@@ -177,9 +177,10 @@ Notable commits on `orgin/betbrain-v2-rebuild`:
 - Home-completion Tomorrow soft-accept / LKG / scoped refresh / recovery lineage  
 - `1fcc29e` — empty-board guard preserve + startup hydrate  
 - `28cb530` — strip danger-gate phrasing from compact Why  
-- Final lock commit re-stamps mission `SERVER_BUILD` while retaining `EMPTY_BOARD_GUARD_VERSION`  
+- **`ba09df5`** — Lock `SERVER_BUILD` to `courteedge-home-completion-tomorrow-six-v1` with `EMPTY_BOARD_GUARD_VERSION` retained  
 
-Push target: `git push orgin HEAD` on `betbrain-v2-rebuild`. Render auto-deploy: `https://betbrain-server-1.onrender.com`.
+Push: `git push orgin HEAD` on `betbrain-v2-rebuild` (`28cb530..ba09df5`). Render auto-deploy: `https://betbrain-server-1.onrender.com`.  
+Final verify artifacts: `backups/home-completion-final-verify/`.
 
 ## 22. Deploy verify checklist
 
