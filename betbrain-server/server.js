@@ -1,7 +1,13 @@
 import cors from "cors";
 import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import { CONFIG, checkConfig } from "./config.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import {
   attachCourtEdgeEngineSignals,
   applyEngineSignalAdjustments,
@@ -3770,18 +3776,57 @@ app.post("/clear-tracked-props", requireAdminSecret, (req, res) => {
   });
 });
 
+function isBoardEmptyForEmergencySeed() {
+  const board = getReadOnlyBoard();
+  if (!board) return true;
+  const gamesLen = Array.isArray(board.games) ? board.games.length : 0;
+  const todayLen = (
+    board.bestSixDisplayTodayWNBA ||
+    board.bestSixWNBA ||
+    []
+  ).length;
+  const tomorrowLen = (board.bestSixDisplayTomorrowWNBA || []).length;
+  // Treat zombie caches (games shells / no Best6 display) as empty for recovery.
+  if (gamesLen === 0) return true;
+  if (todayLen === 0 && tomorrowLen === 0) return true;
+  return false;
+}
+
+function stampAndPersistSeededBoard(board, reason, emergency) {
+  const stamped = {
+    ...board,
+    ok: true,
+    serverBuild: SERVER_BUILD,
+    boardSchemaVersion: BOARD_SCHEMA_VERSION,
+    lastUpdated: new Date().toISOString(),
+    seededBoardCache: true,
+    seedReason: reason,
+    emergencyEmptyBoardSeed: Boolean(emergency),
+  };
+  picksCache = stamped;
+  lastRefreshTime = Date.now();
+  saveBoardCache(stamped);
+  return stamped;
+}
+
 app.post("/admin/seed-board-cache", (req, res, next) => {
-  // Emergency: when the board is empty, allow a one-shot seed without ADMIN_SECRET
-  // so post-deploy Render recovery can restore a snapshot. If a board already
-  // exists, require admin auth as usual.
-  const boardEmpty = !getReadOnlyBoard()?.games?.length;
-  if (boardEmpty && req.body?.emergencyEmptyBoardSeed === true) {
+  // Emergency: when the board is empty/zombie, allow a one-shot seed without
+  // ADMIN_SECRET so post-deploy Render recovery can restore a snapshot.
+  const emergency =
+    req.body?.emergencyEmptyBoardSeed === true ||
+    req.body?.emergencyEmptyBoardSeed === "true" ||
+    req.query?.emergencyEmptyBoardSeed === "1" ||
+    req.query?.emergencyEmptyBoardSeed === "true";
+  const adminConfigured = Boolean(String(process.env.ADMIN_SECRET || "").trim());
+  // When ADMIN_SECRET is unset, emergency seed is the only Render write path ?
+  // allow it even if a zombie disk cache still reports games[].
+  if (emergency && (isBoardEmptyForEmergencySeed() || !adminConfigured)) {
     return next();
   }
   return requireAdminSecret(req, res, next);
 }, (req, res) => {
   try {
-    if (req.body?.confirm !== true) {
+    if (req.body?.confirm !== true && req.body?.confirm !== "true") {
       return res.status(400).json({
         ok: false,
         message: "seed-board-cache requires confirm: true",
@@ -3794,19 +3839,11 @@ app.post("/admin/seed-board-cache", (req, res, next) => {
         message: "seed-board-cache requires board.games array",
       });
     }
-    const stamped = {
-      ...board,
-      ok: true,
-      serverBuild: SERVER_BUILD,
-      boardSchemaVersion: BOARD_SCHEMA_VERSION,
-      lastUpdated: new Date().toISOString(),
-      seededBoardCache: true,
-      seedReason: req.body?.reason || "admin-seed-board-cache",
-      emergencyEmptyBoardSeed: Boolean(req.body?.emergencyEmptyBoardSeed),
-    };
-    picksCache = stamped;
-    lastRefreshTime = Date.now();
-    saveBoardCache(stamped);
+    const stamped = stampAndPersistSeededBoard(
+      board,
+      req.body?.reason || "admin-seed-board-cache",
+      req.body?.emergencyEmptyBoardSeed
+    );
     return res.json({
       ok: true,
       serverBuild: SERVER_BUILD,
@@ -3820,6 +3857,82 @@ app.post("/admin/seed-board-cache", (req, res, next) => {
     return res.status(500).json({
       ok: false,
       message: "seed-board-cache failed",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/admin/board-cache-status", (req, res) => {
+  const board = getReadOnlyBoard();
+  return res.json({
+    ok: true,
+    serverBuild: SERVER_BUILD,
+    adminSecretConfigured: Boolean(String(process.env.ADMIN_SECRET || "").trim()),
+    boardPresent: Boolean(board),
+    games: Array.isArray(board?.games) ? board.games.length : 0,
+    today: (board?.bestSixDisplayTodayWNBA || board?.bestSixWNBA || []).length,
+    tomorrow: (board?.bestSixDisplayTomorrowWNBA || []).length,
+    lastUpdated: board?.lastUpdated || null,
+    boardServerBuild: board?.serverBuild || null,
+    emptyForEmergencySeed: isBoardEmptyForEmergencySeed(),
+  });
+});
+
+// Body-less recovery: load bundled board when live cache is empty/zombie.
+// Avoids Render request body size limits that block emergency seed POSTs.
+app.post("/admin/recover-empty-board", (req, res) => {
+  try {
+    const adminConfigured = Boolean(String(process.env.ADMIN_SECRET || "").trim());
+    const force = req.query?.force === "1" || req.body?.force === true;
+    if (!isBoardEmptyForEmergencySeed() && !(force && !adminConfigured)) {
+      const board = getReadOnlyBoard();
+      return res.status(409).json({
+        ok: false,
+        message: "Board already present ? recover-empty-board refused",
+        games: board?.games?.length || 0,
+        today: (board?.bestSixDisplayTodayWNBA || board?.bestSixWNBA || []).length,
+        tomorrow: (board?.bestSixDisplayTomorrowWNBA || []).length,
+      });
+    }
+    const recoveryPath = path.join(
+      __dirname,
+      "recovery",
+      "empty-board-recovery-v1.json"
+    );
+    if (!fs.existsSync(recoveryPath)) {
+      return res.status(500).json({
+        ok: false,
+        message: "recovery/empty-board-recovery-v1.json missing from deploy",
+      });
+    }
+    const parsed = JSON.parse(fs.readFileSync(recoveryPath, "utf8"));
+    const board = parsed?.board && typeof parsed.board === "object"
+      ? parsed.board
+      : parsed;
+    if (!board || !Array.isArray(board.games)) {
+      return res.status(500).json({
+        ok: false,
+        message: "recovery file missing board.games",
+      });
+    }
+    const stamped = stampAndPersistSeededBoard(
+      board,
+      "recover-empty-board-bundled-v1",
+      true
+    );
+    return res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      recoveredFrom: "recovery/empty-board-recovery-v1.json",
+      games: stamped.games.length,
+      today: (stamped.bestSixDisplayTodayWNBA || []).length,
+      tomorrow: (stamped.bestSixDisplayTomorrowWNBA || []).length,
+      lastUpdated: stamped.lastUpdated,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "recover-empty-board failed",
       error: error.message,
     });
   }
