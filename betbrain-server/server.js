@@ -320,9 +320,10 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-// Empty-board guard: never atomically swap LKG playable boards for zombie/empty.
-// Bundled recovery + startup hydrate restore Home after Render ephemeral wipes.
-const SERVER_BUILD = "courteedge-empty-board-guard-v1";
+// Mission lock: courteedge-home-completion-tomorrow-six-v1
+// Empty-board guard features remain active (LKG preserve + bundled recovery).
+const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
+const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -2715,7 +2716,7 @@ async function refreshAllPicks(options = {}) {
       ok: true,
       incomplete: true,
       preservedBoard: true,
-      emptyBoardGuard: "courteedge-empty-board-guard-v1",
+      emptyBoardGuard: EMPTY_BOARD_GUARD_VERSION,
       message:
         "Refresh returned empty/zombie board ? preserved last-known-good and skipped tracked mutations",
       serverBuild: SERVER_BUILD,

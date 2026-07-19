@@ -1,6 +1,6 @@
 /**
  * CourtEdge Home Completion Tomorrow Six V1 — tests 1–80 + contract checks.
- * SERVER_BUILD: courteedge-empty-board-guard-v1
+ * SERVER_BUILD: courteedge-home-completion-tomorrow-six-v1
  */
 import assert from "assert";
 import fs from "fs";
@@ -643,15 +643,16 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD empty-board-guard target", () => {
+test("62 SERVER_BUILD home-completion mission lock", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-empty-board-guard-v1",
-    "SERVER_BUILD must be courteedge-empty-board-guard-v1"
+    "courteedge-home-completion-tomorrow-six-v1",
+    "SERVER_BUILD must be courteedge-home-completion-tomorrow-six-v1"
   );
+  assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
 });
 
 test("63 empty previous board never preserved-over", () => {
