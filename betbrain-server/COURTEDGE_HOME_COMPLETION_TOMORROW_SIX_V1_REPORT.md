@@ -81,7 +81,7 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 5. Charlisse Leger-Walker Under 8.5  
 6. Angel Reese Over 16.5  
 
-**Tomorrow 6/6 TRACK** (rebuilt from current markets)
+**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:50:09Z)
 
 1. Kayla McBride Over 18.5  
 2. Breanna Stewart Over 20.5  
@@ -92,7 +92,9 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 
 **Top:** Kayla McBride O18.5, Breanna Stewart O20.5  
 
-**Detailed Analysis:** present on all 6 Today + all 6 Tomorrow selected props (`homeDetailedAnalysisV1`).
+**Detailed Analysis:** present on selected props via `homeDetailedAnalysisV1` (Home + Copy Report shared object).
+
+**Stability note:** Parallel commits briefly retagged `SERVER_BUILD` to `courteedge-best6-playable-pool-repair-v1` and wiped cache; restored and **test 62 now reads `server.js` and fails if retagged**. Final live board re-verified after lock.
 
 ## 10. Proof: not blind restore of old six
 
