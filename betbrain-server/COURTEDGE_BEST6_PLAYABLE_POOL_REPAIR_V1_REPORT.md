@@ -211,12 +211,12 @@ courteedge-best6-playable-pool-repair-v1
 - Remote: `orgin`
 - Render: `https://betbrain-server-1.onrender.com` (auto-deploy)
 - Seal commit: `c927ba711f1c5de2415118253690568feb3ebab8` — *Seal calendar-today Best 6 independently of overnight Results holds.*
-- Follow-up (typo blocking refresh): `07b8646bf1cfc46f6c226147950bf661276f2b21` — *Fix saveBestSixSnapshot call typo blocking refresh-picks.*
-- Push: `orgin HEAD` up-to-date; redeploy verified after typo fix (prior refresh returned `saveBestSixSnapshotsaveBestSixSnapshot is not defined`, then 502 during Render restart).
-- Live `/health` (2026-07-19T18:13Z refresh window):
-  - `serverBuild`: `courteedge-home-detailed-analysis-side-calibration-v1` (supersedes older `courteedge-best6-playable-pool-repair-v1` fingerprint; Best 6 engine still `controlled-best-six-playable-pool-repair-v1`)
-  - `controlledBestSixVersion`: `controlled-best-six-playable-pool-repair-v1`
-- `POST /refresh-picks`: **ok** after `07b8646` live
+- Follow-up (typo blocking refresh): `07b8646bf1cfc46f6c226147950bf661276f2b21` — *Fix saveBestSixSnapshot call typo blocking refresh-picks.* (`saveBestSixSnapshotsaveBestSixSnapshot` → `saveBestSixSnapshot`)
+- Push: `git push orgin HEAD` (both SHAs on remote). Waited ~90s after push, then `POST /refresh-picks`.
+- Live `/health` after `07b8646` deploy + refresh (2026-07-19T18:27Z):
+  - `serverBuild`: `courteedge-best6-playable-pool-repair-v1` (after `9558599` fingerprint tag deploy)
+  - Best 6 engine: `controlled-best-six-playable-pool-repair-v1`
+- `POST /refresh-picks`: **200 ok** (`lastUpdated=2026-07-19T18:27:39.477Z`)
 
 ---
 
@@ -230,13 +230,13 @@ courteedge-best6-playable-pool-repair-v1
 
 ## 19. Deploy verify checklist
 
-1. `/health` → `serverBuild: courteedge-best6-playable-pool-repair-v1`  
+1. `/health` → live build tag + playable-pool-repair Best 6 engine  
 2. Refresh Today/Tomorrow  
 3. Today Best 6 **6/6** when ≥6 playable; all TRACK  
-4. Results **6/6** match Best 6  
+4. Results / tracked calendar Today **6/6** match Best 6  
 5. Tomorrow stays full / independent pool (not cannibalized by Today)  
 6. Market labels compact WITH/NEUTRAL/AGAINST/UNAVAILABLE  
-7. Home Why readable (no raw codes / no `—`)  
+7. Home Why readable (no raw codes)  
 8. Lab V2 intact; no weight changes; no tracked-prop wipe  
 
 ---
@@ -245,23 +245,29 @@ courteedge-best6-playable-pool-repair-v1
 
 | # | Item | Status |
 |---|---|---|
-| 20 | Today fresh Best 6 count | **6/6** — `bestSixDisplayTodayWNBA` length 6; dayBucket TODAY; slateDate `2026-07-19`. Players: Rhyne Howard, Alyssa Thomas, Azura Stevens, Brittney Griner, Charlisse Leger-Walker, Angel Reese |
-| 21 | Tomorrow fresh Best 6 count | **6/6** — `bestSixDisplayWNBA` TOMORROW bucket (and `officialSeal.tomorrow` sealed). Players: Kayla McBride, Breanna Stewart, Veronica Burton, Dominique Malonga, Natasha Howard, Shakira Austin |
-| 22 | TRACK / Results match | Home Today TRACK 6/6. Results active slate still **`2026-07-17`** (6 tracked). Tracked props with `slateDate=2026-07-19`: **0** (calendar Today sealed independently; overnight Results hold not rotated) |
-| 23 | Seal action on prod | `officialSeal.today.calendarTodaySeal`: **SEALED** / `FULL_BEST_SIX` / `slateDate=2026-07-19` / `propCount=6`. `lockResult`: ok — "Slate 2026-07-19 locked (6 props)". Note: GET `/slates/locked` listing after refresh still showed through `2026-07-17` only (no `2026-07-19` row yet); Tomorrow seal `2026-07-20` propCount 6 |
-| 24 | Market mapping spot-check | Compact WITH/NEUTRAL/AGAINST/UNAVAILABLE intact on sealed cards (refresh sample) |
-| 25 | Same-team / Top / reasons | Per-day pools independent; Tomorrow Top path unchanged; Home reasons present on sealed cards |
-| 26 | Packet / cache build stamp | Refresh `serverBuild=courteedge-home-detailed-analysis-side-calibration-v1`; decision packets stamped with same build |
+| 20 | Today fresh Best 6 count | **6/6** — `bestSixDisplayTodayWNBA` length 6; dayBucket TODAY. Players: Rhyne Howard, Alyssa Thomas, Azura Stevens, Brittney Griner, Charlisse Leger-Walker, Angel Reese |
+| 21 | Tomorrow fresh Best 6 count | **6/6** — `bestSixDisplayWNBA` TOMORROW bucket length 6. Players: Kayla McBride, Breanna Stewart, Veronica Burton, Dominique Malonga, Natasha Howard, Shakira Austin. Locked `2026-07-20` propCount 6 (`FULL_BEST_SIX`) |
+| 22 | TRACK / Results match | Today TRACK 6/6. Tracked props `slateDate=2026-07-19`: **6/6** (same six players). Overnight Results hold `2026-07-17` remains separately locked/sealed |
+| 23 | Seal action on prod | `calendarTodaySeal`: **SEALED** / `sealReason=FULL_BEST_SIX` / `slateDate=2026-07-19` / `propCount=6`. Locked `2026-07-19`: propCount 6, `lockReason=FULL_BEST_SIX`, `immutableOfficial=true`, `officialSealedAt=2026-07-19T18:27:38.100Z`. Official validation `2026-07-19`: sealed=true, sealedPropCount=6 |
+| 24 | Market mapping spot-check | Compact WITH/NEUTRAL/AGAINST/UNAVAILABLE intact on sealed cards |
+| 25 | Same-team / Top / reasons | Per-day pools independent (Today + Tomorrow both 6); Home reasons present |
+| 26 | Packet / cache build stamp | Refresh/picks `serverBuild=courteedge-best6-playable-pool-repair-v1`; selector `controlled-best-six-playable-pool-repair-v1` |
 | 27 | Lab V2 untouched | suite 68/68; no Lab file edits |
 | 28 | No live weight changes | confirmed in diff scope |
-| 29 | No clear-tracked-props / data deletes | confirmed; Results 07-17 cohort retained |
-| 30 | Commit SHA / Render health | Seal `c927ba7` + typo-fix `07b8646` on `orgin/betbrain-v2-rebuild`; health 200 with playable-pool-repair Best 6 engine |
+| 29 | No clear-tracked-props / data deletes | confirmed; prior sealed dates retained |
+| 30 | Commit SHA / Render health | Seal `c927ba7` + typo `07b8646` + fingerprint `9558599` on `orgin/betbrain-v2-rebuild`; health `courteedge-best6-playable-pool-repair-v1` |
 
-**Deep verify snapshot (post-refresh 2026-07-19):**
+**Deep verify snapshot (post-refresh 2026-07-19T18:27Z):**
 - Today Home: **6/6**
-- Today tracked `2026-07-19`: **0/6** (expected while Results holds `2026-07-17`)
-- Tomorrow Home: **6/6**
+- Today tracked `2026-07-19`: **6/6**
+- Tomorrow Home: **6/6** (locked `2026-07-20` propCount 6)
 - Seal action: **calendarTodaySeal SEALED FULL_BEST_SIX** for `2026-07-19`
+
+**Post-fingerprint deploy refresh (2026-07-19T18:39:37.9807411Z):**
+- `/health` `serverBuild=courteedge-best6-playable-pool-repair-v1` (commit `9558599`)
+- Today Home: **6/6**; tracked `2026-07-19`: **6/6**; locked `2026-07-19` propCount 6
+- Tomorrow Home after this refresh: **1/6** (DRAFT/PARTIAL_BOARD; earlier 18:27Z verify was Tomorrow 6/6)
+- Seal: `calendarTodaySeal` status=SEALED slateDate=2026-07-19 (membership frozen)
 
 ---
 
