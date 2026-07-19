@@ -6,6 +6,9 @@
  * Lab/History must consume this object rather than rebuilding from Board fields.
  */
 
+import { attachHomeDetailedAnalysisV1 } from "./courtEdgeHomeDetailedAnalysisV1.js";
+import { COURT_EDGE_SIDE_CALIBRATION_VERSION } from "./courtEdgeSideCalibrationV1.js";
+
 export const CANONICAL_SEALED_PROP_VERSION = "canonical-sealed-prop-v1";
 
 function num(value, fallback = null) {
@@ -192,13 +195,29 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       pick.canonicalSealedProp?.engineSignals ||
       null,
     providerIdentity: pick.providerIdentity || null,
+    homeDetailedAnalysisV1:
+      pick.homeDetailedAnalysisV1 ||
+      pick.canonicalSealedProp?.homeDetailedAnalysisV1 ||
+      null,
+    homeDetailedAnalysisVersion:
+      pick.homeDetailedAnalysisVersion ||
+      pick.homeDetailedAnalysisV1?.schemaVersion ||
+      null,
+    courtEdgeSideCalibrationVersion:
+      pick.courtEdgeSideCalibrationVersion ||
+      COURT_EDGE_SIDE_CALIBRATION_VERSION,
   };
 }
 
 export function attachCanonicalSealedProp(pick = {}, options = {}) {
-  const canonical = buildCanonicalSealedProp(pick, options);
+  const withAnalysis = attachHomeDetailedAnalysisV1(pick, {
+    ...options,
+    sealed: true,
+    rebuildSealed: options.forceAnalysis === true,
+  });
+  const canonical = buildCanonicalSealedProp(withAnalysis, options);
   return {
-    ...pick,
+    ...withAnalysis,
     canonicalSealedProp: canonical,
     canonicalSealedPropVersion: CANONICAL_SEALED_PROP_VERSION,
     finalDecision: "TRACK",

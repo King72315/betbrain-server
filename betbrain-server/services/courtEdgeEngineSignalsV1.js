@@ -21,6 +21,7 @@ import {
   assertDecisionPacketUnchanged,
   ENGINE_EXPANSION_BUILD,
 } from "../engines/courtEdgeExpansion/decisionPacketV1.js";
+import { attachHomeDetailedAnalysisV1 } from "./courtEdgeHomeDetailedAnalysisV1.js";
 
 export { buildCourtEdgeEngineSignalsV1 };
 export { ENGINE_EXPANSION_BUILD };
@@ -147,6 +148,11 @@ export function attachCourtEdgeEngineSignals(pick = {}, ctx = {}) {
     });
     next = attachDecisionPacket(next, packet);
   }
+
+  // Precompute Home Detailed Analysis during board generation (cached on pick).
+  next = attachHomeDetailedAnalysisV1(next, {
+    sealed: Boolean(next.immutableOfficial || next.pregameSnapshot?.sealedAt),
+  });
 
   return next;
 }

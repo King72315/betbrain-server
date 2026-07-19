@@ -214,5 +214,15 @@ export function buildCompletePregameSnapshot(pick = {}, options = {}) {
       labLearningVersion: null,
     },
     sealedAt,
+    homeDetailedAnalysisV1:
+      pick.homeDetailedAnalysisV1 ||
+      (pick.canonicalSealedProp && pick.canonicalSealedProp.homeDetailedAnalysisV1) ||
+      null,
+    homeDetailedAnalysisVersion:
+      pick.homeDetailedAnalysisVersion ||
+      pick.homeDetailedAnalysisV1?.schemaVersion ||
+      null,
+    courtEdgeSideCalibrationVersion:
+      pick.courtEdgeSideCalibrationVersion || null,
   };
 }
