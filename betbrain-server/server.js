@@ -2643,7 +2643,7 @@ async function refreshAllPicks() {
     resultsSlateDate,
   };
 
-  saveBestSixSnapshotsaveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
+  saveBestSixSnapshot([...bestSixWNBA, ...bestSixNBA], {
     slateDate: resultsSlateDate,
     selectorVersion: CONTROLLED_BEST_SIX_VERSION,
     controlledBestSixAudit: topSelectionAudit,
