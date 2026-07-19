@@ -277,24 +277,31 @@ Post-deploy verify via `/picks` Home boards: expect 6/6 when ≥6 playable candi
 
 ## 59–61. Commit / push / Render
 
-Filled after git operations in this pass (see parent executive summary).
+| Item | Value |
+|------|-------|
+| Commit | `54efac4` — Add Home Detailed Analysis V1 and fair Over/Under side calibration |
+| Push | `orgin/betbrain-v2-rebuild` (`4b7ef7f..54efac4`) — SUCCESS |
+| Render | Auto-deploy observed; `/health` served new build within ~1 minute |
 
-Prod: `https://betbrain-server-1.onrender.com` (auto-deploy from `orgin/betbrain-v2-rebuild`).
+Prod: `https://betbrain-server-1.onrender.com`
 
 ## 62–64. Live verification checklist
 
-1. `/health` → `serverBuild` matches target  
-2. `/picks` Best6 cards include `homeDetailedAnalysisV1`  
-3. Home UI “View Detailed Analysis” expands sections 1–11  
-4. Copy Report includes DETAILED ANALYSIS blocks  
-5. Lab V2 still returns 11 engines  
+| Check | Result |
+|-------|--------|
+| `/health` `serverBuild` | **PASS** — `courteedge-home-detailed-analysis-side-calibration-v1` |
+| `/picks` build stamp | **PASS** — same SERVER_BUILD |
+| Home board Today/Tomorrow 6/6 | **PENDING BOARD REGEN** — after build-cache invalidate, `/picks` returns `No saved board yet — waiting for scheduled or manual refresh` (read-only empty arrays). Manual `/picks/refresh` was not executed in this pass (live write gated). Scheduler or operator refresh will rebuild; analysis attaches on sanitize + generation. |
+| `homeDetailedAnalysisV1` on cards | Implemented + unit-tested; live cards pending regen |
+| Copy Report | Wired to same payload in app utils |
+| Lab V2 | `/courtedge/lab` ok; `labV2Build: courteedge-lab-v2-three-slate-v1` unchanged |
 
 ## 65. Rollback command
 
 ```bash
-git revert <this-commit-sha>
+git revert 54efac4
 git push orgin betbrain-v2-rebuild
-# or redeploy prior commit on Render from orgin/betbrain-v2-rebuild
+# or redeploy prior tip 4b7ef7f / build courteedge-best6-playable-pool-repair-v1 on Render
 ```
 
 Prior safe build: `courteedge-best6-playable-pool-repair-v1`.
