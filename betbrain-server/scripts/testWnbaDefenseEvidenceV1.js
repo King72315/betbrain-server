@@ -133,7 +133,8 @@ function testEvidenceWithDefenseAndPace() {
   });
 
   assert.strictEqual(evidence.opponentContext.defenseScore, 58);
-  assert.strictEqual(evidence.opponentContext.paceLabel, "GAME_TOTAL_PROXY");
+  // Scoring totals proxy is never true pace — honest label (not GAME_TOTAL_PROXY rename).
+  assert.strictEqual(evidence.opponentContext.paceLabel, "SCORING_ENVIRONMENT_PROXY");
   assert.strictEqual(evidence.opponentContext.paceProxy, 164.2);
   assert.ok(evidence.dataQuality.coverageGroups.opponentDefense);
   assert.strictEqual(evidence.roleAndVolume.fga, 16);
