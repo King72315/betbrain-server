@@ -739,9 +739,40 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     "";
   const why = String(whyRaw)
     .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?)\b/gi, "")
+    .replace(
+      /\b(UNDER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|OVER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|DANGER_STACK_INSUFFICIENT_EDGE|DANGER_GATE_STACK_(?:BOARD_ONLY|NO_TRACK))\b/gi,
+      ""
+    )
     .replace(/prior gate:\s*/gi, "")
     .replace(/\s{2,}/g, " ")
+    .replace(/\s*[—–-]\s*$/g, "")
     .trim();
+  const whyTranslated = (() => {
+    const code =
+      pick.decisionIntelligence?.naturalGateReason ||
+      pick.wnbaTrackingReason ||
+      pick.decisionIntelligence?.gateReason ||
+      "";
+    const map = {
+      UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR:
+        "The Under projection edge is below the normal limited-data threshold.",
+      OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR:
+        "The Over has a limited projection advantage despite otherwise complete data.",
+      DANGER_STACK_INSUFFICIENT_EDGE:
+        "The projection edge is thin relative to the identified risk factors.",
+    };
+    const key = String(code || "").toUpperCase();
+    for (const [raw, text] of Object.entries(map)) {
+      if (key.includes(raw)) return text;
+    }
+    return "";
+  })();
+  const whyFinal =
+    why && why !== "—"
+      ? why
+      : whyTranslated
+        ? `TRACK — ${whyTranslated}`
+        : `TRACK — Selected on available evidence. True risk ${trueRisk}.`;
   const sameTeamFlip = Boolean(
     pick.sameTeamArbitrationFlip ||
       pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
@@ -772,7 +803,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     flipLabels
       ? `  Signals: Usage ${flipLabels.usage} | Collision ${flipLabels.collision} | Market ${flipLabels.market} | Avail ${flipLabels.availability} | Proj ${flipLabels.projectionQuality}`
       : null,
-    why ? `  Why: ${why}` : null,
+    whyFinal ? `  Why: ${whyFinal}` : null,
     sideRescueAction &&
     sideRescueAction !== "KEEP_ORIGINAL" &&
     !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction))

@@ -22,6 +22,10 @@ import {
 } from "../wnba/wnbaGraduatedDataModeV1.js";
 import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { buildDebtLedger } from "./sideSelectionTrustV1.js";
+import {
+  buildHomeDisplayWhy,
+  stripRawDecisionLabels,
+} from "../topProps/homeReasonTextV1.js";
 
 export const DECISION_INTELLIGENCE_VERSION = "courtedge-decision-intelligence-v1";
 
@@ -890,25 +894,23 @@ export function promoteBestSixCohortPick(pick = {}) {
   }
 
   const gateReason = di.gateReason || pick.wnbaTrackingReason || "";
-  // User-facing copy must not expose BOARD_ONLY / NO_BET / prior-gate labels.
-  // Those remain on originalGateEligibility / naturalDecision for diagnostics.
+  // User-facing copy must not expose BOARD_ONLY / NO_BET / prior-gate labels
+  // or raw internal reason codes. Those remain on naturalGateReason for Lab.
   const simpleExplanation = pick.sameTeamArbitrationFlip
-    ? di.simpleExplanation ||
-      pick.displayWhy ||
-      `TRACK — Same-team arbitration applied. True risk ${trueRisk}.`
-    : di.simpleExplanation &&
-        !/BOARD_ONLY|NO_BET|SHADOW_ONLY|prior gate|Natural Track|READER_UNCERTAIN/i.test(
-          String(di.simpleExplanation)
-        )
-      ? di.simpleExplanation
-      : `TRACK — True risk ${trueRisk}.${
-          gateReason &&
-          !/BOARD_ONLY|NO_BET|SHADOW_ONLY|READER_UNCERTAIN|Natural Track/i.test(
-            String(gateReason)
-          )
-            ? ` ${gateReason}.`
-            : ""
-        }`;
+    ? stripRawDecisionLabels(
+        di.simpleExplanation ||
+          pick.displayWhy ||
+          `TRACK — Same-team arbitration applied. True risk ${trueRisk}.`
+      )
+    : buildHomeDisplayWhy({
+        ...pick,
+        decisionIntelligence: {
+          ...di,
+          trueRisk,
+          gateReason,
+          naturalGateReason: gateReason || di.naturalGateReason || null,
+        },
+      });
 
   const updatedDi = {
     ...di,
@@ -939,6 +941,7 @@ export function promoteBestSixCohortPick(pick = {}) {
     naturalGateReason: gateReason || pick.naturalGateReason || di.gateReason || null,
     promotedForBestSix: qualityFlags.length > 0,
     promotedDecision: "TRACK",
+    displayWhy: simpleExplanation,
     decisionIntelligence: updatedDi,
     trackingEligibility: "TRACK",
     wnbaTrackingDecision: "TRACK",

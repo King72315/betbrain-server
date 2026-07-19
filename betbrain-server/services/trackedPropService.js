@@ -62,6 +62,7 @@ import {
   selectControlledBestSixCombined,
   selectBestSixDisplay,
   annotateResultsAdmission,
+  selectTopTwoFromBestSix,
   CONTROLLED_BEST_SIX_VERSION,
   BEST_SIX_LIMIT,
 } from "../engines/topProps/controlledBestSixSelector.js";
@@ -845,7 +846,31 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
     };
 
     let gatedPick = pick;
-    if (isWnbaQualityGatePick(pick)) {
+    const hasImmutablePacket = Boolean(
+      pick.courtEdgeDecisionPacketV1 ||
+        (pick.decisionHash && pick.sideSelectionBundle?.version) ||
+        pick.decisionReused === true ||
+        pick.sideLockedAfterArbitration === true
+    );
+    const isDisplayMember =
+      options.trackAllBestSixDisplay === true ||
+      pick.controlledBestSixDisplay === true ||
+      pick.controlledBestSixDisplayTracked === true ||
+      pick.sourcePool === "CONTROLLED_BEST_SIX_DISPLAY";
+
+    // One decision pass: Results consumes the immutable packet. Do not rerun
+    // Reader / Flip-First / Side Rescue / arbitration on Best 6 members.
+    if (isDisplayMember && (hasImmutablePacket || pick.resultsAdmissionEligible)) {
+      gatedPick = pick;
+      const di = gatedPick.decisionIntelligence || {};
+      auditEntry.trackingEligibility =
+        gatedPick.trackingEligibility || di.trackEligibility || "TRACK";
+      auditEntry.decisionIntelligenceVersion = DECISION_INTELLIGENCE_VERSION;
+      auditEntry.sideRescueVersion = SIDE_RESCUE_VERSION;
+      auditEntry.sideRescueAction = gatedPick.sideRescue?.action || null;
+      auditEntry.trueRisk = di.trueRisk;
+      auditEntry.decisionPacketReused = true;
+    } else if (isWnbaQualityGatePick(pick)) {
       gatedPick = runFlipFirstDecisionPipeline(pick, {
         dataCard: pick.wnbaDataCard,
         reader: pick.wnbaReader,
@@ -885,6 +910,7 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       auditEntry.keyMetrics = gate.keyMetrics;
       auditEntry.readerDecision =
         pick.readerDecision || pick.wnbaReader?.decision || decision;
+      auditEntry.decisionPacketReused = false;
     }
 
     const exclusionReason = getResultsCohortExclusionReason(gatedPick, options);
@@ -1042,6 +1068,41 @@ function pickIdentityKey(pick = {}) {
  * Today members. Results must do the same: re-select from today candidates when
  * possible, otherwise keep Today's display members and fill/promote the rest.
  */
+function stampTopLabelsOnBestSix(bestSix = [], league = "WNBA", options = {}) {
+  if (!Array.isArray(bestSix) || bestSix.length === 0) return bestSix;
+  const topLimit =
+    String(league).toUpperCase() === "NBA"
+      ? options.selectorOptions?.nbaTopLimit
+      : options.selectorOptions?.wnbaTopLimit;
+  const { topProps } = selectTopTwoFromBestSix(bestSix, league, {
+    topLimit: topLimit ?? 2,
+  });
+  const topKeys = new Map(
+    topProps.map((pick, index) => [
+      pickIdentityKey(pick),
+      {
+        topPickRank: index + 1,
+        topPickLabel: `Top ${String(league).toUpperCase()} #${index + 1}`,
+      },
+    ])
+  );
+  return bestSix.map((pick) => {
+    const stamp = topKeys.get(pickIdentityKey(pick));
+    if (!stamp) {
+      const cleared = { ...pick };
+      delete cleared.topPickRank;
+      delete cleared.topPickLabel;
+      return cleared;
+    }
+    // Stamp rank/label only — never rewrite confidence or risk.
+    return {
+      ...pick,
+      topPickRank: stamp.topPickRank,
+      topPickLabel: stamp.topPickLabel,
+    };
+  });
+}
+
 function resolveTodayBestSixForResults(
   filteredTodayDisplay = [],
   todayLeagueCandidates = [],
@@ -1154,7 +1215,7 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
 
-  // Calendar-today Home display — never the Lab-promoted Results cohort.
+  // Mixed-slate Today members (often <6 when Tomorrow props outrank them).
   const homeTodayDisplayWNBA = filterTodayResultsTrackingPicks(
     bestSixDisplayWNBA,
     todayLocalDate
@@ -1162,6 +1223,38 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const homeTodayDisplayNBA = filterTodayResultsTrackingPicks(
     bestSixDisplayNBA,
     todayLocalDate
+  );
+
+  // Rebuild calendar-today Home Best 6 from today's full candidate board.
+  const todayCandidatesAll = filterTodayResultsTrackingPicks(
+    fullGeneratedCandidates,
+    todayLocalDate
+  );
+  const todayWnbaCandidatesForDisplay = todayCandidatesAll.filter(
+    (pick) => String(pick.league || "").toUpperCase() === "WNBA"
+  );
+  const todayNbaCandidatesForDisplay = todayCandidatesAll.filter(
+    (pick) => String(pick.league || "").toUpperCase() === "NBA"
+  );
+  const filledTodayDisplayWNBA = stampTopLabelsOnBestSix(
+    resolveTodayBestSixForResults(
+      homeTodayDisplayWNBA,
+      todayWnbaCandidatesForDisplay,
+      "WNBA",
+      options
+    ),
+    "WNBA",
+    options
+  );
+  const filledTodayDisplayNBA = stampTopLabelsOnBestSix(
+    resolveTodayBestSixForResults(
+      homeTodayDisplayNBA,
+      todayNbaCandidatesForDisplay,
+      "NBA",
+      options
+    ),
+    "NBA",
+    options
   );
 
   // Prefer immutable Official Slate for the active Results cohort only.
@@ -1192,29 +1285,8 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   } else if (slateDate === todayLocalDate) {
     // Home Today fills to Best 6 from today's board; Results must do the same
     // until an Official Slate is sealed for this date.
-    const todayCandidates = filterTodayResultsTrackingPicks(
-      fullGeneratedCandidates,
-      todayLocalDate
-    );
-    const todayWnbaCandidates = todayCandidates.filter(
-      (pick) => String(pick.league || "").toUpperCase() === "WNBA"
-    );
-    const todayNbaCandidates = todayCandidates.filter(
-      (pick) => String(pick.league || "").toUpperCase() === "NBA"
-    );
-
-    bestSixWNBA = resolveTodayBestSixForResults(
-      homeTodayDisplayWNBA,
-      todayWnbaCandidates,
-      "WNBA",
-      options
-    );
-    bestSixNBA = resolveTodayBestSixForResults(
-      homeTodayDisplayNBA,
-      todayNbaCandidates,
-      "NBA",
-      options
-    );
+    bestSixWNBA = filledTodayDisplayWNBA;
+    bestSixNBA = filledTodayDisplayNBA;
     bestSixCohort = [...bestSixWNBA, ...bestSixNBA];
   } else if (blockingSlate && slateDate === blockingSlate) {
     // Overnight Results hold: keep sealed membership only. Do not admit
@@ -1284,9 +1356,10 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     fullGeneratedCandidates,
     bestSixWNBA,
     bestSixNBA,
-    // Home Today must be calendar-today display — never Lab/overnight Results cohort.
-    bestSixDisplayTodayWNBA: homeTodayDisplayWNBA,
-    bestSixDisplayTodayNBA: homeTodayDisplayNBA,
+    // Home Today must be the filled calendar-today Best 6 (not the thin
+    // Today slice of a mixed Today+Tomorrow ranking).
+    bestSixDisplayTodayWNBA: filledTodayDisplayWNBA,
+    bestSixDisplayTodayNBA: filledTodayDisplayNBA,
     topProps: selection.topProps || [],
     topNBAProps: selection.topNBAProps || [],
     topWNBAProps: selection.topWNBAProps || [],

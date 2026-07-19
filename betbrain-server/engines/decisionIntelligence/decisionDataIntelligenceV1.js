@@ -546,13 +546,45 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
   } else {
     collisionStatus = "CLEAR";
   }
-  const marketStatus = ddi.marketIntelligence?.marketWarning
-    ? ddi.marketIntelligence?.sideImpact && ddi.marketIntelligence.sideImpact !== "NEUTRAL"
-      ? "FLIP_SIGNAL"
-      : "AGAINST"
-    : ddi.marketIntelligence?.movement === "flat"
-      ? "NEUTRAL"
-      : "FAVORABLE";
+  const market = ddi.marketIntelligence || {};
+  const movement = String(market.movement || "").toLowerCase();
+  const sideImpact = String(market.sideImpact || "NEUTRAL").toUpperCase();
+  const lineDelta = Number(market.lineDelta);
+  const hasLine =
+    Number.isFinite(Number(market.openingLine)) ||
+    Number.isFinite(Number(market.currentLine));
+  const bookConsensus = String(market.bookConsensus || "").toUpperCase();
+
+  let marketStatus = "NEUTRAL";
+  if (!hasLine && (bookConsensus === "UNKNOWN" || !bookConsensus)) {
+    marketStatus = "UNAVAILABLE";
+  } else if (Number.isFinite(lineDelta) && Math.abs(lineDelta) >= 0.5) {
+    // Compact WITH/AGAINST from actual line direction vs selected side.
+    const finalSide = String(
+      ddi.flipFirstDecision?.finalSide || ""
+    ).toUpperCase();
+    const movedAgainst =
+      (finalSide === "OVER" && lineDelta > 0) ||
+      (finalSide === "UNDER" && lineDelta < 0);
+    const movedWith =
+      (finalSide === "OVER" && lineDelta < 0) ||
+      (finalSide === "UNDER" && lineDelta > 0);
+    if (movedAgainst) marketStatus = "AGAINST";
+    else if (movedWith) marketStatus = "WITH";
+    else marketStatus = "NEUTRAL";
+  } else if (movement === "flat" || sideImpact === "NEUTRAL") {
+    // Thin books / marketWarning alone must not become AGAINST.
+    marketStatus = "NEUTRAL";
+  } else if (sideImpact === "OVER" || sideImpact === "UNDER") {
+    const finalSide = String(
+      ddi.flipFirstDecision?.finalSide || ""
+    ).toUpperCase();
+    if (finalSide && sideImpact === finalSide) marketStatus = "WITH";
+    else if (finalSide && sideImpact !== finalSide) marketStatus = "AGAINST";
+    else marketStatus = "NEUTRAL";
+  } else {
+    marketStatus = "NEUTRAL";
+  }
   const availabilityStatus = ddi.availabilityImpact?.uncertaintyAdded
     ? "UNCERTAIN"
     : ["OUT", "DOUBTFUL"].includes(ddi.availabilityImpact?.playerStatus)

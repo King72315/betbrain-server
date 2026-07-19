@@ -44,13 +44,15 @@ import {
   computeDecisionHash,
   buildCanonicalDecisionBundle,
 } from "../decisionIntelligence/sideSelectionTrustV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-lifecycle-stale-sealed-v1";
+import { applyHomeDisplayWhyToPick } from "./homeReasonTextV1.js";
+export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-playable-pool-repair-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
 export const MAX_GAME_IN_BEST_SIX = 3;
 const SIDE_BALANCE_SWAP_MARGIN = 24;
 const SIDE_BALANCE_MINORITY = 3;
+export const PLAYABLE_POOL_CONTRACT_VERSION = "playable-pool-contract-v1";
 
 const BEST_SIX_GATE_DEMOTION_PENALTIES = {
   OVER_UNSTABLE_THIN_BOOK: 110,
@@ -379,10 +381,14 @@ function filterAndGateCandidates(candidates = [], audit = {}) {
         continue;
       }
       pick = prepared.pick;
+      const pool = classifyPlayablePoolState(pick);
+      pick.playablePoolState = pool.state;
+      if (pool.weakButPlayable) pick.weakButPlayable = true;
       if (!passesResultsEligibility(pick)) {
         audit.hiddenDueToQualityGate += 1;
         audit.rejected.push({
-          reason: "decision_intelligence",
+          reason: pool.reason || "objectively_unplayable",
+          playablePoolState: pool.state,
           eligibility: pick.decisionIntelligence?.trackEligibility,
           trueRisk: pick.decisionIntelligence?.trueRisk,
           pick: summarizePickForAudit(pick),
@@ -720,27 +726,149 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
   return { pick: enriched, reusedCanonicalBundle: false };
 }
 
-function passesBaseCandidateFilters(pick = {}, audit = {}) {
-  if (pick.isStarted) {
-    audit.hiddenStarted += 1;
-    audit.rejected.push({ reason: "started", pick: summarizePickForAudit(pick) });
-    return false;
-  }
+function hasConfirmedOut(pick = {}) {
+  const avail = String(
+    pick.availabilityState ||
+      pick.availabilityGate?.availabilityState ||
+      pick.availabilityGate?.playerStatus ||
+      pick.injuryAvailability?.status ||
+      pick.wnbaDataCard?.injuryAvailability?.status ||
+      ""
+  ).toUpperCase();
+  return (
+    pick.availabilityConfirmedOut === true ||
+    avail === "OUT" ||
+    avail === "INACTIVE" ||
+    (pick.noPlay === true &&
+      (pick.noPlayReasons || []).some((r) =>
+        /OUT|INACTIVE|UNAVAILABLE/i.test(String(r))
+      ))
+  );
+}
 
+function hasUnresolvedIdentity(pick = {}) {
+  const identity = pick.providerIdentity || {};
+  return (
+    pick.unresolvedIdentity === true ||
+    identity.attachAllowed === false ||
+    Boolean(identity.unresolvedIdentityReason)
+  );
+}
+
+function hasKillNoPlay(pick = {}) {
+  const di = pick.decisionIntelligence || {};
+  const killReasons = Array.isArray(di.killReasons) ? di.killReasons : [];
+  const sr = pick.sideRescue || {};
+  if (pick.noPlay !== true && sr.action !== "NO_BET") return false;
+  if (killReasons.length > 0) return true;
+  const reason = String(
+    pick.wnbaTrackingReason || di.gateReason || pick.trackingReason || ""
+  ).toUpperCase();
+  return (
+    reason.includes("LOW_VOLUME_OVER_TRAP") ||
+    reason.includes("DANGER_GATE_STACK_NO_TRACK") ||
+    reason.includes("CONFIRMED_OUT")
+  );
+}
+
+/**
+ * Playable-pool contract: weak evidence ≠ objective invalidity.
+ * OBJECTIVELY_UNPLAYABLE only for missing market/identity, confirmed OUT,
+ * corrupt/duplicate handled elsewhere, or hard kill no-play.
+ */
+export function classifyPlayablePoolState(pick = {}) {
   if (!hasCoreFields(pick)) {
-    audit.rejected.push({ reason: "missing_data", pick: summarizePickForAudit(pick) });
+    return {
+      state: "OBJECTIVELY_UNPLAYABLE",
+      reason: "missing_data",
+      playable: false,
+    };
+  }
+  if (pick.isStarted) {
+    return {
+      state: "OBJECTIVELY_UNPLAYABLE",
+      reason: "started",
+      playable: false,
+    };
+  }
+  if (hasConfirmedOut(pick)) {
+    return {
+      state: "OBJECTIVELY_UNPLAYABLE",
+      reason: "confirmed_out",
+      playable: false,
+    };
+  }
+  if (hasUnresolvedIdentity(pick)) {
+    return {
+      state: "OBJECTIVELY_UNPLAYABLE",
+      reason: "unresolved_identity",
+      playable: false,
+    };
+  }
+  if (hasKillNoPlay(pick)) {
+    return {
+      state: "OBJECTIVELY_UNPLAYABLE",
+      reason: "kill_no_play",
+      playable: false,
+    };
+  }
+
+  const di = pick.decisionIntelligence || {};
+  const sr = pick.sideRescue || {};
+  const track = String(
+    di.trackEligibility || pick.trackingEligibility || pick.wnbaTrackingDecision || ""
+  ).toUpperCase();
+  const softDemotion =
+    pick.weakButPlayable === true ||
+    track === "BOARD_ONLY" ||
+    track === "SHADOW_ONLY" ||
+    sr.action === "NO_DECISIVE_RESCUE" ||
+    sr.action === "BOARD_ONLY" ||
+    di.bestSixEligibility === false ||
+    String(di.trueRisk || pick.trueRisk || "").toUpperCase() === "HIGH";
+
+  if (softDemotion) {
+    return {
+      state: "WEAK_BUT_PLAYABLE",
+      reason:
+        di.gateReason ||
+        pick.wnbaTrackingReason ||
+        sr.action ||
+        track ||
+        "weak_evidence",
+      playable: true,
+      weakButPlayable: true,
+    };
+  }
+
+  return {
+    state: "PLAYABLE",
+    reason: "eligible",
+    playable: true,
+    weakButPlayable: false,
+  };
+}
+
+function passesBaseCandidateFilters(pick = {}, audit = {}) {
+  const classification = classifyPlayablePoolState(pick);
+  if (!classification.playable) {
+    if (classification.reason === "started") audit.hiddenStarted += 1;
+    else if (classification.reason === "kill_no_play") {
+      audit.hiddenNoPlay += 1;
+      audit.hiddenNoBet += 1;
+    }
+    audit.rejected.push({
+      reason: classification.reason,
+      playablePoolState: classification.state,
+      pick: summarizePickForAudit(pick),
+    });
     return false;
   }
 
-  if (isNoBetPick(pick)) {
+  // Legacy NO_BET without hard kill was previously terminal — keep weak playable.
+  if (isNoBetPick(pick) && pick.weakButPlayable !== true && hasKillNoPlay(pick)) {
     audit.hiddenNoBet += 1;
     audit.rejected.push({ reason: "no_bet", pick: summarizePickForAudit(pick) });
-    return false;
-  }
-
-  if (pick.noPlay) {
-    audit.hiddenNoPlay += 1;
-    audit.rejected.push({ reason: "no_play", pick: summarizePickForAudit(pick) });
     return false;
   }
 
@@ -748,17 +876,13 @@ function passesBaseCandidateFilters(pick = {}, audit = {}) {
 }
 
 function passesResultsEligibility(pick = {}) {
-  const di = pick.decisionIntelligence || {};
-  const sr = pick.sideRescue || {};
-
-  // NO_DECISIVE_RESCUE / weak-but-playable stay eligible for Results cohort.
-  if (sr.action === "NO_BET" && pick.weakButPlayable !== true && pick.noPlay === true) {
-    return false;
-  }
-  if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) {
-    // Soft demotions that were remapped still pass when weakButPlayable
-    if (pick.weakButPlayable === true && di.bestSixEligibility !== false) return true;
-    return false;
+  // Soft gate demotions (BOARD_ONLY / HIGH risk / gap floors / NO_DECISIVE_RESCUE)
+  // stay in the Best 6 playable pool. Only objective invalidity excludes.
+  const classification = classifyPlayablePoolState(pick);
+  if (!classification.playable) return false;
+  if (classification.weakButPlayable) {
+    pick.weakButPlayable = true;
+    pick.playablePoolState = classification.state;
   }
   return true;
 }
@@ -787,7 +911,7 @@ export function annotateResultsAdmission(pick = {}) {
 
   // Final Controlled Best 6 / Results row: user-facing decision is always TRACK.
   // Preserve pre-selection gate labels only in audit / naturalDecision fields.
-  return {
+  const withWhy = applyHomeDisplayWhyToPick({
     ...promoted,
     naturalDecision,
     finalDecision: "TRACK",
@@ -815,12 +939,9 @@ export function annotateResultsAdmission(pick = {}) {
         naturalDecision ||
         null,
       naturalDecision,
-      simpleExplanation:
-        promoted.displayWhy ||
-        di.simpleExplanation ||
-        `TRACK — True risk ${di.trueRisk || "MEDIUM"}.`,
     },
-  };
+  });
+  return withWhy;
 }
 
 function dedupeCandidate(pick = {}, exactSeen = new Map(), playerLineBest = new Map(), audit = {}) {
@@ -892,6 +1013,18 @@ function filterAndAnalyzeCandidates(candidates = [], audit = {}) {
         continue;
       }
       pick = prepared.pick;
+      const pool = classifyPlayablePoolState(pick);
+      pick.playablePoolState = pool.state;
+      if (pool.weakButPlayable) pick.weakButPlayable = true;
+      if (!pool.playable) {
+        audit.hiddenDueToQualityGate += 1;
+        audit.rejected.push({
+          reason: pool.reason || "objectively_unplayable",
+          playablePoolState: pool.state,
+          pick: summarizePickForAudit(pick),
+        });
+        continue;
+      }
     }
 
     analyzedCount += 1;
@@ -1064,19 +1197,22 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
       continue;
     }
 
-    const finalDecision = String(
-      pick.finalDecision ||
+    // Best 6 members are TRACK-admitted; legacy BOARD_ONLY/NO_BET labels must not
+    // block Top ranking after playable-pool promotion.
+    const userFacing = String(
+      pick.userFacingDecision ||
         pick.resultsDecisionLabel ||
-        pick.decision ||
-        pick.trackingEligibility ||
+        pick.finalDecision ||
+        pick.displayTrackEligibility ||
         ""
     ).toUpperCase();
-    if (finalDecision === "NO_BET" || finalDecision === "BOARD_ONLY") {
+    const pool = classifyPlayablePoolState(pick);
+    if (userFacing === "NO_BET" && !pool.playable) {
       audit.hiddenDueToRejectedDecision =
         (audit.hiddenDueToRejectedDecision || 0) + 1;
       audit.hidden.push({
         reason: "hidden_due_to_rejected_final_decision",
-        finalDecision,
+        finalDecision: userFacing,
         safetyScore: computeSafetyScore(pick),
         pick: summarizePickForAudit(pick),
       });
