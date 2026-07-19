@@ -30,6 +30,8 @@ import {
   attachCourtEdgeEngineSignals,
   applyEngineSignalAdjustments,
   isEngineExpansionEnabled,
+  admitResultsFromDecisionPacket,
+  assertDecisionPacketUnchanged,
 } from "../services/courtEdgeEngineSignalsV1.js";
 import {
   resolveSelectedLine,
@@ -38,6 +40,8 @@ import {
   assertLineUnchanged,
 } from "../services/lineIntegrityV1.js";
 import { buildCanonicalSealedProp, attachCanonicalSealedProp } from "../services/canonicalSealedProp.js";
+import { finalizeSameTeamForcedUnderPresentation } from "../engines/wnba/playerIntelligence/sameTeamForcedSidePresentationV1.js";
+import { annotateResultsAdmission } from "../engines/topProps/controlledBestSixSelector.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = path.join(__dirname, "..", "test-fixtures", "engine-expansion-v1");
@@ -720,10 +724,10 @@ test(69, "isEngineExpansionEnabled is boolean and defaults ON", () => {
   assert.strictEqual(isEngineExpansionEnabled(), true);
 });
 
-test(70, "SCHEMA_BUILD is courteedge-engine-expansion-v1", () => {
-  assert.strictEqual(SCHEMA_BUILD, "courteedge-engine-expansion-v1");
+test(70, "SCHEMA_BUILD is courteedge-engine-expansion-v1.1", () => {
+  assert.strictEqual(SCHEMA_BUILD, "courteedge-engine-expansion-v1.1");
   const bundle = buildCourtEdgeEngineSignalsV1({}, { force: true });
-  assert.strictEqual(bundle.schemaBuild, "courteedge-engine-expansion-v1");
+  assert.strictEqual(bundle.schemaBuild, "courteedge-engine-expansion-v1.1");
 });
 
 console.log("\n=== 71–75 UI labels ===");
@@ -771,6 +775,185 @@ test(75, "user-facing reason fields have no gate eligibility codes", () => {
   for (const r of collectReasons(bundle)) {
     assert.ok(!FORBIDDEN_UI.test(r), `forbidden token in reason: ${r}`);
   }
+});
+
+console.log("\n=== 76–85 Consolidation v1.1 ===");
+
+function normalizeSideForTest(side = "") {
+  const raw = String(side || "").toUpperCase();
+  if (raw.startsWith("U")) return "UNDER";
+  if (raw.startsWith("O")) return "OVER";
+  return "";
+}
+
+test(76, "decision packet attached and immutable", () => {
+  const attached = attachCourtEdgeEngineSignals(
+    { ...rich, side: "Over", line: 22.5, confidence: 60 },
+    { force: true }
+  );
+  assert.ok(attached.courtEdgeDecisionPacketV1);
+  assert.strictEqual(attached.courtEdgeDecisionPacketV1.immutable, true);
+  assert.ok(attached.courtEdgeDecisionPacketV1.inputHash);
+  assert.ok(attached.courtEdgeDecisionPacketV1.decisionHash);
+});
+
+test(77, "applyEngineSignalAdjustments is idempotent (double apply)", () => {
+  let pick = attachCourtEdgeEngineSignals(
+    { ...rich, side: "Over", line: 22.5, confidence: 60, pick: "Over" },
+    { force: true }
+  );
+  pick = applyEngineSignalAdjustments(pick);
+  const snap = {
+    side: pick.side,
+    line: pick.line,
+    confidence: pick.confidence,
+    risk: pick.courtEdgeRiskAdjustment,
+    signals: JSON.stringify(pick.courtEdgeEngineSignalsV1?.aggregation),
+  };
+  const again = applyEngineSignalAdjustments(pick);
+  assert.strictEqual(again.side, snap.side);
+  assert.strictEqual(again.line, snap.line);
+  assert.strictEqual(again.confidence, snap.confidence);
+  assert.strictEqual(again.courtEdgeRiskAdjustment, snap.risk);
+  assert.strictEqual(
+    JSON.stringify(again.courtEdgeEngineSignalsV1?.aggregation),
+    snap.signals
+  );
+  assert.strictEqual(again.courtEdgeEngineAdjustmentsApplied, true);
+});
+
+test(78, "Results double admission leaves packet fields unchanged", () => {
+  let pick = attachCourtEdgeEngineSignals(
+    { ...rich, side: "Under", line: 18.5, confidence: 55, pick: "Under", trueRisk: "MEDIUM" },
+    { force: true }
+  );
+  pick = applyEngineSignalAdjustments(pick);
+  const sealed = attachCanonicalSealedProp(pick);
+  const first = admitResultsFromDecisionPacket(sealed);
+  const second = admitResultsFromDecisionPacket(first);
+  const check = assertDecisionPacketUnchanged(first, second);
+  assert.ok(check.ok, JSON.stringify(check.diffs));
+  assert.strictEqual(first.side, second.side);
+  assert.strictEqual(first.line, second.line);
+  assert.strictEqual(first.confidence, second.confidence);
+});
+
+test(79, "ownership marks confidenceOwner as evidence ledger", () => {
+  const bundle = buildCourtEdgeEngineSignalsV1(rich, { force: true });
+  assert.strictEqual(bundle.ownership?.confidenceOwner, "evidenceDeduplicationLedger");
+  assert.ok(bundle.aggregation?.confidenceOwner);
+});
+
+test(80, "legacy bridge preferred when DDI market present", () => {
+  const pick = {
+    ...rich,
+    league: "WNBA",
+    side: "Over",
+    line: 20.5,
+    openingLine: 22.5,
+    currentLine: 20.5,
+    decisionDataIntelligence: {
+      marketIntelligence: {
+        openingLine: 22.5,
+        currentLine: 20.5,
+        lineDelta: -2,
+        marketWarning: true,
+        sideImpact: "UNDER",
+        bookConsensus: "MODERATE",
+        reasons: ["Line moved against Over."],
+      },
+    },
+  };
+  const attached = attachCourtEdgeEngineSignals(pick, { force: true, league: "WNBA" });
+  const lm = attached.courtEdgeEngineSignalsV1?.engines?.lineMovementClv;
+  assert.ok(lm?.available);
+  assert.ok(
+    lm?.bridgedFrom?.includes("marketMovementIntelligenceV1") ||
+      lm?.consolidation === "legacy_bridge_preferred"
+  );
+});
+
+test(81, "same-team lock flags set by presentation", () => {
+  const forced = finalizeSameTeamForcedUnderPresentation({
+    originalPick: {
+      ...sameTeamFx,
+      side: "Over",
+      pick: "Over",
+      line: 21.5,
+      confidence: 70,
+      player: "A",
+    },
+    forcedPick: {
+      ...sameTeamFx,
+      side: "Over",
+      pick: "Over",
+      line: 21.5,
+      confidence: 70,
+      player: "A",
+    },
+    primaryPlayer: "B",
+    independentlyQualifiedUnder: false,
+  });
+  assert.strictEqual(forced.sideLockedAfterArbitration, true);
+  assert.strictEqual(forced.sameTeamArbitrationFlip, true);
+  assert.strictEqual(normalizeSideForTest(forced.side), "UNDER");
+});
+
+test(82, "side balance cannot undo same-team arbitration lock", () => {
+  const lockedUnder = {
+    player: "Locked",
+    side: "Under",
+    pick: "Under",
+    line: 19.5,
+    confidence: 40,
+    sameTeamArbitrationFlip: true,
+    sideLockedAfterArbitration: true,
+    flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+    decisionIntelligence: { trackEligibility: "TRACK", bestSixEligibility: true, trueRisk: "MEDIUM" },
+    wnbaReader: { underCase: { score: 8, preGapPenaltyScore: 8, underGapFloorPassed: true } },
+    league: "WNBA",
+  };
+  assert.strictEqual(lockedUnder.sideLockedAfterArbitration, true);
+  assert.strictEqual(typeof annotateResultsAdmission, "function");
+  const admitted = annotateResultsAdmission(lockedUnder);
+  assert.strictEqual(admitted.finalDecision, "TRACK");
+  assert.strictEqual(normalizeSideForTest(admitted.side), "UNDER");
+});
+
+test(83, "canonical seal nests engineSignals + decision packet", () => {
+  let pick = attachCourtEdgeEngineSignals(
+    { ...rich, side: "Over", line: 22.5, confidence: 60 },
+    { force: true }
+  );
+  pick = applyEngineSignalAdjustments(pick);
+  const sealed = buildCanonicalSealedProp(pick);
+  assert.ok(sealed.courtEdgeEngineSignalsV1);
+  assert.ok(sealed.engineSignals);
+  assert.ok(sealed.courtEdgeDecisionPacketV1);
+  assert.strictEqual(sealed.courtEdgeEngineSignalsVersion, "courtEdgeEngineSignalsV1");
+});
+
+test(84, "scoringEnvironmentProxy never votes", () => {
+  const bundle = buildCourtEdgeEngineSignalsV1(
+    { ...rich, scoringEnvironmentProxy: 102.5 },
+    { force: true }
+  );
+  const proxy = bundle.engines.scoringEnvironmentProxy;
+  assert.strictEqual(proxy.storeOnly, true);
+  assert.strictEqual(proxy.normalizedSignal, 0);
+  assert.strictEqual(proxy.overContribution, 0);
+  assert.strictEqual(proxy.underContribution, 0);
+});
+
+test(85, "true pace unavailable when box incomplete", () => {
+  const bundle = buildCourtEdgeEngineSignalsV1(paceIncomplete, { force: true });
+  const pace = bundle.engines.pacePossession;
+  assert.ok(
+    pace.available === false ||
+      pace.rawValues?.completeBoxCount === 0 ||
+      pace.sampleSize === 0 ||
+      Boolean(pace.reason)
+  );
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -89,13 +89,25 @@ export function evaluateAvailabilityRoster(ctx = {}) {
   const gameLogs = Array.isArray(ctx.gameLogs) ? ctx.gameLogs : [];
 
   const evidenceTrail = [];
+  let state = null;
+
+  // Prefer already-classified availability from wnbaAvailabilityService adapter
+  // so we do not triple-classify the same injury text.
+  if (ctx.availabilityMappedState) {
+    state = ctx.availabilityMappedState;
+    evidenceTrail.push(
+      `legacy availability adapter: ${ctx.legacyUpstream?.availability?.injuryClassification?.level || "mapped"} -> ${state}`
+    );
+  }
 
   // 1. injury status (structured row wins over a bare string when both exist).
   const injuryStatusText = normalizeStatusText(
     first(injuryRow?.status, injuryRow?.description, injuryRow?.injuryStatus)
   );
-  let state = classifyStatusText(injuryStatusText);
-  if (state) evidenceTrail.push(`injury feed: "${injuryStatusText}" -> ${state}`);
+  if (!state) {
+    state = classifyStatusText(injuryStatusText);
+    if (state) evidenceTrail.push(`injury feed: "${injuryStatusText}" -> ${state}`);
+  }
 
   // 2. game status (generic status string / lineup feed).
   if (!state) {

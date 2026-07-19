@@ -385,8 +385,15 @@ function buildSimpleExplanation({ action = "", originalSide = "", finalSide = ""
   const fin = sideLabel(finalSide);
   if (action === "KEEP_ORIGINAL") return `Side Rescue: KEEP ORIGINAL — ${keepReasons[0] || "Opposite did not earn support."}`;
   if (action === "FLIP_SIDE") return `Side Rescue: FLIPPED from ${orig} to ${fin} — ${flipReasons[0] || "Opposite earned rescue."}`;
-  if (action === "BOARD_ONLY") return `Side Rescue: BOARD ONLY — ${boardOnlyReasons[0] || "Original fragile; opposite did not earn flip."}`;
-  if (action === "NO_BET") return `Side Rescue: NO BET — ${noBetReasons[0] || "Both sides unreliable."}`;
+  if (action === "NO_DECISIVE_RESCUE") {
+    return `Side Rescue: NO DECISIVE RESCUE — ${noBetReasons[0] || boardOnlyReasons[0] || "Kept original; weakness via conf/risk only."}`;
+  }
+  if (action === "BOARD_ONLY") {
+    return `Side Rescue: NO DECISIVE RESCUE — ${boardOnlyReasons[0] || "Original fragile; opposite did not earn flip."}`;
+  }
+  if (action === "NO_BET") {
+    return `Side Rescue: NO DECISIVE RESCUE — ${noBetReasons[0] || "Both sides unreliable."}`;
+  }
   return "Side Rescue: not triggered.";
 }
 
@@ -489,16 +496,19 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
   const noBetReasons = [];
 
   if (gate.trackingEligibility === "NO_BET" || triggerDebts.some((d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP")) {
-    action = "NO_BET";
-    finalSide = null;
+    // Internal only — never emit terminal user-facing NO_BET from Side Rescue.
+    // Keep original side; mark weak via NO_DECISIVE_RESCUE (playable pool stays intact).
+    action = "NO_DECISIVE_RESCUE";
+    finalSide = originalSide;
     noBetReasons.push(
       gate.wnbaTrackingReason ||
         triggerDebts.find((d) => d.severity === "KILL" || d.code === "LOW_VOLUME_OVER_TRAP")?.reason ||
-        "Kill-level risk debt blocks play."
+        "Kill-level risk debt — no decisive rescue; keep original (weak/playable)."
     );
   } else if (bothChaotic && originalRiskAdjusted < 30) {
-    action = "NO_BET"; finalSide = null;
-    noBetReasons.push("Both sides unreliable with low confidence data.");
+    action = "NO_DECISIVE_RESCUE";
+    finalSide = originalSide;
+    noBetReasons.push("Both sides unreliable — no decisive rescue; keep original (weak/playable).");
   } else if (flipEligible) {
     action = "FLIP_SIDE"; finalSide = oppositeSide;
     flipReasons.push(`Opposite ${oppositeSide} ${oppositeRiskAdjusted} vs original adjusted ${originalRiskAdjusted}.`);
@@ -522,16 +532,19 @@ function evaluateWnbaSideRescue(candidate = {}, options = {}) {
     underFragility.fragile ||
     triggerDebts.some((d) => d.severity === "KILL" || d.severity === "HIGH")
   ) {
-    action = "BOARD_ONLY"; finalSide = originalSide;
+    // BOARD_ONLY was a demotion label — map to NO_DECISIVE_RESCUE so quality
+    // weakness is expressed via conf/risk/rank only, not exclusion.
+    action = "NO_DECISIVE_RESCUE";
+    finalSide = originalSide;
     if (gate.trackingEligibility === "BOARD_ONLY") {
-      boardOnlyReasons.push(gate.wnbaTrackingReason || "Gate demoted to board only.");
+      boardOnlyReasons.push(gate.wnbaTrackingReason || "Gate soft-demoted — kept playable via NO_DECISIVE_RESCUE.");
     }
     if (oppositeKills.length) boardOnlyReasons.push(`Opposite blocked: ${oppositeKills.join(", ")}.`);
     else if (independentEvidence.length < minOppositeEvidence) boardOnlyReasons.push("Opposite lacks independent evidence.");
     else if (oppositeRiskAdjusted < flipScoreFloor) boardOnlyReasons.push(`Opposite score ${oppositeRiskAdjusted} below floor ${flipScoreFloor}.`);
     else if (oppositeRiskAdjusted - originalRiskAdjusted < flipMargin) boardOnlyReasons.push(`Margin ${oppositeRiskAdjusted - originalRiskAdjusted} below ${flipMargin}.`);
     else if (hasMajorContradiction(oppositeSide, metrics)) boardOnlyReasons.push("Projection/fair-line contradict opposite.");
-    else boardOnlyReasons.push("Original fragile; opposite did not earn flip.");
+    else boardOnlyReasons.push("Original fragile; opposite did not earn flip — NO_DECISIVE_RESCUE.");
   } else {
     keepReasons.push("Original survives risk adjustment.");
   }
@@ -598,13 +611,30 @@ export function applySideRescueEligibilityOverlay(pick = {}, sideRescue = null) 
     };
   }
 
-  if (sr.action === "BOARD_ONLY") {
-    return { ...pick, trackingEligibility: "BOARD_ONLY", wnbaTrackingDecision: "BOARD_ONLY",
-      wnbaTrackingReason: sr.boardOnlyReasons?.[0] || "SIDE_RESCUE_BOARD_ONLY", bestSixEligibility: false, topPickEligibility: false };
+  // Soft demotions stay playable — weakness via conf/risk/rank only.
+  // Hard UNPLAYABLE exclusions remain availability OUT / missing core data upstream.
+  if (sr.action === "NO_DECISIVE_RESCUE" || sr.action === "BOARD_ONLY") {
+    return {
+      ...pick,
+      sideRescueInternalAction: sr.action,
+      sideRescueAction: "NO_DECISIVE_RESCUE",
+      // Do NOT set noPlay / NO_BET — keep in playable Best 6 pool
+      bestSixEligibility: pick.bestSixEligibility !== false,
+      topPickEligibility: pick.topPickEligibility !== false,
+      weakButPlayable: true,
+      trackingEligibility: pick.trackingEligibility || "TRACK",
+    };
   }
   if (sr.action === "NO_BET") {
-    return { ...pick, trackingEligibility: "NO_BET", wnbaTrackingDecision: "NO_BET",
-      wnbaTrackingReason: sr.noBetReasons?.[0] || "SIDE_RESCUE_NO_BET", bestSixEligibility: false, topPickEligibility: false, noPlay: true };
+    // Legacy path: coerce to NO_DECISIVE_RESCUE (no terminal user-facing NO_BET)
+    return {
+      ...pick,
+      sideRescueInternalAction: "NO_BET",
+      sideRescueAction: "NO_DECISIVE_RESCUE",
+      weakButPlayable: true,
+      bestSixEligibility: pick.bestSixEligibility !== false,
+      noPlay: false,
+    };
   }
   return pick;
 }

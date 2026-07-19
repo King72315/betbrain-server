@@ -17,6 +17,7 @@ import {
 } from "../wnba/playerIntelligence/confidenceEngineV1.js";
 import { applyEvidenceFinalConfidenceToPick } from "../wnba/playerIntelligence/evidenceFinalConfidenceV1.js";
 import { getHistoricalAccuracyForPlayer } from "../wnba/playerIntelligence/historicalCalibrationEngineV1.js";
+import { CONFIG } from "../../config.js";
 
 export const DECISION_DATA_INTELLIGENCE_VERSION =
   "flip-first-decision-data-intelligence-v1";
@@ -112,7 +113,7 @@ function evaluateProjectionQuality(pick = {}, options = {}) {
   };
 }
 
-function buildFinalInfluence(ddi = {}, flipDecision = {}) {
+function buildFinalInfluence(ddi = {}, flipDecision = {}, options = {}) {
   const reasons = [];
   let confidenceAdjustment = 0;
   let riskAdjustment = "NEUTRAL";
@@ -122,6 +123,15 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   let projectionTrustMultiplier = 1;
   let requiredEdgeBump = 0;
   let rankingPenalty = 0;
+  const deferredToEvidenceLedger = [];
+
+  // When CourtEdge engine expansion is on, overlapping evidence groups defer
+  // confidence/risk to the evidence-dedup ledger (one authoritative pass).
+  // Flip-first / same-team / BOTH_SIDES_WEAK keep local influence — those are
+  // selection/policy effects, not duplicate evidence votes.
+  const deferEvidence =
+    options.deferConfidenceToEvidenceLedger === true ||
+    options.engineExpansionOwnsEvidence === true;
 
   if (flipDecision.flipRecommended) {
     confidenceAdjustment += 4;
@@ -137,7 +147,14 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     ddi.availabilityImpact?.uncertaintyAdded,
   ].filter(Boolean).length;
 
-  if (weakModules >= 3) {
+  if (deferEvidence) {
+    if (weakModules >= 1) {
+      deferredToEvidenceLedger.push("ROLE_AND_VOLUME", "PROJECTION", "MARKET", "AVAILABILITY_AND_TEAMMATE");
+      reasons.push(
+        "Weak data signals deferred to evidence-dedup ledger (no double confidence cut)."
+      );
+    }
+  } else if (weakModules >= 3) {
     confidenceAdjustment -= 10;
     riskAdjustment = "ELEVATE";
     bestSixImpact = "BOARD_ONLY_BIAS";
@@ -161,6 +178,9 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   const ohc = ddi.opponentHistoryComparison?.comparison || {};
   if (ohc.agreement === "NO_HISTORY" || ddi.opponentHistoryComparison?.opponentHistory?.noHistory) {
     // Neutral — no penalty for missing opponent history.
+  } else if (deferEvidence) {
+    deferredToEvidenceLedger.push("OPPONENT_AND_MATCHUP");
+    reasons.push("Opponent history deferred to evidence-dedup ledger.");
   } else if (ohc.confidenceImpact === "BOOST") {
     confidenceAdjustment += Math.round(4 * (ohc.weight || 1));
     reasons.push("Opponent history agrees with recent form.");
@@ -168,11 +188,13 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     confidenceAdjustment -= Math.round(4 * (ohc.weight || 0.55));
     reasons.push("Opponent history contradicts recent form.");
   }
-  if (ohc.riskImpact === "RAISE") {
-    riskAdjustment = riskAdjustment === "ELEVATE" ? "ELEVATE" : "MONITOR";
-    reasons.push("Opponent history raises risk.");
-  } else if (ohc.riskImpact === "LOWER") {
-    reasons.push("Opponent history lowers risk.");
+  if (!deferEvidence) {
+    if (ohc.riskImpact === "RAISE") {
+      riskAdjustment = riskAdjustment === "ELEVATE" ? "ELEVATE" : "MONITOR";
+      reasons.push("Opponent history raises risk.");
+    } else if (ohc.riskImpact === "LOWER") {
+      reasons.push("Opponent history lowers risk.");
+    }
   }
 
   if (flipDecision.action === "BOTH_SIDES_WEAK") {
@@ -189,7 +211,15 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   }
 
   const market = ddi.marketIntelligence || {};
-  if (
+  if (deferEvidence) {
+    if (
+      market.marketWarning ||
+      (market.sideImpact && market.sideImpact !== "NEUTRAL")
+    ) {
+      deferredToEvidenceLedger.push("MARKET");
+      reasons.push("Market movement deferred to evidence-dedup ledger.");
+    }
+  } else if (
     market.marketWarning ||
     (market.sideImpact &&
       market.sideImpact !== "NEUTRAL" &&
@@ -205,7 +235,12 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
   }
 
   const projStatus = String(ddi.projectionQuality?.status || "").toUpperCase();
-  if (projStatus === "MIXED" || projStatus === "WEAK") {
+  if (deferEvidence) {
+    if (projStatus === "MIXED" || projStatus === "WEAK") {
+      deferredToEvidenceLedger.push("PROJECTION");
+      reasons.push(`Projection quality ${projStatus} deferred to evidence-dedup ledger.`);
+    }
+  } else if (projStatus === "MIXED" || projStatus === "WEAK") {
     confidenceAdjustment -= projStatus === "WEAK" ? 8 : 6;
     reasons.push(`Projection quality ${projStatus} — directional confidence cut.`);
   }
@@ -219,6 +254,8 @@ function buildFinalInfluence(ddi = {}, flipDecision = {}) {
     projectionTrustMultiplier,
     requiredEdgeBump,
     rankingPenalty,
+    deferredToEvidenceLedger: [...new Set(deferredToEvidenceLedger)],
+    evidenceLedgerOwnsOverlappingGroups: deferEvidence === true,
     reasons: reasons.slice(0, 8),
   };
 }
@@ -295,7 +332,15 @@ export function evaluateDecisionDataIntelligence(pick = {}, options = {}) {
     originalSide: options.originalSide || pick.initialSide || reader.finalSide || evalSide,
   });
 
-  const finalInfluence = buildFinalInfluence(partial, flipFirstDecision);
+  const deferConfidenceToEvidenceLedger =
+    options.deferConfidenceToEvidenceLedger === true ||
+    options.engineExpansionOwnsEvidence === true ||
+    CONFIG.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED === true;
+
+  const finalInfluence = buildFinalInfluence(partial, flipFirstDecision, {
+    deferConfidenceToEvidenceLedger,
+    engineExpansionOwnsEvidence: deferConfidenceToEvidenceLedger,
+  });
 
   return {
     ...partial,

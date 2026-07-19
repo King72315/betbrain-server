@@ -1,6 +1,7 @@
 /**
  * CourtEdge Engine Expansion — public exports.
  */
+export * from "./versionConstants.js";
 export * from "./shared.js";
 export * from "./calibrationV1.js";
 export * from "./lineMovementClvEngine.js";
@@ -14,4 +15,11 @@ export * from "./pacePossessionEngine.js";
 export * from "./evidenceDeduplicationEngine.js";
 export * from "./restFatigueEngine.js";
 export * from "./teammateImpactEngine.js";
+export * from "./legacyModuleBridges.js";
+export * from "./decisionPacketV1.js";
 export * from "./orchestratorV1.js";
+export {
+  buildSharedEngineContext,
+  adaptNbaPickContext,
+  adaptWnbaPickContext,
+} from "./adapters/leagueCtxAdapters.js";

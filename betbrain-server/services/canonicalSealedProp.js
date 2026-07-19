@@ -180,6 +180,17 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       pick.courtEdgeEngineSignalsV1?.version ||
       pick.courtEdgeEngineSignals?.version ||
       null,
+    courtEdgeDecisionPacketV1:
+      pick.courtEdgeDecisionPacketV1 ||
+      pick.decisionPacket ||
+      pick.canonicalSealedProp?.courtEdgeDecisionPacketV1 ||
+      null,
+    // Nested engineSignals alias for product schema consumers
+    engineSignals:
+      pick.courtEdgeEngineSignalsV1 ||
+      pick.courtEdgeEngineSignals ||
+      pick.canonicalSealedProp?.engineSignals ||
+      null,
     providerIdentity: pick.providerIdentity || null,
   };
 }

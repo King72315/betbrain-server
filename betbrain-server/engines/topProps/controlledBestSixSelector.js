@@ -85,7 +85,8 @@ function isViableMinorityCandidate(pick = {}) {
   const di = pick.decisionIntelligence || {};
   const sr = pick.sideRescue || {};
   if ((di.killReasons || []).length > 0) return false;
-  if (sr.action === "NO_BET") return false;
+  // NO_DECISIVE_RESCUE is weak-but-playable — still eligible for side balance.
+  if (sr.action === "NO_BET" && pick.weakButPlayable !== true) return false;
 
   const side = normalizeSide(pick.side || pick.pick);
   const reader = pick.wnbaReader || {};
@@ -452,6 +453,20 @@ function selectBestSixWithDiversity(sorted = [], options = {}, audit = {}) {
   return applySideBalancePreference(sorted, selected, { limit }, audit);
 }
 
+function isSameTeamSideLocked(pick = {}) {
+  return (
+    pick.sideLockedAfterArbitration === true ||
+    pick.sameTeamArbitrationFlip === true ||
+    pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP" ||
+    pick.sameTeamArbitrationReason === "SAME_TEAM_ARBITRATION_FLIP" ||
+    pick.sameTeamArbitration?.reason === "SAME_TEAM_ARBITRATION_FLIP" ||
+    pick.sameTeamArbitration?.applied === true ||
+    pick.sameTeamOpportunityV2Role === "SECONDARY_UNDER" ||
+    pick.sameTeamOpportunityV2?.role === "SECONDARY_UNDER" ||
+    pick.canonicalSealedProp?.sameTeamArbitration?.flipped === true
+  );
+}
+
 function applySideBalancePreference(sorted = [], selected = [], options = {}, audit = {}) {
   const limit = Number(options.limit ?? BEST_SIX_LIMIT);
   const minMinority = Number(options.minMinority ?? SIDE_BALANCE_MINORITY);
@@ -466,6 +481,7 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
   let result = [...selected];
   const swaps = [];
   let sideBalanceNoSwapReason = null;
+  audit.sameTeamLockedProtected = [];
 
   for (let attempt = 0; attempt < limit; attempt += 1) {
     const sideCounts = { OVER: 0, UNDER: 0 };
@@ -502,6 +518,11 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
     let weakestScore = Number.POSITIVE_INFINITY;
     for (let i = 0; i < result.length; i += 1) {
       if (normalizeSide(result[i].side || result[i].pick) !== dominantSide) continue;
+      // LOCK: same-team arbitration final side cannot be removed/replaced by side balance
+      if (isSameTeamSideLocked(result[i])) {
+        audit.sameTeamLockedProtected.push(summarizePickForAudit(result[i]));
+        continue;
+      }
       const score = computeSafetyScore(result[i]);
       if (score < weakestScore) {
         weakestScore = score;
@@ -509,13 +530,20 @@ function applySideBalancePreference(sorted = [], selected = [], options = {}, au
       }
     }
     if (weakestIdx < 0) {
-      sideBalanceNoSwapReason = "NO_DOMINANT_SIDE_CANDIDATE";
+      sideBalanceNoSwapReason =
+        audit.sameTeamLockedProtected.length > 0
+          ? "SAME_TEAM_ARBITRATION_SIDE_LOCKED"
+          : "NO_DOMINANT_SIDE_CANDIDATE";
       break;
     }
 
     const eligibleMinority = sorted.filter((pick) => {
       if (selectedSet.has(pick)) return false;
       if (normalizeSide(pick.side || pick.pick) !== minoritySide) return false;
+      // Never import a candidate that would require flipping a locked arbitration side
+      if (isSameTeamSideLocked(pick) && normalizeSide(pick.side || pick.pick) !== minoritySide) {
+        return false;
+      }
       if (!isViableMinorityCandidate(pick)) return false;
       return computeSafetyScore(pick) >= weakestScore - margin;
     });
@@ -580,6 +608,24 @@ function rankBestSix(selected = [], league = "", options = {}) {
 function applyWnbaDecisionStack(pick = {}, options = {}) {
   if (!isWnbaQualityGatePick(pick)) {
     return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
+  }
+
+  // Same-team arbitration lock: never rerun Side Rescue / flip side via slate recompute
+  if (
+    pick.sideLockedAfterArbitration === true ||
+    pick.sameTeamArbitrationFlip === true ||
+    pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
+  ) {
+    return {
+      pick: {
+        ...pick,
+        sideLockedAfterArbitration: true,
+        decisionReused: true,
+        sideBalanceCannotUndoArbitration: true,
+      },
+      reusedCanonicalBundle: true,
+      sameTeamSideLocked: true,
+    };
   }
 
   const slateLevelRecompute =
@@ -705,8 +751,15 @@ function passesResultsEligibility(pick = {}) {
   const di = pick.decisionIntelligence || {};
   const sr = pick.sideRescue || {};
 
-  if (sr.action === "BOARD_ONLY" || sr.action === "NO_BET") return false;
-  if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) return false;
+  // NO_DECISIVE_RESCUE / weak-but-playable stay eligible for Results cohort.
+  if (sr.action === "NO_BET" && pick.weakButPlayable !== true && pick.noPlay === true) {
+    return false;
+  }
+  if (di.trackEligibility !== "TRACK" || di.bestSixEligibility !== true) {
+    // Soft demotions that were remapped still pass when weakButPlayable
+    if (pick.weakButPlayable === true && di.bestSixEligibility !== false) return true;
+    return false;
+  }
   return true;
 }
 

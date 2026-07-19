@@ -1,14 +1,13 @@
 /**
- * CourtEdge Engine Expansion — Orchestrator V1.
+ * CourtEdge Engine Expansion — Orchestrator V1.1 (consolidation).
  *
- * Runs every expansion engine in a fixed order, packages the raw
- * scoringEnvironmentProxy for reference (store-only, never a vote), then
- * runs evidence deduplication across everything and builds a final
- * aggregation block (organic side, coverage, adjustments).
+ * Prefer legacy-module bridges (DDI / line integrity / availability / role /
+ * opponent) when upstream already produced authoritative diagnostics. Fall
+ * back to expansion engines only when a bridge has nothing usable. Evidence
+ * deduplication remains the sole confidence/risk contribution ledger.
  *
- * Gated by CONFIG.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED. Callers (e.g. the
- * service layer) may also gate independently before ever calling this —
- * this internal check is a second line of defense, not the only one.
+ * scoringEnvironmentProxy is store-only (never a vote). truePace is only
+ * computed when FGA/FTA/OREB/TOV are complete.
  */
 import { CONFIG } from "../../config.js";
 import { evaluateAvailabilityRoster } from "./availabilityRosterEngine.js";
@@ -22,18 +21,19 @@ import { evaluateDefensiveArchetype } from "./defensiveArchetypeEngine.js";
 import { evaluateLineMovementClv } from "./lineMovementClvEngine.js";
 import { evaluateProjectionSanity } from "./projectionSanityEngine.js";
 import { evaluateEvidenceDeduplication } from "./evidenceDeduplicationEngine.js";
+import { harvestLegacyBridges } from "./legacyModuleBridges.js";
 import { numOrNull, normalizeLeague, baseEngineSignal } from "./shared.js";
+import {
+  ENGINE_EXPANSION_VERSION,
+  SCHEMA_BUILD,
+  CONFIDENCE_OWNER,
+  RISK_OWNER,
+} from "./versionConstants.js";
 
-export const ENGINE_EXPANSION_VERSION = "courtEdgeEngineSignalsV1";
-export const SCHEMA_BUILD = "courteedge-engine-expansion-v1";
+export { ENGINE_EXPANSION_VERSION, SCHEMA_BUILD, CONFIDENCE_OWNER, RISK_OWNER };
 
 const SCORING_ENVIRONMENT_PROXY_ENGINE = "scoringEnvironmentProxy";
 
-/**
- * Packages ctx.scoringEnvironmentProxy for reference only. This is NOT a
- * pace measurement and NEVER casts a vote — see pacePossessionEngine.js for
- * the honest true-pace computation and its own availability gate.
- */
 function buildScoringEnvironmentProxyRecord(ctx = {}) {
   const proxy = numOrNull(ctx.scoringEnvironmentProxy);
   return baseEngineSignal({
@@ -44,7 +44,10 @@ function buildScoringEnvironmentProxyRecord(ctx = {}) {
     fetchedAt: ctx.fetchedAt || null,
     sampleSize: 0,
     quality: proxy !== null ? "USABLE" : "UNAVAILABLE",
-    rawValues: { scoringEnvironmentProxy: proxy },
+    rawValues: {
+      scoringEnvironmentProxy: proxy,
+      separateFromTruePace: true,
+    },
     normalizedSignal: 0,
     overContribution: 0,
     underContribution: 0,
@@ -59,14 +62,25 @@ function buildScoringEnvironmentProxyRecord(ctx = {}) {
   });
 }
 
+function preferBridge(bridged, computed) {
+  if (bridged && bridged.available === true) {
+    return {
+      ...bridged,
+      fallbackUsed: false,
+      consolidation: "legacy_bridge_preferred",
+    };
+  }
+  return {
+    ...computed,
+    consolidation: bridged ? "bridge_unavailable_fallback_engine" : "engine_primary",
+  };
+}
+
 function buildAggregation(evidenceDeduplication) {
   const totals = evidenceDeduplication.totals;
   const netSignal = totals.netSignalTotal;
   const margin = Math.abs(totals.overWeight - totals.underWeight);
 
-  // Require both a meaningful net signal AND separation between the two
-  // sides before declaring an organic lean — ties stay NEUTRAL, never
-  // forced to one side.
   let organicSide = "NEUTRAL";
   if (margin >= 0.12) {
     if (netSignal > 0.05) organicSide = "OVER";
@@ -91,13 +105,13 @@ function buildAggregation(evidenceDeduplication) {
 
 /**
  * Runs the full CourtEdge engine expansion pipeline for one player/prop
- * context. Returns a disabled shell (no engines run) when the feature flag
- * is off and options.force is not set.
+ * context. Returns a disabled shell when the feature flag is off.
  */
 export function buildCourtEdgeEngineSignalsV1(ctx = {}, options = {}) {
   const league = normalizeLeague(ctx.league);
   const builtAt = new Date().toISOString();
-  const enabled = options.force === true || CONFIG.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED === true;
+  const enabled =
+    options.force === true || CONFIG.COURTEDGE_ENGINE_EXPANSION_V1_ENABLED === true;
 
   if (!enabled) {
     return {
@@ -113,18 +127,42 @@ export function buildCourtEdgeEngineSignalsV1(ctx = {}, options = {}) {
     };
   }
 
-  // Fixed evaluation order — see module header.
-  const availabilityRoster = evaluateAvailabilityRoster(ctx);
-  const roleVelocity = evaluateRoleTrendVelocity(ctx);
+  const bridges = harvestLegacyBridges(ctx, ctx.pick || {});
+
+  // Prefer bridged authoritative modules; fall back to expansion calc.
+  const availabilityRoster = preferBridge(
+    bridges.availabilityRosterEngine,
+    evaluateAvailabilityRoster(ctx)
+  );
+  const roleVelocity = preferBridge(
+    bridges.roleVelocityEngine,
+    evaluateRoleTrendVelocity(ctx)
+  );
   const distribution = evaluateCeilingFloorDistribution(ctx);
   const volatility = evaluatePlayerVolatility(ctx);
-  const teammateImpact = evaluateTeammateImpact(ctx);
+  // Attach shared profile handles for volume/reliability consumers
+  distribution.distributionProfile = distribution.rawValues || distribution;
+  volatility.volatilityProfile = volatility.rawValues || volatility;
+
+  const teammateImpact = preferBridge(
+    bridges.teammateImpactEngine,
+    evaluateTeammateImpact(ctx)
+  );
   const restFatigue = evaluateRestFatigue(ctx);
   const pacePossession = evaluateTruePacePossession(ctx);
-  const scoringEnvironmentProxy = buildScoringEnvironmentProxyRecord(ctx); // store only, never a vote
-  const defensiveArchetype = evaluateDefensiveArchetype(ctx);
-  const lineMovementClv = evaluateLineMovementClv(ctx);
-  const projectionSanity = evaluateProjectionSanity(ctx);
+  const scoringEnvironmentProxy = buildScoringEnvironmentProxyRecord(ctx);
+  const defensiveArchetype = preferBridge(
+    bridges.defensiveArchetypeEngine,
+    evaluateDefensiveArchetype(ctx)
+  );
+  const lineMovementClv = preferBridge(
+    bridges.lineMovementClvEngine,
+    evaluateLineMovementClv(ctx)
+  );
+  const projectionSanity = preferBridge(
+    bridges.projectionSanityEngine,
+    evaluateProjectionSanity(ctx)
+  );
 
   const engineSignals = {
     availabilityRosterEngine: availabilityRoster,
@@ -142,7 +180,17 @@ export function buildCourtEdgeEngineSignalsV1(ctx = {}, options = {}) {
   const evidenceDeduplication = evaluateEvidenceDeduplication(ctx, engineSignals);
   const aggregation = buildAggregation(evidenceDeduplication);
 
-  // Product schema: top-level engine keys + nested engines bag for diagnostics.
+  const bridgedEngines = Object.keys(bridges);
+  const ownership = {
+    confidenceOwner: CONFIDENCE_OWNER,
+    riskOwner: RISK_OWNER,
+    bridgedEngines,
+    fallbackEngines: Object.keys(engineSignals).filter(
+      (k) => !bridgedEngines.includes(k)
+    ),
+    consolidationBuild: SCHEMA_BUILD,
+  };
+
   return {
     version: ENGINE_EXPANSION_VERSION,
     schemaBuild: SCHEMA_BUILD,
@@ -154,6 +202,7 @@ export function buildCourtEdgeEngineSignalsV1(ctx = {}, options = {}) {
     gameId: ctx.gameId || null,
     generatedAt: builtAt,
     dataCapturedAt: ctx.fetchedAt || ctx.dataCapturedAt || builtAt,
+    ownership,
     lineMovement: lineMovementClv,
     projectionSanity,
     availabilityRoster,
@@ -189,9 +238,14 @@ export function buildCourtEdgeEngineSignalsV1(ctx = {}, options = {}) {
       suppressedDuplicateContributions: evidenceDeduplication?.suppressed || null,
       contradictionCount: evidenceDeduplication?.contradictionCount ?? 0,
       evidenceCoverage: aggregation.coverage,
-      projectionConfidence: projectionSanity?.rawValues?.projectionSanityScore ?? null,
+      projectionConfidence:
+        projectionSanity?.rawValues?.projectionSanityScore ??
+        projectionSanity?.rawValues?.projectionQualityScore ??
+        null,
       pickConfidence: null,
       finalRisk: aggregation.riskAdjustment,
+      confidenceOwner: CONFIDENCE_OWNER,
+      riskOwner: RISK_OWNER,
       ...aggregation,
     },
   };

@@ -266,6 +266,11 @@ export function finalizeSameTeamForcedUnderPresentation({
     sameTeamArbitrationFlip: true,
     sameTeamArbitrationReason: "SAME_TEAM_ARBITRATION_FLIP",
     flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+    // Lock final side/line/conf/risk — side balance must not undo this.
+    sideLockedAfterArbitration: true,
+    sideBalanceCannotUndoArbitration: true,
+    lockedFinalSide: "UNDER",
+    lockedFinalLine: lineAudit.selectedLine,
     // Do not leave Flip-First claiming FLIPPED_TO_OVER as the final action.
     flipFirstAction: "SAME_TEAM_ARBITRATION_FLIP",
     flipFirstDecision: {
