@@ -1360,6 +1360,8 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     // Today slice of a mixed Today+Tomorrow ranking).
     bestSixDisplayTodayWNBA: filledTodayDisplayWNBA,
     bestSixDisplayTodayNBA: filledTodayDisplayNBA,
+    bestSixDisplayTomorrowWNBA: selection.bestSixDisplayTomorrowWNBA || [],
+    bestSixDisplayTomorrowNBA: selection.bestSixDisplayTomorrowNBA || [],
     topProps: selection.topProps || [],
     topNBAProps: selection.topNBAProps || [],
     topWNBAProps: selection.topWNBAProps || [],

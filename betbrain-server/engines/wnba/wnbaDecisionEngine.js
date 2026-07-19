@@ -586,6 +586,15 @@ export async function evaluateWnbaPropDecision(context = {}) {
     readerReasonCodes: reader.reasonCodes,
   };
 
+  const softBoardCodes = (reader.reasonCodes || []).some((c) =>
+    /GAP_FLOOR_BOARD_SOFT_PICK|BOTH_SIDES_GAP_FLOOR_FAIL_SOFT|INSUFFICIENT_EDGE_SOFT|READER_TEST_PLAY|THIN_OVER_GAP|THIN_UNDER_GAP/.test(
+      String(c || "")
+    )
+  );
+  if (softBoardCodes || reader.decision === "TEST") {
+    pick.weakButPlayable = true;
+  }
+
   pick.scoreLedger = buildScoreLedger({
     side: pick.side,
     projection,

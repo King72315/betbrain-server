@@ -17,7 +17,7 @@ import {
 
 export const HOME_DETAILED_ANALYSIS_VERSION = "homeDetailedAnalysisV1";
 export const HOME_DETAILED_ANALYSIS_BUILD =
-  "courteedge-home-detailed-analysis-side-calibration-v1";
+  "courteedge-home-completion-tomorrow-six-v1";
 
 function num(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -643,6 +643,22 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
       pick.decisionIntelligence?.simpleExplanation,
       ""
     ),
+    topPickTransparency: (() => {
+      const rank = Number(pick.topPickRank ?? pick.topRank ?? 0);
+      if (!(rank >= 1 && rank <= 2)) return null;
+      const why =
+        pick.topPickReason ||
+        pick.decisionIntelligence?.topPickReason ||
+        pick.displayWhy ||
+        pick.decisionIntelligence?.simpleExplanation ||
+        "Selected among Tomorrow Best 6 on relative edge, confidence, and risk.";
+      return {
+        rank,
+        reason: String(why),
+        selectedFromBestSix: true,
+        labelOnly: true,
+      };
+    })(),
     decisionPacketVersion: first(packet.version, packet.schemaVersion, null),
     decisionPacketHash: first(packet.decisionHash, null),
     buildVersion: HOME_DETAILED_ANALYSIS_BUILD,

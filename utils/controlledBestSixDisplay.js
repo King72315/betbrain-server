@@ -845,7 +845,11 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult}`,
     `  Availability: ${avail.displayStatus || "Unavailable"}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Flip ${dec.flipFirstAction} | Rescue ${dec.sideRescueAction}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Flip ${dec.flipFirstAction} | Rescue ${
+      String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
+        ? "No stronger opposite-side case was found."
+        : dec.sideRescueAction || "—"
+    }`,
     `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"}`,
   ].join("\n");
 }

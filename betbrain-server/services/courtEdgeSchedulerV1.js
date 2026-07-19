@@ -580,6 +580,32 @@ export function shouldPreserveExistingBoard(previousBoard, nextBoard, failure) {
   const prevDate = String(previousBoard?.slateDate || "").slice(0, 10);
   const nextDate = String(nextBoard?.slateDate || "").slice(0, 10);
   if (prevDate && nextDate && nextDate < prevDate) return true;
+
+  // Only block a total Tomorrow wipe (0 AGC across Tomorrow shells) when the
+  // prior board had a real Tomorrow pool. Per-event starvation is handled by
+  // mergeLastKnownGoodDayGames; honest thin boards (<6) must still publish.
+  const countTom = (board) => {
+    let n = 0;
+    for (const g of board?.games || []) {
+      if (String(g.dayBucket || "").toUpperCase() !== "TOMORROW") continue;
+      n += (g.allGeneratedCandidates || g.picks || []).length;
+    }
+    return n;
+  };
+  const prevTom = countTom(previousBoard);
+  const nextTom = countTom(nextBoard);
+  const nextTomShells = (nextBoard?.games || []).filter(
+    (g) => String(g.dayBucket || "").toUpperCase() === "TOMORROW"
+  ).length;
+  if (
+    prevTom >= 6 &&
+    nextTom === 0 &&
+    nextTomShells > 0 &&
+    nextBoard?.allowThinTomorrowOverwrite !== true &&
+    !nextBoard?.lastKnownGoodTomorrowMerged
+  ) {
+    return true;
+  }
   return false;
 }
 

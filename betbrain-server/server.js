@@ -38,6 +38,7 @@ import {
   filterGamesBeforeCutoff,
   findBallPlayer,
   getBallPlayerTeam,
+  resolveWnbaPlayerTeamForGame,
   probeWnbaMatchupLookup,
   summarizeOpponentMatchup,
   summarizeScoringProfile,
@@ -313,7 +314,7 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-const SERVER_BUILD = "courteedge-best6-playable-pool-repair-v1";
+const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
 function getRotationRuntimeContext(partial = {}) {
@@ -894,7 +895,7 @@ function strengthFromConfidence(confidence) {
  *   - noPlay (playability veto from riskComparison noPlayReasons)
  *
  * Derivative gates (same underlying inputs, different math/threshold):
- *   - finalConfidence ? raw � (0.55+0.45�evidenceReliability) ? dangerPressure�24
+ *   - finalConfidence ? raw ? (0.55+0.45?evidenceReliability) ? dangerPressure?24
  *   - evidenceReliability ? marketQuality (45%, composite book/market signal),
  *     dataCoverage (25%), rawQuality (15%), hasBothSides (5%); bookCount and
  *     consensusBookCount are NOT separate weights (embedded in marketQuality)
@@ -1119,6 +1120,90 @@ function getCombinedDataQuality({ opportunity = {}, prop = {}, last5 = [], match
   if (!values.length) return 50;
 
   return Math.round(average(values));
+}
+
+function countDayBucketCandidates(games = [], dayBucket = "TOMORROW") {
+  const bucket = String(dayBucket || "").toUpperCase();
+  let n = 0;
+  for (const g of games || []) {
+    if (String(g.dayBucket || "").toUpperCase() !== bucket) continue;
+    n += (g.allGeneratedCandidates || g.picks || []).length;
+  }
+  return n;
+}
+
+function gameEventKey(game = {}) {
+  return String(
+    game.oddsEventId || game.gameId || game.id || game.eventId || ""
+  );
+}
+
+/**
+ * When a refresh returns thinner Tomorrow AGC than the prior board for the same
+ * Odds event (partial props / soft-gate collapse), keep last-known-good
+ * candidates so Home Tomorrow does not vanish mid-day.
+ */
+function mergeLastKnownGoodDayGames(
+  previousBoard,
+  nextGames = [],
+  dayBucket = "TOMORROW"
+) {
+  const bucket = String(dayBucket || "").toUpperCase();
+  const prevByEvent = new Map();
+  for (const g of previousBoard?.games || []) {
+    if (String(g.dayBucket || "").toUpperCase() !== bucket) continue;
+    const key = gameEventKey(g);
+    if (key) prevByEvent.set(key, g);
+  }
+  if (!prevByEvent.size) return { games: nextGames, mergedCount: 0 };
+
+  let mergedCount = 0;
+  const games = (nextGames || []).map((g) => {
+    if (String(g.dayBucket || "").toUpperCase() !== bucket) return g;
+    const key = gameEventKey(g);
+    const prev = key ? prevByEvent.get(key) : null;
+    if (!prev) return g;
+    const prevCands = prev.allGeneratedCandidates || [];
+    const nextCands = g.allGeneratedCandidates || [];
+    const prevRaw = Number(prev.rawPropCount || 0);
+    const nextRaw = Number(g.rawPropCount || 0);
+    const prevConsensus = Number(prev.consensusPropCount || 0);
+    const nextConsensus = Number(g.consensusPropCount || 0);
+    if (prevCands.length <= nextCands.length) return g;
+    // Prefer prior complete packet when new build starved AGC despite markets,
+    // or when raw/consensus coverage did not improve.
+    const starved =
+      nextCands.length === 0 &&
+      (nextConsensus > 0 || nextRaw > 0 || prevCands.length > 0);
+    const thinner =
+      nextCands.length > 0 &&
+      nextCands.length < prevCands.length &&
+      nextConsensus <= prevConsensus &&
+      nextRaw <= Math.max(prevRaw, nextRaw);
+    if (!starved && !thinner) return g;
+    mergedCount += 1;
+    return {
+      ...g,
+      allGeneratedCandidates: prevCands.map((p) => ({ ...p })),
+      picks:
+        Array.isArray(prev.picks) && prev.picks.length ? prev.picks : g.picks,
+      playableCandidateCount:
+        prev.playableCandidateCount ?? prevCands.length ?? g.playableCandidateCount,
+      allCandidateCount: prevCands.length,
+      lastKnownGoodMerged: true,
+      lastKnownGoodMeta: {
+        dayBucket: bucket,
+        prevCandidates: prevCands.length,
+        nextCandidates: nextCands.length,
+        prevRaw,
+        nextRaw,
+        prevConsensus,
+        nextConsensus,
+        reason: starved ? "STARVED_AGC_PRESERVE" : "THINNER_AGC_PRESERVE",
+      },
+    };
+  });
+  return { games, mergedCount };
 }
 
 function buildTopPropsFromSelector(gameCards = [], options = {}) {
@@ -1424,7 +1509,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       const team =
         league === "WNBA"
-          ? await getBallPlayerTeam(playerName, league)
+          ? (await resolveWnbaPlayerTeamForGame(playerName, game)) ||
+            (await getBallPlayerTeam(playerName, league))
           : getTeamForPlayer(playerName, playerMap, projectionMap, seasonMap);
 
       if (!team) {
@@ -2289,6 +2375,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       rawPropCount: rawProps.length,
       consensusPropCount: props.length,
       rejectedPickCount: rejectedPicks.length,
+      rejectedSample: rejectedPicks.slice(0, 12),
     });
   }
 
@@ -2455,7 +2542,7 @@ async function refreshAllPicks() {
     };
   }
 
-  const games = ensureWnbaGateOnGames([
+  const gamesRaw = ensureWnbaGateOnGames([
     ...todayCards.map((g) => ({
       ...g,
       dateLabel: "Today",
@@ -2467,6 +2554,23 @@ async function refreshAllPicks() {
       dayBucket: "TOMORROW",
     })),
   ]);
+
+  const lkgTomorrow = mergeLastKnownGoodDayGames(
+    previousBoard,
+    gamesRaw,
+    "TOMORROW"
+  );
+  const games = lkgTomorrow.games;
+  if (lkgTomorrow.mergedCount > 0) {
+    console.log("LAST-KNOWN-GOOD TOMORROW MERGE:", {
+      mergedGames: lkgTomorrow.mergedCount,
+      tomorrowCandidates: countDayBucketCandidates(games, "TOMORROW"),
+      previousTomorrowCandidates: countDayBucketCandidates(
+        previousBoard?.games || [],
+        "TOMORROW"
+      ),
+    });
+  }
 
   const nbaGames = games.filter((g) => g.league === "NBA");
   const wnbaGames = games.filter((g) => g.league === "WNBA");
@@ -2487,6 +2591,10 @@ async function refreshAllPicks() {
   const bestSixNBA = cohortBundle.bestSixNBA;
   const bestSixDisplayWNBA = controlledSelection.bestSixDisplayWNBA || [];
   const bestSixDisplayNBA = controlledSelection.bestSixDisplayNBA || [];
+  const bestSixDisplayTomorrowWNBA =
+    controlledSelection.bestSixDisplayTomorrowWNBA || [];
+  const bestSixDisplayTomorrowNBA =
+    controlledSelection.bestSixDisplayTomorrowNBA || [];
   const topProps = controlledSelection.topProps;
   const topNBAProps = controlledSelection.topNBAProps;
   const topWNBAProps = controlledSelection.topWNBAProps;
@@ -2508,8 +2616,8 @@ async function refreshAllPicks() {
 
   // Stage 1 ? Upsert Tomorrow Best 6 as DRAFT; seal only when full 6 or FINAL_THIN_SLATE.
   const tomorrowDisplayBestSix = [
-    ...(controlledSelection.bestSixDisplayWNBA || []),
-    ...(controlledSelection.bestSixDisplayNBA || []),
+    ...(controlledSelection.bestSixDisplayTomorrowWNBA || []),
+    ...(controlledSelection.bestSixDisplayTomorrowNBA || []),
   ];
   const officialSealResult = sealTomorrowOfficialSlates(
     tomorrowDisplayBestSix,
@@ -2545,7 +2653,7 @@ async function refreshAllPicks() {
     serverBuild: SERVER_BUILD,
   });
 
-  // Home Today Best 6 always stamps calendar today — never overnight Results hold date.
+  // Home Today Best 6 always stamps calendar today ? never overnight Results hold date.
   const todayDisplayBestSix = [
     ...(cohortBundle.bestSixDisplayTodayWNBA || []),
     ...(cohortBundle.bestSixDisplayTodayNBA || []),
@@ -2714,6 +2822,11 @@ async function refreshAllPicks() {
     bestSixDisplayNBA,
     bestSixDisplayTodayWNBA: cohortBundle.bestSixDisplayTodayWNBA || [],
     bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || [],
+    bestSixDisplayTomorrowWNBA,
+    bestSixDisplayTomorrowNBA,
+    lastKnownGoodTomorrowMerged: lkgTomorrow.mergedCount || 0,
+    tomorrowCandidateCount: countDayBucketCandidates(games, "TOMORROW"),
+    todayCandidateCount: countDayBucketCandidates(games, "TODAY"),
     topPropsSource: TOP_PICKS_SOURCE_POOL,
     topWNBAPropsSelectedFromBestSix: true,
     topNBAPropsSelectedFromBestSix: true,
@@ -3097,8 +3210,9 @@ function buildSchedulerHandlers() {
       if (jobId === JOB_IDS.TOMORROW_NIGHT_REFRESH) {
         return (board.games || []).some(
           (g) =>
-            g.dayBucket === "TOMORROW" ||
-            String(g.date || g.gameDate || "").slice(0, 10) === slateDate
+            (g.dayBucket === "TOMORROW" ||
+              String(g.date || g.gameDate || "").slice(0, 10) === slateDate) &&
+            (g.allGeneratedCandidates || g.picks || []).length > 0
         );
       }
       return (board.games || []).some(

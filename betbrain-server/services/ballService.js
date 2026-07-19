@@ -979,6 +979,80 @@ export async function getBallPlayerTeam(playerName, league = "NBA") {
   return normalizeTeamName(player.team);
 }
 
+/**
+ * Resolve WNBA player team for a specific Odds event.
+ * Prefer BDL team when it matches home/away; otherwise uniquely map search
+ * candidates onto the event's two teams (handles punctuation + expansion clubs).
+ */
+export async function resolveWnbaPlayerTeamForGame(playerName, game = {}) {
+  const homeId = resolveWnbaTeamId(
+    game.homeTeam || game.home_team || game.home || game.rawHomeTeam || ""
+  );
+  const awayId = resolveWnbaTeamId(
+    game.awayTeam || game.away_team || game.away || game.rawAwayTeam || ""
+  );
+
+  const direct = await getBallPlayerTeam(playerName, "WNBA");
+  if (direct) {
+    if (!homeId && !awayId) return direct;
+    if (teamsMatch(direct, homeId) || teamsMatch(direct, awayId)) return direct;
+  }
+
+  const player = await findBallPlayer(playerName, "WNBA");
+  if (player?.team) {
+    const tid = resolveWnbaTeamId(player.team) || normalizeTeamName(player.team);
+    if (tid && (teamsMatch(tid, homeId) || teamsMatch(tid, awayId))) return tid;
+  }
+
+  // Name variants: strip punctuation / hyphens for Odds ↔ BDL mismatches.
+  const raw = String(playerName || "").trim();
+  const variants = [
+    raw.replace(/'/g, ""),
+    raw.replace(/-/g, " "),
+    raw.replace(/'/g, "").replace(/-/g, " "),
+  ].filter((v, i, arr) => v && v !== raw && arr.indexOf(v) === i);
+
+  for (const variant of variants) {
+    const tid = await getBallPlayerTeam(variant, "WNBA");
+    if (tid && (teamsMatch(tid, homeId) || teamsMatch(tid, awayId))) return tid;
+    if (tid && !homeId && !awayId) return tid;
+  }
+
+  // Unique last-name candidate on this game's two teams.
+  const { lastName } = splitName(playerName);
+  if (lastName && (homeId || awayId)) {
+    const candidates = await searchBallPlayers(lastName, "WNBA");
+    const onSlate = (candidates || []).filter((p) => {
+      const tid = resolveWnbaTeamId(p.team) || normalizeTeamName(p.team);
+      return teamsMatch(tid, homeId) || teamsMatch(tid, awayId);
+    });
+    const firstClean = clean(splitName(playerName).firstName).slice(0, 3);
+    const narrowed = onSlate.filter((p) => {
+      const pf = clean(p.first_name || "");
+      const pl = clean(p.last_name || "");
+      if (pl !== clean(lastName)) return false;
+      if (!firstClean) return true;
+      return pf.startsWith(firstClean) || firstClean.startsWith(pf.slice(0, 3));
+    });
+    const pool = narrowed.length ? narrowed : onSlate;
+    const uniqueTeams = [
+      ...new Set(
+        pool
+          .map((p) => resolveWnbaTeamId(p.team) || normalizeTeamName(p.team))
+          .filter(Boolean)
+      ),
+    ];
+    if (uniqueTeams.length === 1) return uniqueTeams[0];
+    if (pool.length === 1) {
+      return (
+        resolveWnbaTeamId(pool[0].team) || normalizeTeamName(pool[0].team) || ""
+      );
+    }
+  }
+
+  return direct || "";
+}
+
 export async function fetchBallTeams(league = "NBA") {
   const base = getBallBase(league);
   const url = `${base}/teams`;

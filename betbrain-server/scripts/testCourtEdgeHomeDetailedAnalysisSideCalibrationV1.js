@@ -893,7 +893,7 @@ test("Cache key includes league/player/line/build/schema", () => {
   });
   assert.match(key, /WNBA/);
   assert.match(key, /18\.5/);
-  assert.match(key, /home-detailed-analysis/);
+  assert.match(key, /courteedge-home-(?:detailed-analysis|completion)/);
 });
 
 test("Side calibration version marker present on analysis", () => {

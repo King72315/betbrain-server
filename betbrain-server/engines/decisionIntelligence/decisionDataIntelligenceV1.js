@@ -586,10 +586,14 @@ export function buildFlipFirstCompactLabels(ddi = {}) {
     marketStatus = "NEUTRAL";
   }
   const availabilityStatus = ddi.availabilityImpact?.uncertaintyAdded
-    ? "UNCERTAIN"
+    ? "QUESTIONABLE"
     : ["OUT", "DOUBTFUL"].includes(ddi.availabilityImpact?.playerStatus)
       ? "OUT"
-      : "CONFIRMED";
+      : ["PROBABLE"].includes(String(ddi.availabilityImpact?.playerStatus || "").toUpperCase())
+        ? "PROBABLE"
+        : ddi.availabilityImpact?.injuryRow
+          ? String(ddi.availabilityImpact.playerStatus || "QUESTIONABLE").toUpperCase()
+          : "NO_CURRENT_REPORT";
   const projectionStatus = ddi.projectionQuality?.status || "MIXED";
   const flipCheck = ddi.flipFirstDecision?.action || "KEPT_ORIGINAL";
   const opponentHistory = buildOpponentHistoryCompactLabel(

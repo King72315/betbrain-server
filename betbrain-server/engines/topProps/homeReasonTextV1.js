@@ -18,6 +18,8 @@ export const HOME_REASON_TRANSLATIONS = {
     "Multiple risk factors are stacked against this side.",
   DANGER_GATE_STACK_NO_TRACK:
     "Risk factors are stacked too heavily for a clean read.",
+  NO_DECISIVE_RESCUE:
+    "No stronger opposite-side case was found.",
   READER_UNCERTAIN_TEST:
     "The model lean is uncertain; confidence stays conservative.",
   READER_UNCERTAIN:
@@ -30,10 +32,14 @@ export const HOME_REASON_TRANSLATIONS = {
     "Volatility is high and the Over edge is weak.",
   LOW_VOLUME_OVER_TRAP:
     "Shot volume is too low to trust this Over.",
+  INSUFFICIENT_EDGE_SOFT:
+    "The projection edge is thin; kept as a playable board lean.",
+  GAP_FLOOR_BOARD_SOFT_PICK:
+    "The projection edge is below the usual floor; kept as a playable board lean.",
 };
 
 const RAW_CODE_RE =
-  /\b(UNDER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|OVER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|DANGER_STACK_INSUFFICIENT_EDGE|DANGER_GATE_STACK_(?:BOARD_ONLY|NO_TRACK)|READER_UNCERTAIN(?:_TEST)?|OVER_UNSTABLE_THIN_BOOK|OVER_THIN_GAP_VOLATILE|OVER_VOLATILE_WEAK_EDGE|LOW_VOLUME_OVER_TRAP|BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK)\b/gi;
+  /\b(UNDER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|OVER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|DANGER_STACK_INSUFFICIENT_EDGE|DANGER_GATE_STACK_(?:BOARD_ONLY|NO_TRACK)|NO_DECISIVE_RESCUE|INSUFFICIENT_EDGE_SOFT|GAP_FLOOR_BOARD_SOFT_PICK|READER_UNCERTAIN(?:_TEST)?|OVER_UNSTABLE_THIN_BOOK|OVER_THIN_GAP_VOLATILE|OVER_VOLATILE_WEAK_EDGE|LOW_VOLUME_OVER_TRAP|BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK)\b/gi;
 
 export function translateHomeReasonCode(code = "") {
   const key = String(code || "").trim().toUpperCase();
@@ -66,6 +72,8 @@ export function buildHomeDisplayWhy(pick = {}) {
     di.naturalGateReason ||
     di.gateReason ||
     pick.wnbaTrackingReason ||
+    pick.sideRescueAction ||
+    pick.sideRescue?.action ||
     pick.naturalGateReason ||
     "";
   const translated = translateHomeReasonCode(rawCode);

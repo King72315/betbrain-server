@@ -168,9 +168,25 @@ function getCentralDateKey(dateInput) {
 }
 
 function getTargetCentralDateKey(daysAhead = 0) {
-  const date = new Date();
-  date.setDate(date.getDate() + Number(daysAhead || 0));
-  return getCentralDateKey(date);
+  // Add days in America/Chicago calendar space (not server-local setDate),
+  // using a CT noon anchor to avoid DST midnight skew.
+  const todayCt = getCentralDateKey(new Date());
+  if (!todayCt) return "";
+  const [y, m, d] = todayCt.split("-").map(Number);
+  const noonUtcGuess = new Date(Date.UTC(y, m - 1, d, 17, 0, 0));
+  // Re-sync so the CT calendar day of the anchor matches todayCt, then add days.
+  let anchor = noonUtcGuess;
+  for (let i = 0; i < 3; i += 1) {
+    const got = getCentralDateKey(anchor);
+    if (got === todayCt) break;
+    const deltaDays =
+      got > todayCt ? -1 : got < todayCt ? 1 : 0;
+    anchor = new Date(anchor.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+  }
+  const target = new Date(
+    anchor.getTime() + Number(daysAhead || 0) * 24 * 60 * 60 * 1000
+  );
+  return getCentralDateKey(target);
 }
 
 function getMinutesUntilStart(commenceTime) {

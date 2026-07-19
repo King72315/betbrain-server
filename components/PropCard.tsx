@@ -173,15 +173,18 @@ export default function PropCard({
       sameTeamFlip
         ? "SAME_TEAM_ARBITRATION"
         : rawRescue &&
-          !/FLIPPED_TO_OVER|FLIPPED_TO_UNDER|BOARD_ONLY|NO_BET/i.test(String(rawRescue))
-          ? rawRescue
-          : sameTeamFlip
-            ? "SAME_TEAM_ARBITRATION"
-            : rawRescue === "KEEP_ORIGINAL"
-              ? null
-              : rawRescue && /FLIPPED_TO_/i.test(String(rawRescue))
+          String(rawRescue).toUpperCase() === "NO_DECISIVE_RESCUE"
+          ? "No stronger opposite-side case was found."
+          : rawRescue &&
+            !/FLIPPED_TO_OVER|FLIPPED_TO_UNDER|BOARD_ONLY|NO_BET/i.test(String(rawRescue))
+            ? rawRescue
+            : sameTeamFlip
+              ? "SAME_TEAM_ARBITRATION"
+              : rawRescue === "KEEP_ORIGINAL"
                 ? null
-                : rawRescue;
+                : rawRescue && /FLIPPED_TO_/i.test(String(rawRescue))
+                  ? null
+                  : rawRescue;
     const sideRescueExplanation =
       sameTeamFlip
         ? whyText
@@ -1324,9 +1327,18 @@ function DetailedAnalysisPanel({
         {daVal(dec.finalConfidence)}% · Risk {daVal(dec.finalRisk)}
       </Text>
       <Text style={styles.daLine}>
-        Flip {daVal(dec.flipFirstAction)} · Rescue {daVal(dec.sideRescueAction)} · Same-team{" "}
-        {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
+        Flip {daVal(dec.flipFirstAction)} · Rescue{" "}
+        {String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
+          ? "No stronger opposite-side case was found."
+          : daVal(dec.sideRescueAction)}{" "}
+        · Same-team {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
       </Text>
+      {dec.topPickTransparency ? (
+        <Text style={styles.daNote}>
+          Top Pick: rank {daVal(dec.topPickTransparency.rank)} ·{" "}
+          {daVal(dec.topPickTransparency.reason)}
+        </Text>
+      ) : null}
       {dec.finalReadableExplanation ? (
         <Text style={styles.daNote}>{String(dec.finalReadableExplanation)}</Text>
       ) : null}

@@ -1251,6 +1251,12 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
   const calendarTodayWNBA = displayWNBA.filter(isCalendarTodayDisplay);
   const calendarTodayNBA = displayNBA.filter(isCalendarTodayDisplay);
 
+  const isCalendarTomorrowDisplay = (prop = {}) => {
+    const bucket = String(prop.dayBucket || "").toUpperCase();
+    const label = String(prop.dateLabel || "").toLowerCase();
+    return bucket === "TOMORROW" || label === "tomorrow";
+  };
+
   let bestSixWNBA = scrub(board.bestSixWNBA);
   let bestSixNBA = scrub(board.bestSixNBA);
   let bestSixDisplayTodayWNBA = scrub(
@@ -1259,6 +1265,16 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
   let bestSixDisplayTodayNBA = scrub(
     board.bestSixDisplayTodayNBA || board.bestSixNBA || []
   );
+  let bestSixDisplayTomorrowWNBA = (
+    board.bestSixDisplayTomorrowWNBA ||
+    displayWNBA.filter(isCalendarTomorrowDisplay) ||
+    []
+  ).slice();
+  let bestSixDisplayTomorrowNBA = (
+    board.bestSixDisplayTomorrowNBA ||
+    displayNBA.filter(isCalendarTomorrowDisplay) ||
+    []
+  ).slice();
 
   // If Results cohort was scrubbed (Lab-promoted), Home Today uses calendar display.
   if (!bestSixDisplayTodayWNBA.length && calendarTodayWNBA.length) {
@@ -1272,6 +1288,12 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
   }
   if (!bestSixNBA.length && calendarTodayNBA.length) {
     bestSixNBA = calendarTodayNBA;
+  }
+  if (!bestSixDisplayTomorrowWNBA.length) {
+    bestSixDisplayTomorrowWNBA = displayWNBA.filter(isCalendarTomorrowDisplay);
+  }
+  if (!bestSixDisplayTomorrowNBA.length) {
+    bestSixDisplayTomorrowNBA = displayNBA.filter(isCalendarTomorrowDisplay);
   }
 
   // Top picks: drop Lab/past slate tops; keep calendar-today / tomorrow only.
@@ -1294,6 +1316,8 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     bestSixDisplayNBA: withAnalysis(board.bestSixDisplayNBA || displayNBA),
     bestSixDisplayTodayWNBA: withAnalysis(bestSixDisplayTodayWNBA),
     bestSixDisplayTodayNBA: withAnalysis(bestSixDisplayTodayNBA),
+    bestSixDisplayTomorrowWNBA: withAnalysis(bestSixDisplayTomorrowWNBA),
+    bestSixDisplayTomorrowNBA: withAnalysis(bestSixDisplayTomorrowNBA),
     topProps: withAnalysis(scrubTop(board.topProps)),
     topWNBAProps: withAnalysis(scrubTop(board.topWNBAProps)),
     topNBAProps: withAnalysis(scrubTop(board.topNBAProps)),
