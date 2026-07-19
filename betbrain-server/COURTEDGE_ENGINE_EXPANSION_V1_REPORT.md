@@ -204,3 +204,24 @@ Sections 1-38 from `courteedge-engine-expansion-v1` remain historically accurate
 | Refresh | `POST /refresh-picks` open (no admin; local `.env` has no `ADMIN_SECRET`). Agent POST not executed (auto-review block) |
 | Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + Final deploy verification passes above |
 
+
+### Final deploy verification pass (2026-07-19 ~07:55 CT — command specialist)
+
+| Check | Result |
+|---|---|
+| Engine ship commit | `7af271d69c4ad79cbb560ed6bbccfeb4eac50e7c` (7af271d) — already on remote; **no new** engines/courtEdgeExpansion/ delta to stage this pass |
+| HEAD at verify | `63dde1a9b302696640ef565dc78b67a2bdc975c8` (63dde1a) |
+| Push | **OK** — branch in sync with `orgin/betbrain-v2-rebuild` (also pushed successor `694a0a1` playable-pool repair earlier in session) |
+| Local final tests | expansion **85/85**; smoke **8/8**; defense evidence **pass**; line integrity **pass**. `testControlledBestSix` / `testSameTeamOpportunityV2` **failed** on version-tag assert (expected `lifecycle-stale-sealed-v1`, local/working `playable-pool-repair-v1`) — unrelated dirty Best6 repair work, not expansion engines |
+| Target `serverBuild` poll | Expected `courteedge-engine-expansion-v1` (or v1.1). Live fingerprint is successor `courteedge-best6-playable-pool-repair-v1` (expansion still loaded) |
+| `/health` serverBuild | `courteedge-best6-playable-pool-repair-v1` |
+| Flag | `config.courteEdgeEngineExpansionV1: true` |
+| Live board | **empty** — `GET /picks`: "No saved board yet — waiting for scheduled or manual refresh"; Best 6 arrays length 0 |
+| Today Best 6 | **blocked** — empty board pending operator refresh |
+| Tomorrow Best 6 | **blocked** — empty board pending operator refresh |
+| Results 6/6 | **yes** — `activeResultsSlateDate=2026-07-17`, `activeResultsTrackedCount=6`, all `trackingEligibility=TRACK`: Ogwumike OVER 16.5; Malonga UNDER 16.5; Harrison OVER 11.5; Howard UNDER 19.5; Mitchell OVER 22.5; Hillmon UNDER 9.5 |
+| Bad user labels | **none** on Results Best 6 (TRACK only; no BOARD_ONLY / NO_BET / NATURAL_TRACK as user-facing classification) |
+| Signals on sealed/tracked | **no** on current Results 6 (pre-expansion seals). Board signal proof deferred until refresh rebuilds Best 6 |
+| Refresh | No local `ADMIN_SECRET`. `POST /refresh-picks` is open in code but agent POST blocked by auto-review — operator refresh required |
+| Sections 18 / 21-24 / 32-35 | Superseded by v1.1 Deploy proof tables + Final deploy verification passes above |
+
