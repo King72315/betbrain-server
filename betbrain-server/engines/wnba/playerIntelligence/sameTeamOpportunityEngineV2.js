@@ -44,6 +44,17 @@ function cleanTeam(team = "") {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** Prefer provider canonical team ID so MN–SEA aliases cluster correctly. */
+function resolveTeamClusterKey(pick = {}) {
+  const canonical =
+    pick.providerIdentity?.canonicalTeamId ||
+    pick.canonicalTeamId ||
+    pick.teamCanonicalId ||
+    "";
+  if (canonical) return cleanTeam(canonical);
+  return cleanTeam(pick.team || pick.teamKey);
+}
+
 function cleanPlayer(player = "") {
   return String(player || "")
     .toLowerCase()
@@ -342,7 +353,7 @@ export function underCandidateQualifies(pick = {}) {
 
 function pickKey(pick = {}) {
   return [
-    cleanTeam(pick.team || pick.teamKey),
+    resolveTeamClusterKey(pick),
     cleanPlayer(pick.player),
     gameKey(pick),
     num(pick.line ?? pick.officialLine),
@@ -371,7 +382,7 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
   for (const pick of list) {
     if (String(pick.league || "").toUpperCase() !== "WNBA") continue;
     if (!isMeaningfulScorer(pick)) continue;
-    const team = cleanTeam(pick.team || pick.teamKey);
+    const team = resolveTeamClusterKey(pick);
     if (!team) continue;
     const key = `${team}::${gameKey(pick)}`;
     if (!clusters.has(key)) clusters.set(key, []);
@@ -403,7 +414,7 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
     const secondaries = ranked.slice(1);
     const clusterAudit = {
       clusterKey,
-      team: cleanTeam(primary.pick.team || primary.pick.teamKey),
+      team: resolveTeamClusterKey(primary.pick),
       gameKey: gameKey(primary.pick),
       players: ranked.map((r) => r.pick.player),
       primaryPlayer: primary.pick.player,

@@ -25,6 +25,12 @@ export function normalizeTeamKey(team = "") {
 }
 
 export function getPickTeamKey(pick = {}) {
+  const canonical =
+    pick.providerIdentity?.canonicalTeamId ||
+    pick.canonicalTeamId ||
+    pick.teamCanonicalId ||
+    "";
+  if (canonical) return normalizeTeamKey(canonical);
   if (pick.teamKey) return normalizeTeamKey(pick.teamKey);
   return normalizeTeamKey(pick.team || pick.teamName || "");
 }

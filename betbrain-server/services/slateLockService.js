@@ -169,6 +169,101 @@ export function isSlateLocked(slateDate) {
   return Boolean(entry && entry.phase !== SLATE_PHASE.ARCHIVED);
 }
 
+/**
+ * Audited pregame-only unlock for improper thin Official seals (<6) when no
+ * game has started. Preserves prior snapshot under auditSnapshot and removes
+ * the lock registry entry so a full Best 6 can reseal. Never use after tip-off.
+ */
+export function clearSlateLockForPregameRepair(slateDate, options = {}) {
+  const date = String(slateDate || "").trim();
+  if (!date) {
+    return { ok: false, message: "Missing slateDate" };
+  }
+
+  const snapshot = getLockedSnapshot(date);
+  if (!snapshot) {
+    return { ok: false, message: `No locked snapshot for ${date}` };
+  }
+
+  const props = Array.isArray(snapshot.props) ? snapshot.props : [];
+  const anyStarted = props.some(
+    (p) =>
+      p?.isStarted === true ||
+      String(p?.gameStatus || "").toUpperCase().includes("LIVE") ||
+      String(p?.gameStatus || "").toUpperCase().includes("FINAL")
+  );
+  if (anyStarted && options.force !== true) {
+    return {
+      ok: false,
+      message: "Games started — pregame repair unlock blocked",
+      blockedByStartedGames: true,
+    };
+  }
+
+  const propCount = Number(snapshot.propCount || props.length || 0);
+  if (propCount >= 6 && options.allowFull !== true) {
+    return {
+      ok: false,
+      message: "Slate already has full Best 6 — unlock blocked",
+      propCount,
+    };
+  }
+
+  ensureDirs();
+  const auditDir = path.join(SERVER_ROOT, "backups");
+  if (!fs.existsSync(auditDir)) fs.mkdirSync(auditDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const auditPath = path.join(
+    auditDir,
+    `${stamp}-pregame-thin-seal-repair-${date}.json`
+  );
+  writeJSON(auditPath, {
+    type: "IMPROPER_THIN_SEAL_PREGAME_REPAIR_AUDIT",
+    slateDate: date,
+    clearedAt: new Date().toISOString(),
+    reason: options.reason || "IMPROPER_THIN_SEAL_PREGAME_REPAIR",
+    serverBuild: options.serverBuild || null,
+    priorPropCount: propCount,
+    priorOfficialPropIds:
+      snapshot.officialSeal?.officialPropIds ||
+      props.map((p) => p.officialPropId).filter(Boolean),
+    priorProps: props,
+    priorOfficialSeal: snapshot.officialSeal || null,
+  });
+
+  // Keep a renamed snapshot copy; remove active lock file so reseal can proceed.
+  const activePath = snapshotPath(date);
+  const retainedPath = path.join(
+    path.dirname(activePath),
+    `${date}.pre-repair-${stamp}.json`
+  );
+  try {
+    if (fs.existsSync(activePath)) {
+      fs.copyFileSync(activePath, retainedPath);
+      fs.unlinkSync(activePath);
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      message: `Failed to clear snapshot: ${err.message}`,
+    };
+  }
+
+  const registry = getRegistry();
+  registry.slates = (registry.slates || []).filter((s) => s.slateDate !== date);
+  saveRegistry(registry);
+
+  return {
+    ok: true,
+    slateDate: date,
+    cleared: true,
+    priorPropCount: propCount,
+    auditPath,
+    retainedSnapshotPath: retainedPath,
+    reason: options.reason || "IMPROPER_THIN_SEAL_PREGAME_REPAIR",
+  };
+}
+
 export function getSlateLockEntry(slateDate) {
   const date = String(slateDate || "");
   if (!date) return null;

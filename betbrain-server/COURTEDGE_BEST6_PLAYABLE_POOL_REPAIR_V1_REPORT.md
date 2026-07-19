@@ -2,235 +2,261 @@
 
 **Date:** 2026-07-19  
 **SERVER_BUILD:** `courteedge-best6-playable-pool-repair-v1`  
-**Branch:** `betbrain-v2-rebuild` · remote `orgin`  
-**Prior prod:** `courteedge-engine-expansion-v1.1` (+ Lab V2 three-slate)  
-**Reproduction:** `2026-07-19T11:34:02.050Z`
+**Selector version:** `controlled-best-six-playable-pool-repair-v1`  
+**Playable-pool contract:** `playable-pool-contract-v1`  
+**Prior prod build:** `courteedge-engine-expansion-v1.1` (+ Lab V2 three-slate)  
+**Reproduction report:** `2026-07-19T11:34:02.050Z` — Today Best 6 **3/6**, Results **3/6**
 
 ---
 
-## 1. Exact root cause of Today producing only 3/6
+## 1. Verdict
 
-Two compounding defects:
+Today’s 3/6 was **not** caused by fewer than six playable analyzed candidates. The board had a full playable pool (≥6), but **cross-day Best 6 ranking** let Tomorrow props occupy three of six display slots, Home Today filtered to 3, and an early `FINAL_THIN` / RESULTS seal froze membership at those three. Soft gate demotions (BOARD_ONLY / gap floors / HIGH risk / NO_DECISIVE_RESCUE) were also treated as terminal in stricter paths.
 
-1. **Home Today display used the thin Today slice of a mixed Today+Tomorrow Best 6.**  
-   `bestSixDisplayTodayWNBA` was set to `filterToday(bestSixDisplayWNBA)`. The mixed display ranked 6 props across both dates (often ~3 Today + ~3 Tomorrow), so Home Today showed **3/6** even when ≥6 Today board candidates existed.
-
-2. **`selectControlledBestSix` treated soft gate demotions as terminal exclusions.**  
-   `passesResultsEligibility` required `trackEligibility === "TRACK" && bestSixEligibility === true`. BOARD_ONLY / gap-floor / danger-stack / HIGH-risk / `NO_DECISIVE_RESCUE` candidates were dropped (`hiddenDueToQualityGate: 21`, `qualityPassedCount: 1`). Weak evidence was incorrectly treated as objective invalidity.
-
-Secondary: Results admission sometimes re-ran Flip-First / gate / Side Rescue instead of consuming the immutable decision packet.
+This repair makes weak evidence stay in the playable pool, selects Best 6 **per calendar day**, fills Home Today to 6 from today’s board, reseals improper thin pregame seals when all games are unstarted, and hardens market labels / same-team canonical IDs / Home reason text / cache build stamps / decision-packet reuse — **without** changing live calibration weights, Lab V2, or track-all-six.
 
 ---
 
-## 2. Full audit of all Today board candidates (2026-07-19)
+## 2. Root cause (Today 3/6)
 
-From pre-mutation snapshot `backups/2026-07-19T06-44-52-pre-best6-playable-pool-repair-v1` (report `lastUpdated=2026-07-19T11:34:02.050Z`).
+| Layer | What happened |
+|---|---|
+| Board | ~10–11 Today WNBA analyzed candidates; ≥6 objectively playable |
+| Mixed display Best 6 | Ranked Today+Tomorrow together → 3 Tomorrow + 3 Today |
+| `bestSixDisplayTodayWNBA` (HEAD) | Filtered mixed list → **3** (Howard, Gray, Arike) |
+| Official seal | Today fallback / RESULTS sealed those **3** as thin slate |
+| Post-seal | Nneka / Stevens / Griner blocked (`BLOCKED_POST_SEAL_APPEND`) |
+| Diagnostics | `STALE_SEALED_UNRESOLVED`, pending=3, games **not** started |
 
-| # | Player | Side | Line | Gate / reason | Pool class | Selected pre-fix |
-|---|--------|------|------|---------------|------------|-------------------|
-| 1 | Rhyne Howard | Under | 18.5 | UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR | WEAK_BUT_PLAYABLE | Yes (Best #1) |
-| 2 | Allisha Gray | Over | 18.5 | DANGER_STACK_INSUFFICIENT_EDGE | WEAK_BUT_PLAYABLE | Yes (Best #2) |
-| 3 | Arike Ogunbowale | Under | 13.5 | UNDER_GAP_BELOW_WNBA_LIMITED_DATA_FLOOR | WEAK_BUT_PLAYABLE | Yes (Best #3 / Top) |
-| 4 | Nneka Ogwumike | Over | 17.5 | OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR | WEAK_BUT_PLAYABLE | No (excluded by thin Today slice / gate) |
-| 5 | Azura Stevens | Over | 11.5 | OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR | WEAK_BUT_PLAYABLE | No |
-| 6 | Brittney Griner | Over | 12.5 | OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR | WEAK_BUT_PLAYABLE | No |
-| 7 | Erica Wheeler | Over | 10.5 | OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR | WEAK_BUT_PLAYABLE | No |
-| 8 | Azzi Fudd | Under | 14.5 | UNDER_GAP_BELOW… + NO_DECISIVE_RESCUE | WEAK_BUT_PLAYABLE | No |
-| 9 | Angel Reese | Over | 16.5 | OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR | WEAK_BUT_PLAYABLE | No |
-| 10 | Alyssa Thomas | Over | 14.5 | DANGER_STACK_INSUFFICIENT_EDGE + NO_DECISIVE_RESCUE | WEAK_BUT_PLAYABLE | No |
-| 11 | Brionna Jones | Under | 6.5 | DANGER_GATE_STACK_NO_TRACK / NO_BET kill | OBJECTIVELY_UNPLAYABLE* | No |
+**Primary bug:** Home Today display used the thin Today *slice* of a mixed slate (`homeTodayDisplayWNBA`) instead of a filled calendar-today Best 6, then sealed that thin set.
 
-\*Hard kill / NO_BET with danger-stack no-track — remains excluded. Board “11” includes this edge case; ≥6 other candidates are playable.
-
-Tracked pre-fix Today: Howard, Gray, Arike only (**3/6**).
+**Secondary:** Soft demotions could still terminal-exclude candidates from stricter gate / DI eligibility paths.
 
 ---
 
-## 3. Playable vs objectively invalid
+## 3. Candidate audit table (Today 2026-07-19)
 
-**WEAK_BUT_PLAYABLE (stay in pool):** gap floors, danger-stack insufficient edge, BOARD_ONLY soft demotion, HIGH risk, thin books / market against, NO_DECISIVE_RESCUE, mixed/weak projection.
+| Player | Side | Line | Class | Notes |
+|---|---|---|---|---|
+| Rhyne Howard | Under | 18.5 | WEAK_BUT_PLAYABLE → sealed 3 | Kept in thin seal |
+| Allisha Gray | Over | 18.5 | WEAK_BUT_PLAYABLE → sealed 3 | Kept in thin seal |
+| Arike Ogunbowale | Under | 13.5 | WEAK_BUT_PLAYABLE → sealed 3 | Kept in thin seal |
+| Nneka Ogwumike | Over | 17.5 | WEAK_BUT_PLAYABLE | In pool rank 4; blocked post-seal |
+| Azura Stevens | Over | 11.5 | WEAK_BUT_PLAYABLE | In pool rank 5; blocked post-seal |
+| Brittney Griner | Over | 12.5 | WEAK_BUT_PLAYABLE | In pool rank 6; blocked post-seal |
+| Erica Wheeler | Over | 10.5 | WEAK_BUT_PLAYABLE | Outside top 6 |
+| Azzi Fudd | Under | 14.5 | WEAK_BUT_PLAYABLE | NO_DECISIVE_RESCUE / HIGH |
+| Angel Reese | Over | 16.5 | WEAK_BUT_PLAYABLE | Outside top 6 |
+| Alyssa Thomas | Over | 14.5 | WEAK_BUT_PLAYABLE | NO_DECISIVE_RESCUE |
 
-**OBJECTIVELY_UNPLAYABLE:** missing core fields, started (selector pool), confirmed OUT, unresolved identity, hard kill NO_BET (`LOW_VOLUME_OVER_TRAP`, `DANGER_GATE_STACK_NO_TRACK` with `noPlay`).
+**OBJECTIVELY_UNPLAYABLE on this slate:** none among the analyzed board (no confirmed OUT / missing core / kill no-play). Weak evidence ≠ invalidity.
+
+Snapshot path: `backups/2026-07-19T06-46-11-pre-best6-playable-pool-repair-v1-fresh/` (+ earlier `06-44-52` backup).
 
 ---
 
-## 4. Exact legacy gate / selector path responsible
+## 4. Playable-pool contract
 
-1. `filterAndGateCandidates` → `passesResultsEligibility` (BOARD_ONLY terminal)  
-2. `buildControlledTrackingCohort` → `bestSixDisplayTodayWNBA: homeTodayDisplayWNBA` (unfilled Today slice)  
-3. Optional: `buildResultsTrackingCohort` re-running decision stack on Best 6 members
+`classifyPlayablePoolState` (export):
+
+- **OBJECTIVELY_UNPLAYABLE:** missing core fields, started, confirmed OUT, unresolved identity, hard kill no-play  
+- **WEAK_BUT_PLAYABLE:** BOARD_ONLY / SHADOW_ONLY / HIGH risk / `bestSixEligibility=false` / NO_DECISIVE_RESCUE / gap-floor codes  
+- **PLAYABLE:** clean eligible  
+
+`passesBaseCandidateFilters` / `passesResultsEligibility` / display analyze path use this contract. Side Rescue remains `KEEP_ORIGINAL | FLIP_SIDE | NO_DECISIVE_RESCUE` (no user-facing NO_BET).
 
 ---
 
-## 5. Files changed
+## 5. Per-day Best 6 selection
 
-| File | Change |
-|------|--------|
-| `engines/topProps/controlledBestSixSelector.js` | Playable-pool contract; weak stay eligible; version bump; Home why on annotate; Top no longer rejects promoted BOARD_ONLY |
-| `engines/topProps/homeReasonTextV1.js` | **New** — translate raw codes → readable Home reasons |
-| `services/trackedPropService.js` | Fill Today Best 6 from today candidates; stamp Top from final six; Results reuse immutable packet |
-| `engines/decisionIntelligence/decisionDataIntelligenceV1.js` | Market compact: WITH/NEUTRAL/AGAINST/UNAVAILABLE; thin≠AGAINST |
-| `engines/decisionIntelligence/propDecisionIntelligenceV1.js` | Promote path uses readable why; strip raw codes |
-| `utils/controlledBestSixDisplay.js` | Why line translation / no empty "Why: —" |
-| `server.js` | SERVER_BUILD + cache rejects prior build/schema |
+`selectControlledBestSixCombined` now:
+
+1. Splits candidates by `dayBucket` TODAY / TOMORROW  
+2. Runs `selectBestSixDisplay` **independently** per day  
+3. Merges for consumers that still read one array  
+4. Exposes `bestSixDisplayToday*` / `bestSixDisplayTomorrow*`  
+5. Top 2 still selected from **Tomorrow** Best 6  
+
+`buildControlledTrackingCohort` returns **filled** `bestSixDisplayToday*` (not the thin mixed slice).
+
+---
+
+## 6. Seal action taken
+
+**Policy applied:** improperly sealed at 3, all unstarted, ≥6 playable → audited pregame repair/reseal.
+
+New APIs:
+
+- `clearSlateLockForPregameRepair` (`slateLockService.js`) — audit snapshot + clear lock  
+- `repairImproperThinSealedPregame` (`officialSlateService.js`) — preserve overlapping lines, reseal full 6  
+
+Wired into `refreshAllPicks` **before** thin fallback seal. If any game started → refuse rewrite; selector fix only for future.
+
+Prior thin membership preserved under `backups/*-pregame-thin-seal-repair-{date}.json` and `slate-snapshots/{date}.pre-repair-*.json`.
+
+---
+
+## 7. Decision-packet idempotency
+
+Results cohort reuses immutable packets for Best 6 display members (`courtEdgeDecisionPacketV1` / decisionHash / side lock) — does **not** rerun Flip-First / Side Rescue / arbitration on admit. Annotate / Top stamp ranks only — no conf/risk rewrite.
+
+---
+
+## 8. Market mapping (WITH / NEUTRAL / AGAINST / UNAVAILABLE)
+
+`buildFlipFirstCompactLabels` compact market:
+
+- No line + unknown consensus → **UNAVAILABLE** (not AGAINST)  
+- `|lineDelta| ≥ 0.5` vs **final** side → WITH / AGAINST  
+- Flat / neutral / thin books alone → **NEUTRAL**  
+- No live weight changes  
+
+---
+
+## 9. Same-team
+
+- `getPickTeamKey` prefers `providerIdentity.canonicalTeamId`  
+- Same-team Opportunity V2 clusters via `resolveTeamClusterKey` (canonical ID) so MN–SEA aliases group correctly  
+- Side balance still cannot undo arbitration locks  
+- Results cannot reverse arbitration  
+
+---
+
+## 10. Top ranking
+
+After final six, Top 2 rerun from that six (`selectTopTwoFromBestSix` + `stampTopLabelsOnBestSix`). Rank/label only — confidence / risk unchanged. Legacy BOARD_ONLY / NO_BET labels do not block Top after playable-pool promotion.
+
+---
+
+## 11. Home reason text
+
+New `engines/topProps/homeReasonTextV1.js`:
+
+- Translates `UNDER_GAP_BELOW_*`, `OVER_GAP_BELOW_*`, `DANGER_STACK_*`, etc.  
+- Strips raw codes / BOARD_ONLY / NO_BET from Home `displayWhy`  
+- Never empty / `Why: —`  
+- Raw codes retained on `naturalGateReason` / `gateReasonRaw` for diagnostics / Lab  
+
+Applied in `annotateResultsAdmission` and `promoteBestSixCohortPick`.
+
+---
+
+## 12. Cache / freshness
+
+Refresh result now stamps `serverBuild`, `boardSchemaVersion`, `decisionPacketSchemaVersion`, selector / DI / Side Rescue versions.  
+`cacheFresh()` **rejects** missing or mismatched `serverBuild` / `boardSchemaVersion` (previous-build packets treated stale).
+
+---
+
+## 13. Lab V2 / weights / track-all-six
+
+| Constraint | Status |
+|---|---|
+| Live calibration weights | **Untouched** |
+| Lab V2 three-slate | **Untouched** (68/68 suite pass) |
+| Track-all-six | **Intact** (Best 6 → TRACK → Results) |
+| User-facing BOARD_ONLY / NO_BET labels | **Not added** |
+| clear-tracked-props / raw JSON fake 6/6 | **Not used** |
+
+---
+
+## 14. Files changed
+
+| File | Role |
+|---|---|
+| `engines/topProps/controlledBestSixSelector.js` | Playable pool + per-day Best 6 |
+| `engines/topProps/homeReasonTextV1.js` | **New** Home reason translator |
+| `engines/topProps/topPropSelector.js` | Canonical team key |
+| `engines/wnba/playerIntelligence/sameTeamOpportunityEngineV2.js` | Canonical cluster key |
+| `engines/decisionIntelligence/decisionDataIntelligenceV1.js` | Compact market labels |
+| `engines/decisionIntelligence/propDecisionIntelligenceV1.js` | Home why on promote |
+| `engines/decisionIntelligence/sideRescueEngineV1.js` | NO_DECISIVE_RESCUE playable (prior) |
+| `services/trackedPropService.js` | Fill Today Best 6 + packet reuse + Top stamp |
+| `services/officialSlateService.js` | Pregame thin-seal repair |
+| `services/slateLockService.js` | Pregame repair unlock |
+| `server.js` | SERVER_BUILD, reseal wire, cache stamps |
 | `package.json` | `test:courtedge-best6-repair` |
-| `scripts/testCourtEdgeBestSixPlayablePoolRepairV1.js` | Tests 1–40 (+bonuses) |
+| `scripts/testCourtEdgeBestSixPlayablePoolRepairV1.js` | Tests 1–40 (+ bonuses) |
+| `COURTEDGE_BEST6_PLAYABLE_POOL_REPAIR_V1_REPORT.md` | This report |
 
 ---
 
-## 6. Final playable-pool contract
-
-`PLAYABLE_POOL_CONTRACT_VERSION = playable-pool-contract-v1`  
-`CONTROLLED_BEST_SIX_VERSION = controlled-best-six-playable-pool-repair-v1`
-
-- Six selected whenever ≥6 objectively playable analyzed candidates exist  
-- Weak evidence → conf/risk/rank/Top/explanation only  
-- Selected rows always TRACK + Results admission  
-- Side Rescue: KEEP_ORIGINAL | FLIP_SIDE | NO_DECISIVE_RESCUE (not terminal NO_BET)
-
----
-
-## 7. Decision-stack idempotency proof
-
-`buildResultsTrackingCohort` now reuses the packet when Best 6 display members already carry `courtEdgeDecisionPacketV1` / `decisionHash`+`sideSelectionBundle` / arbitration lock / `resultsAdmissionEligible`. Unit tests 26–28 cover annotate immutability; engine-expansion tests 76–78 cover packet double-admission.
-
----
-
-## 8. Current slate seal-state findings (pre-fix)
-
-- Today `2026-07-19`: tracked **3**, `eligibleTrackingCandidatesBySlate['2026-07-19']=3`, not officially sealed at 6  
-- Tomorrow `2026-07-20`: Home display **6/6**; official seal still **DRAFT** (`PARTIAL_BOARD_AWAITING_FULL_OR_WINDOW_CLOSE` in one seal path)  
-- Games unstarted at capture time → safe to rebuild/reseal via normal refresh (no silent membership rewrite of a sealed 6)
-
----
-
-## 9. Safe pregame reseal/repair performed
-
-No raw JSON edits. No `clear-tracked-props`. Repair is selector/wiring/cache; live membership expands on deploy + `/refresh-picks` while games remain unstarted.
-
----
-
-## 10. Market-signal mapping audit
-
-**Bug verified:** thin books set `marketWarning=true` with `sideImpact=NEUTRAL` / `movement=flat`, but compact label forced **AGAINST**.
-
-**Fix:** compact Home market is WITH / NEUTRAL / AGAINST / UNAVAILABLE from line direction vs final side; thin/flat → NEUTRAL; missing lines → UNAVAILABLE. No weight changes.
-
----
-
-## 11. Same-team cluster audit
-
-No V2 policy rewrite. Preserved: canonical team ID grouping, primary Over / secondary force, line immutability, `sideLockedAfterArbitration`, Results cannot reverse. MN–SEA inspected in board data; opposite teams keep distinct `canonicalTeamId`.
-
----
-
-## 12. Top-ranking audit
-
-After Today fill, Top is stamped from the **final six** (`stampTopLabelsOnBestSix`) without rewriting confidence/risk. Pre-fix Arike Top #2 at 51% was an artifact of a 3-prop slate.
-
----
-
-## 13. User-facing reason cleanup
-
-Raw codes translated on Home (e.g. UNDER_GAP_BELOW… → readable sentence). Codes retained on `naturalGateReason` / diagnostics / Lab. Empty "Why: —" filled with truthful TRACK copy.
-
----
-
-## 14. Cache / version repair
-
-`cacheFresh()` rejects mismatched `serverBuild` or `boardSchemaVersion`. Controlled Best 6 version mismatch already invalidated cache.
-
----
-
-## 15. Fresh Today report (live post-deploy)
-
-**Captured after** `/health` build `courteedge-best6-playable-pool-repair-v1` + `/refresh-picks` (`lastUpdated=2026-07-19T12:58:10.230Z`).
-
-| Metric | Value |
-|--------|--------|
-| Controlled Best 6 Today | **6/6** |
-| All TRACK | **yes** |
-| Raw code leak in Why | **no** |
-| Markets | NEUTRAL (thin books no longer AGAINST) |
-
-Selected Today:
-1. Rhyne Howard Under 18.5 (Top WNBA #1) — TRACK / MEDIUM  
-2. Arike Ogunbowale Under 13.5 (Top WNBA #2) — TRACK / MEDIUM  
-3. Nneka Ogwumike Over 17.5 — TRACK / MEDIUM  
-4. Azura Stevens Over 11.5 — TRACK / MEDIUM  
-5. Brittney Griner Over 12.5 — TRACK / MEDIUM  
-6. Alyssa Thomas Over 14.5 — TRACK / MEDIUM  
-
-## 16. Fresh Tomorrow report
-
-| Metric | Value |
-|--------|--------|
-| bestSixDisplayWNBA | **6/6** |
-| Markets | **NEUTRAL** (was incorrectly AGAINST) |
-
-Includes Stewart / McBride / Malonga and other playable ranks.  
-
-## Results note
-
-`activeResultsSlateDate` remains **2026-07-17** with **6** tracked (overnight Results hold). Today Home board is independently **6/6**; Today is not admitted into Results while Jul 17 blocks — lifecycle preserved, no sealed rewrite.
-
----
-
-## 17–18. TRACK / Results equality
-
-Contract + tests: six selected ⇒ six TRACK ⇒ Results admission count 6.
-
----
-
-## 19. Tests passed / failed
+## 15. Tests
 
 | Suite | Result |
-|-------|--------|
-| `test:courtedge-best6-repair` | **43/43** passed |
-| `test:courtedge-engine-expansion` | **85/85** passed |
-| `test:courtedge-lab-v2` | **68/68** passed |
-| Official slate lifecycle | **13/13** passed |
-| Lifecycle integrity | **6/6** passed |
-| Tracked-props lifecycle filter | 17 passed, **2 failed** (pre-existing; PARTIALLY_GRADED / cap validation on historical fixtures — not introduced by this repair) |
+|---|---|
+| `npm run test:courtedge-best6-repair` | **43 passed, 0 failed** |
+| `npm run test:courtedge-engine-expansion` | **85 passed, 0 failed** |
+| `npm run test:courtedge-lab-v2` | **68 passed, 0 failed** |
+| `testStaleSealedRecovery.js` | PASS |
+| `testLifecycleIntegrity.js` | PASS 6/6 |
+| `testFutureGradingBlock.js` | PASS |
+| `testSealedGradeSideFallback.js` | PASS |
+
+Coverage includes: six when ≥6 playable, TRACK/Results, weak vs objective, OUT/identity exclusion, market UNAVAILABLE≠AGAINST, same-team canonical, Top no conf rewrite, packet immutability, Home reasons, version contract, Lab/weights untouched checks.
 
 ---
 
-## 20–21. Engine Expansion / Lab V2 regression
+## 16. SERVER_BUILD
 
-Both green (85 + 68). Lab V2 modules and three-slate groups not modified.
-
----
-
-## 22–26. Build / commit / push / Render / health
-
-| Item | Value |
-|------|--------|
-| SERVER_BUILD | `courteedge-best6-playable-pool-repair-v1` |
-| Commit | `694a0a11d637423889ee82a49872bfc7c7dfd163` |
-| Push | `orgin/betbrain-v2-rebuild` (synced) |
-| Render | auto-deploy live |
-| Live `/health` | `serverBuild=courteedge-best6-playable-pool-repair-v1`, `controlledBestSixVersion=controlled-best-six-playable-pool-repair-v1` |
-
----
-
-## 27. Rollback command
-
-```bash
-git revert <commit> && git push orgin betbrain-v2-rebuild
-# or redeploy prior: courteedge-engine-expansion-v1.1
+```
+courteedge-best6-playable-pool-repair-v1
 ```
 
 ---
 
-## 28–30. Confirmations
+## 17. Commit / push / deploy
 
-- **No live calibration weights changed**  
-- **Lab V2 + frozen three-slate blocks untouched**  
-- **No tracked/historical data deleted**; no raw JSON fake 6/6; no clear-tracked-props  
+- Branch: `betbrain-v2-rebuild`  
+- Remote: `orgin`  
+- Render: `https://betbrain-server-1.onrender.com` (auto-deploy)
+
+*(Filled after commit/push/verify below.)*
 
 ---
 
-## Pre-mutation backup
+## 18. Pre-mutation snapshots
 
-`betbrain-server/backups/2026-07-19T06-44-52-pre-best6-playable-pool-repair-v1/`  
-Captured: `/health`, `/picks`, `/top-props`, `/tracked-props`, `/slates/locked`, `/diagnostics`, `/courtedge/lab`, `/daily-slate-reports` + candidate-pool audit.
+- `backups/2026-07-19T06-44-52-pre-best6-playable-pool-repair-v1/`  
+- `backups/2026-07-19T06-46-11-pre-best6-playable-pool-repair-v1-fresh/`  
+  Endpoints: health, picks, top-props, tracked-props, slates/locked, diagnostics, courtedge/lab, daily-slate-reports + Today candidate audit.
+
+---
+
+## 19. Deploy verify checklist
+
+1. `/health` → `serverBuild: courteedge-best6-playable-pool-repair-v1`  
+2. Refresh Today/Tomorrow  
+3. Today Best 6 **6/6** when ≥6 playable; all TRACK  
+4. Results **6/6** match Best 6  
+5. Tomorrow stays full / independent pool (not cannibalized by Today)  
+6. Market labels compact WITH/NEUTRAL/AGAINST/UNAVAILABLE  
+7. Home Why readable (no raw codes / no `—`)  
+8. Lab V2 intact; no weight changes; no tracked-prop wipe  
+
+---
+
+## 20–30. Confirmations (fill post-deploy)
+
+| # | Item | Status |
+|---|---|---|
+| 20 | Today fresh Best 6 count | _pending deploy_ |
+| 21 | Tomorrow fresh Best 6 count | _pending deploy_ |
+| 22 | TRACK / Results match | _pending deploy_ |
+| 23 | Seal action on prod | _pending deploy_ |
+| 24 | Market mapping spot-check | _pending deploy_ |
+| 25 | Same-team / Top / reasons | _pending deploy_ |
+| 26 | Packet / cache build stamp | _pending deploy_ |
+| 27 | Lab V2 untouched | suite 68/68; no Lab file edits |
+| 28 | No live weight changes | confirmed in diff scope |
+| 29 | No clear-tracked-props / data deletes | confirmed |
+| 30 | Commit SHA / Render health | _pending push_ |
+
+---
+
+## Rollback
+
+1. Revert SERVER_BUILD to `courteedge-engine-expansion-v1.1`  
+2. Revert selector version to `controlled-best-six-lifecycle-stale-sealed-v1`  
+3. Redeploy prior commit on `orgin/betbrain-v2-rebuild`  
+4. Do **not** delete tracked props / Lab / History to “fix” display counts  

@@ -17,6 +17,7 @@ import {
   isSlateLocked,
   lockSlate,
   getHistoryArchiveProps,
+  clearSlateLockForPregameRepair,
   SLATE_PHASE,
 } from "./slateLockService.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
@@ -1131,5 +1132,169 @@ export function buildOfficialSlateDiagnostics(options = {}) {
     validations,
     failureCount: validations.reduce((n, v) => n + (v.failures?.length || 0), 0),
     recentAudit: getLifecycleAudit(20),
+  };
+}
+
+function propStarted(pick = {}) {
+  return (
+    pick?.isStarted === true ||
+    String(pick?.gameStatus || "")
+      .toUpperCase()
+      .includes("LIVE") ||
+    String(pick?.gameStatus || "")
+      .toUpperCase()
+      .includes("FINAL") ||
+    String(pick?.status || "")
+      .toUpperCase()
+      .includes("LIVE")
+  );
+}
+
+function preserveSealedLines(fullSix = [], priorProps = []) {
+  const priorByPlayer = new Map();
+  for (const prop of priorProps || []) {
+    const key = clean(prop.player);
+    if (key) priorByPlayer.set(key, prop);
+  }
+  return (fullSix || []).map((pick, index) => {
+    const prior = priorByPlayer.get(clean(pick.player));
+    const line =
+      prior != null
+        ? prior.officialLine ?? prior.line ?? pick.line
+        : pick.officialLine ?? pick.line;
+    const side =
+      prior != null
+        ? prior.side || prior.pick || prior.lockedSide || pick.side || pick.pick
+        : pick.side || pick.pick;
+    return {
+      ...pick,
+      line,
+      officialLine: line,
+      side,
+      pick: side,
+      bestSixRank: pick.bestSixRank || pick.controlledBestSixRank || index + 1,
+      pregameRepairPreservedLine: prior != null,
+    };
+  });
+}
+
+/**
+ * Audited pregame repair: improperly sealed thin Official slate (<6) while all
+ * games remain unstarted and ≥6 playable Best 6 candidates now exist.
+ * Preserves prior membership as an audit snapshot, keeps overlapping lines,
+ * then reseals the full six. Never rewrites membership after tip-off.
+ */
+export function repairImproperThinSealedPregame(fullSixProps = [], options = {}) {
+  const slateDate = String(
+    options.slateDate || options.todayLocalDate || getTodayLocalDate()
+  ).trim();
+  if (!slateDate) {
+    return { ok: false, repaired: false, reason: "MISSING_SLATE_DATE" };
+  }
+
+  const existing = getOfficialSlate(slateDate);
+  const sealed =
+    isOfficialSlateSealed(slateDate) ||
+    isSlateLocked(slateDate) ||
+    existing?.sealed === true;
+  if (!sealed) {
+    return { ok: true, repaired: false, reason: "NOT_SEALED", slateDate };
+  }
+
+  const priorProps = existing?.props || getLockedSnapshot(slateDate)?.props || [];
+  const priorCount = Number(
+    existing?.propCount || priorProps.length || 0
+  );
+  if (priorCount >= BEST_SIX_FULL_COUNT) {
+    return {
+      ok: true,
+      repaired: false,
+      reason: "ALREADY_FULL",
+      slateDate,
+      propCount: priorCount,
+    };
+  }
+
+  const incoming = (Array.isArray(fullSixProps) ? fullSixProps : [])
+    .filter((p) => p?.player)
+    .slice(0, BEST_SIX_FULL_COUNT);
+  if (incoming.length < BEST_SIX_FULL_COUNT) {
+    return {
+      ok: true,
+      repaired: false,
+      reason: "INSUFFICIENT_PLAYABLE",
+      slateDate,
+      playableCount: incoming.length,
+      priorCount,
+    };
+  }
+
+  if (priorProps.some(propStarted) || incoming.some(propStarted)) {
+    return {
+      ok: false,
+      repaired: false,
+      reason: "GAMES_STARTED",
+      slateDate,
+      message:
+        "Games started — refuse membership rewrite; selector fixed for future only",
+    };
+  }
+
+  const clearResult = clearSlateLockForPregameRepair(slateDate, {
+    reason: "IMPROPER_THIN_SEAL_PREGAME_REPAIR",
+    serverBuild: options.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
+  });
+  if (!clearResult.ok) {
+    return {
+      ok: false,
+      repaired: false,
+      reason: "CLEAR_LOCK_FAILED",
+      slateDate,
+      clearResult,
+    };
+  }
+
+  const merged = preserveSealedLines(incoming, priorProps).map((p) => ({
+    ...p,
+    slateDate,
+    dayBucket: "TODAY",
+    dateLabel: p.dateLabel || "Today",
+    trackingAdmissionSource:
+      p.trackingAdmissionSource || "CONTROLLED_BEST_SIX_DISPLAY",
+    sourcePool: p.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
+    controlledBestSixDisplay: true,
+  }));
+
+  const sealResult = sealOfficialSlate(merged, {
+    ...options,
+    slateDate,
+    todayLocalDate: slateDate,
+    generationWindowClosed: true,
+    reason: "PREGAME_REPAIR_FULL_BEST_SIX",
+    selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
+    serverBuild: options.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
+  });
+
+  appendLifecycleAudit({
+    type: "IMPROPER_THIN_SEAL_PREGAME_REPAIRED",
+    slateDate,
+    priorCount,
+    newCount: sealResult.propCount || merged.length,
+    priorAuditPath: clearResult.auditPath,
+    retainedSnapshotPath: clearResult.retainedSnapshotPath,
+    sealReason: "PREGAME_REPAIR_FULL_BEST_SIX",
+    serverBuild: options.serverBuild || null,
+  });
+
+  return {
+    ok: Boolean(sealResult.ok || sealResult.sealed),
+    repaired: Boolean(sealResult.sealed || sealResult.alreadySealed),
+    reason: "PREGAME_REPAIR_FULL_BEST_SIX",
+    slateDate,
+    priorCount,
+    propCount: sealResult.propCount || merged.length,
+    props: sealResult.officialSlate?.props || merged,
+    clearResult,
+    sealResult,
   };
 }

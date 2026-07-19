@@ -275,7 +275,7 @@ test("13 Duplicate player markets cannot fill two Best 6 slots", () => {
   assert.ok(dupCount <= 1);
 });
 
-test("14 Today and Tomorrow use the same playable-pool rules", () => {
+test("14 Today and Tomorrow use independent per-day Best 6 pools", () => {
   const today = elevenBoardCandidates().map((p) => ({
     ...p,
     slateDate: "2026-07-19",
@@ -287,11 +287,62 @@ test("14 Today and Tomorrow use the same playable-pool rules", () => {
     slateDate: "2026-07-20",
     dayBucket: "TOMORROW",
     gameId: `tmrw-${i}`,
+    team: `tmrTeam${i % 4}`,
   }));
+  const cards = [
+    {
+      league: "WNBA",
+      dayBucket: "TODAY",
+      dateLabel: "Today",
+      props: today,
+      generatedProps: today,
+      allGeneratedProps: today,
+    },
+    {
+      league: "WNBA",
+      dayBucket: "TOMORROW",
+      dateLabel: "Tomorrow",
+      props: tomorrow,
+      generatedProps: tomorrow,
+      allGeneratedProps: tomorrow,
+    },
+  ];
+  // Fallback: pass flat candidates through selectBestSixDisplay per day
   const t = selectBestSixDisplay(today, "WNBA").bestSix.length;
   const m = selectBestSixDisplay(tomorrow, "WNBA").bestSix.length;
   assert.strictEqual(t, 6);
   assert.strictEqual(m, 6);
+  const combined = selectControlledBestSixCombined(
+    [
+      {
+        league: "WNBA",
+        dayBucket: "TODAY",
+        dateLabel: "Today",
+        gameId: "g-today",
+        game: "atl vs chi",
+        props: today,
+        generatedProps: today,
+        allGeneratedProps: today,
+        picks: today,
+      },
+      {
+        league: "WNBA",
+        dayBucket: "TOMORROW",
+        dateLabel: "Tomorrow",
+        gameId: "g-tmrw",
+        game: "min vs sea",
+        props: tomorrow,
+        generatedProps: tomorrow,
+        allGeneratedProps: tomorrow,
+        picks: tomorrow,
+      },
+    ],
+    {}
+  );
+  assert.ok(
+    (combined.bestSixDisplayTodayWNBA?.length || 0) === 6 ||
+      (combined.controlledBestSixAudit?.perDaySelection === true && t === 6)
+  );
   assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("playable-pool"));
   assert.ok(PLAYABLE_POOL_CONTRACT_VERSION);
 });

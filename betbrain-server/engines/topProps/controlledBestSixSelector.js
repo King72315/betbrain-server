@@ -1312,26 +1312,117 @@ function filterPicksByDayBucket(picks = [], bucket = "TOMORROW") {
   });
 }
 
+function mergeDayBucketBestSix(todaySix = [], tomorrowSix = []) {
+  // Preserve per-day membership; ranks stay day-local. Cross-day list is
+  // Today then Tomorrow for seal/display consumers that still read one array.
+  const stampedToday = (todaySix || []).map((pick, index) => ({
+    ...pick,
+    dayBucket: pick.dayBucket || "TODAY",
+    bestSixDayBucket: "TODAY",
+    bestSixDayRank: index + 1,
+  }));
+  const stampedTomorrow = (tomorrowSix || []).map((pick, index) => ({
+    ...pick,
+    dayBucket: pick.dayBucket || "TOMORROW",
+    bestSixDayBucket: "TOMORROW",
+    bestSixDayRank: index + 1,
+  }));
+  return [...stampedToday, ...stampedTomorrow];
+}
+
 export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const candidates = collectAllGeneratedCandidates(gameCards);
+  const todayCandidates = filterPicksByDayBucket(candidates, "TODAY");
+  const tomorrowCandidates = filterPicksByDayBucket(candidates, "TOMORROW");
+  // Undated / unlabeled keep a fallback lane so empty day buckets don't starve.
+  const undated = (candidates || []).filter((pick) => {
+    const bucket = String(pick.dayBucket || "").toUpperCase();
+    const label = String(pick.dateLabel || "").toLowerCase();
+    return !bucket && label !== "today" && label !== "tomorrow";
+  });
 
   const wnbaBest = selectControlledBestSix(candidates, "WNBA", options);
   const nbaBest = selectControlledBestSix(candidates, "NBA", options);
-  const wnbaDisplay = selectBestSixDisplay(candidates, "WNBA", options);
-  const nbaDisplay = selectBestSixDisplay(candidates, "NBA", options);
+
+  // Per-day Best 6: each calendar bucket independently fills to 6 when
+  // ≥6 playable candidates exist. Prevents Tomorrow outsoring Today to 3/6.
+  const wnbaTodayPool = todayCandidates.length
+    ? todayCandidates
+    : undated;
+  const wnbaTomorrowPool = tomorrowCandidates.length
+    ? tomorrowCandidates
+    : [];
+  const nbaTodayPool = todayCandidates.length ? todayCandidates : undated;
+  const nbaTomorrowPool = tomorrowCandidates.length ? tomorrowCandidates : [];
+
+  const wnbaDisplayToday = selectBestSixDisplay(wnbaTodayPool, "WNBA", options);
+  const wnbaDisplayTomorrow = selectBestSixDisplay(
+    wnbaTomorrowPool,
+    "WNBA",
+    options
+  );
+  const nbaDisplayToday = selectBestSixDisplay(nbaTodayPool, "NBA", options);
+  const nbaDisplayTomorrow = selectBestSixDisplay(
+    nbaTomorrowPool,
+    "NBA",
+    options
+  );
+
+  const wnbaDisplay = {
+    bestSix: mergeDayBucketBestSix(
+      wnbaDisplayToday.bestSix,
+      wnbaDisplayTomorrow.bestSix
+    ),
+    controlledBestSixDisplayAudit: {
+      ...(wnbaDisplayToday.controlledBestSixDisplayAudit || {}),
+      perDaySelection: true,
+      todayCount: wnbaDisplayToday.bestSix.length,
+      tomorrowCount: wnbaDisplayTomorrow.bestSix.length,
+      resultsAdmissionCount:
+        (wnbaDisplayToday.controlledBestSixDisplayAudit?.resultsAdmissionCount ||
+          0) +
+        (wnbaDisplayTomorrow.controlledBestSixDisplayAudit
+          ?.resultsAdmissionCount || 0),
+      today: wnbaDisplayToday.controlledBestSixDisplayAudit,
+      tomorrow: wnbaDisplayTomorrow.controlledBestSixDisplayAudit,
+    },
+  };
+  const nbaDisplay = {
+    bestSix: mergeDayBucketBestSix(
+      nbaDisplayToday.bestSix,
+      nbaDisplayTomorrow.bestSix
+    ),
+    controlledBestSixDisplayAudit: {
+      ...(nbaDisplayToday.controlledBestSixDisplayAudit || {}),
+      perDaySelection: true,
+      todayCount: nbaDisplayToday.bestSix.length,
+      tomorrowCount: nbaDisplayTomorrow.bestSix.length,
+      resultsAdmissionCount:
+        (nbaDisplayToday.controlledBestSixDisplayAudit?.resultsAdmissionCount ||
+          0) +
+        (nbaDisplayTomorrow.controlledBestSixDisplayAudit
+          ?.resultsAdmissionCount || 0),
+      today: nbaDisplayToday.controlledBestSixDisplayAudit,
+      tomorrow: nbaDisplayTomorrow.controlledBestSixDisplayAudit,
+    },
+  };
 
   const wnbaTop = selectTopTwoFromBestSix(
-    filterPicksByDayBucket(wnbaDisplay.bestSix, "TOMORROW"),
+    wnbaDisplayTomorrow.bestSix.length
+      ? wnbaDisplayTomorrow.bestSix
+      : filterPicksByDayBucket(wnbaDisplay.bestSix, "TOMORROW"),
     "WNBA",
     {
-    topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
+      topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT,
     }
   );
   const nbaTop = selectTopTwoFromBestSix(
-    filterPicksByDayBucket(nbaDisplay.bestSix, "TOMORROW"),
+    nbaDisplayTomorrow.bestSix.length
+      ? nbaDisplayTomorrow.bestSix
+      : filterPicksByDayBucket(nbaDisplay.bestSix, "TOMORROW"),
     "NBA",
     {
-    topLimit: options.nbaTopLimit ?? CONFIG.NBA_TOP_PROP_LIMIT,
+      topLimit: options.nbaTopLimit ?? CONFIG.NBA_TOP_PROP_LIMIT,
     }
   );
 
@@ -1345,6 +1436,8 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const controlledBestSixAudit = {
     version: CONTROLLED_BEST_SIX_VERSION,
     topPropsSource: "CONTROLLED_BEST_SIX_DISPLAY",
+    perDaySelection: true,
+    playablePoolContractVersion: PLAYABLE_POOL_CONTRACT_VERSION,
     candidateCount: candidates.length,
     candidateCountByLeague: {
       WNBA: wnbaBest.controlledBestSixAudit.candidateCount,
@@ -1361,6 +1454,14 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     bestSixDisplayCountByLeague: {
       WNBA: wnbaDisplay.bestSix.length,
       NBA: nbaDisplay.bestSix.length,
+    },
+    bestSixDisplayTodayCountByLeague: {
+      WNBA: wnbaDisplayToday.bestSix.length,
+      NBA: nbaDisplayToday.bestSix.length,
+    },
+    bestSixDisplayTomorrowCountByLeague: {
+      WNBA: wnbaDisplayTomorrow.bestSix.length,
+      NBA: nbaDisplayTomorrow.bestSix.length,
     },
     resultsAdmissionCountByLeague: {
       WNBA: wnbaDisplay.controlledBestSixDisplayAudit.resultsAdmissionCount ?? 0,
@@ -1429,6 +1530,10 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     bestSixNBA: nbaBest.bestSix,
     bestSixDisplayWNBA: wnbaDisplay.bestSix,
     bestSixDisplayNBA: nbaDisplay.bestSix,
+    bestSixDisplayTodayWNBA: wnbaDisplayToday.bestSix,
+    bestSixDisplayTodayNBA: nbaDisplayToday.bestSix,
+    bestSixDisplayTomorrowWNBA: wnbaDisplayTomorrow.bestSix,
+    bestSixDisplayTomorrowNBA: nbaDisplayTomorrow.bestSix,
     topWNBAProps,
     topNBAProps,
     topProps,
@@ -1444,11 +1549,8 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
     selectedCount: topProps.length,
     selectedNBA: topNBAProps.length,
     selectedWNBA: topWNBAProps.length,
+    noBetCount: candidates.filter((p) => isNoBetPick(p)).length,
     controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
-    topPropsSource: "CONTROLLED_BEST_SIX_DISPLAY",
-    selectorVersion: CONTROLLED_BEST_SIX_VERSION,
-    noBetCount:
-      wnbaBest.controlledBestSixAudit.hiddenNoBet +
-      nbaBest.controlledBestSixAudit.hiddenNoBet,
+    playablePoolContractVersion: PLAYABLE_POOL_CONTRACT_VERSION,
   };
 }
