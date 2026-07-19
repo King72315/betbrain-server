@@ -5545,20 +5545,14 @@ if (process.env.RUN_AUDIT === "1") {
       console.log("BOARD CACHE empty ? waiting for scheduler or manual refresh");
     }
 
-    // Startup auto-refresh disabled: full WNBA rebuild can exceed Render memory/
-    // lifetime and restart-loop the service. Use POST /refresh-picks (async) or
-    // the scheduler after boot is healthy.
-    if (!picksCache?.games?.length) {
+    // Delay startup rebuild so health checks stabilize first (avoids restart loops).
+    if (!picksCache?.games?.length || picksCache.serverBuild !== SERVER_BUILD) {
       console.log(
-        "STARTUP: empty board ? call POST /refresh-picks after health is stable"
-      );
-    } else if (picksCache.serverBuild !== SERVER_BUILD) {
-      console.log(
-        "STARTUP: board build mismatch ? schedule async refresh after delay"
+        "STARTUP: board empty or build mismatch ? delayed async refresh in 20s"
       );
       setTimeout(() => {
-        startRefreshAllPicksBackground("startup-build-mismatch-delayed");
-      }, 15000);
+        startRefreshAllPicksBackground("startup-delayed-recover");
+      }, 20000);
     }
 
     if (rehydrateResult.results?.length) {
