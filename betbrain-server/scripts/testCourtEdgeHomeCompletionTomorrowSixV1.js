@@ -286,6 +286,11 @@ test("10 stripRawDecisionLabels removes danger gate codes", () => {
     "TRACK — DANGER_STACK_INSUFFICIENT_EDGE True risk HIGH."
   );
   assert.doesNotMatch(cleaned, /DANGER_STACK/);
+  const phrasing = stripRawDecisionLabels(
+    "Under has thin edge flagged by danger gate. The Under projection edge is below the normal full-data threshold."
+  );
+  assert.doesNotMatch(phrasing, /danger\s*gate/i);
+  assert.match(phrasing, /projection edge/i);
 });
 
 // --- 11–25: per-day Best 6 ---

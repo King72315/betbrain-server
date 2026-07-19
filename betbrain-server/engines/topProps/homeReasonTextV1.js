@@ -54,7 +54,13 @@ export function translateHomeReasonCode(code = "") {
 export function stripRawDecisionLabels(text = "") {
   return String(text || "")
     .replace(RAW_CODE_RE, "")
+    // Consumer compact text must never mention internal danger-gate machinery.
+    .replace(/\s*flagged by danger gate\.?/gi, ".")
+    .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
+    .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
+    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK)\b/gi, "")
     .replace(/prior gate:\s*/gi, "")
+    .replace(/\.\s*\./g, ".")
     .replace(/^\s*[—–-]+\s*/g, "")
     .replace(/\s*[—–-]\s*$/g, "")
     .replace(/\s{2,}/g, " ")

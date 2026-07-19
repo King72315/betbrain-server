@@ -70,7 +70,7 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 
 ## 9. Live final board (verified)
 
-**SERVER_BUILD:** `courteedge-home-completion-tomorrow-six-v1` (`recoveryEndpoints: true`)
+**SERVER_BUILD:** `courteedge-empty-board-guard-v1` (successor to `courteedge-home-completion-tomorrow-six-v1`; recoveryEndpoints retained)
 
 **Today 6/6 TRACK**
 
@@ -81,7 +81,7 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 5. Charlisse Leger-Walker Under 8.5  
 6. Angel Reese Over 16.5  
 
-**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:58:59Z)
+**Tomorrow 6/6 TRACK** (rebuilt from current markets; re-verified 2026-07-19T23:15:33Z)
 
 1. Kayla McBride Over 18.5  
 2. Breanna Stewart Over 20.5  
@@ -92,9 +92,9 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 
 **Top:** Kayla McBride O18.5, Breanna Stewart O20.5  
 
-**Detailed Analysis:** present on selected props via `homeDetailedAnalysisV1` (Home + Copy Report shared object).
+**Detailed Analysis:** present on all 12 selected props via `homeDetailedAnalysisV1` (Home + Copy Report shared object).
 
-**Stability note:** Parallel commits briefly retagged `SERVER_BUILD` to `courteedge-best6-playable-pool-repair-v1` and wiped cache; restored and **test 62 now reads `server.js` and fails if retagged**. Final live board re-verified after lock.
+**Stability note:** Parallel commits briefly retagged `SERVER_BUILD` and wiped cache; empty-board-guard + bundled recovery restored Home. Compact Why scrubbing strips “danger gate” phrasing on the `/picks` sanitize path.
 
 ## 10. Proof: not blind restore of old six
 

@@ -123,7 +123,7 @@ function collectWnbaRiskDebts(candidate = {}, metrics = {}, gate = {}) {
       debts.push(
         debtItem({
           ...mapped,
-          reason: `${mapped.code.replace(/_/g, " ").toLowerCase()} flagged by danger gate.`,
+          reason: `${mapped.code.replace(/_/g, " ").toLowerCase()} is a material risk factor.`,
           side: key === "lowVolumeOverTrap" ? "OVER" : "BOTH",
         })
       );

@@ -6,6 +6,7 @@ import {
   isOfficialResultsProp,
 } from "./trackedPropService.js";
 import { ensureHomeDetailedAnalysisOnPicks } from "./courtEdgeHomeDetailedAnalysisV1.js";
+import { applyHomeDisplayWhyToPick } from "../engines/topProps/homeReasonTextV1.js";
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
@@ -1306,7 +1307,10 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       return true;
     });
 
-  const withAnalysis = (list) => ensureHomeDetailedAnalysisOnPicks(list);
+  const withAnalysis = (list) =>
+    ensureHomeDetailedAnalysisOnPicks(
+      (Array.isArray(list) ? list : []).map((p) => applyHomeDisplayWhyToPick(p))
+    );
 
   return {
     ...board,
