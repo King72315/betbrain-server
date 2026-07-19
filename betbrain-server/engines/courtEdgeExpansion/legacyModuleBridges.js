@@ -57,30 +57,42 @@ function qualityFromStatus(status) {
  * Line Movement / CLV — Line Integrity owns the numbers; MMI interprets.
  */
 export function bridgeLineMovementClv(ctx = {}, pick = {}) {
-  const lineAudit = buildLineAuditFields(pick);
+  const enrichedPick = {
+    ...pick,
+    openingLine: pick.openingLine ?? ctx.openingLine,
+    currentLine: pick.currentLine ?? ctx.currentLine,
+    line: pick.line ?? ctx.currentLine ?? ctx.line,
+    side: pick.side || pick.pick || ctx.finalSide || ctx.organicModelSide,
+    bookCount: pick.bookCount ?? ctx.bookCount,
+  };
+  const lineAudit = buildLineAuditFields(enrichedPick);
   const market =
     ctx.marketIntelligence ||
     pick.decisionDataIntelligence?.marketIntelligence ||
     pick.marketMovementIntelligence ||
-    evaluateMarketMovementIntelligence(pick, {
-      dataCard: pick.wnbaDataCard,
-      side: ctx.finalSide || pick.side || pick.pick,
-      marketIntelligence: pick.marketIntelligence,
+    evaluateMarketMovementIntelligence(enrichedPick, {
+      dataCard: enrichedPick.wnbaDataCard,
+      side: ctx.finalSide || enrichedPick.side || enrichedPick.pick,
+      marketIntelligence: enrichedPick.marketIntelligence,
     });
 
   const openingLine = numOrNull(
-    market.openingLine ?? ctx.openingLine ?? lineAudit.openingLine ?? pick.openingLine
+    ctx.openingLine ?? market.openingLine ?? lineAudit.openingLine ?? enrichedPick.openingLine
   );
   const currentLine = numOrNull(
-    market.currentLine ?? ctx.currentLine ?? lineAudit.selectedLine ?? pick.line
+    ctx.currentLine ?? market.currentLine ?? lineAudit.selectedLine ?? enrichedPick.line
   );
   if (openingLine === null && currentLine === null) return null;
 
+  const computedDelta =
+    openingLine !== null && currentLine !== null
+      ? Number((currentLine - openingLine).toFixed(2))
+      : null;
   const lineDelta =
-    market.lineDelta != null
-      ? num(market.lineDelta)
-      : openingLine !== null && currentLine !== null
-        ? Number((currentLine - openingLine).toFixed(2))
+    computedDelta !== null
+      ? computedDelta
+      : market.lineDelta != null
+        ? num(market.lineDelta)
         : 0;
 
   const side = normalizeSide(ctx.finalSide || pick.side || pick.pick);
@@ -104,6 +116,20 @@ export function bridgeLineMovementClv(ctx = {}, pick = {}) {
         : normalizedSignal < 0
           ? -3
           : 0;
+
+  const movementRaw = String(market.movement || "").toUpperCase();
+  const movement =
+    movementRaw === "UP" || movementRaw === "DOWN" || movementRaw === "FLAT"
+      ? movementRaw
+      : lineDelta > 0.24
+        ? "UP"
+        : lineDelta < -0.24
+          ? "DOWN"
+          : "FLAT";
+  const marketMovedTowardFinal =
+    (side === "OVER" && movement === "UP") || (side === "UNDER" && movement === "DOWN");
+  const marketMovedAgainstFinal =
+    (side === "OVER" && movement === "DOWN") || (side === "UNDER" && movement === "UP");
 
   return {
     ...baseEngineSignal({
@@ -136,6 +162,9 @@ export function bridgeLineMovementClv(ctx = {}, pick = {}) {
     }),
     bridgedFrom: ["marketMovementIntelligenceV1", "lineIntegrityV1"],
     authoritativeSource: "marketMovementIntelligenceV1",
+    movement,
+    marketMovedTowardFinal,
+    marketMovedAgainstFinal,
   };
 }
 
@@ -161,7 +190,7 @@ export function bridgeAvailabilityRoster(ctx = {}, pick = {}) {
       ""
   ).toUpperCase();
 
-  if (!status || status === "N/A") return null;
+  if (!status || status === "N/A" || status === "UNKNOWN") return null;
 
   let confAdj = 0;
   let risk = RISK_ADJUSTMENT.NEUTRAL;
@@ -247,6 +276,14 @@ export function bridgeRoleVelocity(ctx = {}, pick = {}) {
   const volume = pick.volumeProfile || ctx.volumeProfile || {};
   const roleChange = pick.roleChange || ctx.roleChange || {};
 
+  const hasExplicitRole =
+    Boolean(ctx.roleStability || pick.decisionDataIntelligence?.roleStability) ||
+    Boolean(ctx.usageShare || pick.decisionDataIntelligence?.usageShare) ||
+    Boolean(volume.roleTrend || roleChange.roleTrend || pick.roleTrend) ||
+    Boolean(pick.wnbaDataCard || pick.volumeProfile || pick.roleChange || pick.opportunity || pick.playerState) ||
+    (Array.isArray(ctx.gameLogs) && ctx.gameLogs.length > 0) ||
+    (Array.isArray(pick.gameLogs) && pick.gameLogs.length > 0);
+  if (!hasExplicitRole) return null;
   if (!role && !usage && !volume.roleTrend && !roleChange.roleTrend) return null;
 
   const trend = String(
