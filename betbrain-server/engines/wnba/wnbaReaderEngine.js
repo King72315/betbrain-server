@@ -7,6 +7,7 @@ import {
   resolveWnbaGapFloor,
   WNBA_UNDER_GAP_FLOOR,
   WNBA_READER_MEANINGFUL_OVER_GAP,
+  WNBA_READER_MEANINGFUL_GAP,
 } from "./wnbaGraduatedDataModeV1.js";
 
 function num(value, fallback = 0) {
@@ -59,10 +60,11 @@ function scoreVolumePath(side, card = {}) {
   let overGapFloorPassed = null;
   let limitedDataOverPenaltyApplied = false;
 
-  // Over meaningful evidence aligned to FULL_DATA gate floor (3.0).
-  // Under moderate band left at 2.5 — Under floors are not part of this calibration.
+  // Side-symmetric meaningful absolute gap (courtEdgeSideCalibrationV1).
   const meaningfulGap =
-    side === "OVER" ? WNBA_READER_MEANINGFUL_OVER_GAP : 2.5;
+    side === "OVER"
+      ? WNBA_READER_MEANINGFUL_OVER_GAP
+      : WNBA_READER_MEANINGFUL_GAP;
 
   if (edge >= 4) {
     score += 12;

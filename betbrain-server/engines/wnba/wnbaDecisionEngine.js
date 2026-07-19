@@ -37,6 +37,7 @@ import {
   getLearnedCalibrationForProfile,
 } from "./playerIntelligence/index.js";
 import { buildCourtEdgePlayerEvidenceV1 } from "../../services/courtEdgePlayerEvidenceV1.js";
+import { attachHomeDetailedAnalysisV1 } from "../../services/courtEdgeHomeDetailedAnalysisV1.js";
 import { buildProviderIdentity } from "../../services/providerIdentityLayer.js";
 import {
   attachCourtEdgeEngineSignals,
@@ -743,6 +744,7 @@ export async function evaluateWnbaPropDecision(context = {}) {
   }
 
   pick = finalizeCanonicalDecision(pick);
+  pick = attachHomeDetailedAnalysisV1(pick, { useCache: true });
 
   return {
     accepted: true,

@@ -5,6 +5,7 @@ import {
   isBestSixDisplayResultsProp,
   isOfficialResultsProp,
 } from "./trackedPropService.js";
+import { ensureHomeDetailedAnalysisOnPicks } from "./courtEdgeHomeDetailedAnalysisV1.js";
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
@@ -1283,23 +1284,28 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       return true;
     });
 
+  const withAnalysis = (list) => ensureHomeDetailedAnalysisOnPicks(list);
+
   return {
     ...board,
-    bestSixWNBA,
-    bestSixNBA,
-    bestSixDisplayTodayWNBA,
-    bestSixDisplayTodayNBA,
-    topProps: scrubTop(board.topProps),
-    topWNBAProps: scrubTop(board.topWNBAProps),
-    topNBAProps: scrubTop(board.topNBAProps),
-    topOfficialProps: scrubTop(board.topOfficialProps),
-    topWNBAOfficialProps: scrubTop(board.topWNBAOfficialProps),
-    topNBAOfficialProps: scrubTop(board.topNBAOfficialProps),
+    bestSixWNBA: withAnalysis(bestSixWNBA),
+    bestSixNBA: withAnalysis(bestSixNBA),
+    bestSixDisplayWNBA: withAnalysis(board.bestSixDisplayWNBA || displayWNBA),
+    bestSixDisplayNBA: withAnalysis(board.bestSixDisplayNBA || displayNBA),
+    bestSixDisplayTodayWNBA: withAnalysis(bestSixDisplayTodayWNBA),
+    bestSixDisplayTodayNBA: withAnalysis(bestSixDisplayTodayNBA),
+    topProps: withAnalysis(scrubTop(board.topProps)),
+    topWNBAProps: withAnalysis(scrubTop(board.topWNBAProps)),
+    topNBAProps: withAnalysis(scrubTop(board.topNBAProps)),
+    topOfficialProps: withAnalysis(scrubTop(board.topOfficialProps)),
+    topWNBAOfficialProps: withAnalysis(scrubTop(board.topWNBAOfficialProps)),
+    topNBAOfficialProps: withAnalysis(scrubTop(board.topNBAOfficialProps)),
     lifecycleHomeSanitize: {
       today,
       labDate,
       activeResultsSlateDate,
       scrubbedLabOrPastCohort: true,
+      homeDetailedAnalysisAttached: true,
     },
   };
 }

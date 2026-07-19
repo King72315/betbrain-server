@@ -809,9 +809,45 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction))
       ? `  ${sameTeamFlip ? "Arbitration" : "Side Rescue"}: ${sideRescueAction}`
       : null,
+    formatDetailedAnalysisReportBlock(pick),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function formatDetailedAnalysisReportBlock(pick = {}) {
+  const a = pick.homeDetailedAnalysisV1;
+  if (!a || !a.schemaVersion) return null;
+  const s = a.propSnapshot || {};
+  const r = a.recentPerformance || {};
+  const m = a.matchupHistory || {};
+  const role = a.roleOpportunity || {};
+  const proj = a.projectionDistribution || {};
+  const opp = a.opponentContext || {};
+  const env = a.gameEnvironment || {};
+  const mkt = a.marketAnalysis || {};
+  const avail = a.availability || {};
+  const dec = a.finalDecision || {};
+  const dq = a.dataQuality || {};
+  const last = m.lastMatchup;
+  return [
+    "  --- DETAILED ANALYSIS ---",
+    `  Snapshot: ${s.player || pick.player} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${s.confidence}% | Risk ${s.risk} | ${s.sealedLiveStatus}`,
+    `  Original side: ${s.originalModelSide} | Coverage ${s.evidenceCoverage ?? "—"}%`,
+    `  L5: [${(r.last5Points || []).join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
+    `  L10: [${(r.last10Points || []).join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) season ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
+    m.status === "UNAVAILABLE" || !last
+      ? `  Matchup: ${m.display || "No previous matchup data available."}`
+      : `  Last matchup: ${last.date || "—"} pts ${last.points ?? "Unavailable"} min ${last.minutes ?? "Unavailable"} FGA ${last.fga ?? "Unavailable"} FTA ${last.fta ?? "Unavailable"} vs line ${last.againstTodaysLine || "—"} (n=${m.sampleSize})`,
+    `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} FGA ${role.expectedFGA ?? "Unavailable"} FTA ${role.expectedFTA ?? "Unavailable"}`,
+    `  Projection: final ${proj.finalProjection ?? "—"} fair ${proj.fairLine ?? "—"} gap ${proj.projectionGap ?? "—"} vol ${proj.volatilityTier ?? "—"}`,
+    `  Opponent: defense ${opp.opponentDefenseStatus} score ${opp.defenseScore ?? "Unavailable"}`,
+    `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"}`,
+    `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult}`,
+    `  Availability: ${avail.displayStatus || "Unavailable"}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Flip ${dec.flipFirstAction} | Rescue ${dec.sideRescueAction}`,
+    `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"}`,
+  ].join("\n");
 }
 
 export function buildLeagueControlledBestSixReportText({

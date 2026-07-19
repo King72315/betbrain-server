@@ -290,6 +290,26 @@ export default function PropCard({
           </View>
         ) : null}
 
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            setExpanded((v) => !v);
+          }}
+          style={styles.detailedAnalysisToggle}
+        >
+          <Text style={styles.detailedAnalysisToggleText}>
+            {expanded ? "Hide Detailed Analysis" : "View Detailed Analysis"}
+          </Text>
+        </TouchableOpacity>
+
+        {expanded ? (
+          <DetailedAnalysisPanel
+            analysis={pick.homeDetailedAnalysisV1}
+            pick={pick}
+          />
+        ) : null}
+
         {riskDebts.length > 0 ? (
           <View style={styles.bestSixDebtBox}>
             <Text style={styles.bestSixDebtTitle}>Risk Debt</Text>
@@ -1156,6 +1176,175 @@ function getDecisionStyle(decision: string) {
   return { backgroundColor: "#334155", color: "#e2e8f0" };
 }
 
+function daVal(value: any, fallback = "Unavailable") {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (Array.isArray(value)) return value.length ? value.join(", ") : fallback;
+  return String(value);
+}
+
+function DetailedAnalysisPanel({
+  analysis,
+  pick,
+}: {
+  analysis?: any;
+  pick?: any;
+}) {
+  const a = analysis || pick?.homeDetailedAnalysisV1;
+  if (!a || !a.schemaVersion) {
+    return (
+      <View style={styles.daBox}>
+        <Text style={styles.daSectionTitle}>DETAILED ANALYSIS</Text>
+        <Text style={styles.daLine}>
+          Analysis payload not attached yet. Refresh picks to load evidence.
+        </Text>
+      </View>
+    );
+  }
+
+  const s = a.propSnapshot || {};
+  const r = a.recentPerformance || {};
+  const m = a.matchupHistory || {};
+  const role = a.roleOpportunity || {};
+  const proj = a.projectionDistribution || {};
+  const opp = a.opponentContext || {};
+  const env = a.gameEnvironment || {};
+  const mkt = a.marketAnalysis || {};
+  const avail = a.availability || {};
+  const dec = a.finalDecision || {};
+  const dq = a.dataQuality || {};
+  const last = m.lastMatchup;
+
+  return (
+    <View style={styles.daBox}>
+      <Text style={styles.daSectionTitle}>DETAILED ANALYSIS</Text>
+
+      <Text style={styles.daHeader}>1. Prop Snapshot</Text>
+      <Text style={styles.daLine}>
+        {daVal(s.player)} · {daVal(s.team)} vs {daVal(s.opponent)} · {daVal(s.league)}
+      </Text>
+      <Text style={styles.daLine}>
+        {daVal(s.finalCourtEdgeSide)} {daVal(s.sealedLine)} · Conf {daVal(s.confidence)}% · Risk{" "}
+        {daVal(s.risk)} · {daVal(s.sealedLiveStatus)}
+      </Text>
+      <Text style={styles.daLine}>
+        Original model: {daVal(s.originalModelSide)} · B6 #{daVal(s.bestSixRank, "—")} · Coverage{" "}
+        {daVal(s.evidenceCoverage, "—")}%
+      </Text>
+
+      <Text style={styles.daHeader}>2. Recent Performance</Text>
+      <Text style={styles.daLine}>Last 5 points: {daVal(r.last5Points)}</Text>
+      <Text style={styles.daLine}>
+        Last 5 avg: {daVal(r.last5Average)} · Hit: {daVal(r.last5HitRate?.label)}
+      </Text>
+      <Text style={styles.daLine}>
+        Last 10 points: {daVal(r.last10Points)} (n={daVal(r.last10SampleSize, "0")})
+      </Text>
+      <Text style={styles.daLine}>
+        Last 10 avg: {daVal(r.last10Average)} · Season avg: {daVal(r.seasonAverage)} · Trend:{" "}
+        {daVal(r.scoringTrend?.trend)}
+      </Text>
+
+      <Text style={styles.daHeader}>3. Last Matchup And History</Text>
+      {m.status === "UNAVAILABLE" || !last ? (
+        <Text style={styles.daLine}>
+          {m.display || "No previous matchup data available."}
+        </Text>
+      ) : (
+        <>
+          <Text style={styles.daLine}>
+            Last vs {daVal(last.opponent)} · {daVal(last.date)} · Pts {daVal(last.points)} · Min{" "}
+            {daVal(last.minutes)} · FGA {daVal(last.fga)} · FTA {daVal(last.fta)}
+          </Text>
+          <Text style={styles.daLine}>
+            Against today's line: {daVal(last.againstTodaysLine)} · Sample {daVal(m.sampleSize)}
+          </Text>
+          {last.relevanceNote ? (
+            <Text style={styles.daNote}>{last.relevanceNote}</Text>
+          ) : null}
+          <Text style={styles.daLine}>
+            Matchup avg {daVal(m.matchupAverage)} · median {daVal(m.matchupMedian)} · hit{" "}
+            {daVal(m.matchupHitRate?.label)}
+          </Text>
+        </>
+      )}
+
+      <Text style={styles.daHeader}>4. Role And Opportunity</Text>
+      <Text style={styles.daLine}>
+        Exp min {daVal(role.expectedMinutes)} · L5 min {daVal(role.last5Minutes)} · Exp FGA{" "}
+        {daVal(role.expectedFGA)} · Exp FTA {daVal(role.expectedFTA)}
+      </Text>
+      <Text style={styles.daLine}>
+        Usage {daVal(role.expectedUsage)} · Stability {daVal(role.roleStability)} ·{" "}
+        {daVal(role.teammateImpactSummary)}
+      </Text>
+
+      <Text style={styles.daHeader}>5. Projection, Distribution, Volatility</Text>
+      <Text style={styles.daLine}>
+        Raw {daVal(proj.rawProjection)} · Final {daVal(proj.finalProjection)} · Fair{" "}
+        {daVal(proj.fairLine)} · Gap {daVal(proj.projectionGap)}
+      </Text>
+      <Text style={styles.daLine}>
+        Vol {daVal(proj.volatilityTier)} · Ceiling {daVal(proj.ceiling)} · Floor {daVal(proj.floor)}
+      </Text>
+
+      <Text style={styles.daHeader}>6. Matchup And Opponent</Text>
+      <Text style={styles.daLine}>
+        Defense {daVal(opp.opponentDefenseStatus)} · Score {daVal(opp.defenseScore)} · Source{" "}
+        {daVal(opp.opponentDefenseSource)}
+      </Text>
+      {opp.unavailableReason ? (
+        <Text style={styles.daNote}>Unavailable: {opp.unavailableReason}</Text>
+      ) : null}
+
+      <Text style={styles.daHeader}>7. Game Environment</Text>
+      <Text style={styles.daLine}>
+        Spread {daVal(env.spread)} · Total {daVal(env.gameTotal)} · ITT {daVal(env.impliedTeamTotal)} ·
+        Rest {daVal(env.daysRest)}
+      </Text>
+      <Text style={styles.daLine}>
+        Pace proxy {daVal(env.paceProxy)} ({env.paceProxyLabel || "proxy"}) — not true pace
+      </Text>
+
+      <Text style={styles.daHeader}>8. Market Analysis</Text>
+      <Text style={styles.daLine}>
+        Open {daVal(mkt.openingLine)} · Sealed {daVal(mkt.selectedSealedLine)} · Current{" "}
+        {daVal(mkt.currentLine)} · {daVal(mkt.compactResult)}
+      </Text>
+      <Text style={styles.daNote}>
+        {mkt.marketRelativeToFinalSide?.explanation || ""}
+      </Text>
+
+      <Text style={styles.daHeader}>9. Availability And Team Context</Text>
+      <Text style={styles.daLine}>{daVal(avail.displayStatus)}</Text>
+      {avail.note ? <Text style={styles.daNote}>{avail.note}</Text> : null}
+
+      <Text style={styles.daHeader}>10. Final CourtEdge Decision</Text>
+      <Text style={styles.daLine}>
+        {daVal(dec.originalModelSide)} → {daVal(dec.finalCourtEdgeSide)} · Conf{" "}
+        {daVal(dec.finalConfidence)}% · Risk {daVal(dec.finalRisk)}
+      </Text>
+      <Text style={styles.daLine}>
+        Flip {daVal(dec.flipFirstAction)} · Rescue {daVal(dec.sideRescueAction)} · Same-team{" "}
+        {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
+      </Text>
+      {dec.finalReadableExplanation ? (
+        <Text style={styles.daNote}>{String(dec.finalReadableExplanation)}</Text>
+      ) : null}
+
+      <Text style={styles.daHeader}>11. Data Quality And Sources</Text>
+      <Text style={styles.daLine}>
+        Coverage {daVal(dq.coverage)}% · Fetched {daVal(dq.fetchedAt)} · Missing:{" "}
+        {(dq.missingFields || []).join(", ") || "none"}
+      </Text>
+      {a.liveMarketReference?.referenceOnly ? (
+        <Text style={styles.daNote}>
+          Live market is reference-only after seal — official side/line/confidence frozen.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   pickCard: {
     backgroundColor: "#1e293b",
@@ -1206,6 +1395,56 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 11,
     marginBottom: 4,
+  },
+  detailedAnalysisToggle: {
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#475569",
+  },
+  detailedAnalysisToggleText: {
+    color: "#93c5fd",
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  daBox: {
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#0b1220",
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    gap: 2,
+  },
+  daSectionTitle: {
+    color: "#e2e8f0",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  daHeader: {
+    color: "#93c5fd",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  daLine: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
+  daNote: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "500",
+    fontStyle: "italic",
+    marginTop: 2,
   },
   bestSixWhyText: {
     color: "#dcfce7",
