@@ -81,7 +81,7 @@ Pipeline verified: Odds → CT date class → markets → identity → candidate
 5. Charlisse Leger-Walker Under 8.5  
 6. Angel Reese Over 16.5  
 
-**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:55:27Z)
+**Tomorrow 6/6 TRACK** (rebuilt from current markets; verified 2026-07-19T21:58:59Z)
 
 1. Kayla McBride Over 18.5  
 2. Breanna Stewart Over 20.5  
@@ -171,7 +171,9 @@ Notable commits on `orgin/betbrain-v2-rebuild`:
 - `cb27ebc` / `bd48a66` — emergency seed + 8mb JSON  
 - `ad70816` — recover-empty-board + emergency when ADMIN_SECRET unset  
 - `d5c231a` — fix duplicate `previousBoard` deploy crash  
-- `52e4bee` — restore mission SERVER_BUILD after parallel retag  
+- `52e4bee` / `a9cde3a` / `acc62ec` — restore + lock SERVER_BUILD in tests  
+- `69c0c54` — mission lock comment finalize  
+- Final live verify: `2026-07-19T21:58:59.980Z` — Today 6/6 + Tomorrow 6/6 TRACK  
 
 ## 22. Deploy verify checklist
 
