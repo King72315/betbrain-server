@@ -81,7 +81,17 @@ export default function PropCard({
   const shadowTier = wnbaShadow?.shadowTier
     ? String(wnbaShadow.shadowTier).toUpperCase()
     : null;
-  const confidence = pick.confidence ?? pick.winProbability ?? 0;
+  // Single owner: sealed canonical → analysis canonical → pick final fields.
+  const canonical = pick.homeDetailedAnalysisV1?.canonical || {};
+  const confidenceRaw =
+    canonical.confidence ??
+    pick.finalConfidence ??
+    pick.confidence ??
+    pick.winProbability;
+  const confidence =
+    confidenceRaw === null || confidenceRaw === undefined || confidenceRaw === ""
+      ? null
+      : Math.round(Number(confidenceRaw));
   const side = pick.side || pick.pick || "";
   const line = pick.line ?? pick.sportsbookLine;
   const stat = pick.stat || "Points";
@@ -131,8 +141,14 @@ export default function PropCard({
   if (variant === "bestSix") {
     const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
     const trackDecision = "TRACK";
-    const displayTrueRisk =
-      pick.displayTrueRisk || trueRisk || pick.riskAfterCeiling || "—";
+    const displayTrueRisk = String(
+      canonical.risk ||
+        pick.displayTrueRisk ||
+        pick.decisionIntelligence?.trueRisk ||
+        trueRisk ||
+        pick.trueRisk ||
+        "—"
+    ).toUpperCase();
     const sameTeamFlip = Boolean(
       pick.sameTeamArbitrationFlip ||
         pick.sameTeamArbitration?.applied ||
@@ -144,11 +160,14 @@ export default function PropCard({
       null;
     const finalCourtEdgeSide =
       pick.finalCourtEdgeSide ||
+      canonical.side ||
       (String(side).toUpperCase().startsWith("U") ? "UNDER" : "OVER");
     const whyTextRaw =
       pick.displayWhy || decisionExplanation || wnbaTrackingReason || "";
     const whyText = String(whyTextRaw)
-      .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?)\b/gi, "")
+      .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?|NO_DECISIVE_RESCUE|UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+)\b/gi, "")
+      .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
+      .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
       .replace(/prior gate:\s*/gi, "")
       .replace(/Natural Track/gi, "")
       .replace(/\s{2,}/g, " ")
@@ -223,7 +242,9 @@ export default function PropCard({
               {trackDecision}
             </Text>
           </View>
-          <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
+          <Text style={styles.confidenceText}>
+            {confidence == null ? "—" : `${confidence}%`}
+          </Text>
         </View>
 
         <Text style={styles.playerName}>{pick.player}</Text>
@@ -414,7 +435,9 @@ export default function PropCard({
             </Text>
             {wnbaV2 ? <Text style={styles.engineBadge}>WNBA v2</Text> : null}
           </View>
-          <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
+          <Text style={styles.confidenceText}>
+            {confidence == null ? "—" : `${confidence}%`}
+          </Text>
         </View>
 
         <Text style={styles.playerName}>{pick.player}</Text>
@@ -527,7 +550,9 @@ export default function PropCard({
           ) : null}
         </View>
 
-        <Text style={styles.confidenceText}>{safeDisplay(confidence)}%</Text>
+        <Text style={styles.confidenceText}>
+          {confidence == null ? "—" : `${confidence}%`}
+        </Text>
       </View>
 
       <Text style={styles.playerName}>{pick.player}</Text>
@@ -1182,6 +1207,14 @@ function getDecisionStyle(decision: string) {
 function daVal(value: any, fallback = "Unavailable") {
   if (value === null || value === undefined || value === "") return fallback;
   if (Array.isArray(value)) return value.length ? value.join(", ") : fallback;
+  const n = Number(value);
+  if (Number.isFinite(n) && String(value).trim() !== "") {
+    // Integers for whole numbers; 1 decimal otherwise.
+    if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 1e-9) {
+      return String(Math.round(n));
+    }
+    return String(Number(n.toFixed(1)));
+  }
   return String(value);
 }
 
@@ -1248,25 +1281,29 @@ function DetailedAnalysisPanel({
       </Text>
 
       <Text style={styles.daHeader}>3. Last Matchup And History</Text>
-      {m.status === "UNAVAILABLE" || !last ? (
+      {m.status === "UNAVAILABLE" || !(m.recentMatchups?.length || last) ? (
         <Text style={styles.daLine}>
           {m.display || "No previous matchup data available."}
         </Text>
       ) : (
         <>
+          {(m.recentMatchups?.length ? m.recentMatchups : last ? [last] : []).map(
+            (row: any, i: number) => (
+              <View key={`mu-${i}`}>
+                <Text style={styles.daLine}>
+                  Matchup {i + 1}: {daVal(row.date)} · Pts {daVal(row.points)} · Min{" "}
+                  {daVal(row.minutes)} · FGA {daVal(row.fga)} · FTA {daVal(row.fta)} ·{" "}
+                  {daVal(row.againstTodaysLine)}
+                </Text>
+                {row.relevanceNote ? (
+                  <Text style={styles.daNote}>{row.relevanceNote}</Text>
+                ) : null}
+              </View>
+            )
+          )}
           <Text style={styles.daLine}>
-            Last vs {daVal(last.opponent)} · {daVal(last.date)} · Pts {daVal(last.points)} · Min{" "}
-            {daVal(last.minutes)} · FGA {daVal(last.fga)} · FTA {daVal(last.fta)}
-          </Text>
-          <Text style={styles.daLine}>
-            Against today's line: {daVal(last.againstTodaysLine)} · Sample {daVal(m.sampleSize)}
-          </Text>
-          {last.relevanceNote ? (
-            <Text style={styles.daNote}>{last.relevanceNote}</Text>
-          ) : null}
-          <Text style={styles.daLine}>
-            Matchup avg {daVal(m.matchupAverage)} · median {daVal(m.matchupMedian)} · hit{" "}
-            {daVal(m.matchupHitRate?.label)}
+            Sample {daVal(m.sampleSize)} · avg {daVal(m.matchupAverage)} · median{" "}
+            {daVal(m.matchupMedian)} · hit {daVal(m.matchupHitRate?.label)}
           </Text>
         </>
       )}
@@ -1328,15 +1365,19 @@ function DetailedAnalysisPanel({
       </Text>
       <Text style={styles.daLine}>
         Flip {daVal(dec.flipFirstAction)} · Rescue{" "}
-        {String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
-          ? "No stronger opposite-side case was found."
-          : daVal(dec.sideRescueAction)}{" "}
+        {dec.sideRescueDisplay ||
+          (String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
+            ? "No stronger opposite-side case was found."
+            : daVal(dec.sideRescueAction))}{" "}
         · Same-team {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
       </Text>
       {dec.topPickTransparency ? (
         <Text style={styles.daNote}>
           Top Pick: rank {daVal(dec.topPickTransparency.rank)} ·{" "}
           {daVal(dec.topPickTransparency.reason)}
+          {dec.topPickTransparency.scoreVsNext?.explanation
+            ? ` · ${dec.topPickTransparency.scoreVsNext.explanation}`
+            : ""}
         </Text>
       ) : null}
       {dec.finalReadableExplanation ? (

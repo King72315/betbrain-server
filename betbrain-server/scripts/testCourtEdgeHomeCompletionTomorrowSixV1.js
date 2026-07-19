@@ -643,14 +643,14 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD home-completion mission lock", () => {
+test("62 SERVER_BUILD analysis-integrity target", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-home-completion-tomorrow-six-v1",
-    "SERVER_BUILD must be courteedge-home-completion-tomorrow-six-v1"
+    "courteedge-analysis-integrity-v1",
+    "SERVER_BUILD must be courteedge-analysis-integrity-v1"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
 });

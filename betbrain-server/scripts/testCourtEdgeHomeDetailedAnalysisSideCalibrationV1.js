@@ -516,9 +516,35 @@ test("33. UI does not recalculate confidence", () => {
 
 test("34. UI does not recalculate risk", () => {
   const pick = attachHomeDetailedAnalysisV1(
-    fixturePick({ displayTrueRisk: "HIGH", decisionIntelligence: { trueRisk: "HIGH" } })
+    fixturePick({
+      displayTrueRisk: "HIGH",
+      trueRisk: "HIGH",
+      decisionIntelligence: { trueRisk: "HIGH", trackEligibility: "TRACK" },
+      courtEdgeDecisionPacketV1: {
+        version: "courtEdgeDecisionPacketV1",
+        decisionHash: "hash-fixture-high",
+        trueRisk: "HIGH",
+        layers: {
+          freeze: { side: "UNDER", confidence: 62, risk: "HIGH" },
+        },
+      },
+    })
   );
   assert.strictEqual(pick.homeDetailedAnalysisV1.canonical.risk, "HIGH");
+  assert.strictEqual(pick.displayTrueRisk, "HIGH");
+  assert.strictEqual(pick.homeDetailedAnalysisV1.finalDecision.finalRisk, "HIGH");
+});
+
+test("34b. Packet risk owns over conflicting riskLabel trail", () => {
+  const pick = attachHomeDetailedAnalysisV1(
+    fixturePick({
+      riskLabel: "High Risk",
+      displayTrueRisk: "HIGH",
+      // Fixture packet freeze stays MEDIUM — canonical must follow packet.
+    })
+  );
+  assert.strictEqual(pick.homeDetailedAnalysisV1.canonical.risk, "MEDIUM");
+  assert.strictEqual(pick.displayTrueRisk, "MEDIUM");
 });
 
 test("35. Official sealed detailed analysis remains immutable", () => {
@@ -893,7 +919,7 @@ test("Cache key includes league/player/line/build/schema", () => {
   });
   assert.match(key, /WNBA/);
   assert.match(key, /18\.5/);
-  assert.match(key, /courteedge-home-(?:detailed-analysis|completion)/);
+  assert.match(key, /courteedge-(?:home-|analysis-integrity)/);
 });
 
 test("Side calibration version marker present on analysis", () => {

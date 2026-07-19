@@ -109,7 +109,14 @@ export function resolveBestSixDisplayPool(
 }
 
 export function resolveTrueRisk(pick = {}) {
-  return String(pick.decisionIntelligence?.trueRisk || pick.trueRisk || "—").toUpperCase();
+  const canonical = pick.homeDetailedAnalysisV1?.canonical?.risk;
+  return String(
+    canonical ||
+      pick.displayTrueRisk ||
+      pick.decisionIntelligence?.trueRisk ||
+      pick.trueRisk ||
+      "—"
+  ).toUpperCase();
 }
 
 export function resolveDayBucket(item = {}) {
@@ -733,16 +740,28 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
   const game = pick.game || `${team} vs ${opponent}`;
   const trackDecision = "TRACK";
   const trueRisk = resolveTrueRisk(pick);
+  const canonical = pick.homeDetailedAnalysisV1?.canonical || {};
+  const conf =
+    canonical.confidence ??
+    pick.finalConfidence ??
+    pick.confidence ??
+    pick.winProbability;
+  const confDisplay =
+    conf === null || conf === undefined || conf === ""
+      ? "—"
+      : String(Math.round(Number(conf)));
   const whyRaw =
     pick.displayWhy ||
     pick.decisionIntelligence?.simpleExplanation ||
     "";
   const why = String(whyRaw)
-    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?)\b/gi, "")
+    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?|NO_DECISIVE_RESCUE)\b/gi, "")
     .replace(
-      /\b(UNDER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|OVER_GAP_BELOW_WNBA_(?:LIMITED|FULL)_DATA_FLOOR|DANGER_STACK_INSUFFICIENT_EDGE|DANGER_GATE_STACK_(?:BOARD_ONLY|NO_TRACK))\b/gi,
+      /\b(UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+)\b/gi,
       ""
     )
+    .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
+    .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
     .replace(/prior gate:\s*/gi, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s*[—–-]\s*$/g, "")
@@ -760,6 +779,9 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
         "The Over has a limited projection advantage despite otherwise complete data.",
       DANGER_STACK_INSUFFICIENT_EDGE:
         "The projection edge is thin relative to the identified risk factors.",
+      NO_DECISIVE_RESCUE: "No stronger opposite-side case was found.",
+      DANGER_GATE_STACK_BOARD_ONLY:
+        "Multiple risk factors are stacked against this side.",
     };
     const key = String(code || "").toUpperCase();
     for (const [raw, text] of Object.entries(map)) {
@@ -796,7 +818,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (${leagueCode})`,
     `  Game: ${game}`,
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
-    `  Confidence: ${formatReportValue(pick.confidence ?? pick.winProbability)}% | Risk: ${trueRisk} | Decision: ${trackDecision}`,
+    `  Confidence: ${confDisplay}% | Risk: ${trueRisk} | Decision: ${trackDecision}`,
     sameTeamFlip
       ? `  Model Side: ${originalModelSide || "OVER"} → Final Side: UNDER | Same-Team Arbitration: Applied`
       : null,
@@ -806,7 +828,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     whyFinal ? `  Why: ${whyFinal}` : null,
     sideRescueAction &&
     sideRescueAction !== "KEEP_ORIGINAL" &&
-    !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction))
+    !/BOARD_ONLY|NO_BET|FLIPPED_TO_|NO_DECISIVE_RESCUE/i.test(String(sideRescueAction))
       ? `  ${sameTeamFlip ? "Arbitration" : "Side Rescue"}: ${sideRescueAction}`
       : null,
     formatDetailedAnalysisReportBlock(pick),
@@ -829,29 +851,44 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
   const avail = a.availability || {};
   const dec = a.finalDecision || {};
   const dq = a.dataQuality || {};
-  const last = m.lastMatchup;
+  const matchups = Array.isArray(m.recentMatchups) ? m.recentMatchups : [];
+  const conf = s.confidence ?? dec.finalConfidence ?? a.canonical?.confidence;
+  const risk = s.risk ?? dec.finalRisk ?? a.canonical?.risk;
+  const matchupLines =
+    m.status === "UNAVAILABLE" || !matchups.length
+      ? [
+          `  Matchup: ${m.display || "No previous matchup data available."}`,
+        ]
+      : matchups.map(
+          (row, i) =>
+            `  Matchup ${i + 1}: ${row.date || "—"} pts ${row.points ?? "Unavailable"} min ${row.minutes ?? "Unavailable"} FGA ${row.fga ?? "Unavailable"} FTA ${row.fta ?? "Unavailable"} vs line ${row.againstTodaysLine || "—"}`
+        );
+  const rescue =
+    dec.sideRescueDisplay ||
+    (String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
+      ? "No stronger opposite-side case was found."
+      : dec.sideRescueAction || "—");
   return [
     "  --- DETAILED ANALYSIS ---",
-    `  Snapshot: ${s.player || pick.player} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${s.confidence}% | Risk ${s.risk} | ${s.sealedLiveStatus}`,
+    `  Snapshot: ${s.player || pick.player} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${conf}% | Risk ${risk} | ${s.sealedLiveStatus}`,
     `  Original side: ${s.originalModelSide} | Coverage ${s.evidenceCoverage ?? "—"}%`,
     `  L5: [${(r.last5Points || []).join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
     `  L10: [${(r.last10Points || []).join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) season ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
-    m.status === "UNAVAILABLE" || !last
-      ? `  Matchup: ${m.display || "No previous matchup data available."}`
-      : `  Last matchup: ${last.date || "—"} pts ${last.points ?? "Unavailable"} min ${last.minutes ?? "Unavailable"} FGA ${last.fga ?? "Unavailable"} FTA ${last.fta ?? "Unavailable"} vs line ${last.againstTodaysLine || "—"} (n=${m.sampleSize})`,
+    ...matchupLines,
     `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} FGA ${role.expectedFGA ?? "Unavailable"} FTA ${role.expectedFTA ?? "Unavailable"}`,
     `  Projection: final ${proj.finalProjection ?? "—"} fair ${proj.fairLine ?? "—"} gap ${proj.projectionGap ?? "—"} vol ${proj.volatilityTier ?? "—"}`,
     `  Opponent: defense ${opp.opponentDefenseStatus} score ${opp.defenseScore ?? "Unavailable"}`,
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult}`,
     `  Availability: ${avail.displayStatus || "Unavailable"}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Flip ${dec.flipFirstAction} | Rescue ${
-      String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
-        ? "No stronger opposite-side case was found."
-        : dec.sideRescueAction || "—"
-    }`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence ?? conf}% | Risk ${dec.finalRisk ?? risk} | Flip ${dec.flipFirstAction} | Rescue ${rescue}`,
+    dec.topPickTransparency
+      ? `  Top: rank ${dec.topPickTransparency.rank} | ${dec.topPickTransparency.reason}`
+      : null,
     `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"}`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function buildLeagueControlledBestSixReportText({

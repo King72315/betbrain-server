@@ -320,9 +320,9 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-// Mission lock: courteedge-home-completion-tomorrow-six-v1
+// Mission lock: courteedge-analysis-integrity-v1
 // Empty-board guard features remain active (LKG preserve + bundled recovery).
-const SERVER_BUILD = "courteedge-home-completion-tomorrow-six-v1";
+const SERVER_BUILD = "courteedge-analysis-integrity-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
