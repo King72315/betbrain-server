@@ -3155,8 +3155,77 @@ app.get("/picks/:league", async (req, res) => {
   }
 });
 
+let refreshInFlight = null;
+let lastRefreshStartedAt = null;
+let lastRefreshFinishedAt = null;
+let lastRefreshError = null;
+
+function getRefreshStatus() {
+  return {
+    inFlight: Boolean(refreshInFlight),
+    startedAt: lastRefreshStartedAt,
+    finishedAt: lastRefreshFinishedAt,
+    error: lastRefreshError,
+    boardPresent: Boolean(getReadOnlyBoard()?.games?.length),
+    serverBuild: SERVER_BUILD,
+  };
+}
+
+function startRefreshAllPicksBackground(reason = "manual") {
+  if (refreshInFlight) {
+    return {
+      started: false,
+      alreadyRunning: true,
+      status: getRefreshStatus(),
+    };
+  }
+  lastRefreshStartedAt = new Date().toISOString();
+  lastRefreshError = null;
+  refreshInFlight = refreshAllPicks()
+    .then((result) => {
+      lastRefreshFinishedAt = new Date().toISOString();
+      lastRefreshError = null;
+      console.log("ASYNC REFRESH COMPLETE:", {
+        reason,
+        serverBuild: SERVER_BUILD,
+        games: result?.games?.length || 0,
+        tomorrowCandidates: result?.tomorrowCandidateCount,
+        todayCandidates: result?.todayCandidateCount,
+      });
+      return result;
+    })
+    .catch((error) => {
+      lastRefreshFinishedAt = new Date().toISOString();
+      lastRefreshError = error?.message || String(error);
+      console.log("ASYNC REFRESH ERROR:", lastRefreshError);
+      throw error;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return {
+    started: true,
+    alreadyRunning: false,
+    status: getRefreshStatus(),
+  };
+}
+
 app.post("/refresh-picks", async (req, res) => {
   try {
+    const wait = String(req.query.wait || req.body?.wait || "").toLowerCase();
+    const wantsSync = wait === "1" || wait === "true" || wait === "sync";
+    if (!wantsSync) {
+      const kick = startRefreshAllPicksBackground("http-refresh-picks");
+      return res.json({
+        ok: true,
+        async: true,
+        message: kick.alreadyRunning
+          ? "Refresh already in progress"
+          : "Refresh started in background (avoids proxy timeout)",
+        serverBuild: SERVER_BUILD,
+        ...kick,
+      });
+    }
     const result = await refreshAllPicks();
     res.json(result);
   } catch (error) {
@@ -3172,6 +3241,10 @@ app.post("/refresh-picks", async (req, res) => {
       preservedBoard: Boolean(getReadOnlyBoard()?.games?.length),
     });
   }
+});
+
+app.get("/refresh-picks/status", (req, res) => {
+  res.json({ ok: true, ...getRefreshStatus() });
 });
 
 function requireSchedulerToken(req, res, next) {
@@ -5460,6 +5533,17 @@ if (process.env.RUN_AUDIT === "1") {
       );
     } else {
       console.log("BOARD CACHE empty ? waiting for scheduler or manual refresh");
+    }
+
+    // After deploy, ephemeral disk / build mismatch often leaves an empty board.
+    // Kick an async refresh so Home recovers without waiting on a proxy-timeout POST.
+    const needsStartupRefresh =
+      !picksCache?.games?.length ||
+      picksCache.serverBuild !== SERVER_BUILD ||
+      !cacheFresh();
+    if (needsStartupRefresh) {
+      console.log("STARTUP ASYNC REFRESH: board empty or build stale");
+      startRefreshAllPicksBackground("startup-empty-or-stale");
     }
 
     if (rehydrateResult.results?.length) {
