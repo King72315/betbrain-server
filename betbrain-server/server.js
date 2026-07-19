@@ -1485,7 +1485,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           Number(b.bookCount || 0) - Number(a.bookCount || 0) ||
           Number(b.marketQuality || 0) - Number(a.marketQuality || 0)
       )
-      .slice(0, 14);
+      .slice(0, 8);
     const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
     const wnbaGameContext =
       league === "WNBA" && isCourteEdgeWnbaV1Enabled()
@@ -2430,13 +2430,110 @@ function ensureWnbaGateOnGames(games = []) {
   });
 }
 
-async function refreshAllPicks() {
+async function refreshAllPicks(options = {}) {
+  const scope = String(options.scope || "all").toLowerCase();
   const sideAudit = createSideAudit();
+  const previousBoard = getReadOnlyBoard();
 
-  const todayNba = await buildPicksForDay(0, "NBA");
-  const todayWnba = await buildPicksForDay(0, "WNBA");
-  const tomorrowNba = await buildPicksForDay(1, "NBA");
-  const tomorrowWnba = await buildPicksForDay(1, "WNBA");
+  const emptyDay = () => ({ gameCards: [], sideAudit: createSideAudit() });
+
+  let todayNba = emptyDay();
+  let todayWnba = emptyDay();
+  let tomorrowNba = emptyDay();
+  let tomorrowWnba = emptyDay();
+
+  // Skip NBA during WNBA recovery / offseason to cut provider load.
+  const includeNba = options.includeNba === true;
+
+  if (scope === "tomorrow") {
+    // Keep prior Today cards; rebuild Tomorrow only.
+    const priorToday = (previousBoard?.games || []).filter(
+      (g) => String(g.dayBucket || "").toUpperCase() === "TODAY"
+    );
+    todayWnba = {
+      gameCards: priorToday.filter((g) => String(g.league || "").toUpperCase() === "WNBA"),
+      sideAudit: createSideAudit(),
+    };
+    todayNba = {
+      gameCards: priorToday.filter((g) => String(g.league || "").toUpperCase() === "NBA"),
+      sideAudit: createSideAudit(),
+    };
+    if (includeNba) tomorrowNba = await buildPicksForDay(1, "NBA");
+    tomorrowWnba = await buildPicksForDay(1, "WNBA");
+  } else if (scope === "today") {
+    if (includeNba) todayNba = await buildPicksForDay(0, "NBA");
+    todayWnba = await buildPicksForDay(0, "WNBA");
+    const priorTom = (previousBoard?.games || []).filter(
+      (g) => String(g.dayBucket || "").toUpperCase() === "TOMORROW"
+    );
+    tomorrowWnba = {
+      gameCards: priorTom.filter((g) => String(g.league || "").toUpperCase() === "WNBA"),
+      sideAudit: createSideAudit(),
+    };
+    tomorrowNba = {
+      gameCards: priorTom.filter((g) => String(g.league || "").toUpperCase() === "NBA"),
+      sideAudit: createSideAudit(),
+    };
+  } else {
+    if (includeNba) todayNba = await buildPicksForDay(0, "NBA");
+    todayWnba = await buildPicksForDay(0, "WNBA");
+    // Progressive persist: save Today board before Tomorrow so a crash still
+    // leaves a usable Home Today slate.
+    try {
+      const interimGames = ensureWnbaGateOnGames([
+        ...todayNba.gameCards.map((g) => ({
+          ...g,
+          dateLabel: "Today",
+          dayBucket: "TODAY",
+        })),
+        ...todayWnba.gameCards.map((g) => ({
+          ...g,
+          dateLabel: "Today",
+          dayBucket: "TODAY",
+        })),
+      ]);
+      if (interimGames.length) {
+        const interimSelection = buildTopPropsFromSelector(interimGames);
+        const interimBoard = {
+          ok: true,
+          incomplete: true,
+          progressivePersist: true,
+          serverBuild: SERVER_BUILD,
+          boardSchemaVersion: BOARD_SCHEMA_VERSION,
+          lastUpdated: new Date().toISOString(),
+          games: interimGames,
+          wnbaGames: interimGames.filter((g) => g.league === "WNBA"),
+          nbaGames: interimGames.filter((g) => g.league === "NBA"),
+          bestSixDisplayWNBA: interimSelection.bestSixDisplayWNBA || [],
+          bestSixDisplayNBA: interimSelection.bestSixDisplayNBA || [],
+          bestSixDisplayTodayWNBA: interimSelection.bestSixDisplayTodayWNBA || [],
+          bestSixDisplayTodayNBA: interimSelection.bestSixDisplayTodayNBA || [],
+          bestSixDisplayTomorrowWNBA: [],
+          bestSixDisplayTomorrowNBA: [],
+          bestSixWNBA: interimSelection.bestSixWNBA || [],
+          bestSixNBA: interimSelection.bestSixNBA || [],
+          topProps: interimSelection.topProps || [],
+          topWNBAProps: interimSelection.topWNBAProps || [],
+          topNBAProps: interimSelection.topNBAProps || [],
+          controlledBestSixAudit: interimSelection.controlledBestSixAudit,
+          controlledBestSixVersion: CONTROLLED_BEST_SIX_VERSION,
+          todayCandidateCount: countDayBucketCandidates(interimGames, "TODAY"),
+          tomorrowCandidateCount: 0,
+        };
+        picksCache = interimBoard;
+        lastRefreshTime = Date.now();
+        saveBoardCache(interimBoard);
+        console.log("PROGRESSIVE PERSIST TODAY:", {
+          games: interimGames.length,
+          todayBestSix: (interimSelection.bestSixDisplayTodayWNBA || []).length,
+        });
+      }
+    } catch (err) {
+      console.log("PROGRESSIVE PERSIST TODAY WARNING:", err.message);
+    }
+    if (includeNba) tomorrowNba = await buildPicksForDay(1, "NBA");
+    tomorrowWnba = await buildPicksForDay(1, "WNBA");
+  }
 
   sideAudit.rawOverLines =
     todayNba.sideAudit.rawOverLines +
@@ -3181,7 +3278,7 @@ function getRefreshStatus() {
   };
 }
 
-function startRefreshAllPicksBackground(reason = "manual") {
+function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   if (refreshInFlight) {
     return {
       started: false,
@@ -3191,12 +3288,13 @@ function startRefreshAllPicksBackground(reason = "manual") {
   }
   lastRefreshStartedAt = new Date().toISOString();
   lastRefreshError = null;
-  refreshInFlight = refreshAllPicks()
+  refreshInFlight = refreshAllPicks(options)
     .then((result) => {
       lastRefreshFinishedAt = new Date().toISOString();
       lastRefreshError = null;
       console.log("ASYNC REFRESH COMPLETE:", {
         reason,
+        scope: options.scope || "all",
         serverBuild: SERVER_BUILD,
         games: result?.games?.length || 0,
         tomorrowCandidates: result?.tomorrowCandidateCount,
@@ -3217,6 +3315,7 @@ function startRefreshAllPicksBackground(reason = "manual") {
     started: true,
     alreadyRunning: false,
     status: getRefreshStatus(),
+    scope: options.scope || "all",
   };
 }
 
@@ -3224,11 +3323,18 @@ app.post("/refresh-picks", async (req, res) => {
   try {
     const wait = String(req.query.wait || req.body?.wait || "").toLowerCase();
     const wantsSync = wait === "1" || wait === "true" || wait === "sync";
+    const scope = String(req.query.scope || req.body?.scope || "all").toLowerCase();
+    const includeNba =
+      String(req.query.includeNba || req.body?.includeNba || "").toLowerCase() ===
+      "true";
+    const refreshOpts = { scope, includeNba };
     if (!wantsSync) {
-      const kick = startRefreshAllPicksBackground("http-refresh-picks");
+      const kick = startRefreshAllPicksBackground("http-refresh-picks", refreshOpts);
       return res.json({
         ok: true,
         async: true,
+        scope,
+        includeNba,
         message: kick.alreadyRunning
           ? "Refresh already in progress"
           : "Refresh started in background (avoids proxy timeout)",
@@ -3236,7 +3342,7 @@ app.post("/refresh-picks", async (req, res) => {
         ...kick,
       });
     }
-    const result = await refreshAllPicks();
+    const result = await refreshAllPicks(refreshOpts);
     res.json(result);
   } catch (error) {
     console.log("REFRESH PICKS ERROR:", error.message);
