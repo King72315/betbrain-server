@@ -29,8 +29,11 @@ import {
   extractDecisionPacket,
   extractPregameSnapshot,
   deltaMetric,
+  classifySlateInstrumentation,
+  filterInstrumentedRecords,
 } from "./courtEdgeLabV2Helpers.js";
 import { buildHistoryThreeSlateGroupsV2 } from "./historyThreeSlateGroupsV2.js";
+import { computeSlateRotation } from "./slateScopeService.js";
 
 function filterOfficialProps(props = []) {
   return (props || []).filter(isOfficialBestSixProp);
@@ -42,13 +45,45 @@ function propsForSlate(trackedProps = [], slateDate) {
   );
 }
 
-function buildCurrentSlateSummary(records = [], slateDate) {
+function buildCurrentSlateSummary(records = [], slateDate, instrumentation = null) {
   const overall = buildRecordStats(records);
+  const flags = instrumentation || classifySlateInstrumentation(
+    records.map((r) => ({
+      ...r,
+      trackingType: "OFFICIAL",
+      courtEdgeEngineSignalsV1: r.signals?.available
+        ? { enabled: true, engines: r.signals.engines }
+        : null,
+    }))
+  );
+  // Prefer explicit instrumentation from raw props when provided
+  const inst = instrumentation || {
+    legacy: records.some((r) => r.legacy || r.uninstrumented),
+    uninstrumented: records.every((r) => r.uninstrumented || !r.signals?.available),
+    instrumented: records.length > 0 && records.every((r) => r.signals?.available === true),
+    evidenceCoverage:
+      records.length > 0
+        ? round(
+            (records.filter((r) => r.signals?.available === true).length / records.length) *
+              100,
+            1
+          )
+        : null,
+    sixProp: records.length >= 6,
+    thinOfficial: records.length > 0 && records.length < 6,
+  };
   return {
     slateDate,
     leagueCoverage: [...new Set(records.map((r) => r.league).filter(Boolean))],
     ...overall,
     accuracy: overall.winRate,
+    legacy: inst.legacy === true,
+    uninstrumented: inst.uninstrumented === true,
+    instrumented: inst.instrumented === true,
+    evidenceCoverage: inst.evidenceCoverage ?? null,
+    sixProp: inst.sixProp === true,
+    thinOfficial: inst.thinOfficial === true,
+    instrumentation: inst,
     topPickRecord: buildRecordStats(records.filter((r) => r.isTopPick)),
     overRecord: buildRecordStats(records.filter((r) => r.finalSide === "OVER")),
     underRecord: buildRecordStats(records.filter((r) => r.finalSide === "UNDER")),
@@ -75,6 +110,7 @@ function buildBestSixResults(records = []) {
       resultMargin: r.margin,
       confidence: r.confidence,
       risk: r.risk,
+      confidenceRiskSource: r.confidenceRiskSource || null,
       projection: r.projection,
       fairLine: r.fairLine,
       projectionError: r.projectionError,
@@ -94,6 +130,9 @@ function buildBestSixResults(records = []) {
         r.diagnosis ||
         (r.won ? "WIN" : r.lost ? "LOSS" : r.push ? "PUSH" : "PENDING"),
       engineSignalsAvailable: r.signals?.available === true,
+      legacy: r.legacy === true,
+      uninstrumented: r.uninstrumented === true,
+      evidenceCoverage: r.evidenceCoverage ?? null,
     }));
 }
 
@@ -171,13 +210,21 @@ function buildPerPropPacket(rec) {
         fairLine: rec.fairLine,
         confidence: rec.confidence,
         risk: rec.risk,
-        evidenceCoverage: rec.signals?.aggregation?.evidenceCoverage || null,
+        evidenceCoverage:
+          rec.signals?.aggregation?.evidenceCoverage || rec.evidenceCoverage || null,
         buildVersion: rec.buildVersion,
         engineVersions: rec.engineVersions,
+        legacy: rec.legacy === true,
+        uninstrumented: rec.uninstrumented === true,
+        instrumented: rec.signals?.available === true,
+        confidenceRiskSource: rec.confidenceRiskSource || null,
       },
       pregameEngineEvidence: {
         signalsAvailable: rec.signals?.available === true,
         unavailableReason: rec.signals?.unavailableReason || null,
+        legacy: rec.legacy === true,
+        uninstrumented: rec.uninstrumented === true,
+        evidenceCoverage: rec.evidenceCoverage ?? null,
         engines,
       },
       decisionPath: {
@@ -631,6 +678,39 @@ function buildRawSignalExplorer(records = [], options = {}) {
 }
 
 function buildAllTimeContext(allRecords = []) {
+  const instrumented = filterInstrumentedRecords(allRecords);
+  const byBuild = {};
+  const byEvidenceSchema = {};
+  const byPacketVersion = {};
+
+  for (const rec of allRecords) {
+    const buildKey = String(rec.buildVersion || rec.engineVersions?.schemaBuild || "unknown");
+    if (!byBuild[buildKey]) byBuild[buildKey] = [];
+    byBuild[buildKey].push(rec);
+
+    const schemaKey = String(
+      rec.engineVersions?.signals ||
+        (rec.signals?.available ? "courtEdgeEngineSignalsV1" : "uninstrumented_legacy")
+    );
+    if (!byEvidenceSchema[schemaKey]) byEvidenceSchema[schemaKey] = [];
+    byEvidenceSchema[schemaKey].push(rec);
+
+    const packetKey = String(
+      rec.engineVersions?.packet ||
+        rec.packet?.version ||
+        (rec.packet ? "courtEdgeDecisionPacketV1" : "no_decision_packet")
+    );
+    if (!byPacketVersion[packetKey]) byPacketVersion[packetKey] = [];
+    byPacketVersion[packetKey].push(rec);
+  }
+
+  const summarizeCohort = (records) => ({
+    ...buildRecordStats(records),
+    engineScorecards: buildAllEngineScorecards(records, { instrumentedOnly: true }),
+    instrumentedCount: filterInstrumentedRecords(records).length,
+    legacyCount: records.filter((r) => r.legacy || r.uninstrumented).length,
+  });
+
   return {
     ...buildRecordStats(allRecords),
     nba: buildRecordStats(allRecords.filter((r) => r.league === "NBA")),
@@ -642,11 +722,61 @@ function buildAllTimeContext(allRecords = []) {
     top: buildRecordStats(allRecords.filter((r) => r.isTopPick)),
     nonTop: buildRecordStats(allRecords.filter((r) => !r.isTopPick)),
     sameTeamForced: buildRecordStats(allRecords.filter((r) => r.forcedSameTeam)),
-    engineScorecards: buildAllEngineScorecards(allRecords),
+    // Primary engine scoreboard: instrumented sealed evidence only
+    engineScorecards: buildAllEngineScorecards(instrumented, { instrumentedOnly: true }),
+    engineScorecardsLegacySegregated: buildAllEngineScorecards(allRecords, {
+      instrumentedOnly: false,
+    }),
+    instrumentedRecordCount: instrumented.length,
+    legacyRecordCount: allRecords.length - instrumented.length,
     avgProjectionError: avg(allRecords.map((r) => r.projectionError)),
     avgAbsProjectionError: avg(allRecords.map((r) => r.absProjectionError)),
     avgClv: avg(allRecords.map((r) => r.clv)),
+    byBuildVersion: Object.fromEntries(
+      Object.entries(byBuild).map(([k, list]) => [k, summarizeCohort(list)])
+    ),
+    byEvidenceSchema: Object.fromEntries(
+      Object.entries(byEvidenceSchema).map(([k, list]) => [k, summarizeCohort(list)])
+    ),
+    byDecisionPacketVersion: Object.fromEntries(
+      Object.entries(byPacketVersion).map(([k, list]) => [k, summarizeCohort(list)])
+    ),
   };
+}
+
+function resolveNewestCompletedOfficialSlateDate({
+  slateDate,
+  officialProps,
+  reports,
+  archives,
+  currentLabSlateDate = null,
+}) {
+  if (slateDate) return String(slateDate);
+  if (currentLabSlateDate) return String(currentLabSlateDate);
+
+  try {
+    const rotation = computeSlateRotation(reports || [], {
+      archives: archives || [],
+      trackedProps: officialProps || [],
+    });
+    if (rotation?.currentLabSlateDate) return String(rotation.currentLabSlateDate);
+  } catch {
+    // Fall through to prop-date max — Lab must still render.
+  }
+
+  const completedFromProps = new Map();
+  for (const prop of officialProps || []) {
+    const d = String(prop.slateDate || "");
+    if (!d) continue;
+    if (!completedFromProps.has(d)) completedFromProps.set(d, []);
+    completedFromProps.get(d).push(prop);
+  }
+  const completedDates = [...completedFromProps.entries()]
+    .filter(([, props]) => props.every((p) => ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())))
+    .map(([d]) => d)
+    .sort();
+
+  return completedDates.slice(-1)[0] || officialProps.map((p) => p.slateDate).filter(Boolean).sort().slice(-1)[0] || null;
 }
 
 /**
@@ -663,6 +793,7 @@ export function buildCourtEdgeLabV2(options = {}) {
     rawPage = 1,
     rawPageSize = 100,
     includeAllRawRows = false,
+    currentLabSlateDate = null,
   } = options;
 
   const officialProps = filterOfficialProps(trackedProps);
@@ -673,17 +804,20 @@ export function buildCourtEdgeLabV2(options = {}) {
     persist: persistThreeSlate,
   });
 
-  const resolvedSlateDate =
-    slateDate ||
-    threeSlate.activeBlock?.slateDates?.slice(-1)[0] ||
-    threeSlate.previousBlock?.slateDates?.slice(-1)[0] ||
-    officialProps.map((p) => p.slateDate).sort().slice(-1)[0] ||
-    null;
+  // Lab defaults to newest completed official slate (rotation), not stuck on an older block date.
+  const resolvedSlateDate = resolveNewestCompletedOfficialSlateDate({
+    slateDate,
+    officialProps,
+    reports,
+    archives,
+    currentLabSlateDate,
+  });
 
   const slateProps = resolvedSlateDate
     ? propsForSlate(officialProps, resolvedSlateDate)
     : [];
   const slateRecords = slateProps.map(buildLabPropRecord);
+  const slateInstrumentation = classifySlateInstrumentation(slateProps);
 
   const activeDates = threeSlate.activeBlock?.slateDates || [];
   const activeRecords = officialProps
@@ -699,11 +833,16 @@ export function buildCourtEdgeLabV2(options = {}) {
   const activeBlock = threeSlate.activeBlock;
   const previousBlock = threeSlate.previousBlock;
 
-  const currentEngineScorecards = buildAllEngineScorecards(slateRecords);
+  // Directional/calibration scoreboards: instrumented sealed props only
+  const currentEngineScorecards = buildAllEngineScorecards(slateRecords, {
+    instrumentedOnly: true,
+  });
   const activeEngineScorecards =
-    activeBlock?.engineScorecards || buildAllEngineScorecards(activeRecords);
+    activeBlock?.engineScorecards ||
+    buildAllEngineScorecards(activeRecords, { instrumentedOnly: true });
   const previousEngineScorecards =
-    previousBlock?.engineScorecards || buildAllEngineScorecards(prevRecords);
+    previousBlock?.engineScorecards ||
+    buildAllEngineScorecards(prevRecords, { instrumentedOnly: true });
 
   const engineScorecards = {};
   for (const key of LAB_V2_ENGINE_KEYS) {
@@ -712,6 +851,7 @@ export function buildCourtEdgeLabV2(options = {}) {
       currentSlate: currentEngineScorecards[key],
       activeThreeSlateBlock: activeEngineScorecards[key],
       previousThreeSlateBlock: previousEngineScorecards[key],
+      instrumentedOnly: true,
       change: {
         directionalAccuracy: deltaMetric(
           previousEngineScorecards[key]?.directionalAccuracy,
@@ -733,6 +873,12 @@ export function buildCourtEdgeLabV2(options = {}) {
     };
   }
 
+  const currentSlateSummary = buildCurrentSlateSummary(
+    slateRecords,
+    resolvedSlateDate,
+    slateInstrumentation
+  );
+
   const labV2 = {
     version: LAB_V2_VERSION,
     generatedAt: new Date().toISOString(),
@@ -743,12 +889,12 @@ export function buildCourtEdgeLabV2(options = {}) {
     writesLiveWeights: false,
     calibrationFeedbackEngine: false,
 
-    currentSlate: buildCurrentSlateSummary(slateRecords, resolvedSlateDate),
+    currentSlate: currentSlateSummary,
     activeThreeSlateBlock: activeBlock,
     previousThreeSlateBlock: previousBlock,
     threeSlateComparison: activeBlock?.comparison || previousBlock?.comparison || null,
 
-    overallSummary: buildCurrentSlateSummary(slateRecords, resolvedSlateDate),
+    overallSummary: currentSlateSummary,
     officialBestSixResults: buildBestSixResults(slateRecords),
     perPropPackets: slateRecords.map(buildPerPropPacket),
     engineScorecards,
@@ -803,9 +949,19 @@ export function buildCourtEdgeLabV2(options = {}) {
     allTimeContext: buildAllTimeContext(allRecords),
 
     threeSlateGroups: threeSlate,
+    legacySlateDates: threeSlate.legacySlateDates || [],
+    instrumentedLearningDates: threeSlate.instrumentedLearningDates || [],
+    slateInstrumentation: threeSlate.slateInstrumentation || {
+      [resolvedSlateDate]: slateInstrumentation,
+    },
     meta: {
       officialPropCount: slateRecords.length,
       engineKeys: LAB_V2_ENGINE_KEYS,
+      legacy: slateInstrumentation.legacy === true,
+      uninstrumented: slateInstrumentation.uninstrumented === true,
+      instrumented: slateInstrumentation.instrumented === true,
+      evidenceCoverage: slateInstrumentation.evidenceCoverage,
+      learningTrack: "instrumented-six-prop-v1",
       cacheKey: `${resolvedSlateDate || "none"}:${LAB_V2_BUILD}:${threeSlate.store?.updatedAt || ""}`,
     },
   };

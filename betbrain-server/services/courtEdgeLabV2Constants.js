@@ -4,10 +4,20 @@
  */
 
 export const LAB_V2_VERSION = "courtEdgeLabV2";
-export const LAB_V2_BUILD = "courteedge-lab-v2-three-slate-v1";
+export const LAB_V2_BUILD = "courteedge-lab-lifecycle-compat-v1";
 export const HISTORY_THREE_SLATE_GROUPS_V2_VERSION = "history-three-slate-groups-v2";
 /** Alias expected by server.js imports */
 export const HISTORY_THREE_SLATE_GROUPS_V2 = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;
+
+/** Official slate size required for the instrumented three-slate learning track. */
+export const INSTRUMENTED_LEARNING_MIN_PROPS = 6;
+
+/**
+ * Evidence / decision-packet schema era used to segregate all-time engine metrics.
+ * Mixed eras must never blend into one scoreboard.
+ */
+export const LAB_EVIDENCE_SCHEMA_V1 = "courtEdgeEngineSignalsV1";
+export const LAB_DECISION_PACKET_V1 = "courtEdgeDecisionPacketV1";
 
 /** Eleven Engine Expansion scoreboard engines (always visible). */
 export const LAB_V2_SCOREBOARD_ENGINES = Object.freeze([

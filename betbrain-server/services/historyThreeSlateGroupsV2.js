@@ -33,6 +33,8 @@ import {
   deltaMetric,
   isResolvedStatus,
   statusOf,
+  classifySlateInstrumentation,
+  filterInstrumentedRecords,
 } from "./courtEdgeLabV2Helpers.js";
 
 export { V1_VERSION, HISTORY_THREE_SLATE_GROUPS_V2 };
@@ -47,6 +49,9 @@ function emptyStore() {
     version: HISTORY_THREE_SLATE_GROUPS_V2_VERSION,
     frozenBlocks: [],
     activeBlock: null,
+    legacySlateDates: [],
+    demotedFromActive: [],
+    learningTrack: "instrumented-six-prop-v1",
     updatedAt: null,
   };
 }
@@ -59,6 +64,9 @@ function readStore() {
       version: HISTORY_THREE_SLATE_GROUPS_V2_VERSION,
       frozenBlocks: Array.isArray(raw.frozenBlocks) ? raw.frozenBlocks : [],
       activeBlock: raw.activeBlock || null,
+      legacySlateDates: Array.isArray(raw.legacySlateDates) ? raw.legacySlateDates : [],
+      demotedFromActive: Array.isArray(raw.demotedFromActive) ? raw.demotedFromActive : [],
+      learningTrack: raw.learningTrack || "instrumented-six-prop-v1",
       updatedAt: raw.updatedAt || null,
     };
   } catch {
@@ -89,30 +97,70 @@ export function clearFrozenThreeSlateMembershipCache() {
  * Sync membership from an ordered list of completed official slate dates.
  * Non-overlapping chunks of 3. Frozen membership never regrouped.
  *
- * activeBlock is always the latest block (may be incomplete 1/3–2/3 OR
+ * When options.learningDates is provided, only those dates enter/continue the
+ * active instrumented learning track. Ineligible dates already sitting in an
+ * incomplete active block are demoted to legacy (not frozen as a fake block).
+ *
+ * activeBlock is always the latest learning block (may be incomplete 1/3–2/3 OR
  * complete 3/3 when no newer slate has started yet).
  */
-export function syncThreeSlateBlocksV2(completedDates = []) {
+export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   const dates = [...new Set((completedDates || []).map(String).filter(Boolean))].sort();
+  const learningDates = Array.isArray(options.learningDates)
+    ? [...new Set(options.learningDates.map(String).filter(Boolean))].sort()
+    : dates;
+  const learningSet = new Set(learningDates);
+  const restrictToLearning = Array.isArray(options.learningDates);
+  const legacyExtra = Array.isArray(options.legacyDates)
+    ? options.legacyDates.map(String)
+    : [];
+
   const store = readStore();
 
   // Preserve already-frozen membership dates
-  const priorFrozen = (store.frozenBlocks || []).map((b) => ({
+  let priorFrozen = (store.frozenBlocks || []).map((b) => ({
     ...b,
     frozen: true,
     incomplete: false,
     progress: "3/3",
     progressLabel: "Slate 3 of 3 — Block Complete",
   }));
+
+  // Empty-store bootstrap: freeze ALL completed dates in chronological chunks of 3
+  // (preserves historical membership e.g. Jul 14–16 including thin Jul 16). Leftover
+  // dates after complete chunks enter the new six-prop learning track only.
+  if (priorFrozen.length === 0 && dates.length > 0) {
+    let histWorking = [...dates].sort();
+    while (histWorking.length >= GROUP_SIZE) {
+      const chunk = histWorking.slice(0, GROUP_SIZE);
+      histWorking = histWorking.slice(GROUP_SIZE);
+      priorFrozen.push(makeCompleteBlock(priorFrozen.length, chunk));
+    }
+    // Leftover incomplete historical dates that are not six-prop learning stay legacy.
+    for (const d of histWorking) {
+      if (restrictToLearning && !learningSet.has(d)) {
+        if (!legacyExtra.includes(d)) legacyExtra.push(d);
+      }
+    }
+  }
+
   const frozenDateSet = new Set(priorFrozen.flatMap((b) => b.slateDates || []));
 
-  // New dates only (never reassign frozen membership)
-  const newDates = dates.filter((d) => !frozenDateSet.has(d));
+  // New learning dates only (never reassign frozen membership)
+  const newDates = learningDates.filter((d) => !frozenDateSet.has(d));
 
-  // If there was an incomplete active, continue it with new dates
+  // If there was an incomplete active, continue it with eligible learning dates
   let working = [];
+  const demoted = [...(store.demotedFromActive || [])];
   if (store.activeBlock?.incomplete && Array.isArray(store.activeBlock.slateDates)) {
-    working = store.activeBlock.slateDates.filter((d) => !frozenDateSet.has(d));
+    for (const d of store.activeBlock.slateDates) {
+      if (frozenDateSet.has(d)) continue;
+      if (restrictToLearning && !learningSet.has(d)) {
+        if (!demoted.includes(d)) demoted.push(d);
+        continue;
+      }
+      working.push(d);
+    }
   }
   for (const d of newDates) {
     if (!working.includes(d)) working.push(d);
@@ -149,15 +197,44 @@ export function syncThreeSlateBlocksV2(completedDates = []) {
       progress: `${working.length}/${GROUP_SIZE}`,
       progressLabel: `Slate ${working.length} of ${GROUP_SIZE}`,
       buildVersion: LAB_V2_BUILD,
+      instrumentedLearning: true,
     };
-  } else if (frozenBlocks.length > 0) {
+  } else if (frozenBlocks.length > 0 && !restrictToLearning) {
     // No working dates — latest frozen is still the active completed block
     activeBlock = { ...frozenBlocks[frozenBlocks.length - 1] };
+  } else if (frozenBlocks.length > 0 && learningDates.length === 0) {
+    // Instrumented track idle — do not keep a legacy incomplete date as active
+    activeBlock = null;
+  } else if (
+    frozenBlocks.length > 0 &&
+    learningDates.length > 0 &&
+    learningDates.every((d) => frozenDateSet.has(d))
+  ) {
+    // All learning dates already frozen — show latest frozen learning block as active
+    const learningFrozen = frozenBlocks.filter((b) =>
+      (b.slateDates || []).every((d) => learningSet.has(d) || frozenDateSet.has(d))
+    );
+    activeBlock =
+      learningFrozen.length > 0
+        ? { ...learningFrozen[learningFrozen.length - 1] }
+        : { ...frozenBlocks[frozenBlocks.length - 1] };
   }
+
+  const legacySlateDates = [
+    ...new Set([
+      ...(store.legacySlateDates || []),
+      ...legacyExtra,
+      ...demoted,
+      ...dates.filter((d) => restrictToLearning && !learningSet.has(d)),
+    ]),
+  ].sort();
 
   return writeStore({
     frozenBlocks,
     activeBlock,
+    legacySlateDates,
+    demotedFromActive: [...new Set(demoted)].sort(),
+    learningTrack: "instrumented-six-prop-v1",
   });
 }
 
@@ -240,18 +317,41 @@ function enrichBlock(block, propsByDate = {}) {
   if (!block) return null;
   const props = (block.slateDates || []).flatMap((d) => propsByDate[d] || []);
   const records = props.map(buildLabPropRecord);
+  const instrumentedRecords = filterInstrumentedRecords(records);
   const record = buildRecordStats(records);
-  const engineScorecards = buildAllEngineScorecards(records);
-  const perSlate = (block.slateDates || []).map((d) => ({
-    slateDate: d,
-    ...buildRecordStats((propsByDate[d] || []).map(buildLabPropRecord)),
-  }));
+  // Engine scoreboards: instrumented sealed signals only — never poison with legacy.
+  const engineScorecards = buildAllEngineScorecards(instrumentedRecords, {
+    instrumentedOnly: true,
+  });
+  const perSlate = (block.slateDates || []).map((d) => {
+    const slateProps = propsByDate[d] || [];
+    const slateRecords = slateProps.map(buildLabPropRecord);
+    const instrumentation = classifySlateInstrumentation(slateProps);
+    return {
+      slateDate: d,
+      ...buildRecordStats(slateRecords),
+      ...instrumentation.flags,
+      evidenceCoverage: instrumentation.evidenceCoverage,
+      instrumentation,
+    };
+  });
+
+  const slateFlags = (block.slateDates || []).map((d) =>
+    classifySlateInstrumentation(propsByDate[d] || [])
+  );
+  const anyLegacy = slateFlags.some((f) => f.legacy || f.uninstrumented);
+  const allInstrumented = slateFlags.length > 0 && slateFlags.every((f) => f.instrumented);
 
   return {
     ...block,
     perSlate,
     record,
     ...record,
+    legacy: anyLegacy,
+    uninstrumented: slateFlags.some((f) => f.uninstrumented),
+    instrumented: allInstrumented,
+    instrumentedPropCount: instrumentedRecords.length,
+    excludedUninstrumentedPropCount: Math.max(0, records.length - instrumentedRecords.length),
     overRecord: buildRecordStats(records.filter((r) => r.finalSide === "OVER")),
     underRecord: buildRecordStats(records.filter((r) => r.finalSide === "UNDER")),
     nbaRecord: buildRecordStats(records.filter((r) => r.league === "NBA")),
@@ -335,12 +435,25 @@ function buildRichComparison(current, previous) {
 
 function propsByDateFromSources({ archives, reports, trackedProps }) {
   const map = {};
+  const propKey = (prop) => {
+    if (prop.officialPropId) return `id:${prop.officialPropId}`;
+    return [
+      "fallback",
+      prop.player || prop.playerName || "",
+      prop.team || "",
+      prop.opponent || "",
+      prop.bestSixRank ?? prop.controlledBestSixRank ?? "",
+      prop.side || prop.pick || "",
+      prop.line ?? prop.sealedLine ?? "",
+    ].join("|");
+  };
   const add = (props) => {
     for (const prop of (props || []).filter(isOfficialBestSixProp)) {
       const d = String(prop.slateDate || "");
       if (!d) continue;
       if (!map[d]) map[d] = [];
-      if (!map[d].some((p) => p.officialPropId === prop.officialPropId)) {
+      const key = propKey(prop);
+      if (!map[d].some((p) => propKey(p) === key)) {
         map[d].push(prop);
       }
     }
@@ -374,19 +487,35 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
   }
 
   const dates = collectCompletedOfficialSlateDates({ archives, reports, trackedProps });
+  const byDate = propsByDateFromSources({ archives, reports, trackedProps });
+
+  const slateInstrumentation = {};
+  const learningDates = [];
+  const legacyDates = [];
+  for (const d of dates) {
+    const info = classifySlateInstrumentation(byDate[d] || []);
+    slateInstrumentation[d] = info;
+    // Six-prop official slates enter the new active learning track.
+    // Thin/uninstrumented eras (e.g. Jul 16 three-prop) stay historical/legacy.
+    if (info.eligibleForSixPropLearningBlock) learningDates.push(d);
+    else legacyDates.push(d);
+  }
 
   let frozenBlocks;
   let activeBlock;
   let store = emptyStore();
 
   if (persist) {
-    store = syncThreeSlateBlocksV2(dates);
+    store = syncThreeSlateBlocksV2(dates, {
+      learningDates,
+      legacyDates,
+    });
     frozenBlocks = store.frozenBlocks || [];
     activeBlock = store.activeBlock;
   } else {
-    // Ephemeral chunking — do not touch the on-disk store
+    // Ephemeral chunking — instrumented learning dates only for active track
     frozenBlocks = [];
-    const remaining = [...dates];
+    const remaining = [...learningDates];
     while (remaining.length > GROUP_SIZE) {
       const chunk = remaining.splice(0, GROUP_SIZE);
       frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
@@ -409,13 +538,13 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
         progress: `${remaining.length}/${GROUP_SIZE}`,
         progressLabel: `Slate ${remaining.length} of ${GROUP_SIZE}`,
         buildVersion: LAB_V2_BUILD,
+        instrumentedLearning: true,
       };
     } else {
       activeBlock = null;
     }
   }
 
-  const byDate = propsByDateFromSources({ archives, reports, trackedProps });
   const enrichedFrozen = frozenBlocks.map((b) => enrichBlock(b, byDate));
   const enrichedActive = enrichBlock(activeBlock, byDate);
 
@@ -430,7 +559,7 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     enrichedActive.comparison = buildRichComparison(enrichedActive, prev);
   }
 
-  // Active is latest block. Previous is the frozen block before it.
+  // Active is latest instrumented learning block. Previous is the frozen block before it.
   const resolvedActive = enrichedActive || null;
   let resolvedPrevious = null;
   if (resolvedActive) {
@@ -439,6 +568,9 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     );
     resolvedPrevious =
       priorFrozen.length > 0 ? priorFrozen[priorFrozen.length - 1] : null;
+  } else if (enrichedFrozen.length > 0) {
+    // Instrumented track idle (e.g. waiting for first sealed six-prop) — still expose last frozen.
+    resolvedPrevious = enrichedFrozen[enrichedFrozen.length - 1];
   }
 
   const v1Archives = dates.map((d) => ({
@@ -472,9 +604,17 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     previousBlock: resolvedPrevious,
     groups: allGroups.slice().reverse(),
     v1Groups: v1.groups || [],
+    learningTrack: "instrumented-six-prop-v1",
+    instrumentedLearningDates: learningDates,
+    legacySlateDates: [
+      ...new Set([...(store.legacySlateDates || []), ...legacyDates]),
+    ].sort(),
+    demotedFromActive: store.demotedFromActive || [],
+    slateInstrumentation,
     store: {
       updatedAt: persist ? store.updatedAt : null,
       frozenGroupIds: enrichedFrozen.map((b) => b.groupId),
+      learningTrack: store.learningTrack || "instrumented-six-prop-v1",
     },
     v1Compatible: {
       version: v1.version,

@@ -123,15 +123,31 @@ function Chip({
 }
 
 function DeltaLine({ label, delta }: { label: string; delta: any }) {
-  if (!delta) return null;
-  const diff =
-    delta.difference === null || delta.difference === undefined
-      ? "—"
-      : `${delta.difference > 0 ? "+" : ""}${delta.difference}`;
+  if (!delta) {
+    return <MetricRow label={label} value="N/A" />;
+  }
+  const display =
+    delta.display ||
+    delta.label ||
+    (delta.difference === null || delta.difference === undefined
+      ? delta.direction === "pending"
+        ? "pending"
+        : "N/A"
+      : `${delta.difference > 0 ? "+" : ""}${delta.difference}`);
+  const prev =
+    delta.previous === null || delta.previous === undefined
+      ? "N/A"
+      : formatNum(delta.previous);
+  const cur =
+    delta.current === null || delta.current === undefined
+      ? delta.direction === "pending"
+        ? "pending"
+        : "N/A"
+      : formatNum(delta.current);
   return (
     <MetricRow
       label={label}
-      value={`Prev ${formatNum(delta.previous)} → Cur ${formatNum(delta.current)} (${diff})`}
+      value={`Prev ${prev} → Cur ${cur} (${display})`}
     />
   );
 }
@@ -349,6 +365,36 @@ export default function PropLabScreen() {
             <>
               <MetricRow label="Slate" value={formatSlateLabel(current.slateDate)} />
               <MetricRow
+                label="Instrumentation"
+                value={
+                  current.instrumented
+                    ? "Instrumented (sealed engine signals)"
+                    : current.thinOfficial
+                      ? "Legacy / thin official (not six-prop)"
+                      : current.uninstrumented || current.legacy
+                        ? "Legacy / uninstrumented (no sealed engine signals)"
+                        : "—"
+                }
+              />
+              <MetricRow
+                label="Evidence coverage"
+                value={
+                  current.evidenceCoverage == null
+                    ? "N/A"
+                    : `${current.evidenceCoverage}%`
+                }
+              />
+              <MetricRow
+                label="Official size"
+                value={
+                  current.sixProp
+                    ? "Six-prop"
+                    : current.thinOfficial
+                      ? `Thin (${current.totalProps ?? 0})`
+                      : String(current.totalProps ?? 0)
+                }
+              />
+              <MetricRow
                 label="Leagues"
                 value={(current.leagueCoverage || []).join(", ") || "—"}
               />
@@ -386,7 +432,10 @@ export default function PropLabScreen() {
 
           {selectedBlock === "active" ? (
             !activeBlock ? (
-              <Text style={styles.muted}>No active three-slate block yet.</Text>
+              <Text style={styles.muted}>
+                No active six-prop learning block yet. Waiting for the next sealed
+                six-prop official slate (thin/legacy eras stay historical).
+              </Text>
             ) : (
               <>
                 <MetricRow
@@ -399,6 +448,16 @@ export default function PropLabScreen() {
                   label="Dates"
                   value={(activeBlock.slateDates || []).map(formatSlateLabel).join(" · ") || "—"}
                 />
+                <MetricRow
+                  label="Block instrumentation"
+                  value={
+                    activeBlock.instrumented
+                      ? "Instrumented"
+                      : activeBlock.uninstrumented || activeBlock.legacy
+                        ? "Legacy / uninstrumented (engine scoreboard segregated)"
+                        : "—"
+                  }
+                />
                 <MetricRow label="Combined W-L-P" value={formatRecord(activeBlock)} />
                 <MetricRow label="Win rate" value={formatPct(activeBlock.winRate)} />
                 <MetricRow label="Avg |proj error|" value={formatNum(activeBlock.avgAbsProjectionError)} />
@@ -406,7 +465,9 @@ export default function PropLabScreen() {
                 {(activeBlock.perSlate || []).map((s: any) => (
                   <MetricRow
                     key={s.slateDate}
-                    label={formatSlateLabel(s.slateDate)}
+                    label={`${formatSlateLabel(s.slateDate)}${
+                      s.uninstrumented || s.legacy ? " · legacy" : ""
+                    }${s.thinOfficial ? " · thin" : ""}${s.sixProp ? " · 6-prop" : ""}`}
                     value={formatRecord(s)}
                   />
                 ))}
@@ -419,6 +480,16 @@ export default function PropLabScreen() {
               <MetricRow
                 label="Dates"
                 value={(previousBlock.slateDates || []).map(formatSlateLabel).join(" · ") || "—"}
+              />
+              <MetricRow
+                label="Block instrumentation"
+                value={
+                  previousBlock.instrumented
+                    ? "Instrumented"
+                    : previousBlock.uninstrumented || previousBlock.legacy
+                      ? "Legacy / uninstrumented (historical)"
+                      : "—"
+                }
               />
               <MetricRow label="Combined W-L-P" value={formatRecord(previousBlock)} />
               <MetricRow label="Win rate" value={formatPct(previousBlock.winRate)} />
@@ -460,6 +531,10 @@ export default function PropLabScreen() {
                 </Text>
                 <MetricRow label="Actual / margin" value={`${formatNum(row.actualPoints)} / ${formatNum(row.resultMargin)}`} />
                 <MetricRow label="Conf / risk" value={`${formatNum(row.confidence, 0)}% / ${row.risk || "—"}`} />
+                <MetricRow
+                  label="Conf/risk source"
+                  value={row.confidenceRiskSource || "—"}
+                />
                 <MetricRow label="Proj / fair / err" value={`${formatNum(row.projection)} / ${formatNum(row.fairLine)} / ${formatNum(row.projectionError)}`} />
                 <MetricRow label="Open → close / CLV" value={`${formatNum(row.openingLine)} → ${formatNum(row.closingLine)} / ${formatNum(row.clv)}`} />
                 <MetricRow label="Organic → final" value={`${row.originalModelSide || "—"} → ${row.finalCourtEdgeSide || "—"}`} />
@@ -470,7 +545,13 @@ export default function PropLabScreen() {
                 <MetricRow label="Diagnosis" value={String(row.diagnosisSummary || "—")} />
                 <MetricRow
                   label="Engine signals"
-                  value={row.engineSignalsAvailable ? "Sealed" : "Unavailable (legacy)"}
+                  value={
+                    row.engineSignalsAvailable
+                      ? "Sealed"
+                      : row.uninstrumented || row.legacy
+                        ? "Unavailable (legacy / uninstrumented)"
+                        : "Unavailable (legacy)"
+                  }
                 />
               </View>
             ))
@@ -556,6 +637,10 @@ export default function PropLabScreen() {
 
         {/* 5. Engine Expansion Scoreboard */}
         <SectionCard title="5. Engine Expansion Scoreboard">
+          <Text style={styles.muted}>
+            Directional/calibration metrics use sealed instrumented props only.
+            Legacy / uninstrumented slates are excluded from scoreboard math.
+          </Text>
           {engineKeys.map((key) => {
             const card = engines[key];
             const cur = card?.currentSlate || {};
@@ -784,6 +869,10 @@ export default function PropLabScreen() {
         <SectionCard title="15. All-Time Context" defaultOpen={false}>
           <MetricRow label="Graded" value={String(labV2?.allTimeContext?.graded ?? 0)} />
           <MetricRow label="W-L-P" value={formatRecord(labV2?.allTimeContext)} />
+          <MetricRow
+            label="Instrumented / legacy"
+            value={`${labV2?.allTimeContext?.instrumentedRecordCount ?? 0} / ${labV2?.allTimeContext?.legacyRecordCount ?? 0}`}
+          />
           <MetricRow label="NBA" value={formatRecord(labV2?.allTimeContext?.nba)} />
           <MetricRow label="WNBA" value={formatRecord(labV2?.allTimeContext?.wnba)} />
           <MetricRow label="Over" value={formatRecord(labV2?.allTimeContext?.over)} />
@@ -791,6 +880,34 @@ export default function PropLabScreen() {
           <MetricRow label="Same-team forced" value={formatRecord(labV2?.allTimeContext?.sameTeamForced)} />
           <MetricRow label="Avg |proj err|" value={formatNum(labV2?.allTimeContext?.avgAbsProjectionError)} />
           <MetricRow label="Avg CLV" value={formatNum(labV2?.allTimeContext?.avgClv)} />
+          <Text style={styles.subhead}>By build / evidence era</Text>
+          {Object.entries(labV2?.allTimeContext?.byBuildVersion || {}).map(
+            ([build, stats]: [string, any]) => (
+              <MetricRow
+                key={`build-${build}`}
+                label={`Build ${build}`}
+                value={`${formatRecord(stats)} · instr ${stats.instrumentedCount ?? 0}`}
+              />
+            )
+          )}
+          {Object.entries(labV2?.allTimeContext?.byEvidenceSchema || {}).map(
+            ([schema, stats]: [string, any]) => (
+              <MetricRow
+                key={`schema-${schema}`}
+                label={`Evidence ${schema}`}
+                value={formatRecord(stats)}
+              />
+            )
+          )}
+          {Object.entries(labV2?.allTimeContext?.byDecisionPacketVersion || {}).map(
+            ([ver, stats]: [string, any]) => (
+              <MetricRow
+                key={`pkt-${ver}`}
+                label={`Packet ${ver}`}
+                value={formatRecord(stats)}
+              />
+            )
+          )}
         </SectionCard>
 
         <Text style={styles.footer}>

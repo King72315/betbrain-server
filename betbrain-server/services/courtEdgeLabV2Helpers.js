@@ -8,6 +8,9 @@ import {
   LAB_V2_ENGINE_LABELS,
   LAB_V2_ENGINE_KINDS,
   CONFIDENCE_BUCKETS,
+  INSTRUMENTED_LEARNING_MIN_PROPS,
+  LAB_EVIDENCE_SCHEMA_V1,
+  LAB_DECISION_PACKET_V1,
 } from "./courtEdgeLabV2Constants.js";
 import { readMeasuredValue } from "./labMeasuredFields.js";
 
@@ -72,17 +75,19 @@ export function statusOf(prop = {}) {
 }
 
 export function isOfficialBestSixProp(prop = {}) {
+  // Immutable official seal wins over trackingType mislabels (e.g. TEST + immutableOfficial).
+  // Never drop a sealed official Best 6 prop from Lab because of a stale TEST tag.
+  if (prop.immutableOfficial === true) return true;
+  if (prop.excludedFromOfficialRecord === true) return false;
   const explicit = String(prop.trackingType || prop.recordType || "").toUpperCase();
   if (explicit === "OFFICIAL") return true;
   if (explicit === "TEST" || explicit === "NO_BET") return false;
-  if (prop.immutableOfficial === true) return true;
   if (prop.controlledBestSixDisplayTracked === true) return true;
   if (prop.controlledBestSixDisplay === true) return true;
   if (prop.bestSixRank != null && Number(prop.bestSixRank) > 0) return true;
   if (prop.controlledBestSixRank != null && Number(prop.controlledBestSixRank) > 0) {
     return true;
   }
-  if (prop.excludedFromOfficialRecord === true) return false;
   const tier = String(prop.tier || "").toUpperCase();
   if (tier === "LEAN" || tier === "WATCHLIST") return false;
   if (tier === "PREMIUM" || tier === "OFFICIAL") return true;
@@ -170,6 +175,162 @@ export function extractDecisionPacket(prop = {}) {
     prop.pregameSnapshot?.courtEdgeDecisionPacketV1 ||
     prop.canonicalSealedProp?.courtEdgeDecisionPacketV1 ||
     null
+  );
+}
+
+/**
+ * Sealed expansion instrumentation — never invent signals from postgame/live Board.
+ * Missing sealed courtEdgeEngineSignalsV1 → uninstrumented / UNAVAILABLE.
+ */
+export function hasSealedEngineSignals(prop = {}) {
+  const signals = extractEngineSignals(prop);
+  return signals.available === true && signals.enabled === true;
+}
+
+export function hasSealedDecisionPacket(prop = {}) {
+  const packet = extractDecisionPacket(prop);
+  if (!packet || typeof packet !== "object") return false;
+  return (
+    packet.finalConfidence != null ||
+    packet.trueRisk != null ||
+    packet.confidence != null ||
+    Boolean(packet.version || packet.schemaBuild)
+  );
+}
+
+/**
+ * Canonical conf/risk owner matches analysis integrity:
+ * courtEdgeDecisionPacketV1.finalConfidence|trueRisk (sealed) — not live recalcs.
+ */
+export function resolveSealedConfidenceRisk(prop = {}) {
+  const packet = extractDecisionPacket(prop) || {};
+  const freeze = packet.layers?.freeze || {};
+  const pregame = extractPregameSnapshot(prop);
+  const confidence = num(
+    first(
+      freeze.finalConfidence,
+      freeze.confidence,
+      packet.finalConfidence,
+      packet.confidence,
+      prop.finalConfidence,
+      prop.confidence,
+      pregame?.confidence
+    ),
+    null
+  );
+  const risk = normalizeRisk(
+    first(
+      freeze.trueRisk,
+      freeze.risk,
+      packet.trueRisk,
+      packet.finalRisk,
+      prop.displayTrueRisk,
+      prop.trueRisk,
+      prop.riskLabel,
+      pregame?.risk
+    )
+  );
+  const fromPacket =
+    packet.finalConfidence != null ||
+    packet.trueRisk != null ||
+    packet.finalRisk != null ||
+    freeze.finalConfidence != null ||
+    freeze.trueRisk != null;
+  return {
+    confidence,
+    risk,
+    source: fromPacket
+      ? "courtEdgeDecisionPacketV1"
+      : confidence != null || risk != null
+        ? "prop_fallback_unsealed"
+        : "unavailable",
+    packetPresent: hasSealedDecisionPacket(prop),
+  };
+}
+
+export function classifyPropInstrumentation(prop = {}) {
+  const signals = extractEngineSignals(prop);
+  const packet = extractDecisionPacket(prop);
+  const instrumented = hasSealedEngineSignals(prop);
+  const coverage =
+    signals?.aggregation?.evidenceCoverage != null
+      ? num(signals.aggregation.evidenceCoverage, null)
+      : instrumented
+        ? 100
+        : 0;
+  return {
+    instrumented,
+    legacy: !instrumented,
+    uninstrumented: !instrumented,
+    evidenceCoverage: coverage,
+    signalsAvailable: instrumented,
+    packetAvailable: hasSealedDecisionPacket(prop),
+    unavailableReason: instrumented
+      ? null
+      : signals.unavailableReason || "expansion_unavailable_legacy_record",
+    evidenceSchema: signals.version || (instrumented ? LAB_EVIDENCE_SCHEMA_V1 : null),
+    decisionPacketVersion:
+      packet?.version || (packet ? LAB_DECISION_PACKET_V1 : null),
+    schemaBuild: packet?.schemaBuild || signals?.schemaBuild || null,
+    serverBuild: prop.serverBuild || prop.buildVersion || null,
+  };
+}
+
+/**
+ * Slate-level instrumentation for Lab / three-slate eligibility.
+ *
+ * - Six-prop learning block: official propCount >= 6 (thin 3-prop like Jul 16 stays historical/legacy).
+ * - Engine scoreboards: only sealed courtEdgeEngineSignalsV1 (never invent from postgame).
+ */
+export function classifySlateInstrumentation(props = []) {
+  const list = (props || []).filter(isOfficialBestSixProp);
+  const total = list.length;
+  const instrumentedProps = list.filter(hasSealedEngineSignals);
+  const instrumentedCount = instrumentedProps.length;
+  const evidenceCoverage =
+    total > 0 ? round((instrumentedCount / total) * 100, 1) : null;
+  const fullyInstrumented = total > 0 && instrumentedCount === total;
+  const sixProp = total >= INSTRUMENTED_LEARNING_MIN_PROPS;
+  const uninstrumented = total === 0 || instrumentedCount === 0;
+  const legacy = !fullyInstrumented;
+  const thinOfficial = total > 0 && total < INSTRUMENTED_LEARNING_MIN_PROPS;
+  // New active three-slate learning membership: sealed six-prop official size.
+  // Engine directional/calibration metrics still require sealed expansion signals.
+  const eligibleForSixPropLearningBlock = sixProp;
+  const eligibleForInstrumentedLearning = fullyInstrumented && sixProp;
+  return {
+    propCount: total,
+    instrumentedCount,
+    evidenceCoverage,
+    instrumented: fullyInstrumented,
+    legacy,
+    uninstrumented,
+    sixProp,
+    thinOfficial,
+    eligibleForSixPropLearningBlock,
+    eligibleForInstrumentedLearning,
+    flags: {
+      legacy,
+      uninstrumented,
+      instrumented: fullyInstrumented,
+      sixProp,
+      thinOfficial,
+    },
+    note: fullyInstrumented
+      ? sixProp
+        ? "sealed_instrumented_six_prop"
+        : "sealed_instrumented_thin_official"
+      : thinOfficial
+        ? "legacy_thin_official_not_six_prop"
+        : uninstrumented
+          ? "legacy_uninstrumented_no_sealed_engine_signals"
+          : "partial_instrumentation_treated_as_legacy",
+  };
+}
+
+export function filterInstrumentedRecords(records = []) {
+  return (records || []).filter(
+    (r) => r?.signals?.available === true || r?.instrumentation?.instrumented === true
   );
 }
 
@@ -269,11 +430,14 @@ export function attributeCalibration(signal, won, lost, margin = null) {
 
 export function deltaMetric(previous, current) {
   if (current === null || current === undefined) {
+    const prevMissing = previous === null || previous === undefined;
     return {
       previous: previous ?? null,
       current: null,
       difference: null,
-      direction: "unavailable",
+      direction: prevMissing ? "unavailable" : "pending",
+      display: "N/A",
+      label: prevMissing ? "N/A" : "pending",
     };
   }
   if (previous === null || previous === undefined) {
@@ -282,13 +446,19 @@ export function deltaMetric(previous, current) {
       current,
       difference: null,
       direction: "no_previous",
+      display: "N/A",
+      label: "N/A",
     };
   }
   const difference = round(Number(current) - Number(previous), 3);
   let direction = "flat";
   if (difference > 0) direction = "up";
   if (difference < 0) direction = "down";
-  return { previous, current, difference, direction };
+  const display =
+    difference === null || Number.isNaN(difference)
+      ? "N/A"
+      : `${difference > 0 ? "+" : ""}${difference}`;
+  return { previous, current, difference, direction, display, label: display };
 }
 
 export function confidenceBucketKey(confidence) {
@@ -364,6 +534,8 @@ export function buildLabPropRecord(prop = {}) {
   const pregame = extractPregameSnapshot(prop);
   const signals = extractEngineSignals(prop);
   const packet = extractDecisionPacket(prop);
+  const instrumentation = classifyPropInstrumentation(prop);
+  const sealedConfRisk = resolveSealedConfidenceRisk(prop);
   const status = statusOf(prop);
   const won = status === "win";
   const lost = status === "loss";
@@ -479,18 +651,14 @@ export function buildLabPropRecord(prop = {}) {
     projectionError,
     absProjectionError,
     clv,
-    confidence: num(
-      first(
-        packet?.finalConfidence,
-        prop.finalConfidence,
-        prop.confidence,
-        pregame?.confidence
-      ),
-      null
-    ),
-    risk: normalizeRisk(
-      prop.trueRisk || prop.riskLabel || packet?.trueRisk || pregame?.risk
-    ),
+    // Sealed decision packet owns finalConfidence / trueRisk (analysis integrity).
+    confidence: sealedConfRisk.confidence,
+    risk: sealedConfRisk.risk,
+    confidenceRiskSource: sealedConfRisk.source,
+    instrumentation,
+    legacy: instrumentation.legacy,
+    uninstrumented: instrumentation.uninstrumented,
+    evidenceCoverage: instrumentation.evidenceCoverage,
     bestSixRank: num(prop.bestSixRank ?? prop.controlledBestSixRank, null),
     isTopPick: Boolean(
       prop.isTopPick ||
@@ -542,7 +710,13 @@ export function buildLabPropRecord(prop = {}) {
   };
 }
 
-export function buildAllEngineScorecards(records = []) {
+export function buildAllEngineScorecards(records = [], options = {}) {
+  const instrumentedOnly = options.instrumentedOnly !== false;
+  const source = instrumentedOnly
+    ? filterInstrumentedRecords(records)
+    : Array.isArray(records)
+      ? records
+      : [];
   const cards = {};
   const contribs = {};
   const confAdjs = {};
@@ -557,7 +731,7 @@ export function buildAllEngineScorecards(records = []) {
     opposedMargins[key] = [];
   }
 
-  for (const rec of records) {
+  for (const rec of source) {
     for (const key of LAB_V2_ENGINE_KEYS) {
       const card = cards[key];
       card.sampleSize += 1;
@@ -624,6 +798,11 @@ export function buildAllEngineScorecards(records = []) {
     card.avgMarginWhenAligned = avg(alignedMargins[key]);
     card.avgMarginWhenOpposed = avg(opposedMargins[key]);
     card.smallSample = card.sampleSize > 0 && card.sampleSize < 6;
+    card.instrumentedOnly = instrumentedOnly;
+    card.excludedUninstrumentedCount = Math.max(
+      0,
+      (records || []).length - source.length
+    );
     // Always expose calibration counters (separate from directional)
     if (card.calibrationHelped == null) card.calibrationHelped = 0;
     if (card.calibrationHurt == null) card.calibrationHurt = 0;
@@ -644,6 +823,7 @@ export function compareRecords(current, previous) {
   const keys = [
     "winRate",
     "overallAccuracy",
+    "avgMargin",
     "avgResultMargin",
     "avgProjectionError",
     "avgAbsProjectionError",
@@ -656,7 +836,15 @@ export function compareRecords(current, previous) {
   ];
   const metrics = {};
   for (const key of keys) {
-    metrics[key] = deltaMetric(previous[key], current[key]);
+    const prevVal =
+      key === "avgMargin"
+        ? previous.avgMargin ?? previous.avgResultMargin
+        : previous[key];
+    const curVal =
+      key === "avgMargin"
+        ? current.avgMargin ?? current.avgResultMargin
+        : current[key];
+    metrics[key] = deltaMetric(prevVal, curVal);
   }
   return { hasPrevious: true, metrics };
 }

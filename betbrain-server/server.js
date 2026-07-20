@@ -322,9 +322,10 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-empty-board-guard-v1";
+const SERVER_BUILD = "courteedge-lab-lifecycle-compat-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -4360,12 +4361,14 @@ app.get("/courtedge/lab", (req, res) => {
     const archives = getAllHistoryArchives();
     const reports = getRawDailySlateReports();
     const slateDate = req.query?.slateDate ? String(req.query.slateDate) : null;
+    const rotation = computeSlateRotation(reports, getRotationRuntimeContext({ trackedProps }));
     const labV2 = buildCourtEdgeLabV2({
       slateDate,
       trackedProps,
       archives,
       reports,
       persistThreeSlate: true,
+      currentLabSlateDate: rotation?.currentLabSlateDate || null,
       rawPage: Number(req.query?.page || 1),
       rawPageSize: Number(req.query?.pageSize || 100),
       includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
@@ -4376,6 +4379,8 @@ app.get("/courtedge/lab", (req, res) => {
       serverBuild: SERVER_BUILD,
       labV2Version: LAB_V2_VERSION,
       labV2Build: LAB_V2_BUILD,
+      labLifecycleCompat: LAB_LIFECYCLE_COMPAT_VERSION,
+      currentLabSlateDate: rotation?.currentLabSlateDate || labV2.slateDate || null,
     });
   } catch (error) {
     console.log("COURTEDGE LAB V2 ERROR:", error.message);
@@ -4393,12 +4398,14 @@ app.get("/courtedge/lab/:slateDate", (req, res) => {
     const trackedProps = getTrackedProps();
     const archives = getAllHistoryArchives();
     const reports = getRawDailySlateReports();
+    const rotation = computeSlateRotation(reports, getRotationRuntimeContext({ trackedProps }));
     const labV2 = buildCourtEdgeLabV2({
       slateDate: String(req.params.slateDate),
       trackedProps,
       archives,
       reports,
       persistThreeSlate: true,
+      currentLabSlateDate: rotation?.currentLabSlateDate || null,
       rawPage: Number(req.query?.page || 1),
       rawPageSize: Number(req.query?.pageSize || 100),
       includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
@@ -4410,6 +4417,8 @@ app.get("/courtedge/lab/:slateDate", (req, res) => {
       serverBuild: SERVER_BUILD,
       labV2Version: LAB_V2_VERSION,
       labV2Build: LAB_V2_BUILD,
+      labLifecycleCompat: LAB_LIFECYCLE_COMPAT_VERSION,
+      currentLabSlateDate: rotation?.currentLabSlateDate || null,
     });
   } catch (error) {
     console.log("COURTEDGE LAB V2 SLATE ERROR:", error.message);

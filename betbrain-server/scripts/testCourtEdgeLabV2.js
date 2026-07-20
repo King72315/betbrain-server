@@ -555,9 +555,16 @@ test(26, "Unavailable signals are not counted as directional losses", () => {
     persistThreeSlate: false,
   });
   const card = lab.engineScorecards.lineMovementClv.currentSlate;
+  // Uninstrumented props are excluded from directional/calibration scoreboards.
   assert.equal(card.directionalOpportunities, 0);
   assert.equal(card.hurt, 0);
-  assert.ok(card.unavailableCount >= 1);
+  assert.equal(card.sampleSize, 0);
+  assert.equal(card.instrumentedOnly, true);
+  assert.equal(lab.currentSlate.uninstrumented, true);
+  assert.equal(
+    attributeDirectional({ available: false }, "OVER", true, false).kind,
+    "neutral"
+  );
 });
 
 test(27, "Helped/hurt/neutral attribution is correct", () => {
@@ -603,7 +610,11 @@ test(29, "Coverage percentage is correct", () => {
     trackedProps: props,
     persistThreeSlate: false,
   });
-  assert.equal(lab.engineScorecards.lineMovementClv.currentSlate.coveragePct, 50);
+  // Primary scoreboard is instrumented-only (legacy excluded from coverage math).
+  assert.equal(lab.engineScorecards.lineMovementClv.currentSlate.coveragePct, 100);
+  assert.equal(lab.engineScorecards.lineMovementClv.currentSlate.sampleSize, 1);
+  // Slate-level evidence coverage still reflects sealed vs uninstrumented mix.
+  assert.equal(lab.currentSlate.evidenceCoverage, 50);
 });
 
 test(30, "Suppressed duplicate signals remain visible", () => {
@@ -1051,6 +1062,197 @@ test(68, "Calibration attribution helper", () => {
   const signal = makeEngineSignal({ confidenceAdjustment: 2 });
   assert.equal(attributeCalibration(signal, false, true, -3).attribution, "hurt");
   assert.equal(attributeCalibration(signal, true, false, 3).attribution, "helped");
+});
+
+// ---------- LIFECYCLE / COMPAT V1 ----------
+test(69, "immutableOfficial wins over TEST trackingType", () => {
+  assert.equal(
+    isOfficialBestSixProp({
+      immutableOfficial: true,
+      trackingType: "TEST",
+      bestSixRank: 1,
+      status: "win",
+    }),
+    true
+  );
+  assert.equal(
+    isOfficialBestSixProp({
+      trackingType: "TEST",
+      bestSixRank: 1,
+      status: "win",
+    }),
+    false
+  );
+});
+
+test(70, "Lab defaults to newest completed official slate", () => {
+  resetBlocks();
+  const props = [
+    ...makeSix("2026-07-15"),
+    ...makeSix("2026-07-17"),
+  ];
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: false,
+  });
+  assert.equal(lab.slateDate, "2026-07-17");
+  assert.equal(lab.currentSlate.slateDate, "2026-07-17");
+  assert.equal(lab.officialBestSixResults.length, 6);
+});
+
+test(71, "Thin three-prop Jul 16 stays legacy and does not enter new six-prop active block", () => {
+  resetBlocks();
+  const thin = [1, 2, 3].map((i) =>
+    makeSealedProp({
+      slateDate: "2026-07-16",
+      bestSixRank: i,
+      player: `Thin${i}`,
+      status: "loss",
+      omitSignals: true,
+    })
+  );
+  const six = makeSix("2026-07-17");
+  const groups = buildHistoryThreeSlateGroupsV2({
+    trackedProps: [...thin, ...six],
+    persist: true,
+  });
+  assert.ok(groups.legacySlateDates.includes("2026-07-16"));
+  assert.ok(!groups.instrumentedLearningDates.includes("2026-07-16"));
+  assert.ok(groups.instrumentedLearningDates.includes("2026-07-17"));
+  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-17"]);
+  assert.equal(groups.activeBlock?.progress, "1/3");
+  assert.equal(thin.length, 3);
+});
+
+test(72, "Uninstrumented props flagged; engine scoreboard excludes them", () => {
+  const legacyProp = makeSealedProp({
+    slateDate: "2026-07-17",
+    omitSignals: true,
+    status: "win",
+    bestSixRank: 1,
+  });
+  const lab = buildCourtEdgeLabV2({
+    slateDate: "2026-07-17",
+    trackedProps: [legacyProp],
+    persistThreeSlate: false,
+  });
+  assert.equal(lab.currentSlate.uninstrumented, true);
+  assert.equal(lab.currentSlate.legacy, true);
+  assert.equal(lab.officialBestSixResults[0].engineSignalsAvailable, false);
+  const card = lab.engineScorecards.lineMovementClv.currentSlate;
+  assert.equal(card.availableCount, 0);
+  assert.equal(card.sampleSize, 0);
+  assert.equal(card.instrumentedOnly, true);
+});
+
+test(73, "Confidence and risk come from sealed decision packet", () => {
+  const prop = makeSealedProp({
+    slateDate: "2026-07-17",
+    status: "win",
+  });
+  prop.confidence = 99;
+  prop.trueRisk = "LOW";
+  prop.courtEdgeDecisionPacketV1.finalConfidence = 62;
+  prop.courtEdgeDecisionPacketV1.finalRisk = "MEDIUM";
+  const rec = buildLabPropRecord(prop);
+  assert.equal(rec.confidence, 62);
+  assert.equal(rec.risk, "MEDIUM");
+  assert.equal(rec.confidenceRiskSource, "courtEdgeDecisionPacketV1");
+});
+
+test(74, "Three-slate deltas never return bare null display", () => {
+  resetBlocks();
+  const props = [
+    ...makeSix("2026-07-14"),
+    ...makeSix("2026-07-15"),
+    ...makeSix("2026-07-16"),
+    ...makeSix("2026-07-17"),
+  ];
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  const delta = lab.engineScorecards.lineMovementClv.change.directionalAccuracy;
+  assert.ok(delta);
+  assert.ok(delta.display === "N/A" || typeof delta.display === "string");
+  assert.notEqual(delta.display, null);
+  assert.notEqual(delta.label, null);
+});
+
+test(75, "All-time context splits by build / evidence / packet version", () => {
+  const props = [
+    ...makeSix("2026-07-15"),
+    makeSealedProp({
+      slateDate: "2026-07-17",
+      omitSignals: true,
+      omitPacket: true,
+      status: "loss",
+      bestSixRank: 1,
+      player: "LegacyOnly",
+    }),
+  ];
+  const lab = buildCourtEdgeLabV2({
+    slateDate: "2026-07-15",
+    trackedProps: props,
+    persistThreeSlate: false,
+  });
+  assert.ok(lab.allTimeContext.byBuildVersion);
+  assert.ok(lab.allTimeContext.byEvidenceSchema);
+  assert.ok(lab.allTimeContext.byDecisionPacketVersion);
+  assert.ok(
+    Object.keys(lab.allTimeContext.byEvidenceSchema).some((k) =>
+      String(k).includes("uninstrumented") || String(k).includes("courtEdgeEngineSignals")
+    )
+  );
+});
+
+test(76, "Frozen historical membership preserved when six-prop track starts", () => {
+  resetBlocks();
+  const historical = [
+    ...makeSix("2026-06-21"),
+    ...makeSix("2026-06-22"),
+    ...makeSix("2026-07-08"),
+  ];
+  for (const p of historical) {
+    delete p.courtEdgeEngineSignalsV1;
+    if (p.canonicalSealedProp) delete p.canonicalSealedProp.courtEdgeEngineSignalsV1;
+  }
+  const thin = [1, 2, 3].map((i) => {
+    const p = makeSealedProp({
+      slateDate: "2026-07-16",
+      bestSixRank: i,
+      player: `Jul16-${i}`,
+      status: "loss",
+    });
+    delete p.courtEdgeEngineSignalsV1;
+    if (p.canonicalSealedProp) delete p.canonicalSealedProp.courtEdgeEngineSignalsV1;
+    return p;
+  });
+  // Mid-era thin/non-six props stay out of the new six-prop learning track.
+  const mid = [1, 2, 3, 4].flatMap((rank) =>
+    ["2026-07-14", "2026-07-15"].map((slateDate) => {
+      const p = makeSealedProp({
+        slateDate,
+        bestSixRank: rank,
+        player: `${slateDate}-${rank}`,
+        status: "win",
+      });
+      delete p.courtEdgeEngineSignalsV1;
+      if (p.canonicalSealedProp) delete p.canonicalSealedProp.courtEdgeEngineSignalsV1;
+      return p;
+    })
+  );
+  const next = makeSix("2026-07-17");
+  const groups = buildHistoryThreeSlateGroupsV2({
+    trackedProps: [...historical, ...mid, ...thin, ...next],
+    persist: true,
+  });
+  // Jul 16 thin must not appear in active six-prop learning block
+  assert.ok(!(groups.activeBlock?.slateDates || []).includes("2026-07-16"));
+  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-17"]);
+  // Frozen historical chunks must keep Jul 16 membership when bootstrapped
+  const frozenDates = (groups.frozenBlocks || []).flatMap((b) => b.slateDates || []);
+  assert.ok(frozenDates.includes("2026-07-16") || groups.legacySlateDates.includes("2026-07-16"));
 });
 
 console.log("\n==============================");
