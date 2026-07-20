@@ -494,6 +494,12 @@ export const fetchTrackedProps = async () => {
       ok: res.ok && (data.ok ?? false),
       props: Array.isArray(data.props) ? data.props : [],
       count: data.count || (Array.isArray(data.props) ? data.props.length : 0),
+      activeResultsSlateDate: data.activeResultsSlateDate || null,
+      trackedStoreTotalCount: data.trackedStoreTotalCount ?? null,
+      activeResultsTrackedCount: data.activeResultsTrackedCount ?? null,
+      honestEmptyCopy:
+        typeof data.honestEmptyCopy === "string" ? data.honestEmptyCopy : null,
+      tabFlowRepairVersion: data.tabFlowRepairVersion || null,
       error: data.error || (!res.ok ? `HTTP ${res.status}` : undefined),
     };
   } catch (err) {
@@ -503,6 +509,8 @@ export const fetchTrackedProps = async () => {
       ok: false,
       props: [],
       count: 0,
+      activeResultsSlateDate: null,
+      honestEmptyCopy: null,
       error: err instanceof Error ? err.message : String(err),
     };
   }

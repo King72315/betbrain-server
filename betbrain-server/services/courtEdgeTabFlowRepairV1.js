@@ -28,6 +28,7 @@ import {
   getOfficialSlate,
   promoteSealedSlateToResults,
   freezeOfficialProp,
+  sealOfficialSlate,
   OFFICIAL_LIFECYCLE_STAGE,
   appendLifecycleAudit,
 } from "./officialSlateService.js";
@@ -624,6 +625,140 @@ export function buildTabFlowDiagnostics(context = {}) {
     activeResultsTrackedCount: classification.activeResultsTrackedCount || 0,
     trackedStoreTotalCount:
       classification.trackedStoreTotalCount ?? tracked.length,
+  };
+}
+
+/**
+ * After board seed/hydrate: seal+admit calendar-today Best 6 when full and
+ * eligible, without calling providers. Never invents membership — uses board
+ * display six only. Tomorrow seals for next-day Results (promoteToResults false).
+ */
+export function recoverHomeBoardAdmissionFromCache(board = null, options = {}) {
+  const today = String(options.todayLocalDate || getTodayLocalDate());
+  if (!board || typeof board !== "object") {
+    return {
+      ok: true,
+      recovered: false,
+      message: "No board cache",
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+
+  const actions = [];
+  const todaySix = [
+    ...(board.bestSixDisplayTodayWNBA || []),
+    ...(board.bestSixDisplayTodayNBA || []),
+  ]
+    .filter((p) => p?.player)
+    .map((p) => ({
+      ...p,
+      slateDate: today,
+      dayBucket: "TODAY",
+      dateLabel: p.dateLabel || "Today",
+      trackingAdmissionSource:
+        p.trackingAdmissionSource || "CONTROLLED_BEST_SIX_DISPLAY",
+      sourcePool: p.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      homeStaged: false,
+    }));
+
+  if (todaySix.length >= 6) {
+    const visible = getTrackedProps().filter(
+      (p) =>
+        getResultsPropSlateDate(p) === today &&
+        p.homeStaged !== true &&
+        (p.immutableOfficial === true ||
+          p.controlledBestSixDisplayTracked === true ||
+          p.trackingEligibility === "TRACK")
+    );
+    if (visible.length < 6) {
+      // Prefer existing sealed membership; else seal board six when eligible.
+      let sealPayload = {
+        sealed: isOfficialSlateSealed(today) || isSlateLocked(today),
+        alreadySealed: isOfficialSlateSealed(today) || isSlateLocked(today),
+        slateDate: today,
+        props:
+          getOfficialSlate(today)?.props ||
+          getLockedSnapshot(today)?.props ||
+          todaySix,
+      };
+      if (!sealPayload.alreadySealed) {
+        const sealed = sealOfficialSlate(todaySix, {
+          slateDate: today,
+          todayLocalDate: today,
+          serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+          reason: "TAB_FLOW_BOARD_CACHE_TODAY_SEAL",
+        });
+        sealPayload = { ...sealed, slateDate: today };
+      }
+      const admit = admitSealResult(sealPayload, {
+        serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+        reason: "TAB_FLOW_BOARD_CACHE_TODAY_ADMISSION",
+        promoteToResults: true,
+        dayBucket: "TODAY",
+        forceAdmit: Boolean(sealPayload.sealed || sealPayload.alreadySealed),
+      });
+      actions.push({ type: "today", admit, sealPayloadStatus: sealPayload.status });
+    }
+  }
+
+  const tomorrowSix = [
+    ...(board.bestSixDisplayTomorrowWNBA || []),
+    ...(board.bestSixDisplayTomorrowNBA || []),
+  ].filter((p) => p?.player);
+
+  if (tomorrowSix.length >= 6) {
+    const tomDate =
+      String(tomorrowSix[0]?.slateDate || "").slice(0, 10) ||
+      (() => {
+        const [y, m, d] = today.split("-").map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+        dt.setUTCDate(dt.getUTCDate() + 1);
+        return dt.toISOString().slice(0, 10);
+      })();
+    const stampedTom = tomorrowSix.map((p) => ({
+      ...p,
+      slateDate: tomDate,
+      dayBucket: "TOMORROW",
+      dateLabel: p.dateLabel || "Tomorrow",
+      controlledBestSixDisplay: true,
+      controlledBestSixDisplayTracked: true,
+      homeStaged: false,
+    }));
+    if (isOfficialSlateSealed(tomDate) || isSlateLocked(tomDate)) {
+      const admit = admitSealResult(
+        {
+          sealed: true,
+          alreadySealed: true,
+          slateDate: tomDate,
+          props:
+            getOfficialSlate(tomDate)?.props ||
+            getLockedSnapshot(tomDate)?.props ||
+            stampedTom,
+        },
+        {
+          serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+          reason: "TAB_FLOW_BOARD_CACHE_TOMORROW_ADMISSION",
+          promoteToResults: false,
+          dayBucket: "TOMORROW",
+        }
+      );
+      actions.push({ type: "tomorrow", admit });
+    }
+  }
+
+  appendLifecycleAudit({
+    type: "TAB_FLOW_BOARD_CACHE_ADMISSION",
+    actions: actions.length,
+    build: TAB_FLOW_REPAIR_BUILD,
+  });
+
+  return {
+    ok: true,
+    recovered: actions.some((a) => a.admit?.admitted),
+    actions,
+    build: TAB_FLOW_REPAIR_BUILD,
   };
 }
 

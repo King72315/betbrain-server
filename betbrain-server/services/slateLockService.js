@@ -646,6 +646,31 @@ const LIVE_GRADING_FIELDS = [
   "currentEngineMargin",
 ];
 
+function stableLiveIndexKey(prop = {}) {
+  const direct = String(prop.trackedKey || prop.trackedId || "").trim();
+  if (direct) return direct;
+  // Fallback identity when freeze/admission rows omit trackedKey.
+  return [
+    String(prop.slateDate || "").replace(/-/g, ""),
+    String(prop.league || "wnba").toLowerCase(),
+    String(prop.player || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ""),
+    String(prop.team || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ""),
+    String(prop.opponent || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ""),
+    String(prop.stat || "points").toLowerCase(),
+    String(prop.side || prop.pick || prop.lockedSide || "")
+      .toUpperCase()
+      .startsWith("U")
+      ? "under"
+      : "over",
+  ].join("-");
+}
+
 function indexLiveProps(liveProps = []) {
   const byId = new Map();
   const byKey = new Map();
@@ -653,6 +678,8 @@ function indexLiveProps(liveProps = []) {
   for (const prop of liveProps) {
     if (prop.trackedId) byId.set(String(prop.trackedId), prop);
     if (prop.trackedKey) byKey.set(String(prop.trackedKey), prop);
+    const stable = stableLiveIndexKey(prop);
+    if (stable) byKey.set(stable, prop);
   }
 
   return { byId, byKey };
@@ -667,6 +694,11 @@ function findLivePropForSnapshot(snapshotProp = {}, index = {}) {
   const trackedKey = snapshotProp.trackedKey ? String(snapshotProp.trackedKey) : "";
   if (trackedKey && index.byKey?.has(trackedKey)) {
     return index.byKey.get(trackedKey);
+  }
+
+  const stable = stableLiveIndexKey(snapshotProp);
+  if (stable && index.byKey?.has(stable)) {
+    return index.byKey.get(stable);
   }
 
   return null;

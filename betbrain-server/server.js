@@ -332,6 +332,7 @@ import {
   TAB_FLOW_REPAIR_BUILD,
   admitSealResult,
   recoverSealedOrphansAtStartup,
+  recoverHomeBoardAdmissionFromCache,
   classifyHomeResultsGap,
   buildTabFlowDiagnostics,
   buildHonestResultsEmptyCopy,
@@ -4095,6 +4096,19 @@ function stampAndPersistSeededBoard(board, reason, emergency) {
   picksCache = stamped;
   lastRefreshTime = Date.now();
   saveBoardCache(stamped);
+  // Seed/recovery historically restored Home without Results admission.
+  try {
+    const admission = recoverHomeBoardAdmissionFromCache(stamped, {
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+    });
+    stamped.tabFlowBoardAdmission = {
+      recovered: admission.recovered,
+      actions: admission.actions?.length || 0,
+    };
+  } catch (error) {
+    console.log("TAB-FLOW BOARD SEED ADMISSION WARNING:", error.message);
+  }
   return stamped;
 }
 
@@ -6277,6 +6291,21 @@ if (process.env.RUN_AUDIT === "1") {
       console.log(
         `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`
       );
+      try {
+        const boardAdmit = recoverHomeBoardAdmissionFromCache(picksCache, {
+          serverBuild: SERVER_BUILD,
+          todayLocalDate: getTodayLocalDate(),
+        });
+        console.log(
+          "STARTUP TAB-FLOW BOARD ADMISSION:",
+          JSON.stringify({
+            recovered: boardAdmit.recovered,
+            actions: boardAdmit.actions?.length || 0,
+          })
+        );
+      } catch (error) {
+        console.log("STARTUP TAB-FLOW BOARD ADMISSION ERROR:", error.message);
+      }
     } else {
       // Render ephemeral disk wipes board cache on redeploy. Prefer bundled
       // recovery over startup auto-refresh (which historically restart-looped).

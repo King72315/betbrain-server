@@ -124,6 +124,7 @@ export default function ResultsScreen() {
   const [checkStatus, setCheckStatus] = useState<ResolveCheckStatus | null>(null);
   const [lockedSlates, setLockedSlates] = useState<any[]>([]);
   const [todayLocalDate, setTodayLocalDate] = useState(() => getTodayLocalDate());
+  const [honestEmptyCopy, setHonestEmptyCopy] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -135,6 +136,7 @@ export default function ResultsScreen() {
       ]);
 
       setTrackedProps(trackedData.props || []);
+      setHonestEmptyCopy(trackedData.honestEmptyCopy || null);
       setReports(reportData.reports || []);
       setLockedSlates(lockedData.slates || []);
       if (trackedData.error) {
@@ -432,6 +434,9 @@ export default function ResultsScreen() {
               ? `${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} — ${trackedSummary.total} tracked`
               : `Today (${todayLocalDate}) — no active Results slate`}
           </Text>
+          {!activeResultsSummary.activeSlateDate && honestEmptyCopy ? (
+            <Text style={styles.cohortNote}>{honestEmptyCopy}</Text>
+          ) : null}
           <Text style={styles.trackingBreakdown}>
             Total Tracked Props: {trackedSummary.total}
             {" • "}
