@@ -51,6 +51,8 @@ Jul 17 sealed Results left untouched. No `clear-tracked-props`. No Lab/weight ch
 
 ## Ship
 
+- **Commit:** `2369324`
 - **Remote:** `orgin/betbrain-v2-rebuild`
 - **Live build:** `courteedge-empty-board-guard-v1`
 - **Live Home:** WNBA Today **6/6**, Tomorrow **6/6**; NBA **0** (no games); Jul 17 sealed intact
+- **Verified:** `/picks` + `/top-props` both expose Tomorrow Best 6; `boardPresent=true`
