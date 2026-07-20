@@ -241,6 +241,7 @@ import { SIGNAL_PERFORMANCE_VERSION } from "./services/signalPerformanceV1.js";
 import {
   buildCourtEdgeFlowDiagnostics,
   buildSlateRotationMetadata,
+  computeSlateRotation,
   getTodayLocalDate,
   pickActiveResultsSlateDate,
   sanitizeHomeBoardForLifecycle,
