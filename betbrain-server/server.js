@@ -322,7 +322,7 @@ import {
 
 // Mission lock: courteedge-analysis-integrity-v1
 // Empty-board guard features remain active (LKG preserve + bundled recovery).
-const SERVER_BUILD = "courteedge-analysis-integrity-v1";
+const SERVER_BUILD = "courteedge-best6-playable-pool-repair-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
