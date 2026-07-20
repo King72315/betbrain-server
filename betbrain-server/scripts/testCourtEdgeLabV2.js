@@ -1692,6 +1692,26 @@ test(86, "MetricAvailability helpers distinguish measured zero from unavailable"
   assert.equal(delta.display, "N/A");
 });
 
+test(87, "Uninstrumented placeholder open=close=seal does not invent CLV 0", () => {
+  const p = makeSealedProp({
+    slateDate: "2026-07-17",
+    omitSignals: true,
+    sealedLine: 16.5,
+    openingLine: 16.5,
+    closingLine: 16.5,
+    line: 16.5,
+    clv: 0,
+    closingLineValue: 0,
+  });
+  p.pregameSnapshot.line = 16.5;
+  const r = buildLabPropRecord(p);
+  assert.equal(r.uninstrumented, true);
+  assert.equal(r.clv, null);
+  assert.equal(r.clvMetric.available, false);
+  assert.equal(r.clvMetric.reason, "UNINSTRUMENTED");
+  assert.equal(formatClvMetric(r.clvMetric), "N/A");
+});
+
 console.log("\n==============================");
 console.log(`Lab V2 tests: ${passed} passed, ${failed} failed`);
 console.log("==============================");

@@ -637,33 +637,59 @@ export function buildLabPropRecord(prop = {}) {
       prop.closingLineValue,
       prop.clv,
       prop.postgameLearning?.closingLineValue,
-      prop.postgameTruth?.closingLineValue,
-      readMeasuredValue(prop.postgameTruth?.measuredFields?.closingLineValue)
+      prop.postgameTruth?.closingLineValue
     ),
     null
+  );
+  const measuredClvField = readMeasuredValue(
+    prop.postgameTruth?.measuredFields?.closingLineValue
+  );
+  const measuredClosingField = readMeasuredValue(
+    prop.postgameTruth?.measuredFields?.closingLine
   );
 
   let clv = null;
   let clvMetric = unavailableMetric("MISSING_MARKET_SNAPSHOT");
-  if (explicitClv != null) {
+
+  // Prefer explicitly measured postgame CLV (may be legitimately zero).
+  if (measuredClvField != null) {
+    clv = measuredClvField;
+    clvMetric = measuredMetric(measuredClvField);
+  } else if (instrumentation.uninstrumented) {
+    // Uninstrumented / legacy sealed rows must not invent CLV from placeholder
+    // open=close=sealed equality or live board lines.
+    clv = null;
+    clvMetric = unavailableMetric("UNINSTRUMENTED");
+  } else if (explicitClv != null) {
     clv = explicitClv;
     clvMetric = measuredMetric(explicitClv);
-  } else if (sealedLine != null && closingLineExplicit != null && finalSide) {
+  } else if (
+    sealedLine != null &&
+    closingLineExplicit != null &&
+    finalSide &&
+    (measuredClosingField != null ||
+      openingLine == null ||
+      openingLine !== closingLineExplicit ||
+      closingLineExplicit !== sealedLine)
+  ) {
     clv =
       finalSide === "OVER"
         ? round(closingLineExplicit - sealedLine, 2)
         : round(sealedLine - closingLineExplicit, 2);
     clvMetric = measuredMetric(clv);
+  } else if (
+    sealedLine != null &&
+    closingLineExplicit != null &&
+    openingLine != null &&
+    openingLine === closingLineExplicit &&
+    closingLineExplicit === sealedLine
+  ) {
+    // Identical open/close/seal without measuredFields is placeholder, not CLV evidence.
+    clvMetric = unavailableMetric("MISSING_MARKET_SNAPSHOT");
   } else if (closingLineExplicit == null && sealedLine != null) {
     clvMetric = unavailableMetric("MISSING_CLOSING_LINE");
-  } else if (openingLine == null && closingLineExplicit == null) {
-    clvMetric = unavailableMetric(
-      instrumentation.uninstrumented ? "UNINSTRUMENTED" : "MISSING_MARKET_SNAPSHOT"
-    );
   } else {
-    clvMetric = unavailableMetric(
-      instrumentation.uninstrumented ? "UNINSTRUMENTED" : "MISSING_MARKET_SNAPSHOT"
-    );
+    clvMetric = unavailableMetric("MISSING_MARKET_SNAPSHOT");
   }
 
   const forcedSameTeam =
