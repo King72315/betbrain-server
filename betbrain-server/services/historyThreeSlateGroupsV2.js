@@ -126,17 +126,28 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
     progressLabel: "Slate 3 of 3 — Block Complete",
   }));
 
-  // Empty-store bootstrap: freeze ALL completed dates in chronological chunks of 3
-  // (preserves historical membership e.g. Jul 14–16 including thin Jul 16). Leftover
-  // dates after complete chunks enter the new six-prop learning track only.
-  if (priorFrozen.length === 0 && dates.length > 0) {
-    let histWorking = [...dates].sort();
-    while (histWorking.length >= GROUP_SIZE) {
-      const chunk = histWorking.slice(0, GROUP_SIZE);
-      histWorking = histWorking.slice(GROUP_SIZE);
-      priorFrozen.push(makeCompleteBlock(priorFrozen.length, chunk));
-    }
-    // Leftover incomplete historical dates that are not six-prop learning stay legacy.
+  // Empty-store bootstrap OR wipe-corruption self-heal:
+  // freeze ALL completed dates in chronological chunks of 3 (preserves Jul 16
+  // inside historical block-2). Leftover dates enter the six-prop learning track.
+  const expectedBlocks = [];
+  let histWorking = [...dates].sort();
+  while (histWorking.length >= GROUP_SIZE) {
+    expectedBlocks.push(histWorking.slice(0, GROUP_SIZE));
+    histWorking = histWorking.slice(GROUP_SIZE);
+  }
+  const expectedFrozenDates = new Set(expectedBlocks.flat());
+  const priorFrozenDates = new Set(priorFrozen.flatMap((b) => b.slateDates || []));
+  const missingHistorical = [...expectedFrozenDates].filter(
+    (d) => !priorFrozenDates.has(d)
+  );
+  const shouldBootstrap =
+    priorFrozen.length === 0 ||
+    (expectedBlocks.length > 0 && missingHistorical.length > 0);
+
+  if (shouldBootstrap && dates.length > 0) {
+    priorFrozen = expectedBlocks.map((chunk, index) =>
+      makeCompleteBlock(index, chunk)
+    );
     for (const d of histWorking) {
       if (restrictToLearning && !learningSet.has(d)) {
         if (!legacyExtra.includes(d)) legacyExtra.push(d);

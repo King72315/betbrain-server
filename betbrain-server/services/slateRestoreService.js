@@ -83,6 +83,20 @@ export const LAB_SLATE_BUNDLE_CATALOG = {
     expectedRecord: "3-3-0",
     phase: SLATE_PHASE.LAB,
   },
+  "2026-07-16": {
+    bundleDir: "lab-bundles/2026-07-16",
+    expectedPropCount: 3,
+    expectedGraded: 3,
+    expectedRecord: "0-3-0",
+    phase: SLATE_PHASE.LAB,
+  },
+  "2026-07-17": {
+    bundleDir: "lab-bundles/2026-07-17",
+    expectedPropCount: 6,
+    expectedGraded: 6,
+    expectedRecord: "3-3-0",
+    phase: SLATE_PHASE.LAB,
+  },
 };
 
 /** Discover on-disk bundles so newly sealed dates survive redeploy without code edits. */
@@ -569,14 +583,26 @@ function loadLabBundle(slateDate) {
 
 export function needsCompletedLabRestore(slateDate) {
   const date = String(slateDate || "");
-  if (!LAB_SLATE_BUNDLE_CATALOG[date]) return false;
+  const entry = LAB_SLATE_BUNDLE_CATALOG[date];
+  if (!entry) return false;
 
   const today = getTodayLocalDate();
   if (date >= today) return false;
 
-  // Only restore props when the slate is completely missing from tracked.
-  // Missing report/archive alone must NOT overwrite live graded membership.
-  return countPropsForSlate(getTrackedProps(), date) === 0;
+  const live = (getTrackedProps() || []).filter(
+    (p) => String(p.slateDate || "") === date
+  );
+  if (live.length === 0) return true;
+
+  // Ungraded / status-stripped official shells after Render wipes still need
+  // force-replace from the graded Lab bundle (e.g. Jul 17 immutable + TEST tag).
+  const graded = live.filter((p) =>
+    ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())
+  );
+  const expectedGraded = Number(entry.expectedGraded || entry.expectedPropCount || 0);
+  if (expectedGraded > 0 && graded.length < expectedGraded) return true;
+
+  return false;
 }
 
 /**
@@ -665,7 +691,19 @@ export function restoreCompletedLabSlate(slateDate, options = {}) {
 
   const existing = readJSON(TRACKED_FILE, []);
   const liveSlateProps = existing.filter((p) => String(p.slateDate || "") === date);
-  const forceReplace = options.forceReplace === true;
+  const liveGraded = liveSlateProps.filter((p) =>
+    ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())
+  );
+  const expectedGraded = Number(
+    LAB_SLATE_BUNDLE_CATALOG[date]?.expectedGraded ||
+      LAB_SLATE_BUNDLE_CATALOG[date]?.expectedPropCount ||
+      0
+  );
+  const forceReplace =
+    options.forceReplace === true ||
+    (liveSlateProps.length > 0 &&
+      expectedGraded > 0 &&
+      liveGraded.length < expectedGraded);
 
   if (liveSlateProps.length > 0 && !forceReplace) {
     // Metadata-only repair — preserve live graded membership.

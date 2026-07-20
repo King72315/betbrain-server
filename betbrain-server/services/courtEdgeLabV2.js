@@ -752,17 +752,6 @@ function resolveNewestCompletedOfficialSlateDate({
   currentLabSlateDate = null,
 }) {
   if (slateDate) return String(slateDate);
-  if (currentLabSlateDate) return String(currentLabSlateDate);
-
-  try {
-    const rotation = computeSlateRotation(reports || [], {
-      archives: archives || [],
-      trackedProps: officialProps || [],
-    });
-    if (rotation?.currentLabSlateDate) return String(rotation.currentLabSlateDate);
-  } catch {
-    // Fall through to prop-date max — Lab must still render.
-  }
 
   const completedFromProps = new Map();
   for (const prop of officialProps || []) {
@@ -772,11 +761,34 @@ function resolveNewestCompletedOfficialSlateDate({
     completedFromProps.get(d).push(prop);
   }
   const completedDates = [...completedFromProps.entries()]
-    .filter(([, props]) => props.every((p) => ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())))
+    .filter(([, props]) =>
+      props.every((p) =>
+        ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())
+      )
+    )
     .map(([d]) => d)
     .sort();
+  const newestFromProps = completedDates.slice(-1)[0] || null;
 
-  return completedDates.slice(-1)[0] || officialProps.map((p) => p.slateDate).filter(Boolean).sort().slice(-1)[0] || null;
+  let fromRotation = currentLabSlateDate ? String(currentLabSlateDate) : null;
+  if (!fromRotation) {
+    try {
+      const rotation = computeSlateRotation(reports || [], {
+        archives: archives || [],
+        trackedProps: officialProps || [],
+      });
+      if (rotation?.currentLabSlateDate) fromRotation = String(rotation.currentLabSlateDate);
+    } catch {
+      // Fall through — Lab must still render from props.
+    }
+  }
+
+  // Prefer the newest completed official from props when rotation lags behind
+  // (e.g. missing daily report or ungraded shells blocking inference).
+  if (newestFromProps && fromRotation) {
+    return newestFromProps >= fromRotation ? newestFromProps : fromRotation;
+  }
+  return newestFromProps || fromRotation || null;
 }
 
 /**

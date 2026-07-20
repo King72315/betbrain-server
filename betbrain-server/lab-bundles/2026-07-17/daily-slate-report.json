@@ -1,0 +1,23 @@
+{
+  "slateDate": "2026-07-17",
+  "status": "final",
+  "reportStatus": "final",
+  "frozen": true,
+  "graded": 6,
+  "pending": 0,
+  "wins": 3,
+  "losses": 3,
+  "pushes": 0,
+  "sections": {
+    "A": {
+      "slateDate": "2026-07-17",
+      "reportStatus": "final",
+      "pending": 0,
+      "graded": 6,
+      "wins": 3,
+      "losses": 3,
+      "pushes": 0,
+      "totalOfficialProps": 6
+    }
+  }
+}
