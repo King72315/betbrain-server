@@ -833,7 +833,7 @@ export default function ResultsScreen() {
             <Text style={styles.emptyText}>
               {activeResultsSummary.activeSlateDate
                 ? `Active slate ${formatResultsSlateLabel(activeResultsSummary.activeSlateDate)} has no tracked props yet.`
-                : `No active Results cohort for ${formatResultsSlateLabel(todayLocalDate)}. Today's slate is fully graded or not yet tracked — see Home for tomorrow's board and Prop Lab for completed slates.`}
+                : `No active Results cohort for ${formatResultsSlateLabel(todayLocalDate)}. Home Selected/Tracked counts Best 6 board display flags — Results only shows sealed official admission. See Prop Lab for completed slates.`}
               {" "}Legacy tracked props remain stored on the server but hidden from Results.
             </Text>
           </View>

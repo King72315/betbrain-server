@@ -13,7 +13,8 @@
     "test:courtedge-home-analysis-calibration": "node scripts/testCourtEdgeHomeDetailedAnalysisSideCalibrationV1.js",
     "test:courtedge-home-completion": "node scripts/testCourtEdgeHomeCompletionTomorrowSixV1.js",
     "test:courtedge-analysis-integrity": "node scripts/testCourtEdgeAnalysisIntegrityV1.js",
-    "test:courtedge-state-integrity": "node scripts/testCourtEdgeStateIntegrityV1.js"
+    "test:courtedge-state-integrity": "node scripts/testCourtEdgeStateIntegrityV1.js",
+    "test:courtedge-tab-flow-repair": "node scripts/testCourtEdgeFullAppTabFlowRepairV1.js"
   },
   "engines": {
     "node": ">=18"

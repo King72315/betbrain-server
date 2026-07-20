@@ -19,6 +19,7 @@ import {
   applyGradeMonotonicityGuard,
   buildLifecycleIntegrityDiagnostics,
   logLifecycleIntegrityEvent,
+  overlayLiveGradingFields,
   reconcileTrackedPropIntegrity,
   runStartupIntegrityCheck,
   verifyResolvedPropsPersisted,
@@ -2885,7 +2886,16 @@ export function addTrackedProps(picks = [], options = {}) {
       if (slateLocked) audit.safeUpdates += 1;
     } else {
       const normalized = normalizeTrackedProp(pick);
+      // Tab-flow repair: official Best 6 / sealed admission must never be buried
+      // as HOME_STAGED behind ancient unresolved locks (Home→Results gap).
+      const forbidHomeStaging =
+        options.forbidHomeStaging === true ||
+        options.forceActiveResultsAdmission === true ||
+        pick.forceActiveResultsAdmission === true ||
+        pick.immutableOfficial === true ||
+        isBestSixDisplayAdmissionPick(pick);
       if (
+        !forbidHomeStaging &&
         blockingSlate &&
         slateDate &&
         slateDate !== blockingSlate &&
@@ -2893,6 +2903,10 @@ export function addTrackedProps(picks = [], options = {}) {
       ) {
         normalized.homeStaged = true;
         audit.homeStagedKeys = (audit.homeStagedKeys || 0) + 1;
+      } else if (forbidHomeStaging) {
+        normalized.homeStaged = false;
+        audit.forceActiveResultsAdmission =
+          (audit.forceActiveResultsAdmission || 0) + 1;
       }
       const fallbackLine = num(
         normalized.line ??
@@ -3019,7 +3033,10 @@ export function mergeLockedSlateFreezeIntoTracked(
   const frozenByKey = new Map();
   for (const prop of frozenProps) {
     const key = String(
-      prop.trackedKey || prop.trackedId || getStableTrackedPropKey({ ...prop, slateDate: date }) || ""
+      prop.trackedKey ||
+        prop.trackedId ||
+        getStableTrackedPropKey({ ...prop, slateDate: date }) ||
+        ""
     );
     if (!key) continue;
     frozenByKey.set(key, {
@@ -3027,6 +3044,7 @@ export function mergeLockedSlateFreezeIntoTracked(
       slateDate: date,
       slateLocked: true,
       immutableOfficial: true,
+      homeStaged: false,
       trackedKey: prop.trackedKey || key,
       trackedId: prop.trackedId || prop.trackedKey || key,
     });
@@ -3039,13 +3057,17 @@ export function mergeLockedSlateFreezeIntoTracked(
       item.trackedKey || item.trackedId || getStableTrackedPropKey(item) || ""
     );
     const frozen = key ? frozenByKey.get(key) : null;
-    if (!frozen) return { ...item, slateLocked: true };
+    if (!frozen) return { ...item, slateLocked: true, homeStaged: false };
     seen.add(key);
-    const [merged] = mergeSnapshotPropsWithLiveGrades([frozen], [item]);
+    const merged = overlayLiveGradingFields(frozen, item, {
+      sourcePath: "mergeLockedSlateFreezeIntoTracked",
+      slateDate: date,
+    });
     return {
       ...merged,
       slateLocked: true,
       immutableOfficial: true,
+      homeStaged: false,
     };
   });
 

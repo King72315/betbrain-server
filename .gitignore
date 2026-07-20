@@ -58,6 +58,19 @@ betbrain-server/player-intelligence-calibration-v1.json.tmp
 betbrain-server/.state-integrity-baseline-v1/
 betbrain-server/.state-integrity-*/
 
-
 # Local audit/snapshot dirs (Phase 1 baselines; no secrets)
 betbrain-server/_local/
+
+# CourtEdge canonical state-integrity runtime stores (ephemeral on Render)
+betbrain-server/canonical-slates-v1.json
+betbrain-server/canonical-slates-v1.json.bak
+betbrain-server/lifecycle-transition-journal-v1.json
+betbrain-server/lifecycle-transition-journal-v1.json.bak
+betbrain-server/state-integrity-locks-v1.json
+betbrain-server/state-integrity-locks-v1.json.bak
+betbrain-server/state-integrity-rejected-writes-v1.json
+betbrain-server/.state-integrity-rejected-writes-v1.json.bak
+
+# CourtEdge tab-flow repair local baselines / temp
+betbrain-server/.tab-flow-baseline-v1/
+betbrain-server/.tmp-tab-flow-repair-v1/

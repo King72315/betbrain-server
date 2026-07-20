@@ -148,6 +148,8 @@ export function freezeOfficialProp(pick = {}, options = {}) {
     officialSealedAt: pick.officialSealedAt || sealedAt,
     immutableOfficial: true,
     slateLocked: true,
+    // Results cohort filters exclude homeStaged — sealed admission is never staged.
+    homeStaged: false,
     officialLine: pick.officialLine ?? line,
     pickLine: pick.pickLine ?? line,
     lockedSide: pick.lockedSide || side,
@@ -422,6 +424,7 @@ export function sealOfficialSlate(props = [], options = {}) {
 
   if (isOfficialSlateSealed(slateDate) || isSlateLocked(slateDate)) {
     const existing = getOfficialSlate(slateDate);
+    // Include props so callers can re-admit orphans without regenerating membership.
     return {
       ok: true,
       alreadySealed: true,
@@ -430,6 +433,7 @@ export function sealOfficialSlate(props = [], options = {}) {
       slateDate,
       message: `Official slate ${slateDate} already sealed — membership frozen`,
       officialSlate: existing,
+      props: existing?.props || [],
       propCount: existing?.propCount || 0,
       officialPropIds: existing?.officialPropIds || [],
     };

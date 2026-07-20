@@ -319,12 +319,24 @@ import {
   logStateIntegrityEvent,
   getCanonicalSlateDate,
   getPaidApiCallCount,
+  withSlateLock,
+  ensureBoardContentHashes,
+  rolloverSealedTomorrowToToday,
 } from "./services/courtEdgeStateIntegrityV1.js";
 import {
   scanStateIntegrity,
   reconcileStateIntegrity,
   explainMissingCompletedSlate,
 } from "./services/courtEdgeStateReconcilerV1.js";
+import {
+  TAB_FLOW_REPAIR_BUILD,
+  admitSealResult,
+  recoverSealedOrphansAtStartup,
+  classifyHomeResultsGap,
+  buildTabFlowDiagnostics,
+  buildHonestResultsEmptyCopy,
+  archiveCompletedSlateIdempotent,
+} from "./services/courtEdgeTabFlowRepairV1.js";
 import {
   classifyProviderError,
   getSchedulerStatus,
@@ -338,12 +350,13 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-end-to-end-state-integrity-v1";
+const SERVER_BUILD = "courteedge-full-app-tab-flow-repair-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-end-to-end-state-integrity-v1";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-full-app-tab-flow-repair-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-end-to-end-state-integrity-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-full-app-tab-flow-repair-v1";
+const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -424,57 +437,81 @@ function hydratePicksCacheFromDisk() {
 }
 
 function getReadOnlyBoard() {
-  return hydratePicksCacheFromDisk();
+  const board = hydratePicksCacheFromDisk();
+  if (!board) return board;
+  return ensureBoardContentHashes(board);
 }
 
 function persistBoardAfterRefresh(result) {
   if (!result || result.ok === false) return null;
-  const previous = loadBoardCache();
-  if (shouldPreserveExistingBoard(previous, result, false)) {
+  const lockKey = `board-persist|${getCanonicalSlateDate()}`;
+  const locked = withSlateLock(
+    lockKey,
+    () => {
+      const previous = loadBoardCache();
+      if (shouldPreserveExistingBoard(previous, result, false)) {
+        logStateIntegrityEvent({
+          operation: "persist_board",
+          source: "persistBoardAfterRefresh",
+          result: "preserved_lkg",
+          reason: "empty_board_guard",
+        });
+        return previous;
+      }
+      let next = mergeBoardDayIsolation(previous, result);
+      const forceMarketOnly =
+        result?.forceRefresh === true ||
+        result?.forceRefreshMarketRefsOnly === true ||
+        result?.marketRefsOnly === true;
+      if (forceMarketOnly && previous) {
+        next = applyForceRefreshToSealedBoard(previous, next);
+      }
+      next = {
+        ...next,
+        serverBuild: SERVER_BUILD,
+        stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+        boardSchemaVersion: BOARD_SCHEMA_VERSION,
+      };
+      const saved = saveBoardCache(next);
+      try {
+        syncBoardToCanonicalStore(saved || next, {
+          source: "persistBoardAfterRefresh",
+          today: getCanonicalSlateDate(),
+        });
+        // Calendar rollover: sealed Tomorrow identity stays stable as Today.
+        rolloverSealedTomorrowToToday({
+          today: getCanonicalSlateDate(),
+          source: "persistBoardAfterRefresh",
+        });
+      } catch (err) {
+        console.log(
+          JSON.stringify({
+            channel: "courtedge-state-integrity",
+            operation: "sync_canonical_store_failed",
+            error: err?.message || String(err),
+          })
+        );
+      }
+      logStateIntegrityEvent({
+        operation: "persist_board",
+        source: "persistBoardAfterRefresh",
+        result: "saved",
+        reason: forceMarketOnly ? "market_refs_only" : "merged_day_isolation",
+      });
+      return saved;
+    },
+    { owner: `persist-${process.pid}`, ttlMs: 180_000 }
+  );
+  if (!locked.ok) {
     logStateIntegrityEvent({
       operation: "persist_board",
       source: "persistBoardAfterRefresh",
-      result: "preserved_lkg",
-      reason: "empty_board_guard",
+      result: "lock_held",
+      reason: locked.reason || "lock_held",
     });
-    return previous;
+    return loadBoardCache();
   }
-  let next = mergeBoardDayIsolation(previous, result);
-  const forceMarketOnly =
-    result?.forceRefresh === true ||
-    result?.forceRefreshMarketRefsOnly === true ||
-    result?.marketRefsOnly === true;
-  if (forceMarketOnly && previous) {
-    next = applyForceRefreshToSealedBoard(previous, next);
-  }
-  next = {
-    ...next,
-    serverBuild: SERVER_BUILD,
-    stateIntegrityVersion: STATE_INTEGRITY_VERSION,
-    boardSchemaVersion: BOARD_SCHEMA_VERSION,
-  };
-  const saved = saveBoardCache(next);
-  try {
-    syncBoardToCanonicalStore(saved || next, {
-      source: "persistBoardAfterRefresh",
-      today: getCanonicalSlateDate(),
-    });
-  } catch (err) {
-    console.log(
-      JSON.stringify({
-        channel: "courtedge-state-integrity",
-        operation: "sync_canonical_store_failed",
-        error: err?.message || String(err),
-      })
-    );
-  }
-  logStateIntegrityEvent({
-    operation: "persist_board",
-    source: "persistBoardAfterRefresh",
-    result: "saved",
-    reason: forceMarketOnly ? "market_refs_only" : "merged_day_isolation",
-  });
-  return saved;
+  return locked.result;
 }
 
 function cacheFresh() {
@@ -2935,6 +2972,21 @@ async function refreshAllPicks(options = {}) {
         sealReason: sealRow.sealReason || "FULL_BEST_SIX",
         lockReason: sealRow.sealReason || "official_tomorrow_seal",
       });
+      // Atomic seal+admission — Home TRACK flags alone must not imply Results.
+      admitSealResult(sealRow, {
+        serverBuild: SERVER_BUILD,
+        reason: sealRow.sealReason || "TOMORROW_OFFICIAL_SEAL_ADMISSION",
+        // Tomorrow stays staged for Results until calendar date arrives.
+        promoteToResults: false,
+        dayBucket: "TOMORROW",
+      });
+    } else if (sealRow.sealed || sealRow.alreadySealed) {
+      admitSealResult(sealRow, {
+        serverBuild: SERVER_BUILD,
+        reason: "TOMORROW_ALREADY_SEALED_ADMISSION",
+        promoteToResults: false,
+        dayBucket: "TOMORROW",
+      });
     }
   }
 
@@ -2988,6 +3040,22 @@ async function refreshAllPicks(options = {}) {
         preFilteredCohort: true,
         allowLockedBestSixBackfill: true,
       });
+      admitSealResult(
+        {
+          ok: true,
+          sealed: true,
+          slateDate: calendarToday,
+          props: repairedProps,
+          sealReason:
+            todayPregameRepair.reason || "PREGAME_REPAIR_FULL_BEST_SIX",
+        },
+        {
+          serverBuild: SERVER_BUILD,
+          reason: "TODAY_PREGAME_REPAIR_ADMISSION",
+          promoteToResults: true,
+          dayBucket: "TODAY",
+        }
+      );
       calendarTodaySeal = todayPregameRepair;
     }
   }
@@ -3034,6 +3102,24 @@ async function refreshAllPicks(options = {}) {
             ? "FULL_BEST_SIX_CALENDAR_TODAY"
             : "FINAL_THIN_SLATE_TODAY_FALLBACK"),
         lockReason: "calendar_today_seal",
+      });
+      admitSealResult(calendarTodaySeal, {
+        serverBuild: SERVER_BUILD,
+        reason:
+          calendarTodaySeal.sealReason ||
+          "FULL_BEST_SIX_CALENDAR_TODAY_ADMISSION",
+        promoteToResults: true,
+        dayBucket: "TODAY",
+      });
+    } else if (
+      calendarTodaySeal?.sealed ||
+      calendarTodaySeal?.alreadySealed
+    ) {
+      admitSealResult(calendarTodaySeal, {
+        serverBuild: SERVER_BUILD,
+        reason: "CALENDAR_TODAY_ALREADY_SEALED_ADMISSION",
+        promoteToResults: true,
+        dayBucket: "TODAY",
       });
     }
   }
@@ -3202,6 +3288,7 @@ app.get("/health", (req, res) => {
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
     stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+    tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
     emptyBoardGuardVersion: EMPTY_BOARD_GUARD_VERSION,
     recoveryEndpoints: true,
@@ -3832,6 +3919,20 @@ app.get("/tracked-props", (req, res) => {
     activeResultsSlateDate: classification.activeResultsSlateDate,
     trackedStoreTotalCount: classification.trackedStoreTotalCount,
     activeResultsTrackedCount: classification.activeResultsTrackedCount,
+    tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
+    honestEmptyCopy:
+      !classification.activeResultsSlateDate ||
+      !(classification.activeResultsTrackedCount > 0)
+        ? buildHonestResultsEmptyCopy({
+            todayLocalDate: today,
+            activeResultsSlateDate: classification.activeResultsSlateDate,
+            gap: classifyHomeResultsGap({
+              board: getReadOnlyBoard(),
+              trackedProps: allStored,
+              todayLocalDate: today,
+            }),
+          })
+        : null,
   };
 
   if (includeLegacy) {
@@ -5125,9 +5226,16 @@ app.get("/internal/courtedge/state-integrity", requireSchedulerToken, (req, res)
       serverBuild: SERVER_BUILD,
       stateIntegrityVersion: STATE_INTEGRITY_VERSION,
       stateIntegrityBuild: STATE_INTEGRITY_BUILD,
+      tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
+      tabFlowRepairBuild: TAB_FLOW_REPAIR_BUILD,
       paidApiCallCount: getPaidApiCallCount(),
       snapshot,
       scan,
+      tabFlow: buildTabFlowDiagnostics({
+        board,
+        trackedProps,
+        todayLocalDate: getTodayLocalDate(),
+      }),
       board: {
         present: Boolean(board?.games?.length),
         lastUpdated: board?.lastUpdated || null,
@@ -6036,6 +6144,24 @@ if (process.env.RUN_AUDIT === "1") {
   const rehydrateResult = rehydrateLockedSlatesOnStartup();
   if (!rehydrateResult.startupIntegrity) {
     runTrackedPropStartupIntegrityCheck();
+  }
+
+  try {
+    const orphanRecovery = recoverSealedOrphansAtStartup({
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+    });
+    console.log(
+      "STARTUP TAB-FLOW SEALED ORPHAN RECOVERY:",
+      JSON.stringify({
+        ok: orphanRecovery.ok,
+        repairedCount: orphanRecovery.repairedCount,
+        skipped: orphanRecovery.skipped?.length || 0,
+        build: orphanRecovery.build,
+      })
+    );
+  } catch (error) {
+    console.log("STARTUP TAB-FLOW ORPHAN RECOVERY ERROR:", error.message);
   }
 
   async function startServer() {

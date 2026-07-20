@@ -16,7 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
-export const STATE_INTEGRITY_BUILD = "courteedge-end-to-end-state-integrity-v1";
+export const STATE_INTEGRITY_BUILD = "courteedge-full-app-tab-flow-repair-v1";
 export const STATE_INTEGRITY_SCHEMA = "courtEdgeStateIntegrityV1";
 export const CANONICAL_STORE_VERSION = 1;
 
