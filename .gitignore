@@ -53,3 +53,11 @@ betbrain-server/player-intelligence-cache-v1.json
 betbrain-server/player-intelligence-cache-v1.json.tmp
 betbrain-server/player-intelligence-calibration-v1.json
 betbrain-server/player-intelligence-calibration-v1.json.tmp
+
+# CourtEdge state-integrity local baselines (no secrets, but bulky)
+betbrain-server/.state-integrity-baseline-v1/
+betbrain-server/.state-integrity-*/
+
+
+# Local audit/snapshot dirs (Phase 1 baselines; no secrets)
+betbrain-server/_local/

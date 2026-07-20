@@ -4,7 +4,7 @@
  */
 
 export const LAB_V2_VERSION = "courtEdgeLabV2";
-export const LAB_V2_BUILD = "courteedge-lab-stability-audit-v1";
+export const LAB_V2_BUILD = "courteedge-end-to-end-state-integrity-v1";
 export const HISTORY_THREE_SLATE_GROUPS_V2_VERSION = "history-three-slate-groups-v2";
 /** Alias expected by server.js imports */
 export const HISTORY_THREE_SLATE_GROUPS_V2 = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;

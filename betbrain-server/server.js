@@ -311,6 +311,21 @@ import {
 } from "./services/topPicksSnapshotService.js";
 
 import {
+  STATE_INTEGRITY_BUILD,
+  mergeBoardDayIsolation,
+  applyForceRefreshToSealedBoard,
+  syncBoardToCanonicalStore,
+  buildStateIntegritySnapshot,
+  logStateIntegrityEvent,
+  getCanonicalSlateDate,
+  getPaidApiCallCount,
+} from "./services/courtEdgeStateIntegrityV1.js";
+import {
+  scanStateIntegrity,
+  reconcileStateIntegrity,
+  explainMissingCompletedSlate,
+} from "./services/courtEdgeStateReconcilerV1.js";
+import {
   classifyProviderError,
   getSchedulerStatus,
   loadBoardCache,
@@ -323,11 +338,12 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-lab-stability-audit-v1";
+const SERVER_BUILD = "courteedge-end-to-end-state-integrity-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-stability-audit-v1";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-end-to-end-state-integrity-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-end-to-end-state-integrity-v1";
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -415,17 +431,76 @@ function persistBoardAfterRefresh(result) {
   if (!result || result.ok === false) return null;
   const previous = loadBoardCache();
   if (shouldPreserveExistingBoard(previous, result, false)) {
+    logStateIntegrityEvent({
+      operation: "persist_board",
+      source: "persistBoardAfterRefresh",
+      result: "preserved_lkg",
+      reason: "empty_board_guard",
+    });
     return previous;
   }
-  return saveBoardCache(result);
+  let next = mergeBoardDayIsolation(previous, result);
+  const forceMarketOnly =
+    result?.forceRefresh === true ||
+    result?.forceRefreshMarketRefsOnly === true ||
+    result?.marketRefsOnly === true;
+  if (forceMarketOnly && previous) {
+    next = applyForceRefreshToSealedBoard(previous, next);
+  }
+  next = {
+    ...next,
+    serverBuild: SERVER_BUILD,
+    stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+    boardSchemaVersion: BOARD_SCHEMA_VERSION,
+  };
+  const saved = saveBoardCache(next);
+  try {
+    syncBoardToCanonicalStore(saved || next, {
+      source: "persistBoardAfterRefresh",
+      today: getCanonicalSlateDate(),
+    });
+  } catch (err) {
+    console.log(
+      JSON.stringify({
+        channel: "courtedge-state-integrity",
+        operation: "sync_canonical_store_failed",
+        error: err?.message || String(err),
+      })
+    );
+  }
+  logStateIntegrityEvent({
+    operation: "persist_board",
+    source: "persistBoardAfterRefresh",
+    result: "saved",
+    reason: forceMarketOnly ? "market_refs_only" : "merged_day_isolation",
+  });
+  return saved;
 }
 
 function cacheFresh() {
   if (!picksCache) return false;
 
-  // Reject stale previous-build packets after deploy (missing build = stale).
+  // Reject stale previous-build packets after deploy (missing build = stale),
+  // unless a sealed Best 6 cohort is already present — then preserve sealed
+  // packets and only allow market-ref refreshes (state-integrity contract).
   if (picksCache.serverBuild !== SERVER_BUILD) {
-    return false;
+    const sealedToday =
+      (picksCache.bestSixDisplayTodayWNBA || []).filter(
+        (p) => p?.immutableOfficial || p?.sealedAt || p?.officialSealedAt || p?.contentHash
+      ).length +
+      (picksCache.bestSixDisplayTodayNBA || []).filter(
+        (p) => p?.immutableOfficial || p?.sealedAt || p?.officialSealedAt || p?.contentHash
+      ).length;
+    const sealedTomorrow =
+      (picksCache.bestSixDisplayTomorrowWNBA || []).filter(
+        (p) => p?.immutableOfficial || p?.sealedAt || p?.officialSealedAt || p?.contentHash
+      ).length +
+      (picksCache.bestSixDisplayTomorrowNBA || []).filter(
+        (p) => p?.immutableOfficial || p?.sealedAt || p?.officialSealedAt || p?.contentHash
+      ).length;
+    if (sealedToday < 6 && sealedTomorrow < 6) {
+      return false;
+    }
   }
 
   if (picksCache.boardSchemaVersion !== BOARD_SCHEMA_VERSION) {
@@ -3126,6 +3201,7 @@ app.get("/health", (req, res) => {
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
+    stateIntegrityVersion: STATE_INTEGRITY_VERSION,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
     emptyBoardGuardVersion: EMPTY_BOARD_GUARD_VERSION,
     recoveryEndpoints: true,
@@ -5015,6 +5091,144 @@ app.get("/internal/courtedge/projection-bias", requireSchedulerToken, (req, res)
     res.status(500).json({ ok: false, message: error.message });
   }
 });
+
+app.get("/internal/courtedge/state-integrity", requireSchedulerToken, (req, res) => {
+  try {
+    const board = getReadOnlyBoard();
+    const trackedProps = getTrackedProps();
+    const snapshot = buildStateIntegritySnapshot();
+    const labPayload = (() => {
+      try {
+        return buildCourtEdgeLabV2({
+          trackedProps,
+          archives: getAllHistoryArchives(),
+          reports: getRawDailySlateReports(),
+          persistThreeSlate: false,
+        });
+      } catch {
+        return null;
+      }
+    })();
+    const scan = scanStateIntegrity({
+      trackedProps,
+      board,
+      archives: getAllHistoryArchives(),
+      reports: getRawDailySlateReports(),
+      labDefaultSlateDate: labPayload?.slateDate || null,
+      frozenBlockDates:
+        labPayload?.previousThreeSlateBlock?.slateDates ||
+        labPayload?.threeSlateComparison?.previousBlockDates ||
+        [],
+    });
+    res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+      stateIntegrityBuild: STATE_INTEGRITY_BUILD,
+      paidApiCallCount: getPaidApiCallCount(),
+      snapshot,
+      scan,
+      board: {
+        present: Boolean(board?.games?.length),
+        lastUpdated: board?.lastUpdated || null,
+        todayWNBA: (board?.bestSixDisplayTodayWNBA || []).length,
+        tomorrowWNBA: (board?.bestSixDisplayTomorrowWNBA || []).length,
+        todayHashes: (board?.bestSixDisplayTodayWNBA || []).map(
+          (p) => p.contentHash || null
+        ),
+        tomorrowHashes: (board?.bestSixDisplayTomorrowWNBA || []).map(
+          (p) => p.contentHash || null
+        ),
+      },
+      lab: {
+        slateDate: labPayload?.slateDate || null,
+        active: labPayload?.activeThreeSlateBlock?.slateDates || null,
+        previous: labPayload?.previousThreeSlateBlock?.slateDates || null,
+        writesLiveWeights: labPayload?.writesLiveWeights === true,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error.message });
+  }
+});
+
+app.post(
+  "/internal/courtedge/state-integrity/reconcile",
+  requireSchedulerToken,
+  (req, res) => {
+    try {
+      const dryRun = req.body?.dryRun !== false;
+      const board = getReadOnlyBoard();
+      const trackedProps = getTrackedProps();
+      const labPayload = (() => {
+        try {
+          return buildCourtEdgeLabV2({
+            trackedProps,
+            archives: getAllHistoryArchives(),
+            reports: getRawDailySlateReports(),
+            persistThreeSlate: false,
+          });
+        } catch {
+          return null;
+        }
+      })();
+      const result = reconcileStateIntegrity({
+        dryRun,
+        trackedProps,
+        board,
+        archives: getAllHistoryArchives(),
+        reports: getRawDailySlateReports(),
+        labDefaultSlateDate: labPayload?.slateDate || null,
+        frozenBlockDates:
+          labPayload?.previousThreeSlateBlock?.slateDates || [],
+      });
+      logStateIntegrityEvent({
+        operation: "reconcile",
+        source: "internal_endpoint",
+        result: dryRun ? "dry_run" : "applied",
+        reason: `repairs=${result.repairs?.length || 0}`,
+      });
+      res.json({
+        ok: true,
+        serverBuild: SERVER_BUILD,
+        stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+        ...result,
+      });
+    } catch (error) {
+      res.status(500).json({ ok: false, message: error.message });
+    }
+  }
+);
+
+app.get(
+  "/internal/courtedge/state-integrity/missing-slate",
+  requireSchedulerToken,
+  (req, res) => {
+    try {
+      const slateDate = String(req.query.slateDate || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(slateDate)) {
+        return res.status(400).json({
+          ok: false,
+          message: "slateDate query required (YYYY-MM-DD)",
+        });
+      }
+      const answer = explainMissingCompletedSlate(slateDate, {
+        trackedProps: getTrackedProps(),
+        board: getReadOnlyBoard(),
+        archives: getAllHistoryArchives(),
+        reports: getRawDailySlateReports(),
+      });
+      res.json({
+        ok: true,
+        serverBuild: SERVER_BUILD,
+        stateIntegrityVersion: STATE_INTEGRITY_VERSION,
+        ...answer,
+      });
+    } catch (error) {
+      res.status(500).json({ ok: false, message: error.message });
+    }
+  }
+);
 
 app.post("/admin/reslate-0622-v1", requireAdminSecret, async (req, res) => {
   try {

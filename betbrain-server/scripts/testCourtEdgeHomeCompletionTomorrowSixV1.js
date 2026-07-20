@@ -643,16 +643,20 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD empty-board-guard target", () => {
+test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-empty-board-guard-v1",
-    "SERVER_BUILD must be courteedge-empty-board-guard-v1"
+    "courteedge-end-to-end-state-integrity-v1",
+    "SERVER_BUILD must be courteedge-end-to-end-state-integrity-v1"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
+  assert.match(src, /courteedge-empty-board-guard-v1/);
+  assert.match(src, /STATE_INTEGRITY_VERSION/);
+  assert.match(src, /mergeBoardDayIsolation/);
+  assert.match(src, /syncBoardToCanonicalStore/);
   assert.match(src, /bestSixDisplayTomorrowWNBA: sanitized\.bestSixDisplayTomorrowWNBA/);
 });
 
