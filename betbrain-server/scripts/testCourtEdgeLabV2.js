@@ -24,12 +24,21 @@ import {
   attributeCalibration,
 } from "../services/courtEdgeLabV2Helpers.js";
 import {
+  measuredMetric,
+  unavailableMetric,
+  formatMetricAvailability,
+  formatPctMetric,
+  formatClvMetric,
+  buildCompatibleDeltaMetric,
+} from "../services/labMetricAvailability.js";
+import {
   buildHistoryThreeSlateGroupsV2,
   clearFrozenThreeSlateMembershipCache,
   collectCompletedOfficialSlateDates,
   resetThreeSlateBlocksStoreForTests,
   syncThreeSlateBlocksV2,
   HISTORY_THREE_SLATE_GROUPS_V2,
+  HISTORICAL_THREE_SLATE_ANCHORS,
 } from "../services/historyThreeSlateGroupsV2.js";
 import { buildHistoryThreeSlateGroups } from "../services/historyThreeSlateGroupsV1.js";
 import { BANNED_LAB_LABELS } from "../services/courtEdgeLabV2Constants.js";
@@ -1253,6 +1262,434 @@ test(76, "Frozen historical membership preserved when six-prop track starts", ()
   // Frozen historical chunks must keep Jul 16 membership when bootstrapped
   const frozenDates = (groups.frozenBlocks || []).flatMap((b) => b.slateDates || []);
   assert.ok(frozenDates.includes("2026-07-16") || groups.legacySlateDates.includes("2026-07-16"));
+});
+
+// ---------- STABILITY AUDIT / UNAVAILABLE-VALUE REPAIR V1 ----------
+
+function makeUninstrumentedJul17Live() {
+  // Mirrors live Jul 17: 6 official, 3-3-0, no sealed engine signals, no CLV market close.
+  const pattern = ["win", "loss", "loss", "win", "win", "loss"];
+  const sides = ["Over", "Under", "Over", "Under", "Over", "Under"];
+  return pattern.map((status, i) => {
+    const p = makeSealedProp({
+      slateDate: "2026-07-17",
+      status,
+      bestSixRank: i + 1,
+      player: `Jul17-${i + 1}`,
+      side: sides[i],
+      omitSignals: true,
+      openingLine: undefined,
+      closingLine: undefined,
+      clv: undefined,
+      closingLineValue: undefined,
+      currentLine: 16.5 + i, // live board must NOT fabricate CLV
+      projection: undefined,
+      projectionError: undefined,
+    });
+    delete p.openingLine;
+    delete p.closingLine;
+    delete p.clv;
+    delete p.closingLineValue;
+    delete p.projection;
+    delete p.pregameSnapshot.projection;
+    delete p.pregameSnapshot.openingLine;
+    if (p.canonicalSealedProp?.pregameSnapshot) {
+      delete p.canonicalSealedProp.pregameSnapshot.projection;
+      delete p.canonicalSealedProp.pregameSnapshot.openingLine;
+    }
+    return p;
+  });
+}
+
+function makeHistoricalFrozenBlockProps() {
+  // Use thin/non-six mid-era sizes for 07-14/07-15 so they stay historical
+  // (anchor membership) and do not re-enter the six-prop learning track.
+  const dates = ["2026-07-14", "2026-07-15", "2026-07-16"];
+  return dates.flatMap((slateDate) => {
+    const count = slateDate === "2026-07-16" ? 3 : 4;
+    return Array.from({ length: count }, (_, i) => {
+      const p = makeSealedProp({
+        slateDate,
+        status: i % 2 === 0 ? "win" : "loss",
+        bestSixRank: i + 1,
+        player: `${slateDate}-P${i + 1}`,
+        omitSignals: true,
+        closingLine: undefined,
+        openingLine: undefined,
+      });
+      delete p.closingLine;
+      delete p.openingLine;
+      delete p.clv;
+      return p;
+    });
+  });
+}
+
+function assertNoRawNullLeak(text) {
+  assert.ok(!/\bnull\b/i.test(text), `leaked null in: ${text}`);
+  assert.ok(!/\bundefined\b/i.test(text), `leaked undefined in: ${text}`);
+  assert.ok(!/\bNaN\b/.test(text), `leaked NaN in: ${text}`);
+  assert.ok(!/—%/.test(text), `leaked —% in: ${text}`);
+  assert.ok(!/N\/A%/.test(text), `leaked N/A% in: ${text}`);
+}
+
+function formatConsumerLabSummary(lab) {
+  const cur = lab.currentSlate || {};
+  const active = lab.activeThreeSlateBlock || {};
+  const prev = lab.previousThreeSlateBlock || {};
+  const delta = lab.threeSlateComparison?.metrics?.winRate;
+  const deltaLine =
+    !delta || delta.available === false || delta.difference == null
+      ? "Win rate Δ: N/A"
+      : `Win rate Δ: prev ${delta.previous} → cur ${delta.current} (${delta.display})`;
+  const note =
+    !delta || delta.available === false
+      ? delta?.note || "Comparison available after 3 compatible completed slates."
+      : "";
+  const eng = lab.engineScorecards?.lineMovementClv?.currentSlate || {};
+  const covDir = `cov ${formatPctMetric(eng.coverage ?? eng.coveragePct)} · dir ${formatPctMetric(eng.directionalAccuracyMetric ?? eng.directionalAccuracy)}`;
+  return [
+    `Current slate: ${cur.slateDate} · ${cur.record} (${formatPctMetric(cur.winRateMetric ?? cur.winRate)})`,
+    `Active three-slate: ${active.progress} · ${(active.slateDates || []).join(" · ")}`,
+    `Previous block: ${(prev.slateDates || []).join(" · ")}`,
+    `Avg margin ${formatMetricAvailability(cur.avgMargin, { digits: 1 })}`,
+    `|proj err| ${formatMetricAvailability(cur.avgAbsProjectionErrorMetric ?? cur.avgAbsProjectionError, { digits: 1 })}`,
+    `CLV ${formatClvMetric(cur.avgClvMetric ?? cur.avgClv)}`,
+    deltaLine,
+    note,
+    covDir,
+  ].join("\n");
+}
+
+test(77, "Fixture A: Jul 17 live state unavailable CLV/delta/engine metrics", () => {
+  resetBlocks();
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-17");
+  assert.equal(lab.currentSlate.totalProps, 6);
+  assert.equal(lab.currentSlate.graded, 6);
+  assert.equal(lab.currentSlate.record, "3-3-0");
+  assert.equal(lab.currentSlate.overRecord.record, "2-1-0");
+  assert.equal(lab.currentSlate.underRecord.record, "1-2-0");
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-17"]);
+  assert.equal(lab.activeThreeSlateBlock?.progress, "1/3");
+  assert.deepEqual(lab.previousThreeSlateBlock?.slateDates, [
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+  ]);
+  assert.equal(lab.writesLiveWeights, false);
+  assert.equal(lab.calibrationFeedbackEngine, false);
+  assert.equal(lab.currentSlate.avgClv, null);
+  assert.equal(lab.currentSlate.avgClvMetric?.available, false);
+  assert.equal(lab.threeSlateComparison?.metrics?.winRate?.available, false);
+  assert.equal(
+    lab.threeSlateComparison?.metrics?.winRate?.reason,
+    "INSUFFICIENT_COMPATIBLE_SLATES"
+  );
+  for (const key of LAB_V2_ENGINE_KEYS) {
+    const card = lab.engineScorecards[key].currentSlate;
+    assert.equal(card.coverage?.available, false);
+    assert.equal(card.directionalAccuracyMetric?.available, false);
+    assert.equal(card.instrumentedEligibleCount, 0);
+  }
+  const consumer = formatConsumerLabSummary(lab);
+  assertNoRawNullLeak(consumer);
+  assert.match(consumer, /CLV N\/A/);
+  assert.match(consumer, /Win rate Δ: N\/A/);
+  assert.match(consumer, /cov N\/A · dir N\/A/);
+});
+
+test(78, "Fixture B: measured zero remains available=true value=0", () => {
+  const prop = makeSealedProp({
+    slateDate: "2026-07-20",
+    status: "win",
+    sealedLine: 18.5,
+    closingLine: 18.5,
+    side: "Over",
+    clv: 0,
+  });
+  const rec = buildLabPropRecord(prop);
+  assert.equal(rec.clvMetric.available, true);
+  assert.equal(rec.clvMetric.value, 0);
+  assert.equal(formatClvMetric(rec.clvMetric), "0.0");
+  assert.equal(isMeasuredZeroLike(rec.clvMetric), true);
+});
+
+function isMeasuredZeroLike(m) {
+  return m?.available === true && m.value === 0;
+}
+
+test(79, "Fixture C: missing CLV inputs unavailable; valid zero measured", () => {
+  const p1 = makeSealedProp({ status: "win" });
+  delete p1.closingLine;
+  delete p1.clv;
+  delete p1.closingLineValue;
+  const r1 = buildLabPropRecord(p1);
+  assert.equal(r1.clvMetric.available, false);
+  assert.equal(r1.clvMetric.reason, "MISSING_CLOSING_LINE");
+
+  const p2 = makeSealedProp({
+    sealedLine: 10,
+    line: 10,
+    officialLine: 10,
+    closingLine: 10,
+    side: "Over",
+    clv: undefined,
+    closingLineValue: undefined,
+  });
+  p2.pregameSnapshot.line = 10;
+  if (p2.canonicalSealedProp?.pregameSnapshot) {
+    p2.canonicalSealedProp.pregameSnapshot.line = 10;
+  }
+  delete p2.clv;
+  delete p2.closingLineValue;
+  const r2 = buildLabPropRecord(p2);
+  assert.equal(r2.clvMetric.available, true);
+  assert.equal(r2.clvMetric.value, 0);
+
+  const r3 = buildLabPropRecord({
+    ...makeSealedProp({ status: "win" }),
+    clv: "nope",
+    closingLineValue: "nope",
+    closingLine: null,
+  });
+  assert.equal(r3.clvMetric.available, false);
+
+  // currentLine alone must not create CLV 0
+  const p4 = makeSealedProp({
+    sealedLine: 20,
+    currentLine: 20,
+  });
+  delete p4.closingLine;
+  delete p4.clv;
+  delete p4.closingLineValue;
+  const r4 = buildLabPropRecord(p4);
+  assert.equal(r4.clv, null);
+  assert.equal(r4.clvMetric.available, false);
+});
+
+test(80, "Fixture D: incomplete active block deltas unavailable; complete enables arithmetic", () => {
+  resetBlocks();
+  const props13 = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeSix("2026-07-17"),
+  ];
+  const lab13 = buildCourtEdgeLabV2({
+    trackedProps: props13,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab13.activeThreeSlateBlock.progress, "1/3");
+  assert.equal(lab13.threeSlateComparison.metrics.winRate.available, false);
+  assert.equal(lab13.activeThreeSlateBlock.record, lab13.currentSlate.record);
+
+  resetBlocks();
+  const props23 = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeSix("2026-07-17"),
+    ...makeSix("2026-07-18"),
+  ];
+  const lab23 = buildCourtEdgeLabV2({
+    trackedProps: props23,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab23.activeThreeSlateBlock.progress, "2/3");
+  assert.equal(lab23.threeSlateComparison.metrics.winRate.available, false);
+
+  resetBlocks();
+  const props33 = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeSix("2026-07-17"),
+    ...makeSix("2026-07-18"),
+    ...makeSix("2026-07-19"),
+  ];
+  const lab33 = buildCourtEdgeLabV2({
+    trackedProps: props33,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab33.activeThreeSlateBlock.progress, "3/3");
+  assert.equal(lab33.activeThreeSlateBlock.incomplete, false);
+  const wr = lab33.threeSlateComparison?.metrics?.winRate;
+  assert.ok(wr, "winRate delta object missing");
+  assert.equal(
+    wr.available,
+    true,
+    `expected available delta, got reason=${wr.reason} display=${wr.display} prevComplete=${lab33.threeSlateComparison?.previousComplete} currentComplete=${lab33.threeSlateComparison?.currentComplete} prev=${JSON.stringify(lab33.previousThreeSlateBlock?.slateDates)} active=${JSON.stringify(lab33.activeThreeSlateBlock?.slateDates)}`
+  );
+  assert.equal(typeof wr.difference, "number");
+});
+
+test(81, "Fixture E: legacy visible but excluded from modern engine scoreboards", () => {
+  resetBlocks();
+  const legacy = makeUninstrumentedJul17Live();
+  const modern = makeSix("2026-07-20");
+  const lab = buildCourtEdgeLabV2({
+    slateDate: "2026-07-20",
+    trackedProps: [...legacy, ...modern],
+    persistThreeSlate: false,
+  });
+  assert.ok(lab.allTimeContext.byEvidenceSchema);
+  assert.ok(
+    Object.keys(lab.allTimeContext.byEvidenceSchema).some((k) =>
+      String(k).includes("uninstrumented")
+    )
+  );
+  // Current modern slate scoreboard should have eligible instrumented props
+  const card = lab.engineScorecards.lineMovementClv.currentSlate;
+  assert.ok(card.instrumentedEligibleCount > 0);
+  // Legacy-only build on Jul 17 date
+  const labLegacy = buildCourtEdgeLabV2({
+    slateDate: "2026-07-17",
+    trackedProps: legacy,
+    persistThreeSlate: false,
+  });
+  assert.equal(
+    labLegacy.engineScorecards.lineMovementClv.currentSlate.instrumentedEligibleCount,
+    0
+  );
+  assert.equal(
+    labLegacy.engineScorecards.lineMovementClv.currentSlate.coverage.available,
+    false
+  );
+});
+
+test(82, "Fixture F: frozen block membership immutable across reload", () => {
+  resetBlocks();
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeSix("2026-07-17")];
+  const first = buildHistoryThreeSlateGroupsV2({
+    trackedProps: props,
+    persist: true,
+  });
+  assert.deepEqual(first.previousBlock?.slateDates, [
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+  ]);
+  // Simulate reload — do not reset store
+  const second = buildHistoryThreeSlateGroupsV2({
+    trackedProps: props,
+    persist: true,
+  });
+  assert.deepEqual(second.previousBlock?.slateDates, [
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+  ]);
+  assert.deepEqual(second.activeBlock?.slateDates, ["2026-07-17"]);
+  assert.ok(
+    HISTORICAL_THREE_SLATE_ANCHORS.some((a) =>
+      a.join(",") === "2026-07-14,2026-07-15,2026-07-16"
+    )
+  );
+});
+
+test(83, "Fixture G: simulated restart preserves semantics and unavailable metrics", () => {
+  resetBlocks();
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  const before = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  // Restart simulation: new process reads same persisted store + same props
+  clearFrozenThreeSlateMembershipCache();
+  const after = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  assert.equal(after.slateDate, "2026-07-17");
+  assert.deepEqual(after.previousThreeSlateBlock?.slateDates, before.previousThreeSlateBlock?.slateDates);
+  assert.deepEqual(after.activeThreeSlateBlock?.slateDates, ["2026-07-17"]);
+  assert.equal(after.activeThreeSlateBlock?.progress, "1/3");
+  assert.equal(after.currentSlate.avgClvMetric?.available, false);
+  assert.equal(after.threeSlateComparison?.metrics?.winRate?.available, false);
+  assert.equal(after.currentSlate.avgClv, null);
+  assert.notEqual(after.currentSlate.avgClv, 0);
+  const dates = [
+    ...(after.activeThreeSlateBlock?.slateDates || []),
+    ...(after.previousThreeSlateBlock?.slateDates || []),
+  ];
+  assert.equal(new Set(dates).size, dates.length);
+});
+
+test(84, "Fixture H: screen and Copy Report semantic parity (no raw null leaks)", () => {
+  resetBlocks();
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  const screen = formatConsumerLabSummary(lab);
+  // Copy-report style lines from same payload
+  const copy = [
+    `Current slate: ${lab.currentSlate.slateDate} · ${lab.currentSlate.record} (${formatPctMetric(lab.currentSlate.winRateMetric ?? lab.currentSlate.winRate)})`,
+    `Active three-slate: ${lab.activeThreeSlateBlock.progress} · ${lab.activeThreeSlateBlock.slateDates.join(" · ")}`,
+    `Previous block: ${lab.previousThreeSlateBlock.slateDates.join(" · ")}`,
+    `CLV ${formatClvMetric(lab.currentSlate.avgClvMetric ?? lab.currentSlate.avgClv)}`,
+    lab.threeSlateComparison?.metrics?.winRate?.available
+      ? `Win rate Δ: prev ${lab.threeSlateComparison.metrics.winRate.previous} → cur ${lab.threeSlateComparison.metrics.winRate.current}`
+      : "Win rate Δ: N/A",
+    `cov ${formatPctMetric(lab.engineScorecards.lineMovementClv.currentSlate.coverage)} · dir ${formatPctMetric(lab.engineScorecards.lineMovementClv.currentSlate.directionalAccuracyMetric)}`,
+  ].join("\n");
+  assertNoRawNullLeak(screen);
+  assertNoRawNullLeak(copy);
+  assert.equal(lab.slateDate, "2026-07-17");
+  assert.match(screen, /3-3-0/);
+  assert.match(copy, /3-3-0/);
+  assert.match(screen, /CLV N\/A/);
+  assert.match(copy, /CLV N\/A/);
+  assert.match(screen, /Win rate Δ: N\/A/);
+  assert.match(copy, /Win rate Δ: N\/A/);
+});
+
+test(85, "Fixture I: July 19 absence eligibility — no promote without sealed official cohort", () => {
+  resetBlocks();
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  // Partial / home-draft-like Jul 19 — not immutable official Results cohort
+  const draft19 = [1, 2, 3].map((i) => ({
+    slateDate: "2026-07-19",
+    player: `Draft-${i}`,
+    status: "win",
+    bestSixRank: i,
+    trackingType: "TEST",
+    immutableOfficial: false,
+    line: 10,
+  }));
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: [...props, ...draft19],
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-17");
+  assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-19"));
+
+  // When a sealed official six-prop Jul 19 exists, it becomes eligible (2/3)
+  resetBlocks();
+  const with19 = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-19"),
+  ];
+  const lab2 = buildCourtEdgeLabV2({
+    trackedProps: with19,
+    persistThreeSlate: true,
+  });
+  assert.ok((lab2.activeThreeSlateBlock?.slateDates || []).includes("2026-07-19"));
+  assert.equal(lab2.activeThreeSlateBlock?.progress, "2/3");
+  assert.equal(lab2.slateDate, "2026-07-19");
+});
+
+test(86, "MetricAvailability helpers distinguish measured zero from unavailable", () => {
+  assert.deepEqual(measuredMetric(0), { available: true, value: 0, reason: null });
+  assert.equal(unavailableMetric("UNINSTRUMENTED").available, false);
+  const delta = buildCompatibleDeltaMetric(50, 60, {
+    previousComplete: false,
+    currentComplete: false,
+  });
+  assert.equal(delta.available, false);
+  assert.equal(delta.reason, "INSUFFICIENT_COMPATIBLE_SLATES");
+  assert.equal(delta.display, "N/A");
 });
 
 console.log("\n==============================");

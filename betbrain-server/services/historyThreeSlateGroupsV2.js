@@ -36,6 +36,7 @@ import {
   classifySlateInstrumentation,
   filterInstrumentedRecords,
 } from "./courtEdgeLabV2Helpers.js";
+import { buildCompatibleDeltaMetric } from "./labMetricAvailability.js";
 
 export { V1_VERSION, HISTORY_THREE_SLATE_GROUPS_V2 };
 export const HISTORY_THREE_SLATE_GROUPS_VERSION = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;
@@ -94,7 +95,16 @@ function writeStore(store) {
 }
 
 export function resetThreeSlateBlocksStoreForTests() {
-  if (fs.existsSync(STORE_FILE)) fs.unlinkSync(STORE_FILE);
+  try {
+    if (fs.existsSync(STORE_FILE)) fs.unlinkSync(STORE_FILE);
+  } catch (err) {
+    // Windows can briefly EPERM/ENOENT during parallel test resets — overwrite instead.
+    try {
+      fs.writeFileSync(STORE_FILE, JSON.stringify(emptyStore(), null, 2));
+    } catch {
+      // ignore
+    }
+  }
   return emptyStore();
 }
 
@@ -403,8 +413,11 @@ function enrichBlock(block, propsByDate = {}) {
   return {
     ...block,
     perSlate,
-    record,
+    recordStats: record,
+    // Spread numeric stats onto the block for convenience. Note: buildRecordStats
+    // also exposes `record` as the W-L-P string — keep object stats on recordStats.
     ...record,
+    record: record.record,
     legacy: anyLegacy,
     uninstrumented: slateFlags.some((f) => f.uninstrumented),
     instrumented: allInstrumented,
@@ -442,51 +455,153 @@ function enrichBlock(block, propsByDate = {}) {
   };
 }
 
+function isCompleteThreeSlateBlock(block) {
+  if (!block) return false;
+  if (block.incomplete === true) return false;
+  const count = Array.isArray(block.slateDates)
+    ? block.slateDates.length
+    : Number(block.slateCount || 0);
+  return count === GROUP_SIZE;
+}
+
+function erasCompatibleForComparison(current, previous) {
+  // Result W-L deltas are era-agnostic. Engine scoreboard deltas apply a
+  // stricter instrumentedEligible gate inside engineChanges.
+  return Boolean(current && previous);
+}
+
 function buildRichComparison(current, previous) {
   if (!previous) {
     return {
       hasPrevious: false,
+      available: false,
+      reason: "NOT_APPLICABLE",
       previousBlockDates: [],
       currentBlockDates: current?.slateDates || [],
       notes: ["First three-slate block — no prior block to compare."],
+      metrics: {
+        winRate: {
+          available: false,
+          value: null,
+          reason: "NOT_APPLICABLE",
+          previous: null,
+          current: null,
+          difference: null,
+          direction: "unavailable",
+          display: "N/A",
+          label: "N/A",
+          note: "Comparison available after 3 compatible completed slates.",
+        },
+      },
     };
   }
-  const base = compareRecords(current.record, previous.record);
+
+  const previousComplete = isCompleteThreeSlateBlock(previous);
+  const currentComplete = isCompleteThreeSlateBlock(current);
+  const erasCompatible = erasCompatibleForComparison(current, previous);
+  const gate = {
+    gateOfficialDeltas: true,
+    previousComplete,
+    currentComplete,
+    erasCompatible,
+  };
+
+  const currentStats =
+    current?.recordStats && typeof current.recordStats === "object"
+      ? current.recordStats
+      : current;
+  const previousStats =
+    previous?.recordStats && typeof previous.recordStats === "object"
+      ? previous.recordStats
+      : previous;
+  const base = compareRecords(currentStats, previousStats, gate);
   return {
     hasPrevious: true,
+    available: base.available === true,
+    reason: base.reason || null,
+    note: base.note ||
+      (base.available
+        ? null
+        : "Comparison available after 3 compatible completed slates."),
     previousBlockDates: previous.slateDates || [],
     currentBlockDates: current.slateDates || [],
+    previousComplete,
+    currentComplete,
+    erasCompatible,
     metrics: base.metrics,
-    over: compareRecords(current.overRecord, previous.overRecord),
-    under: compareRecords(current.underRecord, previous.underRecord),
-    nba: compareRecords(current.nbaRecord, previous.nbaRecord),
-    wnba: compareRecords(current.wnbaRecord, previous.wnbaRecord),
+    over: compareRecords(
+      current.overRecord || currentStats,
+      previous.overRecord || previousStats,
+      gate
+    ),
+    under: compareRecords(
+      current.underRecord || currentStats,
+      previous.underRecord || previousStats,
+      gate
+    ),
+    nba: compareRecords(
+      current.nbaRecord || currentStats,
+      previous.nbaRecord || previousStats,
+      gate
+    ),
+    wnba: compareRecords(
+      current.wnbaRecord || currentStats,
+      previous.wnbaRecord || previousStats,
+      gate
+    ),
     risk: {
-      LOW: compareRecords(current.riskRecords?.LOW, previous.riskRecords?.LOW),
-      MEDIUM: compareRecords(current.riskRecords?.MEDIUM, previous.riskRecords?.MEDIUM),
-      HIGH: compareRecords(current.riskRecords?.HIGH, previous.riskRecords?.HIGH),
+      LOW: compareRecords(current.riskRecords?.LOW, previous.riskRecords?.LOW, gate),
+      MEDIUM: compareRecords(
+        current.riskRecords?.MEDIUM,
+        previous.riskRecords?.MEDIUM,
+        gate
+      ),
+      HIGH: compareRecords(current.riskRecords?.HIGH, previous.riskRecords?.HIGH, gate),
     },
-    top: compareRecords(current.topPickRecord, previous.topPickRecord),
-    nonTop: compareRecords(current.nonTopRecord, previous.nonTopRecord),
-    organic: compareRecords(current.organicSideRecord, previous.organicSideRecord),
+    top: compareRecords(current.topPickRecord, previous.topPickRecord, gate),
+    nonTop: compareRecords(current.nonTopRecord, previous.nonTopRecord, gate),
+    organic: compareRecords(current.organicSideRecord, previous.organicSideRecord, gate),
     sameTeamForced: compareRecords(
       current.sameTeamForcedRecord,
-      previous.sameTeamForcedRecord
+      previous.sameTeamForcedRecord,
+      gate
     ),
     engineChanges: Object.fromEntries(
-      LAB_V2_ENGINE_KEYS.map((key) => [
-        key,
-        {
-          directionalAccuracy: deltaMetric(
-            previous.engineScorecards?.[key]?.directionalAccuracy,
-            current.engineScorecards?.[key]?.directionalAccuracy
-          ),
-          coveragePct: deltaMetric(
-            previous.engineScorecards?.[key]?.coveragePct,
-            current.engineScorecards?.[key]?.coveragePct
-          ),
-        },
-      ])
+      LAB_V2_ENGINE_KEYS.map((key) => {
+        const prevCov = previous.engineScorecards?.[key]?.coverage;
+        const curCov = current.engineScorecards?.[key]?.coverage;
+        const prevDir = previous.engineScorecards?.[key]?.directionalAccuracyMetric;
+        const curDir = current.engineScorecards?.[key]?.directionalAccuracyMetric;
+        return [
+          key,
+          {
+            directionalAccuracy: buildCompatibleDeltaMetric(
+              prevDir ?? previous.engineScorecards?.[key]?.directionalAccuracy,
+              curDir ?? current.engineScorecards?.[key]?.directionalAccuracy,
+              {
+                previousComplete,
+                currentComplete,
+                erasCompatible:
+                  erasCompatible &&
+                  previous.engineScorecards?.[key]?.instrumentedEligibleCount > 0 &&
+                  current.engineScorecards?.[key]?.instrumentedEligibleCount > 0,
+              }
+            ),
+            coveragePct: buildCompatibleDeltaMetric(
+              prevCov ?? previous.engineScorecards?.[key]?.coveragePct,
+              curCov ?? current.engineScorecards?.[key]?.coveragePct,
+              {
+                previousComplete,
+                currentComplete,
+                erasCompatible:
+                  erasCompatible &&
+                  previous.engineScorecards?.[key]?.instrumentedEligibleCount > 0 &&
+                  current.engineScorecards?.[key]?.instrumentedEligibleCount > 0,
+              }
+            ),
+          },
+        ];
+      })
     ),
   };
 }
@@ -606,15 +721,18 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
   const enrichedFrozen = frozenBlocks.map((b) => enrichBlock(b, byDate));
   const enrichedActive = enrichBlock(activeBlock, byDate);
 
-  // Attach comparisons
+  // Attach comparisons — never compare a completed active block to itself when
+  // it is also present in frozenBlocks (trailing complete active pattern).
   for (let i = 0; i < enrichedFrozen.length; i++) {
     const prev = i > 0 ? enrichedFrozen[i - 1] : null;
     enrichedFrozen[i].comparison = buildRichComparison(enrichedFrozen[i], prev);
   }
   if (enrichedActive) {
-    const prev =
-      enrichedFrozen.length > 0 ? enrichedFrozen[enrichedFrozen.length - 1] : null;
-    enrichedActive.comparison = buildRichComparison(enrichedActive, prev);
+    const prevDistinct =
+      enrichedFrozen
+        .filter((b) => !sameDates(b.slateDates, enrichedActive.slateDates))
+        .slice(-1)[0] || null;
+    enrichedActive.comparison = buildRichComparison(enrichedActive, prevDistinct);
   }
 
   // Active is latest instrumented learning block. Previous is the frozen block before it.

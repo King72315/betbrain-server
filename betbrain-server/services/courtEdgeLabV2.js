@@ -117,6 +117,7 @@ function buildBestSixResults(records = []) {
       openingLine: r.openingLine,
       closingLine: r.closingLine,
       clv: r.clv,
+      clvMetric: r.clvMetric || null,
       originalModelSide: r.organicSide,
       finalCourtEdgeSide: r.finalSide,
       sameTeamArbitration: r.forcedSameTeam
@@ -478,12 +479,18 @@ function buildRiskCalibration(records = []) {
 }
 
 function buildMarketLineAnalysis(records = []) {
-  const withClv = records.filter((r) => r.clv != null);
-  const favorable = withClv.filter((r) => r.clv > 0);
-  const unfavorable = withClv.filter((r) => r.clv < 0);
+  const withClv = records.filter((r) => {
+    if (r.clvMetric) return r.clvMetric.available === true;
+    return r.clv != null;
+  });
+  const favorable = withClv.filter((r) => (r.clvMetric?.value ?? r.clv) > 0);
+  const unfavorable = withClv.filter((r) => (r.clvMetric?.value ?? r.clv) < 0);
+  const stats = buildRecordStats(records);
   return {
     sample: records.length,
-    avgClv: avg(records.map((r) => r.clv)),
+    measuredClvCount: withClv.length,
+    avgClv: stats.avgClv,
+    avgClvMetric: stats.avgClvMetric,
     favorableSealedLine: buildRecordStats(favorable),
     unfavorableSealedLine: buildRecordStats(unfavorable),
     bySide: {
@@ -711,8 +718,9 @@ function buildAllTimeContext(allRecords = []) {
     legacyCount: records.filter((r) => r.legacy || r.uninstrumented).length,
   });
 
+  const overallStats = buildRecordStats(allRecords);
   return {
-    ...buildRecordStats(allRecords),
+    ...overallStats,
     nba: buildRecordStats(allRecords.filter((r) => r.league === "NBA")),
     wnba: buildRecordStats(allRecords.filter((r) => r.league === "WNBA")),
     over: buildRecordStats(allRecords.filter((r) => r.finalSide === "OVER")),
@@ -730,8 +738,10 @@ function buildAllTimeContext(allRecords = []) {
     instrumentedRecordCount: instrumented.length,
     legacyRecordCount: allRecords.length - instrumented.length,
     avgProjectionError: avg(allRecords.map((r) => r.projectionError)),
-    avgAbsProjectionError: avg(allRecords.map((r) => r.absProjectionError)),
-    avgClv: avg(allRecords.map((r) => r.clv)),
+    avgAbsProjectionError: overallStats.avgAbsProjectionError,
+    avgAbsProjectionErrorMetric: overallStats.avgAbsProjectionErrorMetric,
+    avgClv: overallStats.avgClv,
+    avgClvMetric: overallStats.avgClvMetric,
     byBuildVersion: Object.fromEntries(
       Object.entries(byBuild).map(([k, list]) => [k, summarizeCohort(list)])
     ),
@@ -858,6 +868,17 @@ export function buildCourtEdgeLabV2(options = {}) {
 
   const engineScorecards = {};
   for (const key of LAB_V2_ENGINE_KEYS) {
+    const prevCard = previousEngineScorecards[key];
+    const activeCard = activeEngineScorecards[key];
+    const bothEligible =
+      (prevCard?.instrumentedEligibleCount || 0) > 0 &&
+      (activeCard?.instrumentedEligibleCount || 0) > 0;
+    const activeComplete =
+      activeBlock?.incomplete !== true &&
+      (activeBlock?.slateDates || []).length === 3;
+    const previousComplete =
+      previousBlock?.incomplete !== true &&
+      (previousBlock?.slateDates || []).length === 3;
     engineScorecards[key] = {
       label: LAB_V2_ENGINE_LABELS[key],
       currentSlate: currentEngineScorecards[key],
@@ -865,22 +886,47 @@ export function buildCourtEdgeLabV2(options = {}) {
       previousThreeSlateBlock: previousEngineScorecards[key],
       instrumentedOnly: true,
       change: {
-        directionalAccuracy: deltaMetric(
-          previousEngineScorecards[key]?.directionalAccuracy,
-          activeEngineScorecards[key]?.directionalAccuracy
-        ),
-        coveragePct: deltaMetric(
-          previousEngineScorecards[key]?.coveragePct,
-          activeEngineScorecards[key]?.coveragePct
-        ),
-        helped: deltaMetric(
-          previousEngineScorecards[key]?.helped,
-          activeEngineScorecards[key]?.helped
-        ),
-        hurt: deltaMetric(
-          previousEngineScorecards[key]?.hurt,
-          activeEngineScorecards[key]?.hurt
-        ),
+        directionalAccuracy: bothEligible
+          ? deltaMetric(
+              prevCard?.directionalAccuracyMetric ?? prevCard?.directionalAccuracy,
+              activeCard?.directionalAccuracyMetric ?? activeCard?.directionalAccuracy
+            )
+          : {
+              available: false,
+              value: null,
+              reason:
+                (activeCard?.instrumentedEligibleCount || 0) === 0
+                  ? "UNINSTRUMENTED"
+                  : "NO_ELIGIBLE_EVIDENCE",
+              previous: null,
+              current: null,
+              difference: null,
+              direction: "unavailable",
+              display: "N/A",
+              label: "N/A",
+            },
+        coveragePct: bothEligible
+          ? deltaMetric(
+              prevCard?.coverage ?? prevCard?.coveragePct,
+              activeCard?.coverage ?? activeCard?.coveragePct
+            )
+          : {
+              available: false,
+              value: null,
+              reason:
+                (activeCard?.instrumentedEligibleCount || 0) === 0
+                  ? "UNINSTRUMENTED"
+                  : "NO_ELIGIBLE_EVIDENCE",
+              previous: null,
+              current: null,
+              difference: null,
+              direction: "unavailable",
+              display: "N/A",
+              label: "N/A",
+            },
+        helped: deltaMetric(prevCard?.helped, activeCard?.helped),
+        hurt: deltaMetric(prevCard?.hurt, activeCard?.hurt),
+        blockComplete: activeComplete && previousComplete,
       },
     };
   }

@@ -23,6 +23,13 @@ import {
 } from "../../services/api";
 import CopyReportButton from "../../components/CopyReportButton";
 import { buildPropLabV2Report } from "../../utils/reportBuilders";
+import {
+  formatLabPct,
+  formatLabNum,
+  formatLabClv,
+  formatEngineCovDir,
+  formatWinRateDelta,
+} from "../../utils/labMetricFormat";
 
 type LabFilters = {
   league: "ALL" | "NBA" | "WNBA";
@@ -42,20 +49,24 @@ const DEFAULT_FILTERS: LabFilters = {
   engine: "ALL",
 };
 
-function formatPct(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  return `${value}%`;
+function formatPct(value: any) {
+  return formatLabPct(value);
 }
 
-function formatNum(value: number | null | undefined, digits = 1) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
-  return Number(value).toFixed(digits);
+function formatNum(value: any, digits = 1) {
+  return formatLabNum(value, digits);
+}
+
+function formatClv(value: any, metric?: any) {
+  return formatLabClv(metric ?? value);
 }
 
 function formatRecord(stats: any) {
-  if (!stats) return "—";
+  if (!stats) return "N/A";
   const rate =
-    stats.winRate !== null && stats.winRate !== undefined ? ` (${stats.winRate}%)` : "";
+    stats.winRate !== null && stats.winRate !== undefined
+      ? ` (${formatLabPct(stats.winRateMetric ?? stats.winRate)})`
+      : "";
   return `${stats.wins ?? 0}-${stats.losses ?? 0}-${stats.pushes ?? 0}${rate}`;
 }
 
@@ -123,27 +134,24 @@ function Chip({
 }
 
 function DeltaLine({ label, delta }: { label: string; delta: any }) {
-  if (!delta) {
-    return <MetricRow label={label} value="N/A" />;
+  if (!delta || delta.available === false || delta.difference == null) {
+    const note =
+      delta?.note && label.toLowerCase().includes("win")
+        ? delta.note
+        : null;
+    return (
+      <>
+        <MetricRow label={label} value="N/A" />
+        {note ? <MetricRow label="" value={note} /> : null}
+      </>
+    );
   }
   const display =
     delta.display ||
     delta.label ||
-    (delta.difference === null || delta.difference === undefined
-      ? delta.direction === "pending"
-        ? "pending"
-        : "N/A"
-      : `${delta.difference > 0 ? "+" : ""}${delta.difference}`);
-  const prev =
-    delta.previous === null || delta.previous === undefined
-      ? "N/A"
-      : formatNum(delta.previous);
-  const cur =
-    delta.current === null || delta.current === undefined
-      ? delta.direction === "pending"
-        ? "pending"
-        : "N/A"
-      : formatNum(delta.current);
+    `${delta.difference > 0 ? "+" : ""}${delta.difference}`;
+  const prev = formatNum(delta.previous);
+  const cur = formatNum(delta.current);
   return (
     <MetricRow
       label={label}
@@ -401,11 +409,11 @@ export default function PropLabScreen() {
               <MetricRow label="Official props" value={String(current.totalProps ?? 0)} />
               <MetricRow label="Graded / Pending" value={`${current.graded ?? 0} / ${current.pending ?? 0}`} />
               <MetricRow label="W-L-P" value={formatRecord(current)} />
-              <MetricRow label="Win rate" value={formatPct(current.winRate)} />
+              <MetricRow label="Win rate" value={formatPct(current.winRateMetric ?? current.winRate)} />
               <MetricRow label="Avg margin" value={formatNum(current.avgResultMargin ?? current.avgMargin)} />
               <MetricRow label="Avg proj error" value={formatNum(current.avgProjectionError)} />
-              <MetricRow label="Avg |proj error|" value={formatNum(current.avgAbsProjectionError)} />
-              <MetricRow label="Avg CLV" value={formatNum(current.avgClv)} />
+              <MetricRow label="Avg |proj error|" value={formatNum(current.avgAbsProjectionErrorMetric ?? current.avgAbsProjectionError)} />
+              <MetricRow label="Avg CLV" value={formatClv(current.avgClv, current.avgClvMetric)} />
               <MetricRow label="Top picks" value={formatRecord(current.topPickRecord)} />
               <MetricRow label="Over" value={formatRecord(current.overRecord)} />
               <MetricRow label="Under" value={formatRecord(current.underRecord)} />
@@ -459,9 +467,9 @@ export default function PropLabScreen() {
                   }
                 />
                 <MetricRow label="Combined W-L-P" value={formatRecord(activeBlock)} />
-                <MetricRow label="Win rate" value={formatPct(activeBlock.winRate)} />
-                <MetricRow label="Avg |proj error|" value={formatNum(activeBlock.avgAbsProjectionError)} />
-                <MetricRow label="Avg CLV" value={formatNum(activeBlock.avgClv)} />
+                <MetricRow label="Win rate" value={formatPct(activeBlock.winRateMetric ?? activeBlock.winRate)} />
+                <MetricRow label="Avg |proj error|" value={formatNum(activeBlock.avgAbsProjectionErrorMetric ?? activeBlock.avgAbsProjectionError)} />
+                <MetricRow label="Avg CLV" value={formatClv(activeBlock.avgClv, activeBlock.avgClvMetric)} />
                 {(activeBlock.perSlate || []).map((s: any) => (
                   <MetricRow
                     key={s.slateDate}
@@ -492,9 +500,9 @@ export default function PropLabScreen() {
                 }
               />
               <MetricRow label="Combined W-L-P" value={formatRecord(previousBlock)} />
-              <MetricRow label="Win rate" value={formatPct(previousBlock.winRate)} />
-              <MetricRow label="Avg |proj error|" value={formatNum(previousBlock.avgAbsProjectionError)} />
-              <MetricRow label="Avg CLV" value={formatNum(previousBlock.avgClv)} />
+              <MetricRow label="Win rate" value={formatPct(previousBlock.winRateMetric ?? previousBlock.winRate)} />
+              <MetricRow label="Avg |proj error|" value={formatNum(previousBlock.avgAbsProjectionErrorMetric ?? previousBlock.avgAbsProjectionError)} />
+              <MetricRow label="Avg CLV" value={formatClv(previousBlock.avgClv, previousBlock.avgClvMetric)} />
             </>
           )}
 
@@ -502,15 +510,32 @@ export default function PropLabScreen() {
             <>
               <Text style={styles.subhead}>Improvement comparison</Text>
               <DeltaLine label="Win rate" delta={comparison.metrics.winRate} />
+              {comparison.metrics.winRate?.available === false ? (
+                <MetricRow
+                  label=""
+                  value={
+                    comparison.note ||
+                    comparison.metrics.winRate?.note ||
+                    "Comparison available after 3 compatible completed slates."
+                  }
+                />
+              ) : null}
               <DeltaLine label="Avg margin" delta={comparison.metrics.avgMargin} />
               <DeltaLine label="|Proj error|" delta={comparison.metrics.avgAbsProjectionError} />
               <DeltaLine label="CLV" delta={comparison.metrics.avgClv} />
-              <DeltaLine label="WNBA win rate" delta={comparison.wnba?.winRate} />
-              <DeltaLine label="NBA win rate" delta={comparison.nba?.winRate} />
+              <DeltaLine
+                label="WNBA win rate"
+                delta={comparison.wnba?.metrics?.winRate ?? comparison.wnba?.winRate}
+              />
+              <DeltaLine
+                label="NBA win rate"
+                delta={comparison.nba?.metrics?.winRate ?? comparison.nba?.winRate}
+              />
             </>
           ) : (
             <Text style={styles.muted}>
-              {comparison?.notes?.[0] || "Comparison available after a prior frozen block exists."}
+              {comparison?.notes?.[0] ||
+                "Comparison available after 3 compatible completed slates."}
             </Text>
           )}
         </SectionCard>
@@ -536,7 +561,7 @@ export default function PropLabScreen() {
                   value={row.confidenceRiskSource || "—"}
                 />
                 <MetricRow label="Proj / fair / err" value={`${formatNum(row.projection)} / ${formatNum(row.fairLine)} / ${formatNum(row.projectionError)}`} />
-                <MetricRow label="Open → close / CLV" value={`${formatNum(row.openingLine)} → ${formatNum(row.closingLine)} / ${formatNum(row.clv)}`} />
+                <MetricRow label="Open → close / CLV" value={`${formatNum(row.openingLine)} → ${formatNum(row.closingLine)} / ${formatClv(row.clv, row.clvMetric)}`} />
                 <MetricRow label="Organic → final" value={`${row.originalModelSide || "—"} → ${row.finalCourtEdgeSide || "—"}`} />
                 <MetricRow
                   label="Same-team"
@@ -649,15 +674,23 @@ export default function PropLabScreen() {
                 <Text style={styles.engineName}>{card?.label || key}</Text>
                 <MetricRow
                   label="Coverage"
-                  value={`${cur.availableCount ?? 0} avail / ${cur.unavailableCount ?? 0} unavail (${formatPct(cur.coveragePct)})`}
+                  value={
+                    cur.noEligibleEvidence || cur.instrumentedEligibleCount === 0
+                      ? "N/A · no eligible instrumented evidence"
+                      : `${cur.availableCount ?? 0} avail / ${cur.unavailableCount ?? 0} unavail (${formatPct(cur.coverage ?? cur.coveragePct)})`
+                  }
                 />
                 <MetricRow
                   label="Directional"
-                  value={`${cur.directionalCorrect ?? 0}/${cur.directionalOpportunities ?? 0} (${formatPct(cur.directionalAccuracy)}) · H/U/N ${cur.helped}/${cur.hurt}/${cur.neutral}`}
+                  value={
+                    cur.noEligibleEvidence || cur.instrumentedEligibleCount === 0
+                      ? `N/A · H/U/N ${cur.helped ?? 0}/${cur.hurt ?? 0}/${cur.neutral ?? 0} (no eligible evidence)`
+                      : `${cur.directionalCorrect ?? 0}/${cur.directionalOpportunities ?? 0} (${formatPct(cur.directionalAccuracyMetric ?? cur.directionalAccuracy)}) · H/U/N ${cur.helped}/${cur.hurt}/${cur.neutral}`
+                  }
                 />
                 <MetricRow
-                  label="Calibration"
-                  value={`H/U/N ${cur.calibrationHelped}/${cur.calibrationHurt}/${cur.calibrationNeutral}`}
+                  label="Cov / dir"
+                  value={formatEngineCovDir(cur)}
                 />
                 <DeltaLine label="Block Δ accuracy" delta={card?.change?.directionalAccuracy} />
               </View>
@@ -729,7 +762,10 @@ export default function PropLabScreen() {
         <SectionCard title="9. Market and Line Performance" defaultOpen={false}>
           <MetricRow
             label="Avg CLV"
-            value={formatNum(labV2?.marketLineAnalysis?.currentSlate?.avgClv)}
+            value={formatClv(
+              labV2?.marketLineAnalysis?.currentSlate?.avgClv,
+              labV2?.marketLineAnalysis?.currentSlate?.avgClvMetric
+            )}
           />
           <MetricRow
             label="Favorable sealed"
@@ -756,7 +792,7 @@ export default function PropLabScreen() {
                 <MetricRow
                   key={key}
                   label={engines[key]?.label || key}
-                  value={`cov ${formatPct(card?.coveragePct)} · dir ${formatPct(card?.directionalAccuracy)}`}
+                  value={formatEngineCovDir(card)}
                 />
               );
             }
@@ -776,7 +812,7 @@ export default function PropLabScreen() {
               <MetricRow
                 key={key}
                 label={engines[key]?.label || key}
-                value={`cov ${formatPct(card?.coveragePct)} · dir ${formatPct(card?.directionalAccuracy)}`}
+                value={formatEngineCovDir(card)}
               />
             );
           })}
@@ -879,7 +915,7 @@ export default function PropLabScreen() {
           <MetricRow label="Under" value={formatRecord(labV2?.allTimeContext?.under)} />
           <MetricRow label="Same-team forced" value={formatRecord(labV2?.allTimeContext?.sameTeamForced)} />
           <MetricRow label="Avg |proj err|" value={formatNum(labV2?.allTimeContext?.avgAbsProjectionError)} />
-          <MetricRow label="Avg CLV" value={formatNum(labV2?.allTimeContext?.avgClv)} />
+          <MetricRow label="Avg CLV" value={formatClv(labV2?.allTimeContext?.avgClv, labV2?.allTimeContext?.avgClvMetric)} />
           <Text style={styles.subhead}>By build / evidence era</Text>
           {Object.entries(labV2?.allTimeContext?.byBuildVersion || {}).map(
             ([build, stats]: [string, any]) => (

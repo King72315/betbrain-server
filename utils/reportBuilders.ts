@@ -33,6 +33,14 @@ import {
   computeLabSlateTrackingSummary,
   formatLabTrackingSummaryLine,
 } from "./labTrackingInference";
+import {
+  formatLabPct,
+  formatLabNum,
+  formatLabClv,
+  formatEngineCovDir,
+  formatWinRateDelta,
+  containsRawUnavailableLeak,
+} from "./labMetricFormat";
 
 function getActualResult(pick: any) {
   const status = String(pick.status || "pending").toLowerCase();
@@ -1187,33 +1195,73 @@ export function buildPropLabV2Report(input: {
   const active = lab.activeThreeSlateBlock || {};
   const previous = lab.previousThreeSlateBlock || {};
   const engines = lab.engineScorecards || {};
+  const comparison = lab.threeSlateComparison || {};
+  const winDelta = formatWinRateDelta(comparison?.metrics?.winRate);
 
   const engineLines = Object.entries(engines).map(([key, card]: [string, any]) => {
     const cur = card?.currentSlate || {};
-    return `${card?.label || key}: cov ${cur.coveragePct ?? "—"}% · dir ${cur.directionalAccuracy ?? "—"}% · H/U/N ${cur.helped}/${cur.hurt}/${cur.neutral} · cal H/U/N ${cur.calibrationHelped}/${cur.calibrationHurt}/${cur.calibrationNeutral}`;
+    const covDir = formatEngineCovDir(cur);
+    return `${card?.label || key}: ${covDir} · H/U/N ${cur.helped ?? 0}/${cur.hurt ?? 0}/${cur.neutral ?? 0} · cal H/U/N ${cur.calibrationHelped ?? 0}/${cur.calibrationHurt ?? 0}/${cur.calibrationNeutral ?? 0}${
+      cur.noEligibleEvidence || cur.instrumentedEligibleCount === 0
+        ? " · no eligible instrumented evidence"
+        : ""
+    }`;
   });
 
   const bestSixLines = (lab.officialBestSixResults || []).map(
     (row: any, i: number) =>
-      `[${i + 1}] B6#${row.bestSixRank || "—"} ${row.player} · ${row.finalSide} ${row.sealedLine} · ${String(row.result || "").toUpperCase()} · margin ${row.resultMargin ?? "—"} · conf ${row.confidence ?? "—"} · risk ${row.risk || "—"}`
+      `[${i + 1}] B6#${row.bestSixRank || "N/A"} ${row.player} · ${row.finalSide} ${row.sealedLine} · ${String(row.result || "").toUpperCase()} · margin ${formatLabNum(row.resultMargin)} · conf ${formatLabNum(row.confidence, 0)} · risk ${row.risk || "N/A"} · CLV ${formatLabClv(row.clvMetric ?? row.clv)}`
   );
 
   const suggestionLines = (lab.adjustmentReview?.suggestions || []).map(
     (s: any) =>
-      `${s.label || s.engine}: ${s.suggestedAdjustmentType} · prev ${s.previousPerformance ?? "—"} → cur ${s.currentPerformance ?? "—"} (Δ ${s.difference ?? "—"}) · auto=${s.appliesAutomatically === true}`
+      `${s.label || s.engine}: ${s.suggestedAdjustmentType} · prev ${formatLabNum(s.previousPerformance)} → cur ${formatLabNum(s.currentPerformance)} (Δ ${formatLabNum(s.difference)}) · auto=${s.appliesAutomatically === true}`
   );
+
+  const mainData = joinLines([
+    "=== 1. Current Completed Slate Summary ===",
+    `Props ${current.totalProps ?? 0} · graded ${current.graded ?? 0} · pending ${current.pending ?? 0}`,
+    `W-L-P ${current.record || "0-0-0"} · win rate ${formatLabPct(current.winRateMetric ?? current.winRate)}`,
+    `Avg margin ${formatLabNum(current.avgMargin)} · |proj err| ${formatLabNum(current.avgAbsProjectionErrorMetric ?? current.avgAbsProjectionError)} · CLV ${formatLabClv(current.avgClvMetric ?? current.avgClv)}`,
+    `Over ${current.overRecord?.record || "N/A"} · Under ${current.underRecord?.record || "N/A"}`,
+    `NBA ${current.nbaRecord?.record || "N/A"} · WNBA ${current.wnbaRecord?.record || "N/A"}`,
+    "",
+    "=== 2. Three-Slate Improvement Block ===",
+    `Active ${active.progress || "N/A"} · ${active.record || "N/A"} (${formatLabPct(active.winRateMetric ?? active.winRate)})`,
+    `Previous ${previous.record || "N/A"} (${formatLabPct(previous.winRateMetric ?? previous.winRate)})`,
+    winDelta.line,
+    ...(winDelta.note ? [winDelta.note] : []),
+    "",
+    "=== 3. Official Best 6 Results ===",
+    ...bestSixLines,
+    "",
+    "=== 5. Engine Expansion Scoreboard ===",
+    ...engineLines,
+    "",
+    "=== 13. Adjustment Review ===",
+    `writesLiveWeights=${lab.adjustmentReview?.writesLiveWeights === true}`,
+    `calibrationFeedbackEngine=${lab.adjustmentReview?.calibrationFeedbackEngine === true}`,
+    ...(suggestionLines.length ? suggestionLines : ["No adjustment candidates."]),
+    "",
+    "=== 15. All-Time Context ===",
+    `All-time ${lab.allTimeContext?.record || "N/A"} (${formatLabPct(lab.allTimeContext?.winRateMetric ?? lab.allTimeContext?.winRate)}) · graded ${lab.allTimeContext?.graded ?? 0}`,
+  ]);
+
+  if (containsRawUnavailableLeak(mainData)) {
+    throw new Error("Prop Lab Copy Report leaked raw null/undefined/NaN/—%");
+  }
 
   return buildPageReport({
     page: "Prop Lab",
-    leagueFilter: current.slateDate || "—",
+    leagueFilter: current.slateDate || "N/A",
     lastUpdated: lab.generatedAt || null,
     dataSource: "GET /courtedge/lab (courtEdgeLabV2)",
     extraContext: {
       "Lab Version": lab.version,
       "Build": lab.buildVersion,
-      "Slate": current.slateDate || "—",
-      "Active Block": (active.slateDates || []).join(", ") || "—",
-      "Previous Block": (previous.slateDates || []).join(", ") || "—",
+      "Slate": current.slateDate || "N/A",
+      "Active Block": (active.slateDates || []).join(", ") || "N/A",
+      "Previous Block": (previous.slateDates || []).join(", ") || "N/A",
       "Writes Live Weights": lab.writesLiveWeights === true ? "YES" : "NO",
       "Calibration Feedback Engine": lab.calibrationFeedbackEngine === true ? "YES" : "NO",
       Loading: input.loading,
@@ -1221,41 +1269,13 @@ export function buildPropLabV2Report(input: {
       Refreshing: input.refreshing,
     },
     visibleSummary: joinLines([
-      `Current slate: ${current.slateDate || "—"} · ${current.record || "0-0-0"} (${current.winRate ?? "—"}%)`,
+      `Current slate: ${current.slateDate || "N/A"} · ${current.record || "0-0-0"} (${formatLabPct(current.winRateMetric ?? current.winRate)})`,
       `Active three-slate: ${(active.progress || "0/3")} · ${(active.slateDates || []).join(" · ") || "none"}`,
       `Previous block: ${(previous.slateDates || []).join(" · ") || "none"}`,
       `Official Best 6 shown: ${(lab.officialBestSixResults || []).length}`,
       `Engines on scoreboard: ${Object.keys(engines).length}`,
     ]),
-    mainData: joinLines([
-      "=== 1. Current Completed Slate Summary ===",
-      `Props ${current.totalProps ?? 0} · graded ${current.graded ?? 0} · pending ${current.pending ?? 0}`,
-      `W-L-P ${current.record || "0-0-0"} · win rate ${current.winRate ?? "—"}%`,
-      `Avg margin ${current.avgMargin ?? "—"} · |proj err| ${current.avgAbsProjectionError ?? "—"} · CLV ${current.avgClv ?? "—"}`,
-      `Over ${current.overRecord?.record || "—"} · Under ${current.underRecord?.record || "—"}`,
-      `NBA ${current.nbaRecord?.record || "—"} · WNBA ${current.wnbaRecord?.record || "—"}`,
-      "",
-      "=== 2. Three-Slate Improvement Block ===",
-      `Active ${active.progress || "—"} · ${active.record || "—"} (${active.winRate ?? "—"}%)`,
-      `Previous ${previous.record || "—"} (${previous.winRate ?? "—"}%)`,
-      lab.threeSlateComparison?.metrics?.winRate
-        ? `Win rate Δ: prev ${lab.threeSlateComparison.metrics.winRate.previous} → cur ${lab.threeSlateComparison.metrics.winRate.current} (${lab.threeSlateComparison.metrics.winRate.difference})`
-        : "No prior block comparison yet.",
-      "",
-      "=== 3. Official Best 6 Results ===",
-      ...bestSixLines,
-      "",
-      "=== 5. Engine Expansion Scoreboard ===",
-      ...engineLines,
-      "",
-      "=== 13. Adjustment Review ===",
-      `writesLiveWeights=${lab.adjustmentReview?.writesLiveWeights === true}`,
-      `calibrationFeedbackEngine=${lab.adjustmentReview?.calibrationFeedbackEngine === true}`,
-      ...(suggestionLines.length ? suggestionLines : ["No adjustment candidates."]),
-      "",
-      "=== 15. All-Time Context ===",
-      `All-time ${lab.allTimeContext?.record || "—"} (${lab.allTimeContext?.winRate ?? "—"}%) · graded ${lab.allTimeContext?.graded ?? 0}`,
-    ]),
+    mainData,
     errors: input.error || undefined,
     debugNotes:
       "Lab V2 is analysis-only. Copy report uses the same courtEdgeLabV2 payload as the screen.",

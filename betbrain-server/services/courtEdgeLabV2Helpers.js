@@ -13,6 +13,14 @@ import {
   LAB_DECISION_PACKET_V1,
 } from "./courtEdgeLabV2Constants.js";
 import { readMeasuredValue } from "./labMeasuredFields.js";
+import {
+  measuredMetric,
+  unavailableMetric,
+  asMetricAvailability,
+  readMetricValue,
+  deltaMetricAvailability,
+  buildCompatibleDeltaMetric,
+} from "./labMetricAvailability.js";
 
 export function num(value, fallback = null) {
   if (value === null || value === undefined || value === "") return fallback;
@@ -337,15 +345,21 @@ export function filterInstrumentedRecords(records = []) {
 function emptyEngineCard(key) {
   return {
     engine: key,
+    engineId: key,
+    engineName: LAB_V2_ENGINE_LABELS[key],
     label: LAB_V2_ENGINE_LABELS[key],
     kind: LAB_V2_ENGINE_KINDS[key],
     availableCount: 0,
     unavailableCount: 0,
+    instrumentedEligibleCount: 0,
+    uninstrumentedExcludedCount: 0,
     coveragePct: null,
+    coverage: unavailableMetric("NO_ELIGIBLE_EVIDENCE"),
     directionalOpportunities: 0,
     directionalCorrect: 0,
     directionalIncorrect: 0,
     directionalAccuracy: null,
+    directionalAccuracyMetric: unavailableMetric("NO_ELIGIBLE_EVIDENCE"),
     helped: 0,
     hurt: 0,
     neutral: 0,
@@ -359,6 +373,7 @@ function emptyEngineCard(key) {
     calibrationNeutral: 0,
     suppressedVisible: 0,
     sampleSize: 0,
+    noEligibleEvidence: true,
   };
 }
 
@@ -429,36 +444,7 @@ export function attributeCalibration(signal, won, lost, margin = null) {
 }
 
 export function deltaMetric(previous, current) {
-  if (current === null || current === undefined) {
-    const prevMissing = previous === null || previous === undefined;
-    return {
-      previous: previous ?? null,
-      current: null,
-      difference: null,
-      direction: prevMissing ? "unavailable" : "pending",
-      display: "N/A",
-      label: prevMissing ? "N/A" : "pending",
-    };
-  }
-  if (previous === null || previous === undefined) {
-    return {
-      previous: null,
-      current,
-      difference: null,
-      direction: "no_previous",
-      display: "N/A",
-      label: "N/A",
-    };
-  }
-  const difference = round(Number(current) - Number(previous), 3);
-  let direction = "flat";
-  if (difference > 0) direction = "up";
-  if (difference < 0) direction = "down";
-  const display =
-    difference === null || Number.isNaN(difference)
-      ? "N/A"
-      : `${difference > 0 ? "+" : ""}${difference}`;
-  return { previous, current, difference, direction, display, label: display };
+  return deltaMetricAvailability(previous, current);
 }
 
 export function confidenceBucketKey(confidence) {
@@ -485,6 +471,40 @@ export function buildRecordStats(records = []) {
   const overallAccuracy =
     graded.length > 0 ? round((wins.length / graded.length) * 100, 1) : null;
 
+  const measuredClvs = graded
+    .map((r) => {
+      if (r.clvMetric) return asMetricAvailability(r.clvMetric);
+      if (r.clv != null) return measuredMetric(r.clv);
+      return unavailableMetric("MISSING_MARKET_SNAPSHOT");
+    })
+    .filter((m) => m.available);
+  const avgClv =
+    measuredClvs.length > 0
+      ? Number(
+          (
+            measuredClvs.reduce((s, m) => s + m.value, 0) / measuredClvs.length
+          ).toFixed(3)
+        )
+      : null;
+  const avgClvMetric =
+    measuredClvs.length > 0
+      ? measuredMetric(avgClv)
+      : unavailableMetric(
+          graded.some((r) => r.uninstrumented || r.legacy)
+            ? "UNINSTRUMENTED"
+            : "MISSING_MARKET_SNAPSHOT"
+        );
+
+  const measuredAbsErr = graded
+    .map((r) => num(r.absProjectionError, null))
+    .filter((n) => n !== null);
+  const avgAbsProjectionError =
+    measuredAbsErr.length > 0 ? avg(measuredAbsErr) : null;
+  const avgAbsProjectionErrorMetric =
+    avgAbsProjectionError != null
+      ? measuredMetric(avgAbsProjectionError)
+      : unavailableMetric("MISSING_PROJECTION");
+
   return {
     totalProps: list.length,
     graded: graded.length,
@@ -495,13 +515,20 @@ export function buildRecordStats(records = []) {
     decided,
     record: `${wins.length}-${losses.length}-${pushes.length}`,
     winRate,
+    winRateMetric:
+      winRate != null
+        ? measuredMetric(winRate)
+        : unavailableMetric("NO_ELIGIBLE_EVIDENCE"),
     accuracy: winRate,
     overallAccuracy,
     avgMargin: avg(graded.map((r) => r.margin)),
     avgResultMargin: avg(graded.map((r) => r.margin)),
     avgProjectionError: avg(graded.map((r) => r.projectionError)),
-    avgAbsProjectionError: avg(graded.map((r) => r.absProjectionError)),
-    avgClv: avg(graded.map((r) => r.clv)),
+    avgAbsProjectionError,
+    avgAbsProjectionErrorMetric,
+    avgClv,
+    avgClvMetric,
+    measuredClvCount: measuredClvs.length,
   };
 }
 
@@ -592,17 +619,20 @@ export function buildLabPropRecord(prop = {}) {
     null
   );
   const openingLine = num(first(pregame?.openingLine, prop.openingLine), null);
-  const closingLine = num(
+  // CLV closing evidence must be an explicit market snapshot — never live currentLine.
+  const closingLineExplicit = num(
     first(
       prop.closingLine,
       prop.postgameTruth?.closingLine,
-      readMeasuredValue(prop.postgameTruth?.measuredFields?.closingLine),
-      prop.currentLine
+      readMeasuredValue(prop.postgameTruth?.measuredFields?.closingLine)
     ),
     null
   );
+  // Display-only live board line (not CLV-eligible) — intentionally unused for CLV math.
+  void num(prop.currentLine, null);
+  const closingLine = closingLineExplicit ?? null;
 
-  let clv = num(
+  const explicitClv = num(
     first(
       prop.closingLineValue,
       prop.clv,
@@ -612,11 +642,28 @@ export function buildLabPropRecord(prop = {}) {
     ),
     null
   );
-  if (clv == null && sealedLine != null && closingLine != null && finalSide) {
+
+  let clv = null;
+  let clvMetric = unavailableMetric("MISSING_MARKET_SNAPSHOT");
+  if (explicitClv != null) {
+    clv = explicitClv;
+    clvMetric = measuredMetric(explicitClv);
+  } else if (sealedLine != null && closingLineExplicit != null && finalSide) {
     clv =
       finalSide === "OVER"
-        ? round(closingLine - sealedLine, 2)
-        : round(sealedLine - closingLine, 2);
+        ? round(closingLineExplicit - sealedLine, 2)
+        : round(sealedLine - closingLineExplicit, 2);
+    clvMetric = measuredMetric(clv);
+  } else if (closingLineExplicit == null && sealedLine != null) {
+    clvMetric = unavailableMetric("MISSING_CLOSING_LINE");
+  } else if (openingLine == null && closingLineExplicit == null) {
+    clvMetric = unavailableMetric(
+      instrumentation.uninstrumented ? "UNINSTRUMENTED" : "MISSING_MARKET_SNAPSHOT"
+    );
+  } else {
+    clvMetric = unavailableMetric(
+      instrumentation.uninstrumented ? "UNINSTRUMENTED" : "MISSING_MARKET_SNAPSHOT"
+    );
   }
 
   const forcedSameTeam =
@@ -651,6 +698,16 @@ export function buildLabPropRecord(prop = {}) {
     projectionError,
     absProjectionError,
     clv,
+    clvMetric,
+    openingLineMetric: openingLine != null
+      ? measuredMetric(openingLine)
+      : unavailableMetric("MISSING_OPENING_LINE"),
+    closingLineMetric: closingLineExplicit != null
+      ? measuredMetric(closingLineExplicit)
+      : unavailableMetric("MISSING_CLOSING_LINE"),
+    projectionMetric: projection != null
+      ? measuredMetric(projection)
+      : unavailableMetric("MISSING_PROJECTION"),
     // Sealed decision packet owns finalConfidence / trueRisk (analysis integrity).
     confidence: sealedConfRisk.confidence,
     risk: sealedConfRisk.risk,
@@ -787,22 +844,46 @@ export function buildAllEngineScorecards(records = [], options = {}) {
   for (const key of LAB_V2_ENGINE_KEYS) {
     const card = cards[key];
     const total = card.availableCount + card.unavailableCount;
-    card.coveragePct =
-      total > 0 ? round((card.availableCount / total) * 100, 1) : null;
-    card.directionalAccuracy =
-      card.directionalOpportunities > 0
-        ? round((card.directionalCorrect / card.directionalOpportunities) * 100, 1)
-        : null;
+    card.instrumentedEligibleCount = source.length;
+    card.uninstrumentedExcludedCount = Math.max(
+      0,
+      (records || []).length - source.length
+    );
+    card.noEligibleEvidence = source.length === 0;
+
+    if (source.length === 0) {
+      card.coveragePct = null;
+      card.coverage = unavailableMetric(
+        (records || []).length > 0 ? "UNINSTRUMENTED" : "NO_ELIGIBLE_EVIDENCE"
+      );
+      card.directionalAccuracy = null;
+      card.directionalAccuracyMetric = unavailableMetric(
+        (records || []).length > 0 ? "UNINSTRUMENTED" : "NO_ELIGIBLE_EVIDENCE"
+      );
+    } else {
+      card.coveragePct =
+        total > 0 ? round((card.availableCount / total) * 100, 1) : null;
+      card.coverage =
+        card.coveragePct != null
+          ? measuredMetric(card.coveragePct)
+          : unavailableMetric("NO_ELIGIBLE_EVIDENCE");
+      card.directionalAccuracy =
+        card.directionalOpportunities > 0
+          ? round((card.directionalCorrect / card.directionalOpportunities) * 100, 1)
+          : null;
+      card.directionalAccuracyMetric =
+        card.directionalAccuracy != null
+          ? measuredMetric(card.directionalAccuracy)
+          : unavailableMetric("NO_ELIGIBLE_EVIDENCE");
+    }
+
     card.averageContribution = avg(contribs[key]);
     card.averageConfidenceAdjustment = avg(confAdjs[key]);
     card.avgMarginWhenAligned = avg(alignedMargins[key]);
     card.avgMarginWhenOpposed = avg(opposedMargins[key]);
     card.smallSample = card.sampleSize > 0 && card.sampleSize < 6;
     card.instrumentedOnly = instrumentedOnly;
-    card.excludedUninstrumentedCount = Math.max(
-      0,
-      (records || []).length - source.length
-    );
+    card.excludedUninstrumentedCount = card.uninstrumentedExcludedCount;
     // Always expose calibration counters (separate from directional)
     if (card.calibrationHelped == null) card.calibrationHelped = 0;
     if (card.calibrationHurt == null) card.calibrationHurt = 0;
@@ -812,14 +893,22 @@ export function buildAllEngineScorecards(records = [], options = {}) {
   return cards;
 }
 
-export function compareRecords(current, previous) {
+export function compareRecords(current, previous, options = {}) {
   if (!previous) {
     return {
       hasPrevious: false,
+      available: false,
+      reason: "NOT_APPLICABLE",
       metrics: {},
       notes: ["No previous three-slate block to compare."],
     };
   }
+
+  const gateOfficialDeltas = options.gateOfficialDeltas === true;
+  const previousComplete = options.previousComplete === true;
+  const currentComplete = options.currentComplete === true;
+  const erasCompatible = options.erasCompatible !== false;
+
   const keys = [
     "winRate",
     "overallAccuracy",
@@ -839,14 +928,49 @@ export function compareRecords(current, previous) {
     const prevVal =
       key === "avgMargin"
         ? previous.avgMargin ?? previous.avgResultMargin
-        : previous[key];
+        : key === "avgClv" && previous.avgClvMetric
+          ? readMetricValue(previous.avgClvMetric)
+          : key === "avgAbsProjectionError" && previous.avgAbsProjectionErrorMetric
+            ? readMetricValue(previous.avgAbsProjectionErrorMetric)
+            : previous[key];
     const curVal =
       key === "avgMargin"
         ? current.avgMargin ?? current.avgResultMargin
-        : current[key];
-    metrics[key] = deltaMetric(prevVal, curVal);
+        : key === "avgClv" && current.avgClvMetric
+          ? readMetricValue(current.avgClvMetric)
+          : key === "avgAbsProjectionError" && current.avgAbsProjectionErrorMetric
+            ? readMetricValue(current.avgAbsProjectionErrorMetric)
+            : current[key];
+
+    const rateLike = [
+      "winRate",
+      "overallAccuracy",
+      "avgClv",
+      "avgAbsProjectionError",
+      "avgMargin",
+      "avgResultMargin",
+      "avgProjectionError",
+    ].includes(key);
+
+    if (gateOfficialDeltas && rateLike) {
+      metrics[key] = buildCompatibleDeltaMetric(prevVal, curVal, {
+        previousComplete,
+        currentComplete,
+        previousDecided: previous.decided,
+        currentDecided: current.decided,
+        erasCompatible,
+      });
+    } else {
+      metrics[key] = deltaMetric(prevVal, curVal);
+    }
   }
-  return { hasPrevious: true, metrics };
+  return {
+    hasPrevious: true,
+    available: metrics.winRate?.available === true,
+    reason: metrics.winRate?.reason || null,
+    metrics,
+    note: metrics.winRate?.note || null,
+  };
 }
 
 export { CONFIDENCE_BUCKETS, LAB_V2_ENGINE_KEYS, LAB_V2_ENGINE_LABELS };
