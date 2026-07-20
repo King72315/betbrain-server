@@ -143,6 +143,7 @@ npm run test:courtedge-lab-v2
 
 - `b757fab` — MetricAvailability contract, formatters, gated deltas, fixtures A–I
 - `b8f1a27` — Reject placeholder CLV on uninstrumented open=close=seal props (+ fixture 87)
+- `df85939` — Stability audit report live-verification documentation
 
 ## 16. Deployment result
 
@@ -150,6 +151,8 @@ Render auto-deploy from `orgin/betbrain-v2-rebuild` succeeded.
 
 - `GET /health` → `serverBuild: courteedge-lab-stability-audit-v1`
 - `GET /courtedge/lab` → `labV2.buildVersion: courteedge-lab-stability-audit-v1`
+
+Re-verified 2026-07-20 after report push: health + Lab payload still on `courteedge-lab-stability-audit-v1` with all unavailable-value checks green.
 
 ## 17. Live endpoint verification
 
