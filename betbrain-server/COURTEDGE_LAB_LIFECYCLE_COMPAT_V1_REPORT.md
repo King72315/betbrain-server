@@ -88,7 +88,8 @@ No weight / calibration-config file changes in this ship.
 Prod base: `https://betbrain-server-1.onrender.com`
 
 1. `GET /health` → `serverBuild: courteedge-lab-lifecycle-compat-v1`
-2. `GET /courtedge/lab` →
+2. Startup rehydrates graded `lab-bundles/2026-07-17` (3-3-0) over ungraded TEST shells
+3. `GET /courtedge/lab` →
    - `labV2.slateDate` / `currentSlate.slateDate` = newest completed official (expect `2026-07-17` until Jul 19 exists)
    - `currentSlate.sixProp: true`
    - `currentSlate.uninstrumented` / `legacy` honest when no sealed `courtEdgeEngineSignalsV1`
@@ -97,7 +98,12 @@ Prod base: `https://betbrain-server-1.onrender.com`
    - engine scoreboard `instrumentedOnly: true`, sampleSize 0 while uninstrumented
    - deltas expose `display: "N/A"` (never bare null crash)
    - `allTimeContext.byBuildVersion` / `byEvidenceSchema` present
-3. `GET /courtedge/lab/2026-07-16` → exactly 3 official props; immutable; legacy/thin flags
+4. `GET /courtedge/lab/2026-07-16` → exactly 3 official props; immutable; legacy/thin flags
+
+### Hotfix lineage
+- `e14d6b7` — lifecycle/compat ship
+- `43b8fbb` — import `computeSlateRotation` on Lab routes
+- `81a40c1` — graded Jul 17 lab-bundle + ungraded-shell force restore + three-slate heal
 
 ---
 

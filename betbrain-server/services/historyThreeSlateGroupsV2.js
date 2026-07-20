@@ -41,6 +41,15 @@ export { V1_VERSION, HISTORY_THREE_SLATE_GROUPS_V2 };
 export const HISTORY_THREE_SLATE_GROUPS_VERSION = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;
 export const GROUP_SIZE = 3;
 
+/**
+ * Known historical frozen membership that must survive Render wipes / partial
+ * completed-date sets. Never regroup these once the three dates are present.
+ */
+export const HISTORICAL_THREE_SLATE_ANCHORS = Object.freeze([
+  ["2026-06-21", "2026-06-22", "2026-07-08"],
+  ["2026-07-14", "2026-07-15", "2026-07-16"],
+]);
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE_FILE = path.join(__dirname, "..", "three-slate-blocks-v2.json");
 
@@ -126,11 +135,33 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
     progressLabel: "Slate 3 of 3 — Block Complete",
   }));
 
-  // Empty-store bootstrap OR wipe-corruption self-heal:
-  // freeze ALL completed dates in chronological chunks of 3 (preserves Jul 16
-  // inside historical block-2). Leftover dates enter the six-prop learning track.
+  // Apply known historical anchors when all three dates are completed
+  // (keeps Jul 16 with Jul 14–15 even if earlier dates are missing on disk).
+  const dateSet = new Set(dates);
+  for (const anchor of HISTORICAL_THREE_SLATE_ANCHORS) {
+    if (!anchor.every((d) => dateSet.has(d))) continue;
+    if (priorFrozen.some((b) => sameDates(b.slateDates, anchor))) continue;
+    priorFrozen = priorFrozen.filter(
+      (b) => !(b.slateDates || []).some((d) => anchor.includes(String(d)))
+    );
+    priorFrozen.push(makeCompleteBlock(priorFrozen.length, anchor));
+  }
+  priorFrozen = priorFrozen
+    .sort((a, b) =>
+      String(a.slateDates?.[0] || "").localeCompare(String(b.slateDates?.[0] || ""))
+    )
+    .map((b, index) => ({
+      ...b,
+      groupId: `block-${index + 1}`,
+      groupIndex: index,
+      sequenceNumber: index + 1,
+    }));
+
+  // Empty-store bootstrap OR wipe-corruption self-heal for non-anchor dates:
+  // freeze remaining completed dates in chronological chunks of 3.
+  const anchoredDates = new Set(priorFrozen.flatMap((b) => b.slateDates || []));
   const expectedBlocks = [];
-  let histWorking = [...dates].sort();
+  let histWorking = dates.filter((d) => !anchoredDates.has(d)).sort();
   while (histWorking.length >= GROUP_SIZE) {
     expectedBlocks.push(histWorking.slice(0, GROUP_SIZE));
     histWorking = histWorking.slice(GROUP_SIZE);
@@ -141,13 +172,29 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
     (d) => !priorFrozenDates.has(d)
   );
   const shouldBootstrap =
-    priorFrozen.length === 0 ||
+    (priorFrozen.length === 0 && dates.length > 0) ||
     (expectedBlocks.length > 0 && missingHistorical.length > 0);
 
-  if (shouldBootstrap && dates.length > 0) {
-    priorFrozen = expectedBlocks.map((chunk, index) =>
-      makeCompleteBlock(index, chunk)
-    );
+  if (shouldBootstrap) {
+    for (const chunk of expectedBlocks) {
+      priorFrozen.push(makeCompleteBlock(priorFrozen.length, chunk));
+    }
+    for (const d of histWorking) {
+      if (restrictToLearning && !learningSet.has(d)) {
+        if (!legacyExtra.includes(d)) legacyExtra.push(d);
+      }
+    }
+    priorFrozen = priorFrozen
+      .sort((a, b) =>
+        String(a.slateDates?.[0] || "").localeCompare(String(b.slateDates?.[0] || ""))
+      )
+      .map((b, index) => ({
+        ...b,
+        groupId: `block-${index + 1}`,
+        groupIndex: index,
+        sequenceNumber: index + 1,
+      }));
+  } else {
     for (const d of histWorking) {
       if (restrictToLearning && !learningSet.has(d)) {
         if (!legacyExtra.includes(d)) legacyExtra.push(d);
