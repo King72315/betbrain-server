@@ -100,13 +100,31 @@ Prod base: `https://betbrain-server-1.onrender.com`
    - `allTimeContext.byBuildVersion` / `byEvidenceSchema` present
 4. `GET /courtedge/lab/2026-07-16` → exactly 3 official props; immutable; legacy/thin flags
 
+### Live verify (2026-07-20 post-deploy)
+
+| Check | Result |
+|-------|--------|
+| `SERVER_BUILD` | `courteedge-lab-lifecycle-compat-v1` |
+| Lab current slate | `2026-07-17` · 6 props · sixProp=true |
+| Jul 16 Lab view | 3 props · thinOfficial=true |
+| Active three-slate | `[2026-07-17]` · `1/3` |
+| Previous/frozen | `[2026-07-14, 2026-07-15, 2026-07-16]` |
+| Uninstrumented / evidenceCoverage | true / 0 (no sealed engine signals — not fabricated) |
+| Engine scoreboard sampleSize | 0 (instrumented-only) |
+| Delta display | `N/A` |
+| All-time by build | present |
+| writesLiveWeights | false |
+
+**July 19:** still absent as a completed official slate; Jul 17 is the newest completed six-prop Lab slate. When Jul 19 is sealed/graded, it becomes active slate `2/3`.
+
 ### Hotfix lineage
 - `e14d6b7` — lifecycle/compat ship
 - `43b8fbb` — import `computeSlateRotation` on Lab routes
 - `81a40c1` — graded Jul 17 lab-bundle + ungraded-shell force restore + three-slate heal
+- `42ead67` — anchor Jul 14–16 frozen membership so Jul 16 stays historical
 
 ---
 
 ## Autonomy trail
 
-Inspect → implement → test (76/76) → commit → push `orgin/betbrain-v2-rebuild` → Render auto-deploy → live `/courtedge/lab` verify.
+Inspect → implement → test (76/76) → commit → push `orgin/betbrain-v2-rebuild` → Render auto-deploy → live `/courtedge/lab` verify (**ALL_LIVE_CHECKS_PASS**).
