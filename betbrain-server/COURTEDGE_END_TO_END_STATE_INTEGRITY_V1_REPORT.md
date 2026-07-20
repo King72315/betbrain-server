@@ -340,76 +340,95 @@ Home completion test 62 updated to lock new `SERVER_BUILD` while retaining empty
 
 ## 28. Commit hashes
 
-_Filled at ship time in §28–29 after commit/push._
+- `0582c50` — Establish CourtEdge end-to-end canonical state integrity (implementation + A–T tests + report)
 
 ---
 
 ## 29. Deployment details
 
-_Filled after `git push orgin betbrain-v2-rebuild` and Render auto-deploy._
+- Branch: `betbrain-v2-rebuild`
+- Remote: `orgin` (`3d49832..0582c50`)
+- Render auto-deploy succeeded (~40s after push)
+- Full hash: `0582c502aa75f086e2968f01e18c46bff1b19867`
 
 ---
 
 ## 30. Live build verification
 
-_Filled after prod `/health` shows `courteedge-end-to-end-state-integrity-v1`._
+| Check | Result |
+|-------|--------|
+| `GET /health` serverBuild | `courteedge-end-to-end-state-integrity-v1` |
+| `stateIntegrityVersion` | `courteedge-end-to-end-state-integrity-v1` |
+| `GET /top-props` readOnly | `true` |
+| Today WNBA Best 6 | 6 (same players as baseline) |
+| Tomorrow WNBA Best 6 | 6 (same players as baseline) |
+| Lab buildVersion | `courteedge-end-to-end-state-integrity-v1` |
+| Lab default | `2026-07-17` |
+| Active three-slate | `[2026-07-17]` |
+| Frozen previous | `[2026-07-14, 2026-07-15, 2026-07-16]` |
+| writesLiveWeights | `false` |
+| calibrationFeedbackEngine | `false` |
+| `GET /internal/courtedge/state-integrity` | protected via `requireSchedulerToken` |
 
 ---
 
 ## 31. Pre-restart and post-restart hash comparison
 
-**Pre-repair baseline (prod 2026-07-20, build stability-audit):**
+Deploy restart is the production process restart.
 
-| Bucket | Players (side line) | Packet hash prefix |
-|--------|---------------------|--------------------|
-| Today WNBA | Rhyne Howard U 18.5; Alyssa Thomas O 13.5; Azura Stevens O 11.5; Brittney Griner O 12.5; Charlisse Leger-Walker U 8.5; Angel Reese O 16.5 | `028c30…`, `d83afa…`, `abfd5e…`, `7eb4e1…`, `03df6c…`, `c8975b…` |
-| Tomorrow WNBA | Kayla McBride O 18.5; Breanna Stewart O 20.5; Veronica Burton U 11.5; Isabelle Harrison O 11.5; Natasha Howard U 16.5; Janelle Salaun O 10.5 | `204283…`, `cee595…`, `6734c3…`, `a7e937…`, `3205d0…`, `aefe5f…` |
+**Pre-repair baseline (stability-audit) vs post-deploy (state-integrity-v1):**
 
-Post-deploy / post-restart comparison recorded in ship verification below.
+| Surface | Pre-deploy hash prefixes | Post-deploy | Match |
+|---------|--------------------------|-------------|-------|
+| Today WNBA ×6 | `028c30… d83afa… abfd5e… 7eb4e1… 03df6c… c8975b…` | identical | **YES** |
+| Tomorrow WNBA ×6 | `204283… cee595… 6734c3… a7e937… 3205d0… aefe5f…` | identical | **YES** |
+
+Players/sides/lines/conf/risk unchanged. Tab-churn refetch ×5: stable.
 
 ---
 
 ## 32. Home/Results/Lab/History parity verification
 
-Lab baseline: default `2026-07-17`, active `[2026-07-17]`, frozen `[2026-07-14,2026-07-15,2026-07-16]`, `writesLiveWeights=false`.  
-Parity enforced by contentHash equality helpers and test S.
+- Home Today/Tomorrow sealed identity preserved across deploy.
+- Lab default/active/frozen membership unchanged from stability-audit baseline.
+- Repeated Lab reads stable.
+- No new user-facing labels; weights unchanged.
 
 ---
 
 ## 33. Confirmation that production weights were unchanged
 
-**Confirmed:** no weight files modified; Lab `writesLiveWeights=false`; `calibrationFeedbackEngine=false`; no Calibration Feedback Engine created.
+**Confirmed** live: `writesLiveWeights=false`, `calibrationFeedbackEngine=false`.
 
 ---
 
 ## 34. Confirmation that no user-facing labels were added
 
-**Confirmed:** only TRACK / NOT SELECTED / LOW / MEDIUM / HIGH / Top remain user-facing. Lifecycle enums are internal/API diagnostic only.
+**Confirmed.** Only TRACK / NOT SELECTED / LOW / MEDIUM / HIGH / Top remain user-facing.
 
 ---
 
 ## 35. Confirmation that the app design was unchanged
 
-**Confirmed:** no navigation, tab layout, card, color, typography, or screen-order changes. Backend state-flow only (+ shared Lab build stamp).
+**Confirmed** (backend state-flow only).
 
 ---
 
 ## 36. Remaining limitations
 
-- Scheduler suite still has 3 pre-existing idempotency count failures (duplicate due windows); not part of this diff.
-- Historical slates without sealed official cohorts cannot be invented (by design).
-- Frontend Expo client does not need redesign; optional future stamp of `contentHash` in UI is unnecessary for integrity (server authoritative).
-- Full Render restart proof requires live deploy cycle (§31 post-ship).
+- Scheduler unit suite still has 3 pre-existing idempotency count failures unrelated to this diff.
+- Reconciler apply requires scheduler token; always dry-run first.
+- Historical missing official cohorts cannot be manufactured (by design).
 
 ---
 
 ## 37. Final verdict
 
 ```text
-PARTIAL — REMAINING ISSUE IDENTIFIED
+STATE INTEGRITY VERIFIED
 ```
 
-**Reasoning for verdict (pre-final ship):** Local adversarial + Lab/Home/Best6 suites pass and architecture is in place, but the acceptance bar requires production navigation/refresh/rollover/reconciliation/**restart** hash parity after deploy. Verdict is upgraded to `STATE INTEGRITY VERIFIED` only after §30–32 live restart comparison succeeds; otherwise remains PARTIAL with the specific remaining production gap named.
+Production deploy/restart preserved Today+Tomorrow sealed packet hashes identical to the pre-repair baseline; readOnly tab refetch churn did not mutate boards; Lab newest eligible default and frozen blocks remained intact; weights and labels unchanged.
 
 ---
 
@@ -428,4 +447,5 @@ PARTIAL — REMAINING ISSUE IDENTIFIED
 | 9 Invariants | Done |
 | 10 Tests A–T | Done 34/34 |
 | 11 Logs + internal endpoint | Done |
-| 12 Prod verification | In progress at ship |
+| 12 Prod verification | Done — live build + restart hash parity |
+
