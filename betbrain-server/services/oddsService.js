@@ -1,5 +1,6 @@
 import axios from "axios";
 import { CONFIG } from "../config.js";
+import { recordPaidApiCall } from "./courtEdgeStateIntegrityV1.js";
 
 const ODDS_SPORT_KEYS = {
   NBA: "basketball_nba",
@@ -18,7 +19,9 @@ function getOddsBase(league = "NBA") {
 }
 
 function clean(value = "") {
-  return String(value)
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -208,6 +211,17 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
           Accept: "application/json",
         },
       });
+      try {
+        recordPaidApiCall({
+          provider: "the-odds-api",
+          label,
+          attempt,
+          // Never log apiKey — params may contain it.
+          hasApiKeyParam: Boolean(params?.apiKey),
+        });
+      } catch {
+        // Accounting must never break odds fetches.
+      }
 
       return data;
     } catch (err) {

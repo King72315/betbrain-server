@@ -34,6 +34,9 @@ import {
 } from "./courtEdgeLabV2Helpers.js";
 import { buildHistoryThreeSlateGroupsV2 } from "./historyThreeSlateGroupsV2.js";
 import { computeSlateRotation } from "./slateScopeService.js";
+import {
+  resolveNewestEligibleLabSlateDate,
+} from "./courtEdgeStateIntegrityV1.js";
 
 function filterOfficialProps(props = []) {
   return (props || []).filter(isOfficialBestSixProp);
@@ -793,12 +796,20 @@ function resolveNewestCompletedOfficialSlateDate({
     }
   }
 
-  // Prefer the newest completed official from props when rotation lags behind
-  // (e.g. missing daily report or ungraded shells blocking inference).
-  if (newestFromProps && fromRotation) {
-    return newestFromProps >= fromRotation ? newestFromProps : fromRotation;
+  // Lifecycle + date eligibility from canonical store (not insertion order).
+  let fromLifecycle = null;
+  try {
+    fromLifecycle = resolveNewestEligibleLabSlateDate();
+  } catch {
+    fromLifecycle = null;
   }
-  return newestFromProps || fromRotation || null;
+
+  const candidates = [newestFromProps, fromRotation, fromLifecycle].filter(
+    Boolean
+  );
+  if (!candidates.length) return null;
+  // Newest by America/Chicago slate date string (YYYY-MM-DD sorts lexicographically).
+  return candidates.sort().slice(-1)[0];
 }
 
 /**
