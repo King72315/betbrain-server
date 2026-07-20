@@ -5,7 +5,7 @@
 **LAB_V2_BUILD:** `courteedge-lab-stability-audit-v1`  
 **Branch:** `betbrain-v2-rebuild` · remote `orgin`  
 **Prod:** `https://betbrain-server-1.onrender.com`  
-**Prior:** `courteedge-lab-lifecycle-compat-v1` (76/76) → this build (86/86)
+**Prior:** `courteedge-lab-lifecycle-compat-v1` (76/76) → this build (87/87)
 
 ## 1. Executive summary
 
@@ -136,35 +136,54 @@ Fixtures A–I as cases **77–85**, plus helper case **86** (MetricAvailability
 
 ```
 npm run test:courtedge-lab-v2
-→ 86 passed, 0 failed
+→ 87 passed, 0 failed
 ```
 
 ## 15. Commit hashes
 
-_Filled after ship — see git log on `betbrain-v2-rebuild`._
+- `b757fab` — MetricAvailability contract, formatters, gated deltas, fixtures A–I
+- `b8f1a27` — Reject placeholder CLV on uninstrumented open=close=seal props (+ fixture 87)
 
 ## 16. Deployment result
 
-_Filled after Render deploy of `courteedge-lab-stability-audit-v1`._
+Render auto-deploy from `orgin/betbrain-v2-rebuild` succeeded.
+
+- `GET /health` → `serverBuild: courteedge-lab-stability-audit-v1`
+- `GET /courtedge/lab` → `labV2.buildVersion: courteedge-lab-stability-audit-v1`
 
 ## 17. Live endpoint verification
 
-_Filled after `GET /health` + `GET /courtedge/lab`._
+| Check | Result |
+|-------|--------|
+| SERVER_BUILD | `courteedge-lab-stability-audit-v1` |
+| Lab current slate | `2026-07-17` · 3-3-0 · 50% |
+| Active three-slate | `[2026-07-17]` · `1/3` |
+| Previous frozen | `[2026-07-14, 2026-07-15, 2026-07-16]` |
+| avgClvMetric | `available:false` · `UNINSTRUMENTED` |
+| Win-rate Δ | `available:false` · `INSUFFICIENT_COMPATIBLE_SLATES` · display `N/A` |
+| Engine coverage/dir | unavailable · eligible `0` |
+| writesLiveWeights | `false` |
+| calibrationFeedbackEngine | `false` |
+
+**ALL_LIVE_CHECKS_PASS**
 
 ## 18. Live screen / Copy Report verification
 
-Expected consumer wording (equivalent OK):
+Live semantic payload (Copy-report-equivalent wording):
 
 ```
 Current slate: 2026-07-17 · 3-3-0 (50%)
 Active three-slate: 1/3 · 2026-07-17
 Previous block: 2026-07-14 · 2026-07-15 · 2026-07-16
+Avg margin -1.5
 |proj err| N/A
 CLV N/A
 Win rate Δ: N/A
 Comparison available after 3 compatible completed slates.
-cov N/A · dir N/A   (not —%)
+cov N/A · dir N/A
 ```
+
+No raw `null` / `—%` / false CLV `0` on the Lab API consumer path. Expo app formatters ship in the same git push (`prop-lab.tsx`, `labMetricFormat.ts`, `reportBuilders.ts`).
 
 ## 19. Remaining limitations
 
@@ -237,4 +256,4 @@ Yes — `buildPropLabV2Report({ labV2 })` formats the same object. Fixture H + s
 
 ## Autonomy trail
 
-Inspect → implement MetricAvailability + formatters → tests 86/86 → commit → push `orgin` → Render deploy → live verify → this report.
+Inspect → implement MetricAvailability + formatters → tests 87/87 → commit `b757fab` + `b8f1a27` → push `orgin/betbrain-v2-rebuild` → Render deploy → live `/courtedge/lab` verify (**ALL_LIVE_CHECKS_PASS**) → this report.
