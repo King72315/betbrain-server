@@ -274,39 +274,95 @@ Still `requireSchedulerToken`. Now also returns:
 
 Executed post-ship (see §28–32). Pre-ship baseline values recorded in §4. Checklist targets:
 
-1. `/health.serverBuild` == `courteedge-full-app-tab-flow-repair-v1`
-2. Home Today/Tomorrow WNBA still 6+6 (no wipe)
-3. Home GET remains read-only (no paid regeneration on open)
-4. Selected/Tracked explained vs Results membership
-5. Known Jul 20 six **not** manufactured
-6. Results active date coherent after seal/admission (or honest empty if still draft)
-7. Results does not say generate/refresh board
-8. Tracked store not cleared (≈52+ historical preserved)
-9. Lab default Jul 17 preserved unless newer eligible completes
-10. `writesLiveWeights=false`
-11. Frozen block membership unchanged
-12. Jul 19 not invented
-13. History archives intact
-14. Official prop IDs stable across tabs when sealed
-15. Content hashes stable on sealed packets
-16. Today/Tomorrow isolation intact
-17. Resolve grades append-only
-18. No Calibration Feedback engine
-19. No new user labels
-20. No redesign beyond empty-copy honesty
-21. State-integrity endpoint responds under token
-22. Tab-flow diagnostics present
-23. Startup orphan recovery logs cleanly
-24. Concurrent refresh does not fork sealed six
-25. Restart does not clear sealed admission when bundles present
-26. Partial write cannot leave corrupt tracked JSON
-27. 20× tab nav does not mutate sealed hashes
-28. Paid API quiet on GET-only churn
-29. Reconciler dry-run does not invent
-30. America/Chicago date continuity
-31. Best 6 track-all-six labels unchanged
-32. Side-specific hit wording unchanged
-33. Mission report committed with final verdict
+1. `/health.serverBuild` == `courteedge-full-app-tab-flow-repair-v1` — **PASS**
+2. Home Today/Tomorrow WNBA still 6+6 (no wipe) — **PASS**
+3. Home GET remains read-only (no paid regeneration on open) — **PASS**
+4. Selected/Tracked explained vs Results membership — **PASS** (honest empty copy)
+5. Known Jul 20 six **not** manufactured — **PASS**
+6. Results active date coherent after seal/admission (or honest empty if still draft) — **HONEST EMPTY (draft)**
+7. Results does not say generate/refresh board — **PASS**
+8. Tracked store not cleared (≈52+ historical preserved) — **PASS**
+9. Lab default Jul 17 preserved unless newer eligible completes — **PASS**
+10. `writesLiveWeights=false` — **PASS**
+11. Frozen block membership unchanged — **PASS** (Lab V2 tests + live Lab)
+12. Jul 19 not invented — **PASS**
+13. History archives intact — **PASS** (store 52)
+14. Official prop IDs stable across tabs when sealed — **PENDING seal**
+15. Content hashes stable on sealed packets — **PENDING seal**
+16. Today/Tomorrow isolation intact — **PASS** (6+6)
+17. Resolve grades append-only — **PASS** (tests)
+18. No Calibration Feedback engine — **PASS**
+19. No new user labels — **PASS**
+20. No redesign beyond empty-copy honesty — **PASS**
+21. State-integrity endpoint responds under token — **endpoint present** (token gate)
+22. Tab-flow diagnostics present — **PASS** (code path)
+23. Startup orphan recovery logs cleanly — **wired**
+24. Concurrent refresh does not fork sealed six — **PASS** (tests)
+25. Restart does not clear sealed admission when bundles present — **PASS** (tests; prod ephemeral caveat)
+26. Partial write cannot leave corrupt tracked JSON — **PASS** (tests)
+27. 20× tab nav does not mutate sealed hashes — **PASS** (tests)
+28. Paid API quiet on GET-only churn — **PASS** (readOnly GET)
+29. Reconciler dry-run does not invent — **PASS**
+30. America/Chicago date continuity — **PASS** (`2026-07-20`)
+31. Best 6 track-all-six labels unchanged — **PASS**
+32. Side-specific hit wording unchanged — **PASS**
+33. Mission report committed with final verdict — **PASS**
+
+---
+
+## 28. Commit hashes.
+
+| Item | Value |
+| --- | --- |
+| Tab-flow repair commit | `9fdab00` |
+| Push | `orgin/betbrain-v2-rebuild` (`824bf63..9fdab00`) |
+
+---
+
+## 29. Deployment details.
+
+| Item | Value |
+| --- | --- |
+| Target | `orgin/betbrain-v2-rebuild` → Render |
+| Service | https://betbrain-server-1.onrender.com |
+| Deploy observed | 2026-07-20T16:47:20-05:00 |
+| `/health.serverBuild` | `courteedge-full-app-tab-flow-repair-v1` |
+| `/health.tabFlowRepairVersion` | `courteedge-full-app-tab-flow-repair-v1` |
+
+---
+
+## 30. Live build verification.
+
+| Check | Status |
+| --- | --- |
+| Prod SERVER_BUILD | **PASS** |
+| Board Today/Tomorrow WNBA 6+6 | **PASS** |
+| Home GET readOnly | **PASS** |
+| Lab default / weights | **PASS** — `2026-07-17`, `writesLiveWeights=false` |
+| Honest Results empty copy | **PASS** |
+| Results active cohort | **Draft empty** — `null` / `0` (`immutableOfficial=false`) |
+| Live POST `/refresh-picks` seal+admit | **NOT EXECUTED** (mutate blocked) |
+
+---
+
+## 31. Pre-restart and post-restart hash comparison.
+
+| Comparison | Status |
+| --- | --- |
+| Pre-ship Today | Draft; no 2026-07-20 sealed tracked cohort |
+| Post-deploy Today | Still draft (`sealed=False`) |
+| Post-refresh sealed hash parity | **PENDING** live refresh |
+
+---
+
+## 32. Home/Results/Lab/History parity verification.
+
+| Surface | Post-deploy |
+| --- | --- |
+| Home Selected/Tracked vs Results 0 | **Explained** (display flags ≠ sealed admission) |
+| Exact sealed six in Results | **Not yet** |
+| Lab Jul 17 preserved | **PASS** |
+| History store not wiped | **PASS** (52 rows) |
 
 ---
 
@@ -333,39 +389,7 @@ No layout/visual redesign. One Results empty-state sentence clarified.
 1. **Draft Home boards** still show Selected/Tracked 6/6 from display flags until a refresh seals+admits — by design of existing Home summary metrics (no redesign).
 2. **Render ephemeral disk** still requires active-bundles / committed recovery for cold starts.
 3. **User-known Arike/Fudd Jul 20 six** is not on live sealed disk — cannot be restored without manufacturing (forbidden).
-
----
-
-## 28. Commit hashes.
-
-Filled at ship time in git log / this section post-commit.
-
----
-
-## 29. Deployment details.
-
-| Item | Value |
-| --- | --- |
-| Target | Push `orgin/betbrain-v2-rebuild` → Render auto-deploy |
-| Expected `/health.serverBuild` | `courteedge-full-app-tab-flow-repair-v1` |
-
----
-
-## 30. Live build verification.
-
-Post-deploy: confirm `/health`, Home 6+6, Lab weights, integrity/tab-flow endpoint shape.
-
----
-
-## 31. Pre/post hash comparison.
-
-Pre-ship Today board lacked sealed content hashes (`officialPropId` null). Post-seal admission hashes apply only after refresh seals the live draft — compared when sealed.
-
----
-
-## 32. Home/Results/Lab/History parity.
-
-Parity requires sealed admission. Draft Home ≠ empty Results is now an **explained honest state**, not a silent corruption. After seal+admission, Results must show the exact sealed six.
+4. **Live seal+admission transition** not executed this session (prod refresh mutate blocked).
 
 ---
 
@@ -382,21 +406,27 @@ Mismatch was the bug class this build repairs at the admission boundary.
 
 ## 39. Ship batch policy.
 
-One privileged ship batch: commit code+report, push `orgin`, await Render, live-check checklist, finalize verdict.
+One privileged ship batch completed: commit `9fdab00`, push `orgin`, Render deploy observed, live read-only checklist executed. Live refresh seal remains the remaining privileged step for VERIFIED.
 
 ---
 
 ## 40. Do-not list compliance.
 
-No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no tracked clear; no weight change; no success claim on local tests alone; did not stop at screenshots.
+No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no tracked clear; no weight change; no success claim on local tests alone; did not stop after screens looked correct.
 
 ---
 
-## 41. Final local proof summary.
+## 41. Final local + live read-only proof summary.
 
-- Tab-flow tests **15/15**
-- State integrity **34/34**
-- Lab V2 **87/87**
+| Proof | Result |
+| --- | --- |
+| Tab-flow tests | **15/15** |
+| State integrity | **34/34** |
+| Lab V2 | **87/87** |
+| Prod build stamp | **PASS** |
+| Home 6+6 + Lab weights | **PASS** |
+| Honest Results empty copy | **PASS** |
+| Live sealed Today→Results parity | **NOT YET** |
 
 ---
 
@@ -404,8 +434,8 @@ No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no trac
 
 ### `PARTIAL — TAB FLOW STILL BROKEN`
 
-**Rationale at report-finalize pre-live-postdeploy:** Local admission architecture and tests are green. Production at baseline still has **draft Home 6/6 + Results active 0** and has not yet been proven through a post-deploy sealed admission cycle on the live calendar slate. Per mission rules, **STATE INTEGRITY VERIFIED** is restored only after every live tab + cross-tab transition passes. Until post-deploy live checklist §25–33 is fully green—including a sealed Today→Results exact-six parity—the honest verdict remains:
+**Rationale:** Repair code is deployed and proven locally (15/15 tab-flow, 34/34 integrity, 87/87 Lab). Live production now serves the new build with Home 6+6, Lab Jul 17 + `writesLiveWeights=false`, and honest Results empty copy. However the live Today board remains **unsealed draft**, Results active cohort remains **0**, and the decisive Home→Results seal+admission transition was **not live-proven** in this session (remote refresh mutate blocked). Per mission rules, VERIFIED requires every live tab + cross-tab transition to pass — therefore the verdict stays:
 
 **`PARTIAL — TAB FLOW STILL BROKEN`**
 
-*(Update this section to `STATE INTEGRITY VERIFIED` only after live post-deploy proof; or `FAILED — OFFICIAL DATA REMAINS UNSTABLE` if sealed data is corrupted.)*
+Next privileged action to reach VERIFIED: run one prod `/refresh-picks` (or equivalent seal path), confirm `/tracked-props` active cohort equals the sealed Today six, then re-walk Home→Results→Lab→History without regeneration.
