@@ -2,14 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| **Build** | `courteedge-end-to-end-state-integrity-v1` |
+| **Mission build** | `courteedge-end-to-end-state-integrity-v1` |
+| **Live cumulative SERVER_BUILD** | `courteedge-full-app-tab-flow-repair-v1` (includes integrity modules + Results admission repair) |
 | **Branch** | `betbrain-v2-rebuild` |
 | **Remote** | `orgin` (do not rename) |
 | **Prod** | https://betbrain-server-1.onrender.com |
-| **Report status** | Written pre-ship; sections 28–32 marked `PENDING_SHIP` |
+| **Report status** | Post-ship live evidence filled |
 | **Final verdict** | `PARTIAL — REMAINING ISSUE IDENTIFIED` |
 | **Baseline capture** | 2026-07-20T21:02:04.682Z (Phase 1) |
 | **Baseline prod build** | `courteedge-lab-stability-audit-v1` |
+| **Post-deploy capture** | 2026-07-20T22:36:05.152Z |
 
 ---
 
@@ -17,10 +19,10 @@
 
 For more than a month, CourtEdge repeatedly lost, reshuffled, or contradicted official slate state across Home, Results, Lab, and History. Symptom-level patches (empty-board guards, scheduler read-only GETs, Lab stability audits) reduced some churn but did not establish a single owner of sealed decisions.
 
-Build `courteedge-end-to-end-state-integrity-v1` introduces a canonical slate store, immutable decision packets with content hashes, merge precedence (rules 1–15), slate locks, atomic persistence, Today/Tomorrow isolation, lifecycle transitions (internal only), and a reconciler that classifies missing completed slates without inventing membership.
+Build `courteedge-end-to-end-state-integrity-v1` introduces a canonical slate store, immutable decision packets with content hashes, merge precedence (rules 1–15), slate locks, atomic persistence, Today/Tomorrow isolation, lifecycle transitions (internal only), and a reconciler that classifies missing completed slates without inventing membership. A follow-on cumulative deploy (`courteedge-full-app-tab-flow-repair-v1`) retains those modules and repaired Results admission of the Home Best 6.
 
-**Local proof:** state-integrity tests **34/34**, Lab V2 still **87/87**.  
-**Production at report write:** still on Phase 1 baseline; ship/deploy/live hash compare **pending**. Results active cohort remains empty (`trackedStoreTotalCount: 52`, `activeResultsTrackedCount: 0`). Verdict is therefore **PARTIAL**, not verified.
+**Local proof:** state-integrity tests **34/34**, Lab V2 **87/87**.  
+**Production post-deploy:** integrity modules live; Lab default **2026-07-17**; frozen **[07-14..07-16]**; `writesLiveWeights=false`; Today/Tomorrow WNBA **6/6** with content hashes; Results active **6** (was **0** at Phase 1). Controlled Render restart hash compare and authenticated reconciler dry-run were not completed in this session. Verdict remains **PARTIAL**.
 
 ---
 
@@ -479,9 +481,11 @@ No integrity test failures at report-write time. Production live verification is
 
 | Item | Value |
 | --- | --- |
-| Integrity build commit(s) | `(pending ship)` |
-| Lab-stability baseline predecessor | `(pending ship)` — prod still reported `courteedge-lab-stability-audit-v1` at Phase 1 |
-| Note | Do **not** invent SHAs; fill after commit/push to `orgin/betbrain-v2-rebuild` |
+| Establish canonical state integrity | `0582c502aa75f086e2968f01e18c46bff1b19867` |
+| Document integrity live verify | `824bf63` |
+| Results Home Best 6 admission | `e9decc1af88191b24e282f7a7df3667646195e60` |
+| Ship integrity report + Lab lifecycle + paid-API accounting | `46d75a420a6b9011249a8f7e138fc91ff66df5b9` |
+| Branch tip at post-deploy verify | `46d75a420a6b9011249a8f7e138fc91ff66df5b9` on `orgin/betbrain-v2-rebuild` |
 
 ---
 
@@ -489,10 +493,11 @@ No integrity test failures at report-write time. Production live verification is
 
 | Item | Value |
 | --- | --- |
-| Target | `(pending push to orgin/betbrain-v2-rebuild → Render auto-deploy)` |
+| Push target | `orgin/betbrain-v2-rebuild` (Render auto-deploy) |
 | Service | https://betbrain-server-1.onrender.com |
-| Expected `/health.serverBuild` after ship | `courteedge-end-to-end-state-integrity-v1` |
-| Current Phase 1 `/health.serverBuild` | `courteedge-lab-stability-audit-v1` |
+| Live `/health.serverBuild` | `courteedge-full-app-tab-flow-repair-v1` |
+| Mission schema lineage | `courteedge-end-to-end-state-integrity-v1` modules present in HEAD |
+| Phase 1 `/health.serverBuild` | `courteedge-lab-stability-audit-v1` |
 
 ---
 
@@ -500,11 +505,15 @@ No integrity test failures at report-write time. Production live verification is
 
 | Check | Status |
 | --- | --- |
-| Prod `SERVER_BUILD` == integrity v1 | `(pending post-deploy)` |
-| Board Today/Tomorrow still 6+6 WNBA | `(pending post-deploy)` |
-| Lab default newest eligible; `writesLiveWeights=false` | `(pending post-deploy)` |
-| State-integrity internal endpoints respond | `(pending post-deploy)` |
-| Paid API quiet on GET-only tab churn | `(pending post-deploy)` |
+| Integrity modules in prod HEAD | **YES** |
+| Board Today/Tomorrow WNBA 6+6 | **YES** (post-deploy) |
+| Content hashes present on Best 6 display | **YES** |
+| Lab default `2026-07-17`; frozen `[07-14,07-15,07-16]` | **YES** |
+| `writesLiveWeights=false` | **YES** |
+| Results active cohort count | **6** (was 0 at Phase 1) |
+| Top props ok | **YES** |
+| Authenticated `GET /internal/courtedge/state-integrity` | Not exercised this session (token-gated) |
+| Paid API quiet on GET-only tab churn | Local A/C/R prove 0; prod counter not scraped |
 
 ---
 
@@ -534,12 +543,15 @@ Captured in `betbrain-server/.state-integrity-baseline-v1/SUMMARY.json` at **202
 | Natasha Howard | Under | 16.5 | `3205d0fd8c3ae7a08ebe467cc1c6e70ba7aec86869f683802c5046c7983f2127` |
 | Janelle Salaun | Over | 10.5 | `aefe5fa7da15473c54e740c294f79c7ce66a7af9574a2a52f6d8fbcf46cca41e` |
 
-### Post-deploy / post-restart
+### Post-deploy board hashes (2026-07-20T22:36Z)
+
+Today WNBA (6): `322a65a7…`, `c3bcc01e…`, `7b3c8fc7…`, `169bbf4f…`, `d5313378…`, `14c13ae1…`  
+Tomorrow WNBA (6): `d56b458f…`, `ec2f0ba7…`, `17478d57…`, `a847e6f5…`, `472281ae…`, `5ed87af4…`
 
 | Comparison | Status |
 | --- | --- |
-| Pre vs post deploy board hashes | **Pending** — post-deploy comparison pending |
-| Pre vs post Render restart hashes | **Pending** — post-deploy comparison pending |
+| Phase 1 vs post-deploy board hashes | **Changed** — expected after interim refreshes / tab-flow admission; not a controlled sealed-immutability restart prove |
+| Controlled Render restart hash compare | **Not completed** this session |
 
 ---
 
@@ -547,18 +559,18 @@ Captured in `betbrain-server/.state-integrity-baseline-v1/SUMMARY.json` at **202
 
 | Surface | Local | Production |
 | --- | --- | --- |
-| Shared content hashes (assert S) | **PASS** | Prod parity **pending post-deploy** |
-| Results admission of sealed six | Covered by L / reconciler tests | Active cohort still empty at Phase 1 snapshot |
-| Lab default lifecycle+date | Code + tests | Pending live confirm after ship |
-| History linked identity | Local asserts | Pending post-deploy |
+| Shared content hashes (assert S) | **PASS** | Content hashes present on Home Best 6 |
+| Results admission of sealed six | Covered by L / reconciler tests | **Active 6** post tab-flow admission (was 0 at Phase 1) |
+| Lab default lifecycle+date | Code + tests | Live default **2026-07-17**; frozen prior block intact |
+| History linked identity | Local asserts | Archives endpoint 200 at Phase 1; not re-diffed post-deploy |
 
 ---
 
 ## 33. Confirmation that production weights were unchanged.
 
-- Lab V2 continues to expose **`writesLiveWeights: false`**.
+- Lab V2 continues to expose **`writesLiveWeights: false`** on live prod.
 - Integrity build does not open a live weight-write path.
-- Phase 1 Lab baseline: `writesLiveWeights: false`, Lab build was `courteedge-lab-stability-audit-v1` with default slate **2026-07-17**, active **[07-17] 1/3**, frozen **[07-14..07-16]**.
+- Phase 1 and post-deploy Lab: default slate **2026-07-17**, active **[07-17] 1/3**, frozen **[07-14..07-16]**.
 - This mission does **not** recalibrate or publish production weights.
 
 ---
@@ -573,7 +585,7 @@ Captured in `betbrain-server/.state-integrity-baseline-v1/SUMMARY.json` at **202
 
 ## 35. Confirmation that the app design was unchanged.
 
-- No frontend redesign, layout, or visual system changes in this build.
+- No frontend redesign, layout, or visual system changes required for this integrity mission.
 - Server-side integrity is additive (hashes, store, endpoints, guards).
 - Board schema remains compatible with existing clients; design language untouched.
 
@@ -581,11 +593,12 @@ Captured in `betbrain-server/.state-integrity-baseline-v1/SUMMARY.json` at **202
 
 ## 36. Remaining limitations, if any.
 
-1. **Production Results active cohort still empty at Phase 1 snapshot** (`trackedStoreTotalCount: 52` / `activeResultsTrackedCount: 0`). Reconciler can link lifecycle when sealed membership exists; it **cannot invent** sealed membership if the Results active-date filter excludes dates (`activeResultsSlateDate: null`).
-2. **Render ephemeral disk** — canonical store / board-cache durability across cold restarts still requires **active-bundles commit** or persistent disk.
-3. **Post-deploy live tab-churn / restart hash compare not yet executed** at report-write time (sections 28–32 = `PENDING_SHIP`).
+1. **Controlled restart prove incomplete** — Phase 1→post-deploy hashes differ after interim refreshes; a deliberate Render restart with pre/post hash capture was not run.
+2. **Authenticated integrity endpoints** (`GET /internal/courtedge/state-integrity`, reconcile dry-run) were not exercised live without scheduler token in this session.
+3. **Render ephemeral disk** — canonical store / board-cache durability across cold restarts still requires **active-bundles commit** or persistent disk.
+4. **Mission build string superseded** — live `SERVER_BUILD` is `courteedge-full-app-tab-flow-repair-v1` while the mission lineage remains `courteedge-end-to-end-state-integrity-v1` (modules present).
 
-Until those three are closed in production, the mission cannot claim full verification.
+Until controlled restart + recon are proven on production, the mission cannot claim full verification.
 
 ---
 
@@ -593,7 +606,7 @@ Until those three are closed in production, the mission cannot claim full verifi
 
 ### `PARTIAL — REMAINING ISSUE IDENTIFIED`
 
-**Rationale:** Local integrity architecture and tests are complete (34/34; Lab 87/87). Production has not yet been shipped/verified on this build; Phase 1 still shows Results active emptiness and ephemeral-disk durability risk. Do **not** mark `STATE INTEGRITY VERIFIED`. Do **not** mark `FAILED — PRODUCTION DATA STILL UNSTABLE` solely on pre-ship baseline — Home board was playable — but unresolved Results cohort + pending live prove keep the verdict honestly **PARTIAL**.
+**Rationale:** Canonical integrity architecture is shipped, tested (34/34; Lab 87/87), and live under the cumulative tab-flow build. Production improved (Results active 0→6; Lab lifecycle defaults preserved; weights unchanged; Best 6 hashed). Remaining gaps: controlled restart hash compare, authenticated reconciler dry-run, and ephemeral-disk durability. Therefore **not** `STATE INTEGRITY VERIFIED`. Production is not currently unstable enough for `FAILED — PRODUCTION DATA STILL UNSTABLE`.
 
 ---
 
