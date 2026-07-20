@@ -1269,18 +1269,23 @@ export function selectTopTwoFromBestSix(bestSix = [], league = "", options = {})
     }
   }
 
+  const roundScore = (v) =>
+    v == null || !Number.isFinite(Number(v))
+      ? null
+      : Math.round(Number(v) * 10) / 10;
   const ranked = selected.map((pick, index) => {
     const rank = index + 1;
-    const safetyScore = computeSafetyScore(pick);
-    const nextScore =
+    const safetyScore = roundScore(computeSafetyScore(pick));
+    const nextScore = roundScore(
       index + 1 < selected.length
         ? computeSafetyScore(selected[index + 1])
         : sorted
             .filter((p) => !selected.includes(p))
-            .map((p) => computeSafetyScore(p))[0] ?? null;
+            .map((p) => computeSafetyScore(p))[0] ?? null
+    );
     const margin =
       nextScore != null
-        ? Math.round((safetyScore - nextScore) * 10) / 10
+        ? roundScore(safetyScore - nextScore)
         : null;
     return {
       ...pick,
