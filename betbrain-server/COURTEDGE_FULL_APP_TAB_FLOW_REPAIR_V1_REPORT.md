@@ -121,6 +121,8 @@ New module: `services/courtEdgeTabFlowRepairV1.js`.
 
 `recoverSealedOrphansAtStartup()` scans slate-snapshots, active-bundles, and locked registry. When sealed props exist but Results-visible tracked rows are missing or still staged, it re-admits **exact sealed props** only. Idempotent; runs after locked-slate rehydrate.
 
+Follow-up `recoverHomeBoardAdmissionFromCache()` (commit `e9decc1`) runs after board hydrate/seed: when Home already holds a full Best 6 but Results is empty (Render lost snapshot / seed-only restore), it seals if eligible and admits the **exact board six** without a paid provider refresh. This targets the live gap where Home showed sealed stamps while `/tracked-props` active remained 0.
+
 ---
 
 ## 9. RESULTS — exact sealed six, grading, copy.
@@ -386,10 +388,10 @@ No layout/visual redesign. One Results empty-state sentence clarified.
 
 ## 37. Remaining limitations.
 
-1. **Draft Home boards** still show Selected/Tracked 6/6 from display flags until a refresh seals+admits — by design of existing Home summary metrics (no redesign).
+1. **Home Selected/Tracked 6/6** still counts Best Six display TRACK flags (no redesign of that summary line).
 2. **Render ephemeral disk** still requires active-bundles / committed recovery for cold starts.
-3. **User-known Arike/Fudd Jul 20 six** is not on live sealed disk — cannot be restored without manufacturing (forbidden).
-4. **Live seal+admission transition** not executed this session (prod refresh mutate blocked).
+3. **User-known Arike/Fudd Jul 20 six** is not on live sealed disk — cannot be restored without manufacturing (forbidden). Live Today is Howard/Thomas/Stevens/Griner/Leger-Walker/Reese.
+4. **First tab-flow deploy** stamped sealed flags on Home but Results active stayed 0 — board-cache admission follow-up (`e9decc1`) pending deploy at report amend time.
 
 ---
 
@@ -406,7 +408,7 @@ Mismatch was the bug class this build repairs at the admission boundary.
 
 ## 39. Ship batch policy.
 
-One privileged ship batch completed: commit `9fdab00`, push `orgin`, Render deploy observed, live read-only checklist executed. Live refresh seal remains the remaining privileged step for VERIFIED.
+Privileged ship batch: commit `9fdab00` (+ follow-up `e9decc1`), push `orgin`, Render auto-deploy, live read-only verify. First deploy closed honest empty copy + build stamp; follow-up closes seed/hydrate → Results admission.
 
 ---
 
@@ -423,10 +425,10 @@ No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no trac
 | Tab-flow tests | **15/15** |
 | State integrity | **34/34** |
 | Lab V2 | **87/87** |
-| Prod build stamp | **PASS** |
-| Home 6+6 + Lab weights | **PASS** |
+| Prod build stamp | **PASS** (`courteedge-full-app-tab-flow-repair-v1`) |
+| Home 6+6 | **PASS** (Today sealed stamps observed) |
 | Honest Results empty copy | **PASS** |
-| Live sealed Today→Results parity | **NOT YET** |
+| Live sealed Today→Results parity | **NOT YET** (active 0 after first deploy; follow-up pending) |
 
 ---
 
@@ -434,8 +436,8 @@ No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no trac
 
 ### `PARTIAL — TAB FLOW STILL BROKEN`
 
-**Rationale:** Repair code is deployed and proven locally (15/15 tab-flow, 34/34 integrity, 87/87 Lab). Live production now serves the new build with Home 6+6, Lab Jul 17 + `writesLiveWeights=false`, and honest Results empty copy. However the live Today board remains **unsealed draft**, Results active cohort remains **0**, and the decisive Home→Results seal+admission transition was **not live-proven** in this session (remote refresh mutate blocked). Per mission rules, VERIFIED requires every live tab + cross-tab transition to pass — therefore the verdict stays:
+**Rationale:** Repair code is deployed and proven locally (15/15 tab-flow, 34/34 integrity, 87/87 Lab). Live production serves the new build with Home 6+6, Lab Jul 17 + `writesLiveWeights=false`, and honest Results empty copy. After the first deploy, Home props carried sealed stamps but **Results active cohort remained 0** — sealed orphan / seed-board admission incomplete on ephemeral disk. Follow-up `recoverHomeBoardAdmissionFromCache` (`e9decc1`) addresses that path; until post-follow-up live Home→Results exact-six parity is confirmed, VERIFIED is not restored.
 
 **`PARTIAL — TAB FLOW STILL BROKEN`**
 
-Next privileged action to reach VERIFIED: run one prod `/refresh-picks` (or equivalent seal path), confirm `/tracked-props` active cohort equals the sealed Today six, then re-walk Home→Results→Lab→History without regeneration.
+Next action to reach VERIFIED: deploy `e9decc1`, confirm `/tracked-props` active cohort equals sealed Home Today six, then re-walk Home→Results→Lab→History without regeneration.
