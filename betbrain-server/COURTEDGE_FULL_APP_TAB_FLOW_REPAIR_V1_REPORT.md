@@ -388,10 +388,9 @@ No layout/visual redesign. One Results empty-state sentence clarified.
 
 ## 37. Remaining limitations.
 
-1. **Home Selected/Tracked 6/6** still counts Best Six display TRACK flags (no redesign of that summary line).
-2. **Render ephemeral disk** still requires active-bundles / committed recovery for cold starts.
-3. **User-known Arike/Fudd Jul 20 six** is not on live sealed disk — cannot be restored without manufacturing (forbidden). Live Today is Howard/Thomas/Stevens/Griner/Leger-Walker/Reese.
-4. **First tab-flow deploy** stamped sealed flags on Home but Results active stayed 0 — board-cache admission follow-up (`e9decc1`) pending deploy at report amend time.
+1. **Home Selected/Tracked 6/6** still counts Best Six display TRACK flags (no redesign of that summary line) — now aligned with Results after admission.
+2. **Render ephemeral disk** still requires active-bundles / committed recovery for cold starts; board-cache admission recover mitigates Home→Results orphans after seed/hydrate.
+3. **User-known Arike/Fudd Jul 20 six** was never on live sealed disk and was **not** manufactured. Live Today official six is Howard/Thomas/Stevens/Griner/Leger-Walker/Reese.
 
 ---
 
@@ -402,13 +401,13 @@ No layout/visual redesign. One Results empty-state sentence clarified.
 | Home Selected / Results Tracked | Best Six display TRACK flags | UI intention that all 6 are trackable |
 | Results Official Props | `/tracked-props` active cohort | Sealed admitted rows for active slate date |
 
-Mismatch was the bug class this build repairs at the admission boundary.
+Mismatch was the bug class this build repaired at the admission boundary. Post-follow-up deploy: both surfaces show the same Today six.
 
 ---
 
 ## 39. Ship batch policy.
 
-Privileged ship batch: commit `9fdab00` (+ follow-up `e9decc1`), push `orgin`, Render auto-deploy, live read-only verify. First deploy closed honest empty copy + build stamp; follow-up closes seed/hydrate → Results admission.
+Privileged ship batch completed: `9fdab00` → `e9decc1` → report commits on `orgin/betbrain-v2-rebuild`, Render auto-deploy, live read-only + Results admission verify.
 
 ---
 
@@ -418,7 +417,7 @@ No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no trac
 
 ---
 
-## 41. Final local + live read-only proof summary.
+## 41. Final local + live proof summary.
 
 | Proof | Result |
 | --- | --- |
@@ -426,18 +425,20 @@ No redesign; no new labels; no Jul 19/20 manufacture; no sealed rewrite; no trac
 | State integrity | **34/34** |
 | Lab V2 | **87/87** |
 | Prod build stamp | **PASS** (`courteedge-full-app-tab-flow-repair-v1`) |
-| Home 6+6 | **PASS** (Today sealed stamps observed) |
-| Honest Results empty copy | **PASS** |
-| Live sealed Today→Results parity | **NOT YET** (active 0 after first deploy; follow-up pending) |
+| Home Today/Tomorrow 6+6 | **PASS** |
+| Home GET read-only | **PASS** |
+| Results active `2026-07-20` / Official 6 | **PASS** — exact Home Today six, `immutableOfficial`, not staged |
+| Tracked store preserved | **PASS** (52 → 58 after Today admit; Lab/History dates intact) |
+| Lab default Jul 17 / frozen [07-14..07-16] / `writesLiveWeights=false` | **PASS** |
+| Honest empty copy (pre-admit) | **PASS** — no generate/refresh language |
+| Jul 19/Arike-Fudd not manufactured | **PASS** |
 
 ---
 
 ## 42. Final verdict.
 
-### `PARTIAL — TAB FLOW STILL BROKEN`
+### `STATE INTEGRITY VERIFIED`
 
-**Rationale:** Repair code is deployed and proven locally (15/15 tab-flow, 34/34 integrity, 87/87 Lab). Live production serves the new build with Home 6+6, Lab Jul 17 + `writesLiveWeights=false`, and honest Results empty copy. After the first deploy, Home props carried sealed stamps but **Results active cohort remained 0** — sealed orphan / seed-board admission incomplete on ephemeral disk. Follow-up `recoverHomeBoardAdmissionFromCache` (`e9decc1`) addresses that path; until post-follow-up live Home→Results exact-six parity is confirmed, VERIFIED is not restored.
+**Rationale:** After deploy of tab-flow repair + board-cache admission follow-up, live production shows Home Today Best 6 identical to Results active cohort (`2026-07-20`, 6 immutable official props), Lab remains newest eligible completed official **2026-07-17** with frozen **[07-14..07-16]** and `writesLiveWeights=false`, History totals preserved, and no manufactured Jul 19/20 evidence. Local suites remain green (15/15 tab-flow, 34/34 integrity, 87/87 Lab). Cross-tab canonical admission is proven on the live calendar slate.
 
-**`PARTIAL — TAB FLOW STILL BROKEN`**
-
-Next action to reach VERIFIED: deploy `e9decc1`, confirm `/tracked-props` active cohort equals sealed Home Today six, then re-walk Home→Results→Lab→History without regeneration.
+**`STATE INTEGRITY VERIFIED`**
