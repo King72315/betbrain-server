@@ -320,9 +320,9 @@ import {
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
-// Mission lock: courteedge-analysis-integrity-v1
-// Empty-board guard features remain active (LKG preserve + bundled recovery).
-const SERVER_BUILD = "courteedge-best6-playable-pool-repair-v1";
+// Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
+// startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
+const SERVER_BUILD = "courteedge-empty-board-guard-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 
@@ -3124,6 +3124,7 @@ app.get("/health", (req, res) => {
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
+    emptyBoardGuardVersion: EMPTY_BOARD_GUARD_VERSION,
     recoveryEndpoints: true,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
@@ -3264,6 +3265,8 @@ app.get("/top-props", async (req, res) => {
       bestSixDisplayNBA: sanitized.bestSixDisplayNBA || [],
       bestSixDisplayTodayWNBA: sanitized.bestSixDisplayTodayWNBA || [],
       bestSixDisplayTodayNBA: sanitized.bestSixDisplayTodayNBA || [],
+      bestSixDisplayTomorrowWNBA: sanitized.bestSixDisplayTomorrowWNBA || [],
+      bestSixDisplayTomorrowNBA: sanitized.bestSixDisplayTomorrowNBA || [],
       topPropsSource: sanitized.topPropsSource || TOP_PICKS_SOURCE_POOL,
       topWNBAPropsSelectedFromBestSix: true,
       topNBAPropsSelectedFromBestSix: true,
