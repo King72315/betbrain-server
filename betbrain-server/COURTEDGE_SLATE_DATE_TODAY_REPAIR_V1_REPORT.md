@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| **Build** | `courteedge-slate-date-today-repair-v2` |
+| **Build** | `courteedge-slate-date-today-repair-v3` |
 | **Branch** | `betbrain-v2-rebuild` |
 | **Remote** | `orgin` |
 | **Prod** | https://betbrain-server-1.onrender.com |
@@ -134,4 +134,6 @@ v1 deploy revealed `recoverHomeBoardAdmissionFromCache` was **stamping `slateDat
 2. Rejects past commenceTimes from Tomorrow seal
 3. Adds `repairBoardCacheTodayDateStampCorruption` — moves mis-stamped today props with past commenceTimes back to **yesterday** and re-admits them (no deletes)
 
-Expected after v2 deploy startup repair: Results active = **2026-07-20** exact sealed six; Home Today/Tomorrow empty until real Jul 21/22 markets exist.
+### v3 follow-up (Jul 20 restore)
+
+v2 date-stamp repair interacted badly with tracked writes and the sealed Jul 20 six disappeared from the live store (store retained 58 rows but no `2026-07-20` cohort). v3 ships `recovery/jul20-sealed-six-restore-v1.json` (exact pre-corruption capture) and `restoreMissingSealedSlateFromRecovery` on startup — re-admits the canonical Howard six to **2026-07-20** when missing. No invention; Jul 22 Home Tomorrow draft six left alone.

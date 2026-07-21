@@ -334,6 +334,7 @@ import {
   recoverSealedOrphansAtStartup,
   recoverHomeBoardAdmissionFromCache,
   repairBoardCacheTodayDateStampCorruption,
+  restoreMissingSealedSlateFromRecovery,
   classifyHomeResultsGap,
   buildTabFlowDiagnostics,
   buildHonestResultsEmptyCopy,
@@ -352,12 +353,12 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-slate-date-today-repair-v2";
+const SERVER_BUILD = "courteedge-slate-date-today-repair-v3";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v2";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v3";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v2";
+const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v3";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 
 function getRotationRuntimeContext(partial = {}) {
@@ -6208,6 +6209,26 @@ if (process.env.RUN_AUDIT === "1") {
     );
   } catch (error) {
     console.log("STARTUP TAB-FLOW DATE STAMP REPAIR ERROR:", error.message);
+  }
+
+  try {
+    const sealedRestore = restoreMissingSealedSlateFromRecovery({
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+      slateDate: "2026-07-20",
+    });
+    console.log(
+      "STARTUP TAB-FLOW SEALED SLATE RESTORE:",
+      JSON.stringify({
+        restored: sealedRestore.restored,
+        reason: sealedRestore.reason || null,
+        slateDate: sealedRestore.slateDate,
+        propCount: sealedRestore.propCount || 0,
+        players: sealedRestore.players || [],
+      })
+    );
+  } catch (error) {
+    console.log("STARTUP TAB-FLOW SEALED SLATE RESTORE ERROR:", error.message);
   }
 
   async function startServer() {

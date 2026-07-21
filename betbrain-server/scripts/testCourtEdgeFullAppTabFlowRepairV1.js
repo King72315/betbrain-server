@@ -315,10 +315,10 @@ test("Lab Jul19 classify answers 1-4 without inventing membership", () => {
 });
 
 test("Build constants locked to tab-flow repair", () => {
-  assert.equal(TAB_FLOW_REPAIR_BUILD, "courteedge-slate-date-today-repair-v2");
+  assert.equal(TAB_FLOW_REPAIR_BUILD, "courteedge-slate-date-today-repair-v3");
   assert.equal(
     STATE_INTEGRITY_BUILD,
-    "courteedge-slate-date-today-repair-v2"
+    "courteedge-slate-date-today-repair-v3"
   );
 });
 

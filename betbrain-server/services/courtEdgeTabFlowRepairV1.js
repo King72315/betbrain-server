@@ -60,7 +60,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const SNAPSHOTS_DIR = path.join(SERVER_ROOT, "slate-snapshots");
 const ACTIVE_BUNDLES_DIR = path.join(SERVER_ROOT, "active-bundles");
 
-export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v2";
+export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v3";
 export const TAB_FLOW_REPAIR_SCHEMA = "courtEdgeTabFlowRepairV1";
 
 function readJSON(file, fallback = null) {
@@ -913,6 +913,97 @@ export function repairBoardCacheTodayDateStampCorruption(options = {}) {
     prior,
     restoredCount: restored.length,
     restoredPlayers: restored.map((p) => p.player || p.playerName),
+    admit,
+    build: TAB_FLOW_REPAIR_BUILD,
+  };
+}
+
+/**
+ * If a known sealed prior slate is missing from tracked props after a bad
+ * rollover stamp, restore exact props from recovery JSON (no invention).
+ */
+export function restoreMissingSealedSlateFromRecovery(options = {}) {
+  const today = String(options.todayLocalDate || getTodayLocalDate());
+  const slateDate = String(options.slateDate || getYesterdayLocalDate(today));
+  const recoveryFile =
+    options.recoveryFile ||
+    path.join(SERVER_ROOT, "recovery", "jul20-sealed-six-restore-v1.json");
+
+  const tracked = getTrackedProps();
+  const existing = (tracked || []).filter(
+    (p) => String(p.slateDate || "").slice(0, 10) === slateDate
+  );
+  const existingOfficial = existing.filter(
+    (p) => p.immutableOfficial === true || p.officialPropId
+  );
+  if (existingOfficial.length >= 6) {
+    return {
+      ok: true,
+      restored: false,
+      reason: "ALREADY_PRESENT",
+      slateDate,
+      count: existingOfficial.length,
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+
+  if (!fs.existsSync(recoveryFile)) {
+    return {
+      ok: false,
+      restored: false,
+      reason: "RECOVERY_FILE_MISSING",
+      recoveryFile,
+      slateDate,
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+
+  const payload = readJSON(recoveryFile, null);
+  const props = Array.isArray(payload?.props) ? payload.props : [];
+  if (props.length < 6) {
+    return {
+      ok: false,
+      restored: false,
+      reason: "RECOVERY_PROPS_INCOMPLETE",
+      count: props.length,
+      slateDate,
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+
+  const stamped = props.map((p, index) => ({
+    ...p,
+    slateDate,
+    dayBucket: "PAST",
+    dateLabel: slateDate,
+    homeStaged: false,
+    immutableOfficial: true,
+    bestSixRank: p.bestSixRank || index + 1,
+    trackingAdmissionSource:
+      p.trackingAdmissionSource || "SEALED_SLATE_RECOVERY_RESTORE",
+  }));
+
+  const admit = admitSealedPropsToResultsSync(slateDate, stamped, {
+    reason: options.reason || "SEALED_SLATE_RECOVERY_RESTORE",
+    serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+    promoteToResults: true,
+    dayBucket: "PAST",
+  });
+
+  appendLifecycleAudit({
+    type: "TAB_FLOW_SEALED_SLATE_RECOVERY_RESTORE",
+    slateDate,
+    propCount: stamped.length,
+    players: stamped.map((p) => p.player || p.playerName),
+    build: TAB_FLOW_REPAIR_BUILD,
+  });
+
+  return {
+    ok: true,
+    restored: Boolean(admit?.admitted || admit?.ok),
+    slateDate,
+    propCount: stamped.length,
+    players: stamped.map((p) => p.player || p.playerName),
     admit,
     build: TAB_FLOW_REPAIR_BUILD,
   };
