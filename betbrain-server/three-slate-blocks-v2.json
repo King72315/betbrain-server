@@ -1,0 +1,48 @@
+{
+  "frozenBlocks": [
+    {
+      "groupId": "block-1",
+      "groupIndex": 0,
+      "sequenceNumber": 1,
+      "slateDates": [
+        "2026-07-14",
+        "2026-07-15",
+        "2026-07-16"
+      ],
+      "slateCount": 3,
+      "incomplete": false,
+      "frozen": true,
+      "progress": "3/3",
+      "progressLabel": "Slate 3 of 3 — Block Complete",
+      "frozenAt": "2026-07-21T06:32:12.800Z",
+      "completionTimestamp": "2026-07-21T06:32:12.800Z",
+      "buildVersion": "courteedge-lab-jul20-only-v1"
+    }
+  ],
+  "activeBlock": {
+    "groupId": "block-2",
+    "groupIndex": 1,
+    "sequenceNumber": 2,
+    "slateDates": [
+      "2026-07-20"
+    ],
+    "slateCount": 1,
+    "incomplete": true,
+    "frozen": false,
+    "progress": "1/3",
+    "progressLabel": "Slate 1 of 3",
+    "buildVersion": "courteedge-lab-jul20-only-v1",
+    "instrumentedLearning": true
+  },
+  "legacySlateDates": [
+    "2026-06-22",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17"
+  ],
+  "demotedFromActive": [],
+  "learningTrack": "instrumented-six-prop-v1",
+  "version": "history-three-slate-groups-v2",
+  "updatedAt": "2026-07-21T06:32:12.807Z"
+}

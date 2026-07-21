@@ -11,12 +11,13 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getTodayLocalDate } from "./slateScopeService.js";
+import { isLabSixPropLearningTrackDate } from "./courtEdgeLabV2Constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
-export const STATE_INTEGRITY_BUILD = "courteedge-lab-jul20-promotion-v2";
+export const STATE_INTEGRITY_BUILD = "courteedge-lab-jul20-only-v1";
 export const STATE_INTEGRITY_SCHEMA = "courtEdgeStateIntegrityV1";
 export const CANONICAL_STORE_VERSION = 1;
 
@@ -1252,7 +1253,9 @@ export function resolveNewestEligibleLabSlateDate(storePath = STORE_FILE) {
     .map((s) => String(s.slateDate || "").slice(0, 10))
     .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
     .sort();
-  return dates.slice(-1)[0] || null;
+  const onTrack = dates.filter((d) => isLabSixPropLearningTrackDate(d));
+  if (onTrack.length) return onTrack.slice(-1)[0];
+  return null;
 }
 
 export function buildStateIntegritySnapshot(options = {}) {

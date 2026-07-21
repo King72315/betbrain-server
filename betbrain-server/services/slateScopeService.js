@@ -7,6 +7,10 @@ import {
 } from "./trackedPropService.js";
 import { ensureHomeDetailedAnalysisOnPicks } from "./courtEdgeHomeDetailedAnalysisV1.js";
 import { applyHomeDisplayWhyToPick } from "../engines/topProps/homeReasonTextV1.js";
+import {
+  LAB_SIX_PROP_LEARNING_TRACK_START_DATE,
+  isLabSixPropLearningTrackDate,
+} from "./courtEdgeLabV2Constants.js";
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
@@ -707,6 +711,8 @@ export function computeSlateRotation(reports = [], optionsOrLockedSlates = {}) {
     if (!slateDate) return false;
     if (quarantinedSet.has(slateDate)) return false;
     if (archivedHistoryDates.has(slateDate)) return false;
+    // Pre-track official dates (e.g. 2026-07-17) are History-only — never Lab current.
+    if (!isLabSixPropLearningTrackDate(slateDate)) return false;
     if (activeResultsSlateDate && slateDate === activeResultsSlateDate) return false;
     return true;
   });
@@ -719,10 +725,19 @@ export function computeSlateRotation(reports = [], optionsOrLockedSlates = {}) {
   const historyFromCompleted = labCandidates.filter(
     (report) => String(report.slateDate) !== currentLabSlateDate
   );
+  // Completed pre-track slates always belong in History (even if archive phase is still LAB).
+  const historyFromPreTrack = completed.filter((report) => {
+    const slateDate = String(report.slateDate || "");
+    if (!slateDate || quarantinedSet.has(slateDate)) return false;
+    if (isLabSixPropLearningTrackDate(slateDate)) return false;
+    if (slateDate === currentLabSlateDate) return false;
+    return true;
+  });
   const historyFromArchives = (archives || [])
     .filter(
       (entry) =>
-        archivedHistoryDates.has(String(entry.slateDate || "")) &&
+        (archivedHistoryDates.has(String(entry.slateDate || "")) ||
+          !isLabSixPropLearningTrackDate(entry.slateDate)) &&
         String(entry.slateDate || "") !== currentLabSlateDate &&
         !quarantinedSet.has(String(entry.slateDate || ""))
     )
@@ -736,7 +751,11 @@ export function computeSlateRotation(reports = [], optionsOrLockedSlates = {}) {
     });
 
   const historyByDate = new Map();
-  for (const report of [...historyFromCompleted, ...historyFromArchives]) {
+  for (const report of [
+    ...historyFromCompleted,
+    ...historyFromPreTrack,
+    ...historyFromArchives,
+  ]) {
     const slateDate = String(report.slateDate || "");
     if (!slateDate || slateDate === currentLabSlateDate) continue;
     if (quarantinedSet.has(slateDate)) continue;
@@ -1497,7 +1516,7 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
       slateDateReclassified: true,
-      build: "courteedge-lab-jul20-promotion-v2",
+      build: "courteedge-lab-jul20-only-v1",
     },
   };
 }

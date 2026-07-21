@@ -11,6 +11,8 @@ import {
   CONFIDENCE_BUCKETS,
   RISK_BUCKETS,
   BANNED_LAB_LABELS,
+  LAB_SIX_PROP_LEARNING_TRACK_START_DATE,
+  isLabSixPropLearningTrackDate,
 } from "./courtEdgeLabV2Constants.js";
 import {
   buildLabPropRecord,
@@ -781,7 +783,59 @@ function resolveNewestCompletedOfficialSlateDate({
     )
     .map(([d]) => d)
     .sort();
-  const newestFromProps = completedDates.slice(-1)[0] || null;
+
+  // Daily reports (survive Render tracked-prop wipes) — final graded official six.
+  const completedFromReports = [];
+  for (const report of reports || []) {
+    const d = String(report?.slateDate || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const status = String(report?.status || "").toLowerCase();
+    const pending = Number(report?.pending ?? report?.sections?.A?.pending ?? 0);
+    const graded = Number(
+      report?.graded ??
+        report?.sections?.A?.graded ??
+        (Number(report?.wins || 0) +
+          Number(report?.losses || 0) +
+          Number(report?.pushes || 0))
+    );
+    const isFinal =
+      report?.final === true ||
+      status === "final" ||
+      (pending === 0 && graded > 0);
+    if (!isFinal) continue;
+    completedFromReports.push(d);
+  }
+
+  // Sealed official six still pending grades — prefer over older History-only Lab dates.
+  const sealedPendingDates = [...completedFromProps.entries()]
+    .filter(([, props]) => {
+      if (props.length < 6) return false;
+      const allSealed = props.every(
+        (p) => p.officialSealedAt || p.sealedAt || p.officialPropId
+      );
+      if (!allSealed) return false;
+      const allGraded = props.every((p) =>
+        ["win", "loss", "push"].includes(String(p.status || p.result || "").toLowerCase())
+      );
+      return !allGraded;
+    })
+    .map(([d]) => d);
+
+  const onTrackCompleted = [
+    ...new Set([...completedDates, ...completedFromReports]),
+  ]
+    .filter((d) => isLabSixPropLearningTrackDate(d))
+    .sort();
+  const onTrackSealedPending = sealedPendingDates
+    .filter((d) => isLabSixPropLearningTrackDate(d))
+    .sort();
+
+  if (onTrackCompleted.length) {
+    return onTrackCompleted.slice(-1)[0];
+  }
+  if (onTrackSealedPending.length) {
+    return onTrackSealedPending.slice(-1)[0];
+  }
 
   let fromRotation = currentLabSlateDate ? String(currentLabSlateDate) : null;
   if (!fromRotation) {
@@ -804,12 +858,26 @@ function resolveNewestCompletedOfficialSlateDate({
     fromLifecycle = null;
   }
 
-  const candidates = [newestFromProps, fromRotation, fromLifecycle].filter(
-    Boolean
-  );
-  if (!candidates.length) return null;
-  // Newest by America/Chicago slate date string (YYYY-MM-DD sorts lexicographically).
-  return candidates.sort().slice(-1)[0];
+  const candidates = [fromRotation, fromLifecycle]
+    .filter(Boolean)
+    .filter((d) => isLabSixPropLearningTrackDate(d));
+  if (candidates.length) {
+    return candidates.sort().slice(-1)[0];
+  }
+
+  // No learning-track slate yet — do not resurrect History-only dates (e.g. 07-17)
+  // as Lab current once the track start is defined.
+  if (LAB_SIX_PROP_LEARNING_TRACK_START_DATE) {
+    return null;
+  }
+
+  const legacyCandidates = [
+    completedDates.slice(-1)[0] || null,
+    fromRotation,
+    fromLifecycle,
+  ].filter(Boolean);
+  if (!legacyCandidates.length) return null;
+  return legacyCandidates.sort().slice(-1)[0];
 }
 
 /**

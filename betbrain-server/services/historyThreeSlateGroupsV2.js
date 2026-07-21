@@ -23,6 +23,7 @@ import {
   HISTORY_THREE_SLATE_GROUPS_V2,
   LAB_V2_BUILD,
   LAB_V2_ENGINE_KEYS,
+  isLabSixPropLearningTrackDate,
 } from "./courtEdgeLabV2Constants.js";
 import {
   buildRecordStats,
@@ -745,7 +746,12 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     // Six-prop official slates enter the new active learning track.
     // Thin/uninstrumented eras (e.g. Jul 16 three-prop) stay historical/legacy.
     // Historical-anchor member dates stay historical even when sixProp-sized.
-    if (info.eligibleForSixPropLearningBlock && !historicalAnchorDateSet.has(d)) {
+    // Pre-track dates (e.g. 2026-07-17) stay History-only — never Lab learning UI.
+    if (
+      info.eligibleForSixPropLearningBlock &&
+      !historicalAnchorDateSet.has(d) &&
+      isLabSixPropLearningTrackDate(d)
+    ) {
       learningDates.push(d);
     } else {
       legacyDates.push(d);

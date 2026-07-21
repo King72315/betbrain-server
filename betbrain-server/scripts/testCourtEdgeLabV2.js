@@ -466,6 +466,7 @@ test(20, "Previous/current block comparison is correct", () => {
     ...makeSix("2026-07-15", ["win", "win", "win", "win", "win", "win"]),
     ...makeSix("2026-07-16", ["loss", "loss", "loss", "loss", "loss", "loss"]),
     ...makeSix("2026-07-17", ["win", "win", "loss", "win", "loss", "win"]),
+    ...makeSix("2026-07-20", ["win", "win", "loss", "win", "loss", "win"]),
   ];
   const groups = buildHistoryThreeSlateGroupsV2({
     trackedProps: props,
@@ -473,6 +474,7 @@ test(20, "Previous/current block comparison is correct", () => {
   });
   assert.ok(groups.previousBlock || groups.completeGroupCount >= 1);
   assert.ok(groups.activeBlock);
+  assert.deepEqual(groups.activeBlock.slateDates, ["2026-07-20"]);
   assert.ok(groups.activeBlock.comparison?.hasPrevious === true);
 });
 
@@ -1094,22 +1096,23 @@ test(69, "immutableOfficial wins over TEST trackingType", () => {
   );
 });
 
-test(70, "Lab defaults to newest completed official slate", () => {
+test(70, "Lab defaults to newest on-track completed official slate", () => {
   resetBlocks();
   const props = [
     ...makeSix("2026-07-15"),
     ...makeSix("2026-07-17"),
+    ...makeSix("2026-07-20"),
   ];
   const lab = buildCourtEdgeLabV2({
     trackedProps: props,
     persistThreeSlate: false,
   });
-  assert.equal(lab.slateDate, "2026-07-17");
-  assert.equal(lab.currentSlate.slateDate, "2026-07-17");
+  assert.equal(lab.slateDate, "2026-07-20");
+  assert.equal(lab.currentSlate.slateDate, "2026-07-20");
   assert.equal(lab.officialBestSixResults.length, 6);
 });
 
-test(71, "Thin three-prop Jul 16 stays legacy and does not enter new six-prop active block", () => {
+test(71, "Thin Jul 16 + pre-track Jul 17 stay legacy; Jul 20 starts learning block", () => {
   resetBlocks();
   const thin = [1, 2, 3].map((i) =>
     makeSealedProp({
@@ -1120,15 +1123,18 @@ test(71, "Thin three-prop Jul 16 stays legacy and does not enter new six-prop ac
       omitSignals: true,
     })
   );
-  const six = makeSix("2026-07-17");
+  const six17 = makeSix("2026-07-17");
+  const six20 = makeSix("2026-07-20");
   const groups = buildHistoryThreeSlateGroupsV2({
-    trackedProps: [...thin, ...six],
+    trackedProps: [...thin, ...six17, ...six20],
     persist: true,
   });
   assert.ok(groups.legacySlateDates.includes("2026-07-16"));
+  assert.ok(groups.legacySlateDates.includes("2026-07-17"));
   assert.ok(!groups.instrumentedLearningDates.includes("2026-07-16"));
-  assert.ok(groups.instrumentedLearningDates.includes("2026-07-17"));
-  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-17"]);
+  assert.ok(!groups.instrumentedLearningDates.includes("2026-07-17"));
+  assert.ok(groups.instrumentedLearningDates.includes("2026-07-20"));
+  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-20"]);
   assert.equal(groups.activeBlock?.progress, "1/3");
   assert.equal(thin.length, 3);
 });
@@ -1251,14 +1257,15 @@ test(76, "Frozen historical membership preserved when six-prop track starts", ()
       return p;
     })
   );
-  const next = makeSix("2026-07-17");
+  const next = makeSix("2026-07-20");
   const groups = buildHistoryThreeSlateGroupsV2({
     trackedProps: [...historical, ...mid, ...thin, ...next],
     persist: true,
   });
   // Jul 16 thin must not appear in active six-prop learning block
   assert.ok(!(groups.activeBlock?.slateDates || []).includes("2026-07-16"));
-  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-17"]);
+  assert.ok(!(groups.activeBlock?.slateDates || []).includes("2026-07-17"));
+  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-20"]);
   // Frozen historical chunks must keep Jul 16 membership when bootstrapped
   const frozenDates = (groups.frozenBlocks || []).flatMap((b) => b.slateDates || []);
   assert.ok(frozenDates.includes("2026-07-16") || groups.legacySlateDates.includes("2026-07-16"));
@@ -1361,21 +1368,18 @@ function formatConsumerLabSummary(lab) {
   ].join("\n");
 }
 
-test(77, "Fixture A: Jul 17 live state unavailable CLV/delta/engine metrics", () => {
+test(77, "Fixture A: Jul 17 History-only; Lab empty until on-track Jul 20", () => {
   resetBlocks();
   const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
   const lab = buildCourtEdgeLabV2({
     trackedProps: props,
     persistThreeSlate: true,
   });
-  assert.equal(lab.slateDate, "2026-07-17");
-  assert.equal(lab.currentSlate.totalProps, 6);
-  assert.equal(lab.currentSlate.graded, 6);
-  assert.equal(lab.currentSlate.record, "3-3-0");
-  assert.equal(lab.currentSlate.overRecord.record, "2-1-0");
-  assert.equal(lab.currentSlate.underRecord.record, "1-2-0");
-  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-17"]);
-  assert.equal(lab.activeThreeSlateBlock?.progress, "1/3");
+  // Pre-track Jul 17 must not become Lab current once learning starts at Jul 20.
+  assert.equal(lab.slateDate, null);
+  assert.ok((lab.legacySlateDates || []).includes("2026-07-17"));
+  assert.ok(!(lab.instrumentedLearningDates || []).includes("2026-07-17"));
+  assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
   assert.deepEqual(lab.previousThreeSlateBlock?.slateDates, [
     "2026-07-14",
     "2026-07-15",
@@ -1383,23 +1387,30 @@ test(77, "Fixture A: Jul 17 live state unavailable CLV/delta/engine metrics", ()
   ]);
   assert.equal(lab.writesLiveWeights, false);
   assert.equal(lab.calibrationFeedbackEngine, false);
-  assert.equal(lab.currentSlate.avgClv, null);
-  assert.equal(lab.currentSlate.avgClvMetric?.available, false);
-  assert.equal(lab.threeSlateComparison?.metrics?.winRate?.available, false);
-  assert.equal(
-    lab.threeSlateComparison?.metrics?.winRate?.reason,
-    "INSUFFICIENT_COMPATIBLE_SLATES"
-  );
+
+  // Explicit slateDate still renders Jul 17 History view with honest N/A metrics.
+  const hist = buildCourtEdgeLabV2({
+    slateDate: "2026-07-17",
+    trackedProps: props,
+    persistThreeSlate: false,
+  });
+  assert.equal(hist.slateDate, "2026-07-17");
+  assert.equal(hist.currentSlate.totalProps, 6);
+  assert.equal(hist.currentSlate.graded, 6);
+  assert.equal(hist.currentSlate.record, "3-3-0");
+  assert.equal(hist.currentSlate.overRecord.record, "2-1-0");
+  assert.equal(hist.currentSlate.underRecord.record, "1-2-0");
+  assert.equal(hist.currentSlate.avgClv, null);
+  assert.equal(hist.currentSlate.avgClvMetric?.available, false);
   for (const key of LAB_V2_ENGINE_KEYS) {
-    const card = lab.engineScorecards[key].currentSlate;
+    const card = hist.engineScorecards[key].currentSlate;
     assert.equal(card.coverage?.available, false);
     assert.equal(card.directionalAccuracyMetric?.available, false);
     assert.equal(card.instrumentedEligibleCount, 0);
   }
-  const consumer = formatConsumerLabSummary(lab);
+  const consumer = formatConsumerLabSummary(hist);
   assertNoRawNullLeak(consumer);
   assert.match(consumer, /CLV N\/A/);
-  assert.match(consumer, /Win rate Δ: N\/A/);
   assert.match(consumer, /cov N\/A · dir N\/A/);
 });
 
@@ -1476,7 +1487,7 @@ test(80, "Fixture D: incomplete active block deltas unavailable; complete enable
   resetBlocks();
   const props13 = [
     ...makeHistoricalFrozenBlockProps(),
-    ...makeSix("2026-07-17"),
+    ...makeSix("2026-07-20"),
   ];
   const lab13 = buildCourtEdgeLabV2({
     trackedProps: props13,
@@ -1489,8 +1500,8 @@ test(80, "Fixture D: incomplete active block deltas unavailable; complete enable
   resetBlocks();
   const props23 = [
     ...makeHistoricalFrozenBlockProps(),
-    ...makeSix("2026-07-17"),
-    ...makeSix("2026-07-18"),
+    ...makeSix("2026-07-20"),
+    ...makeSix("2026-07-21"),
   ];
   const lab23 = buildCourtEdgeLabV2({
     trackedProps: props23,
@@ -1502,9 +1513,9 @@ test(80, "Fixture D: incomplete active block deltas unavailable; complete enable
   resetBlocks();
   const props33 = [
     ...makeHistoricalFrozenBlockProps(),
-    ...makeSix("2026-07-17"),
-    ...makeSix("2026-07-18"),
-    ...makeSix("2026-07-19"),
+    ...makeSix("2026-07-20"),
+    ...makeSix("2026-07-21"),
+    ...makeSix("2026-07-22"),
   ];
   const lab33 = buildCourtEdgeLabV2({
     trackedProps: props33,
@@ -1558,7 +1569,7 @@ test(81, "Fixture E: legacy visible but excluded from modern engine scoreboards"
 
 test(82, "Fixture F: frozen block membership immutable across reload", () => {
   resetBlocks();
-  const props = [...makeHistoricalFrozenBlockProps(), ...makeSix("2026-07-17")];
+  const props = [...makeHistoricalFrozenBlockProps(), ...makeSix("2026-07-20")];
   const first = buildHistoryThreeSlateGroupsV2({
     trackedProps: props,
     persist: true,
@@ -1578,7 +1589,7 @@ test(82, "Fixture F: frozen block membership immutable across reload", () => {
     "2026-07-15",
     "2026-07-16",
   ]);
-  assert.deepEqual(second.activeBlock?.slateDates, ["2026-07-17"]);
+  assert.deepEqual(second.activeBlock?.slateDates, ["2026-07-20"]);
   assert.ok(
     HISTORICAL_THREE_SLATE_ANCHORS.some((a) =>
       a.join(",") === "2026-07-14,2026-07-15,2026-07-16"
@@ -1586,9 +1597,13 @@ test(82, "Fixture F: frozen block membership immutable across reload", () => {
   );
 });
 
-test(83, "Fixture G: simulated restart preserves semantics and unavailable metrics", () => {
+test(83, "Fixture G: simulated restart preserves Jul 20-only semantics", () => {
   resetBlocks();
-  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  const props = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-20"),
+  ];
   const before = buildCourtEdgeLabV2({
     trackedProps: props,
     persistThreeSlate: true,
@@ -1599,14 +1614,13 @@ test(83, "Fixture G: simulated restart preserves semantics and unavailable metri
     trackedProps: props,
     persistThreeSlate: true,
   });
-  assert.equal(after.slateDate, "2026-07-17");
+  assert.equal(after.slateDate, "2026-07-20");
   assert.deepEqual(after.previousThreeSlateBlock?.slateDates, before.previousThreeSlateBlock?.slateDates);
-  assert.deepEqual(after.activeThreeSlateBlock?.slateDates, ["2026-07-17"]);
+  assert.deepEqual(after.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
   assert.equal(after.activeThreeSlateBlock?.progress, "1/3");
-  assert.equal(after.currentSlate.avgClvMetric?.available, false);
+  assert.ok(!(after.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
+  assert.ok((after.legacySlateDates || []).includes("2026-07-17"));
   assert.equal(after.threeSlateComparison?.metrics?.winRate?.available, false);
-  assert.equal(after.currentSlate.avgClv, null);
-  assert.notEqual(after.currentSlate.avgClv, 0);
   const dates = [
     ...(after.activeThreeSlateBlock?.slateDates || []),
     ...(after.previousThreeSlateBlock?.slateDates || []),
@@ -1616,7 +1630,11 @@ test(83, "Fixture G: simulated restart preserves semantics and unavailable metri
 
 test(84, "Fixture H: screen and Copy Report semantic parity (no raw null leaks)", () => {
   resetBlocks();
-  const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
+  const props = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-20"),
+  ];
   const lab = buildCourtEdgeLabV2({
     trackedProps: props,
     persistThreeSlate: true,
@@ -1635,16 +1653,15 @@ test(84, "Fixture H: screen and Copy Report semantic parity (no raw null leaks)"
   ].join("\n");
   assertNoRawNullLeak(screen);
   assertNoRawNullLeak(copy);
-  assert.equal(lab.slateDate, "2026-07-17");
-  assert.match(screen, /3-3-0/);
-  assert.match(copy, /3-3-0/);
-  assert.match(screen, /CLV N\/A/);
-  assert.match(copy, /CLV N\/A/);
+  assert.equal(lab.slateDate, "2026-07-20");
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
+  assert.match(screen, /2026-07-20/);
+  assert.match(copy, /2026-07-20/);
   assert.match(screen, /Win rate Δ: N\/A/);
   assert.match(copy, /Win rate Δ: N\/A/);
 });
 
-test(85, "Fixture I: July 19 absence eligibility — no promote without sealed official cohort", () => {
+test(85, "Fixture I: July 19 absence — never Lab without on-track sealed six; Jul 17 History-only", () => {
   resetBlocks();
   const props = [...makeHistoricalFrozenBlockProps(), ...makeUninstrumentedJul17Live()];
   // Partial / home-draft-like Jul 19 — not immutable official Results cohort
@@ -1661,10 +1678,11 @@ test(85, "Fixture I: July 19 absence eligibility — no promote without sealed o
     trackedProps: [...props, ...draft19],
     persistThreeSlate: true,
   });
-  assert.equal(lab.slateDate, "2026-07-17");
+  assert.equal(lab.slateDate, null);
   assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-19"));
+  assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
 
-  // When a sealed official six-prop Jul 19 exists, it becomes eligible (2/3)
+  // Jul 19 is still before learning-track start — must not enter Lab learning UI.
   resetBlocks();
   const with19 = [
     ...makeHistoricalFrozenBlockProps(),
@@ -1675,9 +1693,23 @@ test(85, "Fixture I: July 19 absence eligibility — no promote without sealed o
     trackedProps: with19,
     persistThreeSlate: true,
   });
-  assert.ok((lab2.activeThreeSlateBlock?.slateDates || []).includes("2026-07-19"));
-  assert.equal(lab2.activeThreeSlateBlock?.progress, "2/3");
-  assert.equal(lab2.slateDate, "2026-07-19");
+  assert.ok(!(lab2.activeThreeSlateBlock?.slateDates || []).includes("2026-07-19"));
+  assert.equal(lab2.slateDate, null);
+
+  // On-track Jul 20 sealed six becomes Lab current / active 1/3.
+  resetBlocks();
+  const with20 = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-20"),
+  ];
+  const lab3 = buildCourtEdgeLabV2({
+    trackedProps: with20,
+    persistThreeSlate: true,
+  });
+  assert.deepEqual(lab3.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(lab3.activeThreeSlateBlock?.progress, "1/3");
+  assert.equal(lab3.slateDate, "2026-07-20");
 });
 
 test(86, "MetricAvailability helpers distinguish measured zero from unavailable", () => {
@@ -1712,7 +1744,7 @@ test(87, "Uninstrumented placeholder open=close=seal does not invent CLV 0", () 
   assert.equal(formatClvMetric(r.clvMetric), "N/A");
 });
 
-test(88, "Missing 06-21 must not steal Jul 17 into legacy frozen chunk with Jul 20", () => {
+test(88, "Missing 06-21 must not steal Jul 20; Jul 17 stays History-only", () => {
   resetBlocks();
   const dates = [
     "2026-06-22",
@@ -1724,11 +1756,11 @@ test(88, "Missing 06-21 must not steal Jul 17 into legacy frozen chunk with Jul 
     "2026-07-20",
   ];
   const store = syncThreeSlateBlocksV2(dates, {
-    learningDates: ["2026-07-17", "2026-07-20"],
-    legacyDates: ["2026-06-22", "2026-07-08"],
+    learningDates: ["2026-07-20"],
+    legacyDates: ["2026-06-22", "2026-07-08", "2026-07-17"],
   });
-  assert.deepEqual(store.activeBlock?.slateDates, ["2026-07-17", "2026-07-20"]);
-  assert.equal(store.activeBlock?.progress, "2/3");
+  assert.deepEqual(store.activeBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(store.activeBlock?.progress, "1/3");
   assert.equal(store.activeBlock?.incomplete, true);
   const frozen = store.frozenBlocks || [];
   assert.ok(
@@ -1740,9 +1772,10 @@ test(88, "Missing 06-21 must not steal Jul 17 into legacy frozen chunk with Jul 
   );
   assert.ok(!frozen.some((b) => (b.slateDates || []).includes("2026-07-17")));
   assert.ok(!frozen.some((b) => (b.slateDates || []).includes("2026-07-20")));
+  assert.ok((store.legacySlateDates || []).includes("2026-07-17"));
 });
 
-test(89, "Heals corrupt frozen mix so Jul 17 rejoins active with Jul 20", () => {
+test(89, "Heals corrupt frozen mix; Jul 17 demoted, Jul 20 alone in active", () => {
   resetBlocks();
   // Reproduce pre-fix bootstrap corruption (no learningDates restriction).
   syncThreeSlateBlocksV2([
@@ -1764,12 +1797,12 @@ test(89, "Heals corrupt frozen mix so Jul 17 rejoins active with Jul 20", () => 
       "2026-07-20",
     ],
     {
-      learningDates: ["2026-07-17", "2026-07-20"],
-      legacyDates: ["2026-06-22", "2026-07-08"],
+      learningDates: ["2026-07-20"],
+      legacyDates: ["2026-06-22", "2026-07-08", "2026-07-17"],
     }
   );
-  assert.deepEqual(healed.activeBlock?.slateDates, ["2026-07-17", "2026-07-20"]);
-  assert.equal(healed.activeBlock?.progress, "2/3");
+  assert.deepEqual(healed.activeBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(healed.activeBlock?.progress, "1/3");
   assert.ok(
     !(healed.frozenBlocks || []).some((b) =>
       (b.slateDates || []).includes("2026-07-17")
@@ -1782,9 +1815,11 @@ test(89, "Heals corrupt frozen mix so Jul 17 rejoins active with Jul 20", () => 
         JSON.stringify(["2026-07-14", "2026-07-15", "2026-07-16"])
     )
   );
+  assert.ok((healed.demotedFromActive || []).includes("2026-07-17") ||
+    (healed.legacySlateDates || []).includes("2026-07-17"));
 });
 
-test(90, "Lab Jul 20 promotion keeps writesLiveWeights false and six graded props", () => {
+test(90, "Lab Jul 20-only: active 1/3, Jul 17 not in learning UI, weights false", () => {
   resetBlocks();
   const props = [
     ...makeHistoricalFrozenBlockProps(),
@@ -1801,19 +1836,19 @@ test(90, "Lab Jul 20 promotion keeps writesLiveWeights false and six graded prop
   assert.equal(lab.officialBestSixResults.length, 6);
   assert.equal(lab.currentSlate.graded, 6);
   assert.equal(lab.currentSlate.pending, 0);
-  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, [
-    "2026-07-17",
-    "2026-07-20",
-  ]);
-  assert.equal(lab.activeThreeSlateBlock?.progress, "2/3");
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(lab.activeThreeSlateBlock?.progress, "1/3");
+  assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
   assert.deepEqual(lab.previousThreeSlateBlock?.slateDates, [
     "2026-07-14",
     "2026-07-15",
     "2026-07-16",
   ]);
+  assert.ok((lab.legacySlateDates || []).includes("2026-07-17"));
+  assert.ok(!(lab.instrumentedLearningDates || []).includes("2026-07-17"));
 });
 
-test(91, "Historical-anchor member 06-22 never joins post-anchor learning with Jul 17/20", () => {
+test(91, "Historical-anchor member 06-22 never joins post-anchor learning; Jul 17 History-only", () => {
   resetBlocks();
   const legacy0622 = Array.from({ length: 13 }, (_, i) =>
     makeSealedProp({
@@ -1835,11 +1870,9 @@ test(91, "Historical-anchor member 06-22 never joins post-anchor learning with J
     persist: true,
   });
   assert.ok(!groups.instrumentedLearningDates.includes("2026-06-22"));
-  assert.deepEqual(groups.activeBlock?.slateDates, [
-    "2026-07-17",
-    "2026-07-20",
-  ]);
-  assert.equal(groups.activeBlock?.progress, "2/3");
+  assert.ok(!groups.instrumentedLearningDates.includes("2026-07-17"));
+  assert.deepEqual(groups.activeBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(groups.activeBlock?.progress, "1/3");
   assert.ok(
     !(groups.frozenBlocks || []).some((b) =>
       (b.slateDates || []).includes("2026-06-22") &&
@@ -1851,10 +1884,7 @@ test(91, "Historical-anchor member 06-22 never joins post-anchor learning with J
     persistThreeSlate: true,
   });
   assert.equal(lab.slateDate, "2026-07-20");
-  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, [
-    "2026-07-17",
-    "2026-07-20",
-  ]);
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
 });
 
 console.log("\n==============================");

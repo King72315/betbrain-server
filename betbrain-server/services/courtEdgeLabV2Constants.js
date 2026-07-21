@@ -4,13 +4,26 @@
  */
 
 export const LAB_V2_VERSION = "courtEdgeLabV2";
-export const LAB_V2_BUILD = "courteedge-lab-jul20-promotion-v2";
+export const LAB_V2_BUILD = "courteedge-lab-jul20-only-v1";
 export const HISTORY_THREE_SLATE_GROUPS_V2_VERSION = "history-three-slate-groups-v2";
 /** Alias expected by server.js imports */
 export const HISTORY_THREE_SLATE_GROUPS_V2 = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;
 
 /** Official slate size required for the instrumented three-slate learning track. */
 export const INSTRUMENTED_LEARNING_MIN_PROPS = 6;
+
+/**
+ * Lab six-prop learning UI starts on this slate date (inclusive).
+ * Earlier official six-prop dates (e.g. 2026-07-17) stay History-only —
+ * never Lab current and never in the active three-slate learning block.
+ */
+export const LAB_SIX_PROP_LEARNING_TRACK_START_DATE = "2026-07-20";
+
+export function isLabSixPropLearningTrackDate(slateDate) {
+  const d = String(slateDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  return d >= LAB_SIX_PROP_LEARNING_TRACK_START_DATE;
+}
 
 /**
  * Evidence / decision-packet schema era used to segregate all-time engine metrics.
