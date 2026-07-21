@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| **Build** | `courteedge-slate-date-today-repair-v3` |
+| **Build** | `courteedge-slate-date-today-repair-v4` |
 | **Branch** | `betbrain-v2-rebuild` |
 | **Remote** | `orgin` |
 | **Prod** | https://betbrain-server-1.onrender.com |
@@ -134,6 +134,25 @@ v1 deploy revealed `recoverHomeBoardAdmissionFromCache` was **stamping `slateDat
 2. Rejects past commenceTimes from Tomorrow seal
 3. Adds `repairBoardCacheTodayDateStampCorruption` — moves mis-stamped today props with past commenceTimes back to **yesterday** and re-admits them (no deletes)
 
-### v3 follow-up (Jul 20 restore)
+### v4 follow-up (Results pointer)
 
-v2 date-stamp repair interacted badly with tracked writes and the sealed Jul 20 six disappeared from the live store (store retained 58 rows but no `2026-07-20` cohort). v3 ships `recovery/jul20-sealed-six-restore-v1.json` (exact pre-corruption capture) and `restoreMissingSealedSlateFromRecovery` on startup — re-admits the canonical Howard six to **2026-07-20** when missing. No invention; Jul 22 Home Tomorrow draft six left alone.
+Jul 20 props were in the store but `/tracked-props` active stayed null because blocking only consulted the lock registry. v4 includes unresolved prior official cohorts in `getBlockingActiveResultsSlateDate` and ensures recovery seal/lock. Live verify: **active=2026-07-20, count=6**, exact sealed six; Lab 2026-07-17; Home Today/Tomorrow empty pending board refresh (no Jul 20 leakage).
+
+## 9. Final live tab table (CT today = 2026-07-21)
+
+| Tab | Date | Count | Props / reason |
+| --- | --- | --- | --- |
+| Home Today | 2026-07-21 | 0 | Empty board after redeploy — no Jul 21 markets cached; OK |
+| Home Tomorrow | 2026-07-22 | 0 | Empty board cache — OK; not showing Jul 20 |
+| Results | **2026-07-20** | **6** | Howard U18.5, Thomas O13.5, Stevens O11.5, Griner O12.5, Leger-Walker U8.5, Reese O16.5 |
+| Lab | 2026-07-17 | 6 | Newest eligible completed; `writesLiveWeights=false` |
+| History | prior | preserved | Store total 58; originals not wiped |
+
+**Jul 20 sealed data preserved.** Build `courteedge-slate-date-today-repair-v4` on prod.
+
+### Commits
+
+- `3670e10` — Home day-bucket reclassify (v1)
+- `5639c35` — stop board-cache restamp as today (v2)
+- `c03f5fb` — restore Jul 20 recovery snapshot (v3)
+- `67a8b5f` — Results pointer for prior sealed pending (v4)
