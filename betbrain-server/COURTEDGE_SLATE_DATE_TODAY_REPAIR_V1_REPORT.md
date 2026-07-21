@@ -140,15 +140,17 @@ Jul 20 props were in the store but `/tracked-props` active stayed null because b
 
 ## 9. Final live tab table (CT today = 2026-07-21)
 
+Live re-verify `2026-07-21T05:36:28Z` — prod `courteedge-slate-date-today-repair-v4`.
+
 | Tab | Date | Count | Props / reason |
 | --- | --- | --- | --- |
-| Home Today | 2026-07-21 | 0 | Empty board after redeploy — no Jul 21 markets cached; OK |
-| Home Tomorrow | 2026-07-22 | 0 | Empty board cache — OK; not showing Jul 20 |
-| Results | **2026-07-20** | **6** | Howard U18.5, Thomas O13.5, Stevens O11.5, Griner O12.5, Leger-Walker U8.5, Reese O16.5 |
-| Lab | 2026-07-17 | 6 | Newest eligible completed; `writesLiveWeights=false` |
+| Home Today | 2026-07-21 | 0 | No Jul 21 markets on board — honest empty; Jul 20 six not shown as Today |
+| Home Tomorrow | 2026-07-22 | 6 | Griner O13.5, McBride O19.5, Boston O14.5, Copper U20.5, N.Howard U15.5, Hamby U14.5 — not Jul 20 |
+| Results | **2026-07-20** | **6** | Howard U18.5, Thomas O13.5, Stevens O11.5, Griner O12.5, Leger-Walker U8.5, Reese O16.5 (pending) |
+| Lab | 2026-07-17 | 6 | Newest eligible completed; `writesLiveWeights=false`; Jul 20 not forced (still pending) |
 | History | prior | preserved | Store total 58; originals not wiped |
 
-**Jul 20 sealed data preserved.** Build `courteedge-slate-date-today-repair-v4` on prod.
+**Jul 20 sealed data preserved (6/6).** Build `courteedge-slate-date-today-repair-v4` on prod.
 
 ### Commits
 
