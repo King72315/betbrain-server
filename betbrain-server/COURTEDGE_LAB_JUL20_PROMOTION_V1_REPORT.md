@@ -31,9 +31,20 @@ Render ephemeral disk dropped in-memory grades on v1 deploy; Jul 20 sealed six s
 | `GET /courtedge/lab` → `labV2.slateDate` | `2026-07-20` |
 | Official Best 6 | 6 graded (record `4-2-0`) with conf/risk/sealed fields |
 | Active three-slate | `2/3` · `[2026-07-17, 2026-07-20]` |
-| Frozen | includes `[2026-07-14, 2026-07-15, 2026-07-16]` |
+| Frozen | includes `[2026-07-14, 2026-07-15, 2026-07-16]` only (no 06-22 mix) |
 | `writesLiveWeights` | `false` |
 | Engine scoreboard | N/A / uninstrumented when no sealed signals |
+
+## Live verify (2026-07-21 CT, post v2 deploy)
+
+`VERIFY_OK` on https://betbrain-server-1.onrender.com:
+
+- build `courteedge-lab-jul20-promotion-v2`
+- Lab default `2026-07-20`, Official Best 6 graded `4-2-0`
+- active `2/3` `[2026-07-17, 2026-07-20]`
+- frozen `[2026-07-14, 2026-07-15, 2026-07-16]`
+- engines UNINSTRUMENTED / N/A
+- `writesLiveWeights: false`
 
 ## Files changed
 
