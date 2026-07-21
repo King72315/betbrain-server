@@ -24,9 +24,10 @@
 - Floor helper unchanged semantically (`d >= START_DATE`); comments clarify floor ≠ pin
 - `resolveNewestCompletedOfficialSlateDate` → newest on-track completed (no hard-coded `currentSlate === '2026-07-20'`)
 - `syncThreeSlateBlocksV2`: on exact 3/3, freeze membership and open empty next active
+- Heal: never demote floor-eligible dates from incomplete active; sealed on-track official six (pending or graded) join learning dates; floor dates never sit in legacy
 - Build: `courteedge-lab-learning-track-floor-v1`
-- Tests 92–95 cover floor rotation; suite 95/95 Lab V2
+- Tests 92–96 cover floor rotation + sealed-pending; suite 96/96 Lab V2
 
 ## Expected live (today)
 
-Only Jul 20 is on-track completed eligible → Lab still shows **`2026-07-20`** / active **`1/3 [2026-07-20]`**, via newest-on-or-after-floor (not a pin).
+Only Jul 20 is on-track eligible → Lab shows **`2026-07-20`** / active **`1/3 [2026-07-20]`**, via newest-on-or-after-floor (not a pin). Jul 17 remains History-only.

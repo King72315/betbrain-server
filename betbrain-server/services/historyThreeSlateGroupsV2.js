@@ -23,6 +23,7 @@ import {
   HISTORY_THREE_SLATE_GROUPS_V2,
   LAB_V2_BUILD,
   LAB_V2_ENGINE_KEYS,
+  INSTRUMENTED_LEARNING_MIN_PROPS,
   isLabSixPropLearningTrackDate,
 } from "./courtEdgeLabV2Constants.js";
 import {
@@ -288,15 +289,20 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   // New learning dates only (never reassign frozen membership)
   const newDates = learningDates.filter((d) => !frozenDateSet.has(d));
 
-  // If there was an incomplete active, continue it with eligible learning dates
+  // If there was an incomplete active, continue it with eligible learning dates.
+  // Never demote a floor-eligible learning-track date just because completed
+  // detection briefly misses it (e.g. Render grade wipe) — only eject pre-floor
+  // / ineligible dates (e.g. 2026-07-17).
   let working = [];
   const demoted = [...(store.demotedFromActive || [])];
   if (store.activeBlock?.incomplete && Array.isArray(store.activeBlock.slateDates)) {
     for (const d of store.activeBlock.slateDates) {
       if (frozenDateSet.has(d)) continue;
       if (restrictToLearning && !learningSet.has(d)) {
-        if (!demoted.includes(d)) demoted.push(d);
-        continue;
+        if (!isLabSixPropLearningTrackDate(d)) {
+          if (!demoted.includes(d)) demoted.push(d);
+          continue;
+        }
       }
       working.push(d);
     }
@@ -348,13 +354,20 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
       ...demoted,
       ...dates.filter((d) => restrictToLearning && !learningSet.has(d)),
     ]),
-  ].sort();
+  ]
+    // Learning-track floor dates are never History/legacy.
+    .filter((d) => !isLabSixPropLearningTrackDate(d) && !learningSet.has(String(d)))
+    .sort();
+
+  const cleanedDemoted = [...new Set(demoted)]
+    .filter((d) => !isLabSixPropLearningTrackDate(d) && !learningSet.has(String(d)))
+    .sort();
 
   return writeStore({
     frozenBlocks,
     activeBlock,
     legacySlateDates,
-    demotedFromActive: [...new Set(demoted)].sort(),
+    demotedFromActive: cleanedDemoted,
     learningTrack: "instrumented-six-prop-v1",
   });
 }
@@ -758,6 +771,28 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     }
   }
 
+  // Also admit on-track sealed official six that are not yet fully graded.
+  // Lab current already falls back to sealed-pending; active membership must
+  // not eject the floor slate when grades are temporarily missing from disk.
+  for (const d of Object.keys(byDate).sort()) {
+    if (learningDates.includes(d) || historicalAnchorDateSet.has(d)) continue;
+    if (!isLabSixPropLearningTrackDate(d)) continue;
+    const props = byDate[d] || [];
+    if (props.length < INSTRUMENTED_LEARNING_MIN_PROPS) continue;
+    const info =
+      slateInstrumentation[d] || classifySlateInstrumentation(props);
+    slateInstrumentation[d] = info;
+    if (!info.eligibleForSixPropLearningBlock) continue;
+    const allSealed = props.every(
+      (p) => p.officialSealedAt || p.sealedAt || p.officialPropId || p.immutableOfficial
+    );
+    if (!allSealed) continue;
+    learningDates.push(d);
+    const legacyIdx = legacyDates.indexOf(d);
+    if (legacyIdx >= 0) legacyDates.splice(legacyIdx, 1);
+  }
+  learningDates.sort();
+
   let frozenBlocks;
   let activeBlock;
   let store = emptyStore();
@@ -865,7 +900,9 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     instrumentedLearningDates: learningDates,
     legacySlateDates: [
       ...new Set([...(store.legacySlateDates || []), ...legacyDates]),
-    ].sort(),
+    ]
+      .filter((d) => !isLabSixPropLearningTrackDate(d) && !learningDates.includes(String(d)))
+      .sort(),
     demotedFromActive: store.demotedFromActive || [],
     slateInstrumentation,
     store: {

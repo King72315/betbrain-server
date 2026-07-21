@@ -1986,6 +1986,29 @@ test(95, "Learning-track floor: Jul 17 never becomes Lab current after start dat
   assert.ok((withBoth.legacySlateDates || []).includes("2026-07-17"));
 });
 
+test(96, "Sealed-pending on-track floor slate stays Lab current + active 1/3 (not legacy)", () => {
+  resetBlocks();
+  const pending = makeSix("2026-07-20").map((p) => ({
+    ...p,
+    status: "pending",
+    result: null,
+  }));
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: [
+      ...makeHistoricalFrozenBlockProps(),
+      ...makeUninstrumentedJul17Live(),
+      ...pending,
+    ],
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-20");
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, ["2026-07-20"]);
+  assert.equal(lab.activeThreeSlateBlock?.progress, "1/3");
+  assert.ok(!(lab.legacySlateDates || []).includes("2026-07-20"));
+  assert.ok((lab.instrumentedLearningDates || []).includes("2026-07-20"));
+  assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
+});
+
 console.log("\n==============================");
 console.log(`Lab V2 tests: ${passed} passed, ${failed} failed`);
 console.log("==============================");
