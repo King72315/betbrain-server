@@ -55,7 +55,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const SNAPSHOTS_DIR = path.join(SERVER_ROOT, "slate-snapshots");
 const ACTIVE_BUNDLES_DIR = path.join(SERVER_ROOT, "active-bundles");
 
-export const TAB_FLOW_REPAIR_BUILD = "courteedge-full-app-tab-flow-repair-v1";
+export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v1";
 export const TAB_FLOW_REPAIR_SCHEMA = "courtEdgeTabFlowRepairV1";
 
 function readJSON(file, fallback = null) {
@@ -405,7 +405,7 @@ export function recoverSealedOrphansAtStartup(options = {}) {
       reason: "STARTUP_SEALED_ORPHAN_RECOVERY",
       serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
       promoteToResults: date <= today,
-      dayBucket: date === today ? "TODAY" : date > today ? "TOMORROW" : "TODAY",
+      dayBucket: date === today ? "TODAY" : date > today ? "TOMORROW" : "PAST",
     });
     repairs.push(result);
   }

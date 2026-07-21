@@ -351,12 +351,12 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-full-app-tab-flow-repair-v1";
+const SERVER_BUILD = "courteedge-slate-date-today-repair-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-full-app-tab-flow-repair-v1";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-full-app-tab-flow-repair-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v1";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 
 function getRotationRuntimeContext(partial = {}) {

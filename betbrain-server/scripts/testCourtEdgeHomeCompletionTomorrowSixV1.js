@@ -459,13 +459,25 @@ test("26 sanitizeHomeBoardForLifecycle forwards Tomorrow arrays", () => {
   const board = {
     bestSixDisplayWNBA: [
       basePick({ player: "A", dayBucket: "TODAY", dateLabel: "Today", slateDate: "2099-01-01" }),
-      basePick({ player: "B", dayBucket: "TOMORROW", dateLabel: "Tomorrow" }),
+      basePick({
+        player: "B",
+        dayBucket: "TOMORROW",
+        dateLabel: "Tomorrow",
+        slateDate: "2099-01-02",
+        commenceTime: "2099-01-02T18:00:00Z",
+      }),
     ],
     bestSixDisplayTodayWNBA: [
       basePick({ player: "A", dayBucket: "TODAY", dateLabel: "Today", slateDate: "2099-01-01" }),
     ],
     bestSixDisplayTomorrowWNBA: [
-      basePick({ player: "B", dayBucket: "TOMORROW", dateLabel: "Tomorrow" }),
+      basePick({
+        player: "B",
+        dayBucket: "TOMORROW",
+        dateLabel: "Tomorrow",
+        slateDate: "2099-01-02",
+        commenceTime: "2099-01-02T18:00:00Z",
+      }),
     ],
     bestSixWNBA: [],
     bestSixNBA: [],
@@ -482,6 +494,7 @@ test("26 sanitizeHomeBoardForLifecycle forwards Tomorrow arrays", () => {
   });
   assert.ok(Array.isArray(sanitized.bestSixDisplayTomorrowWNBA));
   assert.ok(sanitized.bestSixDisplayTomorrowWNBA.length >= 1);
+  assert.equal(sanitized.bestSixDisplayTomorrowWNBA[0].player, "B");
 });
 
 test("27 shouldPreserveExistingBoard blocks total Tomorrow wipe", () => {
@@ -649,8 +662,8 @@ test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-end-to-end-state-integrity-v1",
-    "SERVER_BUILD must be courteedge-end-to-end-state-integrity-v1"
+    "courteedge-slate-date-today-repair-v1",
+    "SERVER_BUILD must be courteedge-slate-date-today-repair-v1"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
   assert.match(src, /courteedge-empty-board-guard-v1/);

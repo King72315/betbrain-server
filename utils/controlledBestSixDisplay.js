@@ -141,14 +141,58 @@ export function getChicagoCalendarDate(now = new Date()) {
 }
 
 /**
- * Home Today pool: prefer slateDate over stale dayBucket=TODAY after Lab promotion.
+ * Home Today pool: prefer slateDate / commenceTime over stale dayBucket=TODAY.
  */
 export function filterCalendarTodayHomePool(picks = [], today = getChicagoCalendarDate()) {
   return (Array.isArray(picks) ? picks : []).filter((pick) => {
-    const d = String(pick.slateDate || "").slice(0, 10);
+    const d = resolvePickSlateDateForHome(pick);
     if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d === today;
     return resolveDayBucket(pick) === "TODAY";
   });
+}
+
+/**
+ * Home Tomorrow pool: calendar tomorrow only (never stale dayBucket stamps).
+ */
+export function filterCalendarTomorrowHomePool(
+  picks = [],
+  today = getChicagoCalendarDate()
+) {
+  const tomorrow = shiftChicagoDate(today, 1);
+  return (Array.isArray(picks) ? picks : []).filter((pick) => {
+    const d = resolvePickSlateDateForHome(pick);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d === tomorrow;
+    return resolveDayBucket(pick) === "TOMORROW";
+  });
+}
+
+function shiftChicagoDate(dateStr, deltaDays) {
+  const value = String(dateStr || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const [year, month, day] = value.split("-").map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  anchor.setUTCDate(anchor.getUTCDate() + deltaDays);
+  return anchor.toISOString().slice(0, 10);
+}
+
+function resolvePickSlateDateForHome(pick = {}) {
+  const direct = String(pick.slateDate || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
+  const officialId = String(pick.officialPropId || "");
+  const idDate = officialId.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(idDate) && officialId.charAt(10) === "|") {
+    return idDate;
+  }
+  const commence = pick.commenceTime || pick.time || pick.gameDateTime || "";
+  if (!commence) return "";
+  const parsed = new Date(commence);
+  if (Number.isNaN(parsed.getTime())) return String(commence).slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsed);
 }
 
 export function normalizeLeagueCode(league = "WNBA") {

@@ -132,6 +132,57 @@ export function getYesterdayLocalDate(today = getTodayLocalDate()) {
   return anchor.toISOString().slice(0, 10);
 }
 
+/** Calendar tomorrow in America/Chicago (noon UTC avoids DST edge cases). */
+export function getTomorrowLocalDate(today = getTodayLocalDate()) {
+  const value = String(today || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const [year, month, day] = value.split("-").map(Number);
+  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  anchor.setUTCDate(anchor.getUTCDate() + 1);
+  return anchor.toISOString().slice(0, 10);
+}
+
+/**
+ * Effective Home/board slate date for day-bucket classification.
+ * Prefer explicit slateDate / officialPropId date prefix; else commenceTime in CT.
+ * Does not invent dates — returns "" when unknown.
+ */
+export function resolveHomeBoardSlateDate(entity = {}) {
+  const direct = String(
+    entity.slateDate || entity.cohortSlateDate || entity.resultsSlateDate || ""
+  ).slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(direct)) return direct;
+
+  const officialId = String(entity.officialPropId || "");
+  const idDate = officialId.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(idDate) && officialId.charAt(10) === "|") {
+    return idDate;
+  }
+
+  const fromCommence = getSlateDateFromCommence(
+    entity.commenceTime || entity.time || entity.gameDateTime || ""
+  );
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fromCommence)) return fromCommence;
+
+  const gameDate = String(entity.date || entity.gameDate || "").slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(gameDate)) return gameDate;
+
+  return "";
+}
+
+/** Classify TODAY / TOMORROW / PAST from a CT slate date vs calendar today. */
+export function classifyHomeDayBucket(slateDate, today = getTodayLocalDate()) {
+  const d = String(slateDate || "").slice(0, 10);
+  const t = String(today || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    return "";
+  }
+  if (d === t) return "TODAY";
+  if (d === getTomorrowLocalDate(t)) return "TOMORROW";
+  if (d < t) return "PAST";
+  return "LATER";
+}
+
 /** Only today/yesterday locked ACTIVE slates block Results rollover. */
 export function isRolloverBlockingResultsSlate(
   slateDate,
@@ -1198,15 +1249,16 @@ export function buildCourtEdgeFlowDiagnostics(
 }
 
 /**
- * Home must never show a Lab/History Results cohort as "Today".
- * Scrub stale bestSixWNBA / bestSixDisplayToday* from a cached /picks board
- * and refill Today pools from calendar-today display picks when needed.
- * Does not delete tracked props, Lab, or History — read-path only.
+ * Home must never show a Lab/History/past Results cohort as "Today".
+ * Reclassify stale dayBucket stamps from cached boards using CT slate dates
+ * (slateDate / officialPropId / commenceTime). Read-path only — does not
+ * delete tracked props, Lab, History, or sealed packets.
  */
 export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
   if (!board || typeof board !== "object") return board;
 
   const today = options.todayLocalDate || getTodayLocalDate();
+  const tomorrow = getTomorrowLocalDate(today);
   const trackedProps = options.trackedProps || [];
   const reports = options.reports || [];
   const archives = options.archives || [];
@@ -1226,98 +1278,165 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     lockedSlates
   );
 
-  const isStaleHomeTodayProp = (prop = {}) => {
-    const d = String(prop.slateDate || "").slice(0, 10);
+  const stampPropDay = (prop = {}) => {
+    const slateDate = resolveHomeBoardSlateDate(prop);
+    const bucket = classifyHomeDayBucket(slateDate, today);
+    if (!bucket || bucket === "PAST" || bucket === "LATER") {
+      return {
+        ...prop,
+        slateDate: slateDate || prop.slateDate || null,
+        dayBucket: bucket || prop.dayBucket || "",
+        dateLabel:
+          bucket === "PAST"
+            ? "Past"
+            : bucket === "LATER"
+              ? "Later"
+              : prop.dateLabel || "",
+        _homeSlateDate: slateDate || "",
+        _homeDayBucket: bucket || "",
+      };
+    }
+    return {
+      ...prop,
+      slateDate: slateDate || prop.slateDate || null,
+      dayBucket: bucket,
+      dateLabel: bucket === "TODAY" ? "Today" : "Tomorrow",
+      _homeSlateDate: slateDate,
+      _homeDayBucket: bucket,
+    };
+  };
+
+  const isHomeTodayProp = (prop = {}) => {
+    const stamped = stampPropDay(prop);
+    const d = stamped._homeSlateDate || resolveHomeBoardSlateDate(stamped);
     if (!d) return false;
-    // Home Today is calendar-today only — never Lab, History, or overnight Results.
-    if (d !== today) return true;
-    if (labDate && d === labDate) return true;
-    return false;
+    if (labDate && d === labDate) return false;
+    return d === today && stamped._homeDayBucket === "TODAY";
   };
 
-  const scrub = (list = []) =>
-    (Array.isArray(list) ? list : []).filter((p) => !isStaleHomeTodayProp(p));
-
-  const isCalendarTodayDisplay = (prop = {}) => {
-    const d = String(prop.slateDate || "").slice(0, 10);
-    const bucket = String(prop.dayBucket || "").toUpperCase();
-    const label = String(prop.dateLabel || "").toLowerCase();
-    if (d === today) return true;
-    if ((bucket === "TODAY" || label === "today") && (!d || d === today)) return true;
-    return false;
+  const isHomeTomorrowProp = (prop = {}) => {
+    const stamped = stampPropDay(prop);
+    const d = stamped._homeSlateDate || resolveHomeBoardSlateDate(stamped);
+    if (!d) return false;
+    if (labDate && d === labDate) return false;
+    return d === tomorrow && stamped._homeDayBucket === "TOMORROW";
   };
 
-  const displayWNBA = board.bestSixDisplayWNBA || [];
-  const displayNBA = board.bestSixDisplayNBA || [];
-  const calendarTodayWNBA = displayWNBA.filter(isCalendarTodayDisplay);
-  const calendarTodayNBA = displayNBA.filter(isCalendarTodayDisplay);
-
-  const isCalendarTomorrowDisplay = (prop = {}) => {
-    const bucket = String(prop.dayBucket || "").toUpperCase();
-    const label = String(prop.dateLabel || "").toLowerCase();
-    return bucket === "TOMORROW" || label === "tomorrow";
+  const collect = (...lists) => {
+    const out = [];
+    const seen = new Set();
+    for (const list of lists) {
+      for (const prop of Array.isArray(list) ? list : []) {
+        if (!prop || typeof prop !== "object") continue;
+        const key =
+          prop.officialPropId ||
+          `${prop.player || prop.playerName}|${prop.side}|${prop.line}|${prop.commenceTime || ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(prop);
+      }
+    }
+    return out;
   };
 
-  let bestSixWNBA = scrub(board.bestSixWNBA);
-  let bestSixNBA = scrub(board.bestSixNBA);
-  let bestSixDisplayTodayWNBA = scrub(
-    board.bestSixDisplayTodayWNBA || board.bestSixWNBA || []
+  const allDisplayWNBA = collect(
+    board.bestSixDisplayTodayWNBA,
+    board.bestSixDisplayTomorrowWNBA,
+    board.bestSixDisplayWNBA,
+    board.bestSixWNBA
   );
-  let bestSixDisplayTodayNBA = scrub(
-    board.bestSixDisplayTodayNBA || board.bestSixNBA || []
+  const allDisplayNBA = collect(
+    board.bestSixDisplayTodayNBA,
+    board.bestSixDisplayTomorrowNBA,
+    board.bestSixDisplayNBA,
+    board.bestSixNBA
   );
-  let bestSixDisplayTomorrowWNBA = (
-    board.bestSixDisplayTomorrowWNBA ||
-    displayWNBA.filter(isCalendarTomorrowDisplay) ||
-    []
-  ).slice();
-  let bestSixDisplayTomorrowNBA = (
-    board.bestSixDisplayTomorrowNBA ||
-    displayNBA.filter(isCalendarTomorrowDisplay) ||
-    []
-  ).slice();
 
-  // If Results cohort was scrubbed (Lab-promoted), Home Today uses calendar display.
-  if (!bestSixDisplayTodayWNBA.length && calendarTodayWNBA.length) {
-    bestSixDisplayTodayWNBA = calendarTodayWNBA;
-  }
-  if (!bestSixDisplayTodayNBA.length && calendarTodayNBA.length) {
-    bestSixDisplayTodayNBA = calendarTodayNBA;
-  }
-  if (!bestSixWNBA.length && calendarTodayWNBA.length) {
-    bestSixWNBA = calendarTodayWNBA;
-  }
-  if (!bestSixNBA.length && calendarTodayNBA.length) {
-    bestSixNBA = calendarTodayNBA;
-  }
-  if (!bestSixDisplayTomorrowWNBA.length) {
-    bestSixDisplayTomorrowWNBA = displayWNBA.filter(isCalendarTomorrowDisplay);
-  }
-  if (!bestSixDisplayTomorrowNBA.length) {
-    bestSixDisplayTomorrowNBA = displayNBA.filter(isCalendarTomorrowDisplay);
-  }
+  let bestSixDisplayTodayWNBA = allDisplayWNBA
+    .filter(isHomeTodayProp)
+    .map(stampPropDay);
+  let bestSixDisplayTodayNBA = allDisplayNBA
+    .filter(isHomeTodayProp)
+    .map(stampPropDay);
+  let bestSixDisplayTomorrowWNBA = allDisplayWNBA
+    .filter(isHomeTomorrowProp)
+    .map(stampPropDay);
+  let bestSixDisplayTomorrowNBA = allDisplayNBA
+    .filter(isHomeTomorrowProp)
+    .map(stampPropDay);
 
-  // Top picks: drop Lab/past slate tops; keep calendar-today / tomorrow only.
+  let bestSixWNBA = bestSixDisplayTodayWNBA.slice();
+  let bestSixNBA = bestSixDisplayTodayNBA.slice();
+  const bestSixDisplayWNBA = [
+    ...bestSixDisplayTodayWNBA,
+    ...bestSixDisplayTomorrowWNBA,
+  ];
+  const bestSixDisplayNBA = [
+    ...bestSixDisplayTodayNBA,
+    ...bestSixDisplayTomorrowNBA,
+  ];
+
+  const rebucketGame = (game = {}) => {
+    const slateDate = resolveHomeBoardSlateDate(game);
+    const bucket = classifyHomeDayBucket(slateDate, today);
+    if (bucket !== "TODAY" && bucket !== "TOMORROW") return null;
+    const picks = (game.picks || [])
+      .map(stampPropDay)
+      .filter((p) =>
+        bucket === "TODAY" ? isHomeTodayProp(p) : isHomeTomorrowProp(p)
+      );
+    const allGeneratedCandidates = (game.allGeneratedCandidates || [])
+      .map(stampPropDay)
+      .filter((p) => {
+        const d = resolveHomeBoardSlateDate(p);
+        return d === today || d === tomorrow;
+      });
+    return {
+      ...game,
+      date: slateDate || game.date || null,
+      slateDate: slateDate || game.slateDate || null,
+      dayBucket: bucket,
+      dateLabel: bucket === "TODAY" ? "Today" : "Tomorrow",
+      picks,
+      allGeneratedCandidates,
+    };
+  };
+
+  const games = (Array.isArray(board.games) ? board.games : [])
+    .map(rebucketGame)
+    .filter(Boolean);
+  const wnbaGames = games.filter(
+    (g) => String(g.league || "").toUpperCase() === "WNBA"
+  );
+  const nbaGames = games.filter(
+    (g) => String(g.league || "").toUpperCase() === "NBA"
+  );
+
+  // Top picks: calendar today / tomorrow only (never Lab/past).
   const scrubTop = (list = []) =>
-    (Array.isArray(list) ? list : []).filter((p) => {
-      const d = String(p.slateDate || "").slice(0, 10);
-      if (!d) return true;
-      if (labDate && d === labDate) return false;
-      if (d < today) return false;
-      return true;
-    });
+    (Array.isArray(list) ? list : [])
+      .map(stampPropDay)
+      .filter((p) => isHomeTodayProp(p) || isHomeTomorrowProp(p));
 
   const withAnalysis = (list) =>
     ensureHomeDetailedAnalysisOnPicks(
       (Array.isArray(list) ? list : []).map((p) => applyHomeDisplayWhyToPick(p))
     );
 
+  const priorAudit =
+    board.controlledBestSixAudit && typeof board.controlledBestSixAudit === "object"
+      ? board.controlledBestSixAudit
+      : {};
+
   return {
     ...board,
+    games,
+    wnbaGames,
+    nbaGames,
     bestSixWNBA: withAnalysis(bestSixWNBA),
     bestSixNBA: withAnalysis(bestSixNBA),
-    bestSixDisplayWNBA: withAnalysis(board.bestSixDisplayWNBA || displayWNBA),
-    bestSixDisplayNBA: withAnalysis(board.bestSixDisplayNBA || displayNBA),
+    bestSixDisplayWNBA: withAnalysis(bestSixDisplayWNBA),
+    bestSixDisplayNBA: withAnalysis(bestSixDisplayNBA),
     bestSixDisplayTodayWNBA: withAnalysis(bestSixDisplayTodayWNBA),
     bestSixDisplayTodayNBA: withAnalysis(bestSixDisplayTodayNBA),
     bestSixDisplayTomorrowWNBA: withAnalysis(bestSixDisplayTomorrowWNBA),
@@ -1328,12 +1447,30 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     topOfficialProps: withAnalysis(scrubTop(board.topOfficialProps)),
     topWNBAOfficialProps: withAnalysis(scrubTop(board.topWNBAOfficialProps)),
     topNBAOfficialProps: withAnalysis(scrubTop(board.topNBAOfficialProps)),
+    todayCandidateCount: games.filter((g) => g.dayBucket === "TODAY").length,
+    tomorrowCandidateCount: games.filter((g) => g.dayBucket === "TOMORROW")
+      .length,
+    controlledBestSixAudit: {
+      ...priorAudit,
+      perDaySelection: true,
+      bestSixDisplayTodayCountByLeague: {
+        WNBA: bestSixDisplayTodayWNBA.length,
+        NBA: bestSixDisplayTodayNBA.length,
+      },
+      bestSixDisplayTomorrowCountByLeague: {
+        WNBA: bestSixDisplayTomorrowWNBA.length,
+        NBA: bestSixDisplayTomorrowNBA.length,
+      },
+    },
     lifecycleHomeSanitize: {
       today,
+      tomorrow,
       labDate,
       activeResultsSlateDate,
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
+      slateDateReclassified: true,
+      build: "courteedge-slate-date-today-repair-v1",
     },
   };
 }
