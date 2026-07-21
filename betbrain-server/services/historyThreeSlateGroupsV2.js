@@ -221,6 +221,9 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   // Heal corrupt non-anchor frozen blocks that mixed learning-track dates with
   // legacy dates (immutable anchors and pure completed learning 3/3 stay).
   if (restrictToLearning) {
+    const historicalAnchorDateSet = new Set(
+      HISTORICAL_THREE_SLATE_ANCHORS.flat().map(String)
+    );
     const healed = [];
     for (const block of priorFrozen) {
       const blockDates = (block.slateDates || []).map(String);
@@ -230,6 +233,19 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
       }
       const learningInBlock = blockDates.filter((d) => learningSet.has(d));
       const nonLearningInBlock = blockDates.filter((d) => !learningSet.has(d));
+      const hasHistoricalMember = blockDates.some((d) =>
+        historicalAnchorDateSet.has(d)
+      );
+      // Non-anchor block that dragged a historical-anchor member (e.g. 06-22)
+      // into a fake learning 3/3 with Jul 17/20 — dissolve.
+      if (hasHistoricalMember) {
+        for (const d of blockDates) {
+          if (!learningSet.has(d) && !legacyExtra.includes(d)) {
+            legacyExtra.push(d);
+          }
+        }
+        continue;
+      }
       if (
         learningInBlock.length === blockDates.length &&
         blockDates.length === GROUP_SIZE
@@ -718,13 +734,22 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
   const slateInstrumentation = {};
   const learningDates = [];
   const legacyDates = [];
+  // Dates that belong to known historical three-slate anchors never re-enter the
+  // post-anchor six-prop learning track — even if propCount >= 6 (e.g. 06-22 had 13).
+  const historicalAnchorDateSet = new Set(
+    HISTORICAL_THREE_SLATE_ANCHORS.flat().map(String)
+  );
   for (const d of dates) {
     const info = classifySlateInstrumentation(byDate[d] || []);
     slateInstrumentation[d] = info;
     // Six-prop official slates enter the new active learning track.
     // Thin/uninstrumented eras (e.g. Jul 16 three-prop) stay historical/legacy.
-    if (info.eligibleForSixPropLearningBlock) learningDates.push(d);
-    else legacyDates.push(d);
+    // Historical-anchor member dates stay historical even when sixProp-sized.
+    if (info.eligibleForSixPropLearningBlock && !historicalAnchorDateSet.has(d)) {
+      learningDates.push(d);
+    } else {
+      legacyDates.push(d);
+    }
   }
 
   let frozenBlocks;

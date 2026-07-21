@@ -1813,6 +1813,50 @@ test(90, "Lab Jul 20 promotion keeps writesLiveWeights false and six graded prop
   ]);
 });
 
+test(91, "Historical-anchor member 06-22 never joins post-anchor learning with Jul 17/20", () => {
+  resetBlocks();
+  const legacy0622 = Array.from({ length: 13 }, (_, i) =>
+    makeSealedProp({
+      slateDate: "2026-06-22",
+      status: i % 2 === 0 ? "win" : "loss",
+      bestSixRank: i + 1,
+      player: `Legacy0622-${i + 1}`,
+      omitSignals: true,
+    })
+  );
+  const props = [
+    ...legacy0622,
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-20"),
+  ];
+  const groups = buildHistoryThreeSlateGroupsV2({
+    trackedProps: props,
+    persist: true,
+  });
+  assert.ok(!groups.instrumentedLearningDates.includes("2026-06-22"));
+  assert.deepEqual(groups.activeBlock?.slateDates, [
+    "2026-07-17",
+    "2026-07-20",
+  ]);
+  assert.equal(groups.activeBlock?.progress, "2/3");
+  assert.ok(
+    !(groups.frozenBlocks || []).some((b) =>
+      (b.slateDates || []).includes("2026-06-22") &&
+      (b.slateDates || []).includes("2026-07-17")
+    )
+  );
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-20");
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, [
+    "2026-07-17",
+    "2026-07-20",
+  ]);
+});
+
 console.log("\n==============================");
 console.log(`Lab V2 tests: ${passed} passed, ${failed} failed`);
 console.log("==============================");

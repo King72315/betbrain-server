@@ -662,8 +662,8 @@ test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-lab-jul20-promotion-v1",
-    "SERVER_BUILD must be courteedge-lab-jul20-promotion-v1"
+    "courteedge-lab-jul20-promotion-v2",
+    "SERVER_BUILD must be courteedge-lab-jul20-promotion-v2"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
   assert.match(src, /courteedge-empty-board-guard-v1/);

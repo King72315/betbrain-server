@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | **Date (CT)** | 2026-07-21 |
-| **Build** | `courteedge-lab-jul20-promotion-v1` |
+| **Build** | `courteedge-lab-jul20-promotion-v2` |
 | **Prod** | https://betbrain-server-1.onrender.com |
 | **Timezone** | America/Chicago |
 
@@ -17,8 +17,12 @@ Jul 20 official Best 6 was sealed in Results, graded via `POST /resolve-tracked-
 2. **Graded** — `POST /resolve-tracked-props` graded the slate (`4-2-0`, 6/6 decided). Daily report `2026-07-20` status `final`, pending `0`.
 3. **Promoted** — lifecycle linked Lab default to `2026-07-20` (Results active cleared; History retains Jul 17). No date hardcode; newest eligible completed official became Lab default.
 4. **Observed block bug** — Lab showed Jul 20 Official Best 6 with grades/conf/risk, but active three-slate was wrongly `1/3 [07-20]` and a non-anchor frozen block `[06-22, 07-08, 07-17]` had stolen Jul 17.
-5. **Code fix** — `syncThreeSlateBlocksV2` no longer bootstrap-freezes learning-track dates into legacy chunks when an early anchor date is missing; heals corrupt mixed frozen blocks on sync.
+5. **Code fix (v1→v2)** — `syncThreeSlateBlocksV2` no longer bootstrap-freezes learning-track dates into legacy chunks when an early anchor date is missing; heals corrupt mixed frozen blocks on sync. v2 also keeps historical-anchor member dates (e.g. `2026-06-22`) out of the post-anchor six-prop learning track even when propCount ≥ 6, so active stays `[07-17, 07-20]` instead of a fake `[06-22, 07-17, 07-20]` 3/3.
 6. **Engines** — Jul 20 sealed props lack `courtEdgeEngineSignalsV1`; scoreboard stays honest **UNINSTRUMENTED / N/A** (no fabricate). Same posture as Jul 17.
+
+## Deploy note
+
+Render ephemeral disk dropped in-memory grades on v1 deploy; Jul 20 sealed six survived in tracked props. Re-ran `POST /resolve-tracked-props` after deploy to restore grades/promotion before verifying v2 membership heal.
 
 ## Expected live after deploy
 
