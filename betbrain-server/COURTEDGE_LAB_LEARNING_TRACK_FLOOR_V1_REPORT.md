@@ -31,3 +31,15 @@
 ## Expected live (today)
 
 Only Jul 20 is on-track eligible → Lab shows **`2026-07-20`** / active **`1/3 [2026-07-20]`**, via newest-on-or-after-floor (not a pin). Jul 17 remains History-only.
+
+## Live verify
+
+| Check | Result |
+| --- | --- |
+| `serverBuild` | `courteedge-lab-learning-track-floor-v1` |
+| `labV2.slateDate` | `2026-07-20` |
+| Active | `1/3` · `[2026-07-20]` |
+| `instrumentedLearningDates` includes Jul 20 | yes |
+| Jul 20 in legacy | no |
+| Jul 17 in active | no |
+| `writesLiveWeights` | `false` |
