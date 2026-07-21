@@ -333,6 +333,7 @@ import {
   admitSealResult,
   recoverSealedOrphansAtStartup,
   recoverHomeBoardAdmissionFromCache,
+  repairBoardCacheTodayDateStampCorruption,
   classifyHomeResultsGap,
   buildTabFlowDiagnostics,
   buildHonestResultsEmptyCopy,
@@ -351,12 +352,12 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-slate-date-today-repair-v1";
+const SERVER_BUILD = "courteedge-slate-date-today-repair-v2";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v1";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v2";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v2";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 
 function getRotationRuntimeContext(partial = {}) {
@@ -4098,6 +4099,19 @@ function stampAndPersistSeededBoard(board, reason, emergency) {
   saveBoardCache(stamped);
   // Seed/recovery historically restored Home without Results admission.
   try {
+    const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+    });
+    stamped.tabFlowDateStampRepair = {
+      repaired: dateStampRepair.repaired,
+      prior: dateStampRepair.prior || null,
+      restoredCount: dateStampRepair.restoredCount || 0,
+    };
+  } catch (error) {
+    console.log("TAB-FLOW DATE STAMP REPAIR WARNING:", error.message);
+  }
+  try {
     const admission = recoverHomeBoardAdmissionFromCache(stamped, {
       serverBuild: SERVER_BUILD,
       todayLocalDate: getTodayLocalDate(),
@@ -6178,6 +6192,24 @@ if (process.env.RUN_AUDIT === "1") {
     console.log("STARTUP TAB-FLOW ORPHAN RECOVERY ERROR:", error.message);
   }
 
+  try {
+    const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+    });
+    console.log(
+      "STARTUP TAB-FLOW DATE STAMP REPAIR:",
+      JSON.stringify({
+        repaired: dateStampRepair.repaired,
+        prior: dateStampRepair.prior || null,
+        restoredCount: dateStampRepair.restoredCount || 0,
+        reason: dateStampRepair.reason || null,
+      })
+    );
+  } catch (error) {
+    console.log("STARTUP TAB-FLOW DATE STAMP REPAIR ERROR:", error.message);
+  }
+
   async function startServer() {
     if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
       try {
@@ -6292,6 +6324,19 @@ if (process.env.RUN_AUDIT === "1") {
         `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`
       );
       try {
+        const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
+          serverBuild: SERVER_BUILD,
+          todayLocalDate: getTodayLocalDate(),
+        });
+        console.log(
+          "STARTUP TAB-FLOW DATE STAMP REPAIR:",
+          JSON.stringify({
+            repaired: dateStampRepair.repaired,
+            prior: dateStampRepair.prior || null,
+            restoredCount: dateStampRepair.restoredCount || 0,
+            reason: dateStampRepair.reason || null,
+          })
+        );
         const boardAdmit = recoverHomeBoardAdmissionFromCache(picksCache, {
           serverBuild: SERVER_BUILD,
           todayLocalDate: getTodayLocalDate(),

@@ -36,6 +36,9 @@ import {
   applySlateLockFreeze,
   getTrackedProps,
   mergeLockedSlateFreezeIntoTracked,
+  writeTrackedProps,
+  getStableTrackedPropKey,
+  getSlateDateCT,
 } from "./trackedPropService.js";
 import {
   getLockedSlatesRegistry,
@@ -44,8 +47,10 @@ import {
 } from "./slateLockService.js";
 import {
   getTodayLocalDate,
+  getYesterdayLocalDate,
   getResultsPropSlateDate,
   pickActiveResultsSlateDate,
+  resolveHomeBoardSlateDate,
 } from "./slateScopeService.js";
 import { classifyTrackedPropsByLifecycle } from "./slateLifecycleService.js";
 
@@ -55,7 +60,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const SNAPSHOTS_DIR = path.join(SERVER_ROOT, "slate-snapshots");
 const ACTIVE_BUNDLES_DIR = path.join(SERVER_ROOT, "active-bundles");
 
-export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v1";
+export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v2";
 export const TAB_FLOW_REPAIR_SCHEMA = "courtEdgeTabFlowRepairV1";
 
 function readJSON(file, fallback = null) {
@@ -650,6 +655,8 @@ export function recoverHomeBoardAdmissionFromCache(board = null, options = {}) {
     ...(board.bestSixDisplayTodayNBA || []),
   ]
     .filter((p) => p?.player)
+    // Never admit prior-day props just because dayBucket still says TODAY.
+    .filter((p) => resolveHomeBoardSlateDate(p) === today)
     .map((p) => ({
       ...p,
       slateDate: today,
@@ -706,17 +713,36 @@ export function recoverHomeBoardAdmissionFromCache(board = null, options = {}) {
   const tomorrowSix = [
     ...(board.bestSixDisplayTomorrowWNBA || []),
     ...(board.bestSixDisplayTomorrowNBA || []),
-  ].filter((p) => p?.player);
+  ]
+    .filter((p) => p?.player)
+    .filter((p) => {
+      const resolved = resolveHomeBoardSlateDate(p);
+      // Stale prior-day props must never seal as Tomorrow.
+      if (resolved && resolved < today) return false;
+      return true;
+    });
 
   if (tomorrowSix.length >= 6) {
     const tomDate =
-      String(tomorrowSix[0]?.slateDate || "").slice(0, 10) ||
+      String(
+        tomorrowSix.map((p) => resolveHomeBoardSlateDate(p)).find((d) => d > today) ||
+          tomorrowSix[0]?.slateDate ||
+          ""
+      ).slice(0, 10) ||
       (() => {
         const [y, m, d] = today.split("-").map(Number);
         const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
         dt.setUTCDate(dt.getUTCDate() + 1);
         return dt.toISOString().slice(0, 10);
       })();
+    if (tomDate <= today) {
+      actions.push({
+        type: "tomorrow",
+        skipped: true,
+        reason: "TOMORROW_DATE_NOT_FUTURE",
+        tomDate,
+      });
+    } else {
     const stampedTom = tomorrowSix.map((p) => ({
       ...p,
       slateDate: tomDate,
@@ -746,6 +772,7 @@ export function recoverHomeBoardAdmissionFromCache(board = null, options = {}) {
       );
       actions.push({ type: "tomorrow", admit });
     }
+    }
   }
 
   appendLifecycleAudit({
@@ -758,6 +785,135 @@ export function recoverHomeBoardAdmissionFromCache(board = null, options = {}) {
     ok: true,
     recovered: actions.some((a) => a.admit?.admitted),
     actions,
+    build: TAB_FLOW_REPAIR_BUILD,
+  };
+}
+
+/**
+ * Restore props that board-cache admission incorrectly stamped as calendar today
+ * despite past commenceTimes (overnight rollover). Moves them back to yesterday
+ * without deleting membership. Idempotent.
+ */
+export function repairBoardCacheTodayDateStampCorruption(options = {}) {
+  const today = String(options.todayLocalDate || getTodayLocalDate());
+  const prior = String(options.priorSlateDate || getYesterdayLocalDate(today));
+  const tracked = getTrackedProps();
+
+  const corrupted = (tracked || []).filter((p) => {
+    if (String(p.slateDate || "").slice(0, 10) !== today) return false;
+    const commenceDate = getSlateDateCT(p.commenceTime || p.time || "");
+    if (!commenceDate || commenceDate >= today) return false;
+    return (
+      p.immutableOfficial === true ||
+      p.controlledBestSixDisplayTracked === true ||
+      p.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY" ||
+      String(p.officialPropId || "").startsWith(`${today}|`)
+    );
+  });
+
+  if (!corrupted.length) {
+    return {
+      ok: true,
+      repaired: false,
+      reason: "NO_CORRUPTED_TODAY_STAMPS",
+      today,
+      prior,
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+  if (corrupted.length > 6) {
+    return {
+      ok: false,
+      repaired: false,
+      reason: "CORRUPTED_COHORT_TOO_LARGE",
+      count: corrupted.length,
+      today,
+      prior,
+      build: TAB_FLOW_REPAIR_BUILD,
+    };
+  }
+
+  const dropKeys = new Set(
+    corrupted.map((p) =>
+      String(p.trackedKey || p.trackedId || getStableTrackedPropKey(p) || "")
+    )
+  );
+
+  const restored = corrupted.map((p, index) => {
+    const frozen = freezeOfficialProp(
+      {
+        ...p,
+        slateDate: prior,
+        dayBucket: "PAST",
+        dateLabel: prior,
+        homeStaged: false,
+        immutableOfficial: true,
+        bestSixRank: p.bestSixRank || p.controlledBestSixRank || index + 1,
+        trackingAdmissionSource:
+          p.trackingAdmissionSource || "ROLLOVER_DATE_STAMP_REPAIR",
+      },
+      { slateDate: prior }
+    );
+    const key = getStableTrackedPropKey({ ...frozen, slateDate: prior });
+    return {
+      ...frozen,
+      slateDate: prior,
+      homeStaged: false,
+      immutableOfficial: true,
+      trackedKey: key,
+      trackedId: key,
+    };
+  });
+
+  const restoredKeys = new Set(
+    restored.map((p) => String(p.trackedKey || p.trackedId || ""))
+  );
+
+  const next = [];
+  for (const p of tracked) {
+    const key = String(
+      p.trackedKey || p.trackedId || getStableTrackedPropKey(p) || ""
+    );
+    if (dropKeys.has(key)) continue;
+    next.push(p);
+  }
+  for (const r of restored) {
+    const key = String(r.trackedKey || r.trackedId || "");
+    if (restoredKeys.has(key) && next.some((p) => String(p.trackedKey || p.trackedId || "") === key)) {
+      continue;
+    }
+    next.push(r);
+  }
+
+  writeTrackedProps(next, {
+    allowFullReplace: true,
+    sourcePath: "repairBoardCacheTodayDateStampCorruption",
+  });
+
+  const admit = admitSealedPropsToResultsSync(prior, restored, {
+    reason: "ROLLOVER_DATE_STAMP_REPAIR_READMIT",
+    serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+    promoteToResults: true,
+    dayBucket: "PAST",
+  });
+
+  appendLifecycleAudit({
+    type: "TAB_FLOW_ROLLOVER_DATE_STAMP_REPAIR",
+    today,
+    prior,
+    restoredCount: restored.length,
+    droppedKeys: [...dropKeys],
+    build: TAB_FLOW_REPAIR_BUILD,
+  });
+
+  return {
+    ok: true,
+    repaired: true,
+    today,
+    prior,
+    restoredCount: restored.length,
+    restoredPlayers: restored.map((p) => p.player || p.playerName),
+    admit,
     build: TAB_FLOW_REPAIR_BUILD,
   };
 }

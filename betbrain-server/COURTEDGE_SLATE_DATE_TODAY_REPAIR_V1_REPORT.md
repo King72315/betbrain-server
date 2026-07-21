@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| **Build** | `courteedge-slate-date-today-repair-v1` |
+| **Build** | `courteedge-slate-date-today-repair-v2` |
 | **Branch** | `betbrain-v2-rebuild` |
 | **Remote** | `orgin` |
 | **Prod** | https://betbrain-server-1.onrender.com |
@@ -10,7 +10,7 @@
 | **Calendar today (mission)** | **2026-07-21** |
 | **Tomorrow** | **2026-07-22** |
 | **Prior sealed official** | **2026-07-20** (preserve fully) |
-| **Prior build** | `courteedge-full-app-tab-flow-repair-v1` |
+| **Prior build** | `courteedge-slate-date-today-repair-v1` → fixed admission stamp bug in **v2** |
 
 ---
 
@@ -122,6 +122,16 @@ Jul 20 data **must remain** in tracked store / Results; never shown as Home Toda
 
 ## 8. Verdict
 
-**CODE FIX SHIPPED — SLATE DATE TODAY REPAIR V1**
+**CODE FIX SHIPPED — SLATE DATE TODAY REPAIR V2**
 
-Home day classification now follows America/Chicago calendar dates on every `/picks` read. Prior sealed **2026-07-20** stays Results-intact; Home Today/Tomorrow only show **2026-07-21 / 2026-07-22**.
+Home day classification follows America/Chicago calendar dates on every `/picks` read. Prior sealed **2026-07-20** stays Results-intact; Home Today/Tomorrow only show **2026-07-21 / 2026-07-22**.
+
+### v2 follow-up (critical)
+
+v1 deploy revealed `recoverHomeBoardAdmissionFromCache` was **stamping `slateDate=today` onto stale Home Today board props** and re-admitting the Howard six as `2026-07-21`. v2:
+
+1. Filters board-cache admission to props whose resolved CT slate date **equals today**
+2. Rejects past commenceTimes from Tomorrow seal
+3. Adds `repairBoardCacheTodayDateStampCorruption` — moves mis-stamped today props with past commenceTimes back to **yesterday** and re-admits them (no deletes)
+
+Expected after v2 deploy startup repair: Results active = **2026-07-20** exact sealed six; Home Today/Tomorrow empty until real Jul 21/22 markets exist.
