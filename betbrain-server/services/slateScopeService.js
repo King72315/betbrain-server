@@ -1516,7 +1516,7 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
       slateDateReclassified: true,
-      build: "courteedge-lab-jul20-only-v1",
+      build: "courteedge-lab-learning-track-floor-v1",
     },
   };
 }

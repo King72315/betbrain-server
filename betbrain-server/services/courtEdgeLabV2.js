@@ -905,7 +905,8 @@ export function buildCourtEdgeLabV2(options = {}) {
     persist: persistThreeSlate,
   });
 
-  // Lab defaults to newest completed official slate (rotation), not stuck on an older block date.
+  // Lab defaults to newest completed eligible official slate on/after the
+  // learning-track floor — never a hard-coded permanent pin of 2026-07-20.
   const resolvedSlateDate = resolveNewestCompletedOfficialSlateDate({
     slateDate,
     officialProps,
@@ -1029,7 +1030,12 @@ export function buildCourtEdgeLabV2(options = {}) {
     currentSlate: currentSlateSummary,
     activeThreeSlateBlock: activeBlock,
     previousThreeSlateBlock: previousBlock,
-    threeSlateComparison: activeBlock?.comparison || previousBlock?.comparison || null,
+    // Prefer comparison from a non-empty active block; after 3/3 freeze the
+    // empty active falls through to the just-frozen previous block.
+    threeSlateComparison:
+      (activeBlock?.slateDates || []).length > 0
+        ? activeBlock?.comparison || previousBlock?.comparison || null
+        : previousBlock?.comparison || activeBlock?.comparison || null,
 
     overallSummary: currentSlateSummary,
     officialBestSixResults: buildBestSixResults(slateRecords),

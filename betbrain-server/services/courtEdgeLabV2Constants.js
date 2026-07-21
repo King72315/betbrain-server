@@ -4,7 +4,7 @@
  */
 
 export const LAB_V2_VERSION = "courtEdgeLabV2";
-export const LAB_V2_BUILD = "courteedge-lab-jul20-only-v1";
+export const LAB_V2_BUILD = "courteedge-lab-learning-track-floor-v1";
 export const HISTORY_THREE_SLATE_GROUPS_V2_VERSION = "history-three-slate-groups-v2";
 /** Alias expected by server.js imports */
 export const HISTORY_THREE_SLATE_GROUPS_V2 = HISTORY_THREE_SLATE_GROUPS_V2_VERSION;
@@ -13,9 +13,10 @@ export const HISTORY_THREE_SLATE_GROUPS_V2 = HISTORY_THREE_SLATE_GROUPS_V2_VERSI
 export const INSTRUMENTED_LEARNING_MIN_PROPS = 6;
 
 /**
- * Lab six-prop learning UI starts on this slate date (inclusive).
- * Earlier official six-prop dates (e.g. 2026-07-17) stay History-only —
- * never Lab current and never in the active three-slate learning block.
+ * Eligibility floor for the Lab six-prop learning track (inclusive).
+ * NOT a permanent pin of Lab current — Lab default is always the newest
+ * completed eligible official slate with slateDate >= this floor.
+ * Pre-floor dates (e.g. 2026-07-17) stay History/legacy only.
  */
 export const LAB_SIX_PROP_LEARNING_TRACK_START_DATE = "2026-07-20";
 

@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
-export const STATE_INTEGRITY_BUILD = "courteedge-lab-jul20-only-v1";
+export const STATE_INTEGRITY_BUILD = "courteedge-lab-learning-track-floor-v1";
 export const STATE_INTEGRITY_SCHEMA = "courtEdgeStateIntegrityV1";
 export const CANONICAL_STORE_VERSION = 1;
 

@@ -121,8 +121,9 @@ export function clearFrozenThreeSlateMembershipCache() {
  * active instrumented learning track. Ineligible dates already sitting in an
  * incomplete active block are demoted to legacy (not frozen as a fake block).
  *
- * activeBlock is always the latest learning block (may be incomplete 1/3–2/3 OR
- * complete 3/3 when no newer slate has started yet).
+ * activeBlock holds the in-progress learning block (1/3–2/3). When a block
+ * reaches 3/3 it freezes immutable membership and active becomes a new empty
+ * 0/3 block until the next eligible completed slate arrives.
  */
 export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   const dates = [...new Set((completedDates || []).map(String).filter(Boolean))].sort();
@@ -307,23 +308,18 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
 
   const frozenBlocks = [...priorFrozen];
 
-  // Peel complete chunks into frozen (except leave a trailing complete as active)
-  while (working.length > GROUP_SIZE) {
+  // Peel complete chunks into frozen; a trailing exact-3 also freezes and
+  // yields a fresh empty active block (never leave 3/3 pinned as active).
+  while (working.length >= GROUP_SIZE) {
     const chunk = working.slice(0, GROUP_SIZE);
     working = working.slice(GROUP_SIZE);
-    frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
+    if (!frozenBlocks.some((b) => sameDates(b.slateDates, chunk))) {
+      frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
+    }
   }
 
   let activeBlock = null;
-  if (working.length === GROUP_SIZE) {
-    // Exactly 3 — block is complete and remains active until next slate
-    const block = makeCompleteBlock(frozenBlocks.length, working);
-    // Also record in frozenBlocks for archive/history
-    if (!frozenBlocks.some((b) => sameDates(b.slateDates, working))) {
-      frozenBlocks.push(block);
-    }
-    activeBlock = { ...block };
-  } else if (working.length > 0) {
+  if (working.length > 0) {
     activeBlock = {
       groupId: `block-${frozenBlocks.length + 1}`,
       groupIndex: frozenBlocks.length,
@@ -337,25 +333,12 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
       buildVersion: LAB_V2_BUILD,
       instrumentedLearning: true,
     };
-  } else if (frozenBlocks.length > 0 && !restrictToLearning) {
-    // No working dates — latest frozen is still the active completed block
-    activeBlock = { ...frozenBlocks[frozenBlocks.length - 1] };
-  } else if (frozenBlocks.length > 0 && learningDates.length === 0) {
+  } else if (frozenBlocks.length > 0 && learningDates.length === 0 && restrictToLearning) {
     // Instrumented track idle — do not keep a legacy incomplete date as active
     activeBlock = null;
-  } else if (
-    frozenBlocks.length > 0 &&
-    learningDates.length > 0 &&
-    learningDates.every((d) => frozenDateSet.has(d))
-  ) {
-    // All learning dates already frozen — show latest frozen learning block as active
-    const learningFrozen = frozenBlocks.filter((b) =>
-      (b.slateDates || []).every((d) => learningSet.has(d) || frozenDateSet.has(d))
-    );
-    activeBlock =
-      learningFrozen.length > 0
-        ? { ...learningFrozen[learningFrozen.length - 1] }
-        : { ...frozenBlocks[frozenBlocks.length - 1] };
+  } else if (frozenBlocks.length > 0) {
+    // 3/3 just froze (or all learning dates already frozen) — start empty next
+    activeBlock = makeEmptyActiveBlock(frozenBlocks.length);
   }
 
   const legacySlateDates = [
@@ -381,6 +364,23 @@ function sameDates(a = [], b = []) {
   const as = [...a].map(String).sort().join(",");
   const bs = [...b].map(String).sort().join(",");
   return as === bs;
+}
+
+function makeEmptyActiveBlock(frozenCount) {
+  return {
+    groupId: `block-${frozenCount + 1}`,
+    groupIndex: frozenCount,
+    sequenceNumber: frozenCount + 1,
+    slateDates: [],
+    slateCount: 0,
+    incomplete: true,
+    frozen: false,
+    empty: true,
+    progress: `0/${GROUP_SIZE}`,
+    progressLabel: `Slate 0 of ${GROUP_SIZE}`,
+    buildVersion: LAB_V2_BUILD,
+    instrumentedLearning: true,
+  };
 }
 
 function makeCompleteBlock(index, slateDates) {
@@ -773,17 +773,11 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     // Ephemeral chunking — instrumented learning dates only for active track
     frozenBlocks = [];
     const remaining = [...learningDates];
-    while (remaining.length > GROUP_SIZE) {
+    while (remaining.length >= GROUP_SIZE) {
       const chunk = remaining.splice(0, GROUP_SIZE);
       frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
     }
-    if (remaining.length === GROUP_SIZE) {
-      const block = makeCompleteBlock(frozenBlocks.length, remaining);
-      if (!frozenBlocks.some((b) => sameDates(b.slateDates, remaining))) {
-        frozenBlocks.push(block);
-      }
-      activeBlock = { ...block };
-    } else if (remaining.length > 0) {
+    if (remaining.length > 0) {
       activeBlock = {
         groupId: `block-${frozenBlocks.length + 1}`,
         groupIndex: frozenBlocks.length,
@@ -797,6 +791,8 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
         buildVersion: LAB_V2_BUILD,
         instrumentedLearning: true,
       };
+    } else if (frozenBlocks.length > 0) {
+      activeBlock = makeEmptyActiveBlock(frozenBlocks.length);
     } else {
       activeBlock = null;
     }
@@ -819,7 +815,8 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     enrichedActive.comparison = buildRichComparison(enrichedActive, prevDistinct);
   }
 
-  // Active is latest instrumented learning block. Previous is the frozen block before it.
+  // Active is the in-progress learning block (may be empty 0/3 after a 3/3 freeze).
+  // Previous is the latest distinct frozen block.
   const resolvedActive = enrichedActive || null;
   let resolvedPrevious = null;
   if (resolvedActive) {
