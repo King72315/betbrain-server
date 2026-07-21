@@ -169,9 +169,15 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
 
   // Empty-store bootstrap OR wipe-corruption self-heal for non-anchor dates:
   // freeze remaining completed dates in chronological chunks of 3.
+  // When a learning track is active, NEVER bootstrap-freeze learning dates —
+  // otherwise a missing early anchor date (e.g. 06-21) can steal Jul 17 into a
+  // fake frozen block with legacy 06-22/07-08 and leave Jul 20 alone as 1/3.
   const anchoredDates = new Set(priorFrozen.flatMap((b) => b.slateDates || []));
   const expectedBlocks = [];
   let histWorking = dates.filter((d) => !anchoredDates.has(d)).sort();
+  if (restrictToLearning) {
+    histWorking = histWorking.filter((d) => !learningSet.has(d));
+  }
   while (histWorking.length >= GROUP_SIZE) {
     expectedBlocks.push(histWorking.slice(0, GROUP_SIZE));
     histWorking = histWorking.slice(GROUP_SIZE);
@@ -210,6 +216,53 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
         if (!legacyExtra.includes(d)) legacyExtra.push(d);
       }
     }
+  }
+
+  // Heal corrupt non-anchor frozen blocks that mixed learning-track dates with
+  // legacy dates (immutable anchors and pure completed learning 3/3 stay).
+  if (restrictToLearning) {
+    const healed = [];
+    for (const block of priorFrozen) {
+      const blockDates = (block.slateDates || []).map(String);
+      if (HISTORICAL_THREE_SLATE_ANCHORS.some((a) => sameDates(a, blockDates))) {
+        healed.push(block);
+        continue;
+      }
+      const learningInBlock = blockDates.filter((d) => learningSet.has(d));
+      const nonLearningInBlock = blockDates.filter((d) => !learningSet.has(d));
+      if (
+        learningInBlock.length === blockDates.length &&
+        blockDates.length === GROUP_SIZE
+      ) {
+        // Valid peeled learning block (A-B-C of six-prop track).
+        healed.push(block);
+        continue;
+      }
+      if (learningInBlock.length > 0 && nonLearningInBlock.length > 0) {
+        // Corrupt bootstrap mix — release learning dates back to active track.
+        for (const d of nonLearningInBlock) {
+          if (!legacyExtra.includes(d)) legacyExtra.push(d);
+        }
+        continue;
+      }
+      if (learningInBlock.length === 0 && blockDates.length === GROUP_SIZE) {
+        healed.push(block);
+        continue;
+      }
+      for (const d of blockDates) {
+        if (!legacyExtra.includes(d)) legacyExtra.push(d);
+      }
+    }
+    priorFrozen = healed
+      .sort((a, b) =>
+        String(a.slateDates?.[0] || "").localeCompare(String(b.slateDates?.[0] || ""))
+      )
+      .map((b, index) => ({
+        ...b,
+        groupId: `block-${index + 1}`,
+        groupIndex: index,
+        sequenceNumber: index + 1,
+      }));
   }
 
   const frozenDateSet = new Set(priorFrozen.flatMap((b) => b.slateDates || []));

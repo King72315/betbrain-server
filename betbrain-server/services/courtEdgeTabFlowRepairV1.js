@@ -60,7 +60,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const SNAPSHOTS_DIR = path.join(SERVER_ROOT, "slate-snapshots");
 const ACTIVE_BUNDLES_DIR = path.join(SERVER_ROOT, "active-bundles");
 
-export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v4";
+export const TAB_FLOW_REPAIR_BUILD = "courteedge-lab-jul20-promotion-v1";
 export const TAB_FLOW_REPAIR_SCHEMA = "courtEdgeTabFlowRepairV1";
 
 function readJSON(file, fallback = null) {

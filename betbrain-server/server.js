@@ -1,4 +1,4 @@
-ï»¿import cors from "cors";
+import cors from "cors";
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -353,12 +353,12 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-slate-date-today-repair-v4";
+const SERVER_BUILD = "courteedge-lab-jul20-promotion-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-slate-date-today-repair-v4";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-jul20-promotion-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-slate-date-today-repair-v4";
+const STATE_INTEGRITY_VERSION = "courteedge-lab-jul20-promotion-v1";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 
 function getRotationRuntimeContext(partial = {}) {
@@ -521,7 +521,7 @@ function cacheFresh() {
   if (!picksCache) return false;
 
   // Reject stale previous-build packets after deploy (missing build = stale),
-  // unless a sealed Best 6 cohort is already present â€” then preserve sealed
+  // unless a sealed Best 6 cohort is already present — then preserve sealed
   // packets and only allow market-ref refreshes (state-integrity contract).
   if (picksCache.serverBuild !== SERVER_BUILD) {
     const sealedToday =
@@ -2975,7 +2975,7 @@ async function refreshAllPicks(options = {}) {
         sealReason: sealRow.sealReason || "FULL_BEST_SIX",
         lockReason: sealRow.sealReason || "official_tomorrow_seal",
       });
-      // Atomic seal+admission â€” Home TRACK flags alone must not imply Results.
+      // Atomic seal+admission — Home TRACK flags alone must not imply Results.
       admitSealResult(sealRow, {
         serverBuild: SERVER_BUILD,
         reason: sealRow.sealReason || "TOMORROW_OFFICIAL_SEAL_ADMISSION",

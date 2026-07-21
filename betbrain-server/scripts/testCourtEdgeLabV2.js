@@ -1712,6 +1712,107 @@ test(87, "Uninstrumented placeholder open=close=seal does not invent CLV 0", () 
   assert.equal(formatClvMetric(r.clvMetric), "N/A");
 });
 
+test(88, "Missing 06-21 must not steal Jul 17 into legacy frozen chunk with Jul 20", () => {
+  resetBlocks();
+  const dates = [
+    "2026-06-22",
+    "2026-07-08",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-20",
+  ];
+  const store = syncThreeSlateBlocksV2(dates, {
+    learningDates: ["2026-07-17", "2026-07-20"],
+    legacyDates: ["2026-06-22", "2026-07-08"],
+  });
+  assert.deepEqual(store.activeBlock?.slateDates, ["2026-07-17", "2026-07-20"]);
+  assert.equal(store.activeBlock?.progress, "2/3");
+  assert.equal(store.activeBlock?.incomplete, true);
+  const frozen = store.frozenBlocks || [];
+  assert.ok(
+    frozen.some(
+      (b) =>
+        JSON.stringify([...(b.slateDates || [])].sort()) ===
+        JSON.stringify(["2026-07-14", "2026-07-15", "2026-07-16"])
+    )
+  );
+  assert.ok(!frozen.some((b) => (b.slateDates || []).includes("2026-07-17")));
+  assert.ok(!frozen.some((b) => (b.slateDates || []).includes("2026-07-20")));
+});
+
+test(89, "Heals corrupt frozen mix so Jul 17 rejoins active with Jul 20", () => {
+  resetBlocks();
+  // Reproduce pre-fix bootstrap corruption (no learningDates restriction).
+  syncThreeSlateBlocksV2([
+    "2026-06-22",
+    "2026-07-08",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+  ]);
+  const healed = syncThreeSlateBlocksV2(
+    [
+      "2026-06-22",
+      "2026-07-08",
+      "2026-07-14",
+      "2026-07-15",
+      "2026-07-16",
+      "2026-07-17",
+      "2026-07-20",
+    ],
+    {
+      learningDates: ["2026-07-17", "2026-07-20"],
+      legacyDates: ["2026-06-22", "2026-07-08"],
+    }
+  );
+  assert.deepEqual(healed.activeBlock?.slateDates, ["2026-07-17", "2026-07-20"]);
+  assert.equal(healed.activeBlock?.progress, "2/3");
+  assert.ok(
+    !(healed.frozenBlocks || []).some((b) =>
+      (b.slateDates || []).includes("2026-07-17")
+    )
+  );
+  assert.ok(
+    (healed.frozenBlocks || []).some(
+      (b) =>
+        JSON.stringify([...(b.slateDates || [])].sort()) ===
+        JSON.stringify(["2026-07-14", "2026-07-15", "2026-07-16"])
+    )
+  );
+});
+
+test(90, "Lab Jul 20 promotion keeps writesLiveWeights false and six graded props", () => {
+  resetBlocks();
+  const props = [
+    ...makeHistoricalFrozenBlockProps(),
+    ...makeUninstrumentedJul17Live(),
+    ...makeSix("2026-07-20"),
+  ];
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: props,
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-20");
+  assert.equal(lab.writesLiveWeights, false);
+  assert.equal(lab.adjustmentReview?.writesLiveWeights, false);
+  assert.equal(lab.officialBestSixResults.length, 6);
+  assert.equal(lab.currentSlate.graded, 6);
+  assert.equal(lab.currentSlate.pending, 0);
+  assert.deepEqual(lab.activeThreeSlateBlock?.slateDates, [
+    "2026-07-17",
+    "2026-07-20",
+  ]);
+  assert.equal(lab.activeThreeSlateBlock?.progress, "2/3");
+  assert.deepEqual(lab.previousThreeSlateBlock?.slateDates, [
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+  ]);
+});
+
 console.log("\n==============================");
 console.log(`Lab V2 tests: ${passed} passed, ${failed} failed`);
 console.log("==============================");

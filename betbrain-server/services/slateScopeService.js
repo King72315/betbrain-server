@@ -1497,7 +1497,7 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
       slateDateReclassified: true,
-      build: "courteedge-slate-date-today-repair-v4",
+      build: "courteedge-lab-jul20-promotion-v1",
     },
   };
 }

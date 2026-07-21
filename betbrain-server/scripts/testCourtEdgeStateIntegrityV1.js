@@ -806,9 +806,9 @@ test("T10 explainMissingCompletedSlate returns one of four answers", () => {
 });
 
 test("build version constant locked", () => {
-  assert.strictEqual(STATE_INTEGRITY_BUILD, "courteedge-slate-date-today-repair-v4");
+  assert.strictEqual(STATE_INTEGRITY_BUILD, "courteedge-lab-jul20-promotion-v1");
   const serverSrc = fs.readFileSync(path.join(SERVER_ROOT, "server.js"), "utf8");
-  assert.match(serverSrc, /courteedge-slate-date-today-repair-v4/);
+  assert.match(serverSrc, /courteedge-lab-jul20-promotion-v1/);
 });
 
 test("paid API counter increments only when recorded", () => {
