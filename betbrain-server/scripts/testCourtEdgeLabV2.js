@@ -1357,8 +1357,8 @@ function formatConsumerLabSummary(lab) {
   const covDir = `cov ${formatPctMetric(eng.coverage ?? eng.coveragePct)} · dir ${formatPctMetric(eng.directionalAccuracyMetric ?? eng.directionalAccuracy)}`;
   return [
     `Current slate: ${cur.slateDate} · ${cur.record} (${formatPctMetric(cur.winRateMetric ?? cur.winRate)})`,
-    `Active three-slate: ${active.progress} · ${(active.slateDates || []).join(" · ")}`,
-    `Previous block: ${(prev.slateDates || []).join(" · ")}`,
+    `Active three-slate: ${active.progress || "n/a"} · ${(active.slateDates || []).join(" · ") || "none"}`,
+    `Previous block: ${(prev.slateDates || []).join(" · ") || "none"}`,
     `Avg margin ${formatMetricAvailability(cur.avgMargin, { digits: 1 })}`,
     `|proj err| ${formatMetricAvailability(cur.avgAbsProjectionErrorMetric ?? cur.avgAbsProjectionError, { digits: 1 })}`,
     `CLV ${formatClvMetric(cur.avgClvMetric ?? cur.avgClv)}`,
