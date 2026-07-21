@@ -60,7 +60,7 @@ const SERVER_ROOT = path.join(__dirname, "..");
 const SNAPSHOTS_DIR = path.join(SERVER_ROOT, "slate-snapshots");
 const ACTIVE_BUNDLES_DIR = path.join(SERVER_ROOT, "active-bundles");
 
-export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v3";
+export const TAB_FLOW_REPAIR_BUILD = "courteedge-slate-date-today-repair-v4";
 export const TAB_FLOW_REPAIR_SCHEMA = "courtEdgeTabFlowRepairV1";
 
 function readJSON(file, fallback = null) {
@@ -937,6 +937,20 @@ export function restoreMissingSealedSlateFromRecovery(options = {}) {
     (p) => p.immutableOfficial === true || p.officialPropId
   );
   if (existingOfficial.length >= 6) {
+    try {
+      sealOfficialSlate(existingOfficial, {
+        slateDate,
+        todayLocalDate: today,
+        serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+        reason: "SEALED_SLATE_RECOVERY_ENSURE_LOCK",
+      });
+      promoteSealedSlateToResults(slateDate, {
+        promotedAt: new Date().toISOString(),
+        serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+      });
+    } catch {
+      // best-effort lock ensure
+    }
     return {
       ok: true,
       restored: false,
@@ -983,12 +997,41 @@ export function restoreMissingSealedSlateFromRecovery(options = {}) {
       p.trackingAdmissionSource || "SEALED_SLATE_RECOVERY_RESTORE",
   }));
 
-  const admit = admitSealedPropsToResultsSync(slateDate, stamped, {
-    reason: options.reason || "SEALED_SLATE_RECOVERY_RESTORE",
-    serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
-    promoteToResults: true,
-    dayBucket: "PAST",
-  });
+  // Ensure lock registry marks the slate ACTIVE so Results picks it up.
+  let sealResult = null;
+  try {
+    sealResult = sealOfficialSlate(stamped, {
+      slateDate,
+      todayLocalDate: today,
+      serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+      reason: "SEALED_SLATE_RECOVERY_RESTORE",
+    });
+  } catch (err) {
+    appendLifecycleAudit({
+      type: "TAB_FLOW_SEALED_SLATE_RECOVERY_SEAL_WARNING",
+      slateDate,
+      message: err.message,
+      build: TAB_FLOW_REPAIR_BUILD,
+    });
+  }
+
+  const admit = admitSealResult(
+    sealResult && (sealResult.sealed || sealResult.alreadySealed)
+      ? { ...sealResult, slateDate, props: sealResult.props || stamped }
+      : {
+          sealed: true,
+          alreadySealed: Boolean(isOfficialSlateSealed(slateDate)),
+          slateDate,
+          props: stamped,
+        },
+    {
+      reason: options.reason || "SEALED_SLATE_RECOVERY_RESTORE",
+      serverBuild: options.serverBuild || TAB_FLOW_REPAIR_BUILD,
+      promoteToResults: true,
+      dayBucket: "PAST",
+      forceAdmit: true,
+    }
+  );
 
   appendLifecycleAudit({
     type: "TAB_FLOW_SEALED_SLATE_RECOVERY_RESTORE",

@@ -438,6 +438,19 @@ export function getBlockingActiveResultsSlateDate(
   );
   if (rolloverBlock) return rolloverBlock;
 
+  // Safety net when lock registry missed overnight: prior official cohorts with
+  // unresolved grades still hold the active Results pointer.
+  const priorUnresolved = getUnresolvedPriorCohortSlateDates(
+    trackedProps,
+    reports,
+    lockedSlates,
+    today
+  );
+  const priorRollover = priorUnresolved.find((date) =>
+    isRolloverBlockingResultsSlate(date, today)
+  );
+  if (priorRollover) return priorRollover;
+
   // Permanent protection: any older sealed Official slate with pending grades
   // still blocks advancing the "active" Results pointer until resolved.
   const sealedPending = unresolved.find((date) => {
@@ -451,7 +464,21 @@ export function getBlockingActiveResultsSlateDate(
         !["win", "loss", "push"].includes(String(p.status || "").toLowerCase())
     );
   });
-  return sealedPending || null;
+  if (sealedPending) return sealedPending;
+
+  return (
+    priorUnresolved.find((date) => {
+      if (!isPastSlateDate(date, today)) return false;
+      const props = (trackedProps || []).filter(
+        (p) => getResultsPropSlateDate(p) === date
+      );
+      return props.some(
+        (p) =>
+          (p.immutableOfficial === true || Boolean(p.officialPropId)) &&
+          !["win", "loss", "push"].includes(String(p.status || "").toLowerCase())
+      );
+    }) || null
+  );
 }
 
 function getTodayOfficialResultsCohortProps(trackedProps = [], today = getTodayLocalDate()) {
@@ -1470,7 +1497,7 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
       slateDateReclassified: true,
-      build: "courteedge-slate-date-today-repair-v3",
+      build: "courteedge-slate-date-today-repair-v4",
     },
   };
 }
