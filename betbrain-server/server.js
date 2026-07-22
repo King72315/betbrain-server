@@ -4453,6 +4453,54 @@ app.post("/admin/recover-empty-board", (req, res) => {
   }
 });
 
+// Body-less sealed Results restore from bundled recovery (no scheduler token).
+// When ADMIN_SECRET is unset, allow emergency restore so post-deploy ephemeral
+// wipes can bring back sealed Jul 20 without dashboard credentials.
+app.post("/admin/recover-sealed-slate", (req, res, next) => {
+  const adminConfigured = Boolean(String(process.env.ADMIN_SECRET || "").trim());
+  const emergency =
+    req.body?.emergencySealedRestore === true ||
+    req.body?.emergencySealedRestore === "true" ||
+    req.query?.emergency === "1" ||
+    req.query?.emergency === "true" ||
+    !adminConfigured;
+  if (emergency && !adminConfigured) {
+    return next();
+  }
+  return requireAdminSecret(req, res, next);
+}, (req, res) => {
+  try {
+    const slateDate = String(
+      req.body?.slateDate || req.query?.slateDate || "2026-07-20"
+    ).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(slateDate)) {
+      return res.status(400).json({
+        ok: false,
+        message: "slateDate required as YYYY-MM-DD",
+        serverBuild: SERVER_BUILD,
+      });
+    }
+    const result = restoreMissingSealedSlateFromRecovery({
+      serverBuild: SERVER_BUILD,
+      todayLocalDate: getTodayLocalDate(),
+      slateDate,
+      reason: "ADMIN_RECOVER_SEALED_SLATE_EMERGENCY",
+    });
+    return res.json({
+      ok: result.ok !== false,
+      serverBuild: SERVER_BUILD,
+      ...result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "recover-sealed-slate failed",
+      error: error.message,
+      serverBuild: SERVER_BUILD,
+    });
+  }
+});
+
 app.post("/admin/runtime-state-import", requireAdminSecret, (req, res) => {
   try {
     if (req.body?.confirm !== true && req.body?.dryRun !== true) {
@@ -6410,26 +6458,6 @@ if (process.env.RUN_AUDIT === "1") {
     console.log("STARTUP TAB-FLOW DATE STAMP REPAIR ERROR:", error.message);
   }
 
-  try {
-    const sealedRestore = restoreMissingSealedSlateFromRecovery({
-      serverBuild: SERVER_BUILD,
-      todayLocalDate: getTodayLocalDate(),
-      slateDate: "2026-07-20",
-    });
-    console.log(
-      "STARTUP TAB-FLOW SEALED SLATE RESTORE:",
-      JSON.stringify({
-        restored: sealedRestore.restored,
-        reason: sealedRestore.reason || null,
-        slateDate: sealedRestore.slateDate,
-        propCount: sealedRestore.propCount || 0,
-        players: sealedRestore.players || [],
-      })
-    );
-  } catch (error) {
-    console.log("STARTUP TAB-FLOW SEALED SLATE RESTORE ERROR:", error.message);
-  }
-
   async function startServer() {
     try {
       const durableHydrate = await hydrateWorkingFilesFromDurableStore();
@@ -6451,6 +6479,28 @@ if (process.env.RUN_AUDIT === "1") {
       );
     } catch (error) {
       console.log("STARTUP DURABLE STORE ERROR:", error.message);
+    }
+
+    // After durable hydrate: earlier restores can be overwritten by empty/stale
+    // filesystem mirrors when Postgres is unset. Re-apply sealed Jul 20 here.
+    try {
+      const sealedRestore = restoreMissingSealedSlateFromRecovery({
+        serverBuild: SERVER_BUILD,
+        todayLocalDate: getTodayLocalDate(),
+        slateDate: "2026-07-20",
+      });
+      console.log(
+        "STARTUP TAB-FLOW SEALED SLATE RESTORE:",
+        JSON.stringify({
+          restored: sealedRestore.restored,
+          reason: sealedRestore.reason || null,
+          slateDate: sealedRestore.slateDate,
+          propCount: sealedRestore.propCount || 0,
+          players: sealedRestore.players || [],
+        })
+      );
+    } catch (error) {
+      console.log("STARTUP TAB-FLOW SEALED SLATE RESTORE ERROR:", error.message);
     }
 
     if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
