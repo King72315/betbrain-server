@@ -20,8 +20,12 @@ import {
 import { buildFlipFirstCompactLabels } from "../engines/decisionIntelligence/decisionDataIntelligenceV1.js";
 import { readWnbaProp } from "../engines/wnba/wnbaReaderEngine.js";
 import { resolveWnbaTeamId, teamsMatch } from "../engines/wnba/wnbaTeamAliasResolver.js";
-import { shouldPreserveExistingBoard } from "../services/courtEdgeSchedulerV1.js";
-import { sanitizeHomeBoardForLifecycle } from "../services/slateScopeService.js";
+import { shouldPreserveExistingBoard, isPastOnlyLkgBoard } from "../services/courtEdgeSchedulerV1.js";
+import {
+  sanitizeHomeBoardForLifecycle,
+  getTodayLocalDate,
+  getTomorrowLocalDate,
+} from "../services/slateScopeService.js";
 import { buildHomeDetailedAnalysisV1 } from "../services/courtEdgeHomeDetailedAnalysisV1.js";
 
 let passed = 0;
@@ -39,8 +43,23 @@ function test(name, fn) {
   }
 }
 
+function liveSlateDate(dayBucket = "TOMORROW") {
+  const bucket = String(dayBucket || "").toUpperCase();
+  return bucket === "TODAY" ? getTodayLocalDate() : getTomorrowLocalDate();
+}
+
+function liveCommenceIso(dayBucket = "TOMORROW") {
+  return `${liveSlateDate(dayBucket)}T23:00:00.000Z`;
+}
+
+function preserveOpts(extra = {}) {
+  return { today: getTodayLocalDate(), ...extra };
+}
+
 function basePick(overrides = {}) {
   const side = overrides.side || overrides.pick || "Over";
+  const dayBucket = overrides.dayBucket || "TOMORROW";
+  const slateDate = overrides.slateDate || liveSlateDate(dayBucket);
   return {
     player: overrides.player || "Test Player",
     team: overrides.team || "newyorkliberty",
@@ -60,9 +79,10 @@ function basePick(overrides = {}) {
     marketQuality: overrides.marketQuality ?? 60,
     isStarted: false,
     noPlay: false,
-    dayBucket: overrides.dayBucket || "TOMORROW",
-    dateLabel: overrides.dateLabel || "Tomorrow",
-    commenceTime: overrides.commenceTime || "2026-07-21T00:00:00Z",
+    dayBucket,
+    dateLabel: overrides.dateLabel || (dayBucket === "TODAY" ? "Today" : "Tomorrow"),
+    slateDate,
+    commenceTime: overrides.commenceTime || liveCommenceIso(dayBucket),
     trackingType: "TEST",
     recordType: "TEST",
     readerDecision: "TEST",
@@ -104,15 +124,19 @@ function basePick(overrides = {}) {
 }
 
 function makeGame(picks, dayBucket = "TOMORROW", overrides = {}) {
+  const bucket = String(dayBucket || "TOMORROW").toUpperCase();
+  const slateDate = overrides.slateDate || liveSlateDate(bucket);
   return {
     league: "WNBA",
-    dayBucket,
-    dateLabel: dayBucket === "TODAY" ? "Today" : "Tomorrow",
+    dayBucket: bucket,
+    dateLabel: bucket === "TODAY" ? "Today" : "Tomorrow",
     homeTeam: overrides.homeTeam || "dallaswings",
     awayTeam: overrides.awayTeam || "newyorkliberty",
-    oddsEventId: overrides.oddsEventId || `evt-${dayBucket}-${picks[0]?.player || "x"}`,
-    gameId: overrides.gameId || overrides.oddsEventId || `g-${dayBucket}`,
-    commenceTime: overrides.commenceTime || "2026-07-21T00:00:00Z",
+    oddsEventId: overrides.oddsEventId || `evt-${bucket}-${picks[0]?.player || "x"}`,
+    gameId: overrides.gameId || overrides.oddsEventId || `g-${bucket}`,
+    commenceTime: overrides.commenceTime || liveCommenceIso(bucket),
+    date: overrides.date || slateDate,
+    slateDate,
     allGeneratedCandidates: picks,
     picks,
     rawPropCount: overrides.rawPropCount ?? picks.length * 4,
@@ -516,7 +540,7 @@ test("27 shouldPreserveExistingBoard blocks total Tomorrow wipe", () => {
       }),
     ],
   };
-  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), true);
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false, preserveOpts()), true);
 });
 
 test("28 shouldPreserveExistingBoard allows honest thin Tomorrow", () => {
@@ -537,7 +561,7 @@ test("28 shouldPreserveExistingBoard allows honest thin Tomorrow", () => {
     ],
     lastKnownGoodTomorrowMerged: 0,
   };
-  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), false);
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false, preserveOpts()), false);
 });
 
 test("29 availability compact label is not CONFIRMED without row", () => {
@@ -662,11 +686,12 @@ test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-lab-learning-track-floor-v1",
-    "SERVER_BUILD must be courteedge-lab-learning-track-floor-v1"
+    "courteedge-home-fresh-slate-v1",
+    "SERVER_BUILD must be courteedge-home-fresh-slate-v1"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
-  assert.match(src, /courteedge-empty-board-guard-v1/);
+  assert.match(src, /courteedge-home-fresh-slate-v1/);
+  assert.match(src, /isPastOnlyLkgBoard/);
   assert.match(src, /STATE_INTEGRITY_VERSION/);
   assert.match(src, /mergeBoardDayIsolation/);
   assert.match(src, /syncBoardToCanonicalStore/);
@@ -675,7 +700,7 @@ test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
 
 test("63 empty previous board never preserved-over", () => {
   assert.strictEqual(
-    shouldPreserveExistingBoard({ games: [] }, { games: [makeGame([basePick()])] }, false),
+    shouldPreserveExistingBoard({ games: [] }, { games: [makeGame([basePick()])] }, false, preserveOpts()),
     false
   );
 });
@@ -724,7 +749,7 @@ test("66 empty-board guard blocks zero-candidate swap over LKG", () => {
     bestSixDisplayTodayWNBA: [],
     bestSixDisplayTomorrowWNBA: [],
   };
-  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), true);
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false, preserveOpts()), true);
 });
 
 test("67 progressive persist cannot wipe LKG Tomorrow", () => {
@@ -751,7 +776,7 @@ test("67 progressive persist cannot wipe LKG Tomorrow", () => {
     bestSixDisplayTodayWNBA: [basePick({ player: "TodayOnly" })],
     bestSixDisplayTomorrowWNBA: [],
   };
-  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), true);
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false, preserveOpts()), true);
 });
 
 test("68 progressive persist allowed when Tomorrow LKG carried", () => {
@@ -775,10 +800,83 @@ test("68 progressive persist allowed when Tomorrow LKG carried", () => {
     bestSixDisplayTomorrowWNBA: tomPicks,
     lastKnownGoodTomorrowMerged: 1,
   };
-  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false), false);
+  assert.strictEqual(shouldPreserveExistingBoard(prev, next, false, preserveOpts()), false);
 });
 
-for (let i = 69; i <= 80; i += 1) {
+test("69 past-only LKG board is not preserved over empty refresh", () => {
+  const stalePicks = Array.from({ length: 6 }, (_, i) =>
+    basePick({
+      player: `Old${i}`,
+      dayBucket: "TODAY",
+      slateDate: "2026-07-19",
+      commenceTime: "2026-07-19T23:00:00.000Z",
+    })
+  );
+  const prev = {
+    games: [
+      makeGame(stalePicks, "TODAY", {
+        oddsEventId: "e-stale",
+        slateDate: "2026-07-19",
+        date: "2026-07-19",
+        commenceTime: "2026-07-19T23:00:00.000Z",
+      }),
+    ],
+    bestSixDisplayTodayWNBA: stalePicks,
+  };
+  assert.strictEqual(isPastOnlyLkgBoard(prev, "2026-07-22"), true);
+  assert.strictEqual(
+    shouldPreserveExistingBoard(prev, { games: [] }, false, { today: "2026-07-22" }),
+    false
+  );
+  assert.strictEqual(
+    shouldPreserveExistingBoard(prev, { games: [] }, true, { today: "2026-07-22" }),
+    false
+  );
+});
+
+
+test("69b past-only LKG does not preserve over fresh slate", () => {
+  const stale = {
+    games: [
+      makeGame(
+        Array.from({ length: 6 }, (_, i) =>
+          basePick({
+            player: `S${i}`,
+            dayBucket: "TODAY",
+            commenceTime: "2026-07-19T23:00:00Z",
+            slateDate: "2026-07-19",
+          })
+        ),
+        "TODAY",
+        {
+          oddsEventId: "stale-today",
+          commenceTime: "2026-07-19T23:00:00Z",
+          date: "2026-07-19",
+          slateDate: "2026-07-19",
+        }
+      ),
+    ],
+    bestSixDisplayTodayWNBA: Array.from({ length: 6 }, (_, i) =>
+      basePick({
+        player: `S${i}`,
+        commenceTime: "2026-07-19T23:00:00Z",
+        slateDate: "2026-07-19",
+      })
+    ),
+  };
+  assert.strictEqual(isPastOnlyLkgBoard(stale, "2026-07-22"), true);
+  assert.strictEqual(
+    shouldPreserveExistingBoard(
+      stale,
+      { ok: true, games: [], bestSixDisplayTodayWNBA: [] },
+      false,
+      { today: "2026-07-22" }
+    ),
+    false
+  );
+});
+
+for (let i = 70; i <= 80; i += 1) {
   test(`${i} completion contract slot ${i}`, () => {
     assert.ok(PLAYABLE_POOL_CONTRACT_VERSION.includes("playable-pool"));
   });

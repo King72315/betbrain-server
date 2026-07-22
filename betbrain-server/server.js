@@ -241,9 +241,11 @@ import { SIGNAL_PERFORMANCE_VERSION } from "./services/signalPerformanceV1.js";
 import {
   buildCourtEdgeFlowDiagnostics,
   buildSlateRotationMetadata,
+  classifyHomeDayBucket,
   computeSlateRotation,
   getTodayLocalDate,
   pickActiveResultsSlateDate,
+  resolveHomeBoardSlateDate,
   sanitizeHomeBoardForLifecycle,
 } from "./services/slateScopeService.js";
 
@@ -347,14 +349,16 @@ import {
   runScheduledJobs,
   saveBoardCache,
   shouldPreserveExistingBoard,
+  isPastOnlyLkgBoard,
   verifySchedulerToken,
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-const SERVER_BUILD = "courteedge-lab-learning-track-floor-v1";
-const EMPTY_BOARD_GUARD_VERSION = "courteedge-empty-board-guard-v1";
+// Past-only LKG (all games PAST vs CT today) is never preserved — see isPastOnlyLkgBoard.
+const SERVER_BUILD = "courteedge-home-fresh-slate-v1";
+const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-fresh-slate-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
@@ -1276,9 +1280,16 @@ function mergeLastKnownGoodDayGames(
   dayBucket = "TOMORROW"
 ) {
   const bucket = String(dayBucket || "").toUpperCase();
+  const today = getTodayLocalDate();
+  // Do not reinstall PAST commence packets as LKG onto a fresh slate.
+  if (isPastOnlyLkgBoard(previousBoard, today)) {
+    return { games: nextGames, mergedCount: 0 };
+  }
   const prevByEvent = new Map();
   for (const g of previousBoard?.games || []) {
     if (String(g.dayBucket || "").toUpperCase() !== bucket) continue;
+    const homeBucket = classifyHomeDayBucket(resolveHomeBoardSlateDate(g), today);
+    if (homeBucket === "PAST") continue;
     const key = gameEventKey(g);
     if (key) prevByEvent.set(key, g);
   }
@@ -2822,6 +2833,7 @@ async function refreshAllPicks(options = {}) {
   if (
     Array.isArray(boardForPreserve?.games) &&
     boardForPreserve.games.length > 0 &&
+    !isPastOnlyLkgBoard(boardForPreserve) &&
     (prevPlayableCount >= 6 || prevBestSixCount >= 6) &&
     nextRawCandCount === 0 &&
     nextPlayableCount === 0
@@ -2845,7 +2857,8 @@ async function refreshAllPicks(options = {}) {
     todayCards.length === 0 &&
     tomorrowCards.length === 0 &&
     Array.isArray(boardForPreserve?.games) &&
-    boardForPreserve.games.length > 0
+    boardForPreserve.games.length > 0 &&
+    !isPastOnlyLkgBoard(boardForPreserve)
   ) {
     console.log(
       "REFRESH SKIPPED TRACKED MUTATIONS: empty board ? preserving existing board cache"
@@ -6388,27 +6401,33 @@ if (process.env.RUN_AUDIT === "1") {
               ? parsed.board
               : parsed;
           if (board && Array.isArray(board.games) && board.games.length > 0) {
-            stampAndPersistSeededBoard(
-              board,
-              "startup-empty-board-recovery-v1",
-              true
-            );
-            console.log(
-              `STARTUP: recovered empty board from bundled recovery (${board.games.length} games, today=${(board.bestSixDisplayTodayWNBA || []).length}, tomorrow=${(board.bestSixDisplayTomorrowWNBA || []).length})`
-            );
+            if (isPastOnlyLkgBoard(board, getTodayLocalDate())) {
+              console.log(
+                `STARTUP: skipped past-only recovery board (${board.games.length} games) — awaiting fresh refresh`
+              );
+            } else {
+              stampAndPersistSeededBoard(
+                board,
+                "startup-empty-board-recovery-v1",
+                true
+              );
+              console.log(
+                `STARTUP: recovered empty board from bundled recovery (${board.games.length} games, today=${(board.bestSixDisplayTodayWNBA || []).length}, tomorrow=${(board.bestSixDisplayTomorrowWNBA || []).length})`
+              );
+            }
           } else {
             console.log(
-              "STARTUP: empty board ? recovery file present but invalid"
+              "STARTUP: empty board — recovery file present but invalid"
             );
           }
         } else {
           console.log(
-            "STARTUP: empty board ? awaiting manual/scheduled refresh"
+            "STARTUP: empty board — awaiting manual/scheduled refresh"
           );
         }
       } catch (err) {
         console.log("STARTUP EMPTY BOARD RECOVERY ERROR:", err.message);
-        console.log("STARTUP: empty board ? awaiting manual/scheduled refresh");
+        console.log("STARTUP: empty board — awaiting manual/scheduled refresh");
       }
     }
 

@@ -615,7 +615,29 @@ function rankBestSix(selected = [], league = "", options = {}) {
 
 function applyWnbaDecisionStack(pick = {}, options = {}) {
   if (!isWnbaQualityGatePick(pick)) {
-    return { pick: null, rejectReason: "missing_wnba_gate_inputs" };
+    // Soft gates must not terminal-exclude weak-but-playable candidates.
+    // Missing card/reader is a soft demotion, not an objective invalidity kill.
+    return {
+      pick: {
+        ...pick,
+        weakButPlayable: true,
+        playablePoolState: "WEAK_BUT_PLAYABLE",
+        missingWnbaGateInputs: true,
+        wnbaTrackingReason:
+          pick.wnbaTrackingReason || "missing_wnba_gate_inputs",
+        decisionIntelligence: {
+          ...(pick.decisionIntelligence || {}),
+          trackEligibility:
+            pick.decisionIntelligence?.trackEligibility || "BOARD_ONLY",
+          originalGateEligibility:
+            pick.decisionIntelligence?.originalGateEligibility ||
+            "missing_wnba_gate_inputs",
+          bestSixEligibility: true,
+          gateReason: "missing_wnba_gate_inputs",
+        },
+      },
+      softGatePassThrough: true,
+    };
   }
 
   // Same-team arbitration lock: never rerun Side Rescue / flip side via slate recompute

@@ -21,6 +21,7 @@ import {
   evaluatePregameRefreshDue,
   getCourtEdgeLocalParts,
   getSchedulerStatus,
+  isPastOnlyLkgBoard,
   loadBoardCache,
   loadSchedulerState,
   parseGameStartMs,
@@ -91,7 +92,11 @@ function chicagoAt({ hour, minute = 0, slateDate = "2026-07-13" }) {
   return guess;
 }
 
-function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY", extras = {}) {
+function fixtureToday() {
+  return getCourtEdgeLocalParts().slateDate;
+}
+
+function validBoard(slateDate = fixtureToday(), dayBucket = "TODAY", extras = {}) {
   return {
     ok: true,
     lastUpdated: new Date().toISOString(),
@@ -101,8 +106,11 @@ function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY", extras = {}) 
         gameId: "g1",
         league: "WNBA",
         date: slateDate,
+        slateDate,
         dayBucket,
-        commenceTime: extras.commenceTime,
+        commenceTime:
+          extras.commenceTime ||
+          chicagoAt({ hour: 19, minute: 0, slateDate }).toISOString(),
         time: extras.time,
         picks: [{ player: "A", side: "Over", line: 15 }],
         ...extras.gameExtras,
@@ -113,6 +121,8 @@ function validBoard(slateDate = "2026-07-13", dayBucket = "TODAY", extras = {}) 
       player: `P${i}`,
       side: i % 2 ? "Under" : "Over",
       line: 10 + i,
+      slateDate,
+      commenceTime: chicagoAt({ hour: 19, minute: 0, slateDate }).toISOString(),
     })),
     topWNBAProps: [
       { player: "P0", side: "Over", line: 10 },
@@ -364,6 +374,8 @@ test("11b zombie zero-candidate board does not replace LKG Best6", () => {
     games: [
       {
         dayBucket: "TODAY",
+        commenceTime: "2026-07-13T00:00:00.000Z",
+        slateDate: "2026-07-13",
         allGeneratedCandidates: Array.from({ length: 6 }, (_, i) => ({
           player: `P${i}`,
         })),
@@ -371,9 +383,13 @@ test("11b zombie zero-candidate board does not replace LKG Best6", () => {
     ],
     bestSixDisplayTodayWNBA: Array.from({ length: 6 }, (_, i) => ({
       player: `P${i}`,
+      commenceTime: "2026-07-13T00:00:00.000Z",
+      slateDate: "2026-07-13",
     })),
     bestSixDisplayTomorrowWNBA: Array.from({ length: 6 }, (_, i) => ({
       player: `T${i}`,
+      commenceTime: "2026-07-14T00:00:00.000Z",
+      slateDate: "2026-07-14",
     })),
   };
   const next = {
@@ -382,7 +398,71 @@ test("11b zombie zero-candidate board does not replace LKG Best6", () => {
     bestSixDisplayTodayWNBA: [],
     bestSixDisplayTomorrowWNBA: [],
   };
-  assert.equal(shouldPreserveExistingBoard(prev, next, false), true);
+  assert.equal(
+    shouldPreserveExistingBoard(prev, next, false, { today: "2026-07-13" }),
+    true
+  );
+});
+
+test("11c past-only LKG does not block fresh empty overwrite", () => {
+  const prev = {
+    ok: true,
+    games: [
+      {
+        dayBucket: "TODAY",
+        commenceTime: "2026-07-19T00:00:00.000Z",
+        slateDate: "2026-07-19",
+        allGeneratedCandidates: Array.from({ length: 6 }, (_, i) => ({
+          player: `Old${i}`,
+        })),
+      },
+      {
+        dayBucket: "TOMORROW",
+        commenceTime: "2026-07-21T00:00:00.000Z",
+        slateDate: "2026-07-21",
+        allGeneratedCandidates: Array.from({ length: 6 }, (_, i) => ({
+          player: `Tom${i}`,
+        })),
+      },
+    ],
+    bestSixDisplayTodayWNBA: Array.from({ length: 6 }, (_, i) => ({
+      player: `Old${i}`,
+      commenceTime: "2026-07-19T00:00:00.000Z",
+      slateDate: "2026-07-19",
+    })),
+    bestSixDisplayTomorrowWNBA: Array.from({ length: 6 }, (_, i) => ({
+      player: `Tom${i}`,
+      commenceTime: "2026-07-21T00:00:00.000Z",
+      slateDate: "2026-07-21",
+    })),
+  };
+  assert.equal(isPastOnlyLkgBoard(prev, "2026-07-22"), true);
+  const next = {
+    ok: true,
+    games: [
+      {
+        dayBucket: "TODAY",
+        commenceTime: "2026-07-22T00:00:00.000Z",
+        slateDate: "2026-07-22",
+        allGeneratedCandidates: [{ player: "Fresh" }],
+      },
+    ],
+    bestSixDisplayTodayWNBA: [{ player: "Fresh" }],
+  };
+  assert.equal(
+    shouldPreserveExistingBoard(prev, next, false, { today: "2026-07-22" }),
+    false
+  );
+  // Even a thin/empty next must be allowed so sanitize+refresh can rebuild.
+  assert.equal(
+    shouldPreserveExistingBoard(
+      prev,
+      { ok: true, games: [], bestSixDisplayTodayWNBA: [] },
+      false,
+      { today: "2026-07-22" }
+    ),
+    false
+  );
 });
 
 await testAsync("12 automatic grading without opening Results", async () => {

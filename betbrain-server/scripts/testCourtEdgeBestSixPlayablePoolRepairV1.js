@@ -672,5 +672,28 @@ test("bonus promoteBestSixCohortPick strips raw codes", () => {
   assert.ok(!/OVER_GAP_BELOW_WNBA_FULL_DATA_FLOOR/.test(why));
 });
 
+test("bonus missing_wnba_gate_inputs stays weak-but-playable", () => {
+  const pick = basePick({
+    player: "NoCard",
+    team: "teamZ",
+  });
+  delete pick.wnbaDataCard;
+  delete pick.wnbaReader;
+  const { bestSix, controlledBestSixAudit: audit } = selectControlledBestSix(
+    [...elevenBoardCandidates().slice(0, 5), pick],
+    "WNBA"
+  );
+  const rejectedMissing = (audit.rejected || []).filter(
+    (r) => r.reason === "missing_wnba_gate_inputs"
+  );
+  assert.strictEqual(rejectedMissing.length, 0);
+  assert.ok(bestSix.some((p) => p.player === "NoCard" || bestSix.length >= 5));
+  const kept = bestSix.find((p) => p.player === "NoCard");
+  if (kept) {
+    assert.strictEqual(kept.weakButPlayable, true);
+    assert.strictEqual(kept.missingWnbaGateInputs, true);
+  }
+});
+
 console.log(`\nPlayable pool repair: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

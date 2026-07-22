@@ -8,7 +8,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { CONFIG } from "../config.js";
-import { getTodayLocalDate } from "./slateScopeService.js";
+import {
+  classifyHomeDayBucket,
+  getTodayLocalDate,
+  resolveHomeBoardSlateDate,
+} from "./slateScopeService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -599,11 +603,81 @@ function countBestSixDisplayTotal(board) {
   );
 }
 
-export function shouldPreserveExistingBoard(previousBoard, nextBoard, failure) {
+/**
+ * True when the board still has at least one game/prop whose CT slate date
+ * is calendar TODAY or TOMORROW. Stale LKG packets (all PAST) must not block
+ * fresh generation via empty-board preserve.
+ */
+export function boardHasCalendarLiveHomeGames(board, today = getTodayLocalDate()) {
+  const t = String(today || getTodayLocalDate()).slice(0, 10);
+  for (const g of board?.games || []) {
+    const bucket = classifyHomeDayBucket(resolveHomeBoardSlateDate(g), t);
+    if (bucket === "TODAY" || bucket === "TOMORROW") return true;
+  }
+  const displayLists = [
+    board?.bestSixDisplayTodayWNBA,
+    board?.bestSixDisplayTodayNBA,
+    board?.bestSixDisplayTomorrowWNBA,
+    board?.bestSixDisplayTomorrowNBA,
+    board?.bestSixDisplayWNBA,
+    board?.bestSixDisplayNBA,
+    board?.bestSixWNBA,
+    board?.bestSixNBA,
+  ];
+  for (const list of displayLists) {
+    for (const prop of list || []) {
+      const bucket = classifyHomeDayBucket(resolveHomeBoardSlateDate(prop), t);
+      if (bucket === "TODAY" || bucket === "TOMORROW") return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * LKG is past-only when every classifiable game/prop is PAST vs CT today.
+ * Unclassifiable dates (missing commence/slateDate) do not count as stale —
+ * preserve behavior stays unchanged for undated shells.
+ */
+export function isPastOnlyLkgBoard(board, today = getTodayLocalDate()) {
+  const t = String(today || getTodayLocalDate()).slice(0, 10);
+  let classified = 0;
+  let live = 0;
+  let past = 0;
+
+  const consider = (entity) => {
+    const bucket = classifyHomeDayBucket(resolveHomeBoardSlateDate(entity), t);
+    if (!bucket) return;
+    classified += 1;
+    if (bucket === "TODAY" || bucket === "TOMORROW") live += 1;
+    else if (bucket === "PAST") past += 1;
+  };
+
+  for (const g of board?.games || []) consider(g);
+  for (const list of [
+    board?.bestSixDisplayTodayWNBA,
+    board?.bestSixDisplayTodayNBA,
+    board?.bestSixDisplayTomorrowWNBA,
+    board?.bestSixDisplayTomorrowNBA,
+    board?.bestSixDisplayWNBA,
+    board?.bestSixDisplayNBA,
+    board?.bestSixWNBA,
+    board?.bestSixNBA,
+  ]) {
+    for (const prop of list || []) consider(prop);
+  }
+
+  if (classified === 0) return false;
+  return live === 0 && past > 0;
+}
+
+export function shouldPreserveExistingBoard(previousBoard, nextBoard, failure, options = {}) {
+  const today = options.today || getTodayLocalDate();
   const prevGames = Array.isArray(previousBoard?.games)
     ? previousBoard.games.length
     : 0;
   if (prevGames <= 0) return false;
+  // Stale LKG (all games PAST vs CT today) must never block a fresh slate.
+  if (isPastOnlyLkgBoard(previousBoard, today)) return false;
   if (failure) return true;
   const nextGames = Array.isArray(nextBoard?.games) ? nextBoard.games.length : 0;
   if (nextGames === 0) return true;
