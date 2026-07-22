@@ -17,7 +17,9 @@
     "test:courtedge-state-integrity": "node scripts/testCourtEdgeStateIntegrityV1.js",
     "test:courtedge-tab-flow-repair": "node scripts/testCourtEdgeFullAppTabFlowRepairV1.js",
     "test:courtedge-scheduler": "node scripts/testCourtEdgeSchedulerV1.js",
-    "test:courtedge-fully-autonomous": "node scripts/testCourtEdgeFullyAutonomousOperationV1.js"
+    "test:courtedge-fully-autonomous": "node scripts/testCourtEdgeFullyAutonomousOperationV1.js",
+    "test:courtedge-home-restart-durability": "node scripts/testCourtEdgeHomeRestartDurabilityV1.js",
+    "test:courtedge-home-restart-durability": "node scripts/testCourtEdgeHomeRestartDurabilityV1.js"
   },
   "engines": {
     "node": ">=18"

@@ -365,21 +365,29 @@ import {
   hydrateWorkingFilesFromDurableStore,
 } from "./services/courtEdgeDurableStoreV1.js";
 import {
+  getHomeDurableStatusAsync,
+  hydrateHomeBoardFromDurable,
+  persistHomeBoardAtomic,
+  HOME_DURABLE_BUILD,
+  proveLegitimateEmptySlate,
+} from "./services/courtEdgeHomeDurableStoreV1.js";
+import {
   runIntegrityWatchdog,
   loadLastWatchdogReport,
 } from "./services/courtEdgeIntegrityWatchdogV1.js";
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
-// startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
+// startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-fully-autonomous-operation-v1";
-const EMPTY_BOARD_GUARD_VERSION = "courteedge-fully-autonomous-operation-v1";
+const SERVER_BUILD = "courteedge-home-restart-durability-v1";
+const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-fully-autonomous-operation-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-home-restart-durability-v1";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
 const AUTONOMOUS_OPS_VERSION = "courteedge-fully-autonomous-operation-v1";
+const HOME_RESTART_DURABILITY_VERSION = HOME_DURABLE_BUILD;
 const SCHEDULER_HEARTBEAT_MS = Number(
   process.env.COURTEDGE_SCHEDULER_HEARTBEAT_MS || 15 * 60 * 1000
 );
@@ -484,6 +492,21 @@ function persistBoardAfterRefresh(result) {
         });
         return previous;
       }
+      // Empty-board protection: unproven empty cannot clear valid Home.
+      const prevToday = (previous?.bestSixDisplayTodayWNBA || []).length;
+      const nextToday = (result?.bestSixDisplayTodayWNBA || []).length;
+      if (prevToday > 0 && nextToday === 0) {
+        const proof = proveLegitimateEmptySlate(result?.emptyProof || {});
+        if (!proof.proven) {
+          logStateIntegrityEvent({
+            operation: "persist_board",
+            source: "persistBoardAfterRefresh",
+            result: "preserved_lkg",
+            reason: "empty_unproven_home_guard",
+          });
+          return previous;
+        }
+      }
       let next = mergeBoardDayIsolation(previous, result);
       const forceMarketOnly =
         result?.forceRefresh === true ||
@@ -497,8 +520,29 @@ function persistBoardAfterRefresh(result) {
         serverBuild: SERVER_BUILD,
         stateIntegrityVersion: STATE_INTEGRITY_VERSION,
         boardSchemaVersion: BOARD_SCHEMA_VERSION,
+        homeDurableBuild: HOME_RESTART_DURABILITY_VERSION,
       };
       const saved = saveBoardCache(next);
+      // Awaited durable Home day persist (non-blocking lock body uses sync save;
+      // durable write is scheduled and also kicked explicitly).
+      Promise.resolve()
+        .then(() =>
+          persistHomeBoardAtomic(saved || next, {
+            todayDate: getCanonicalSlateDate(),
+            providerFailed: result?.ok === false,
+            providerPartial: result?.incomplete === true,
+            emptyProof: result?.emptyProof,
+          })
+        )
+        .catch((err) => {
+          console.log(
+            JSON.stringify({
+              channel: "courtedge-home-durable",
+              operation: "persist_home_board_failed",
+              error: err?.message || String(err),
+            })
+          );
+        });
       try {
         syncBoardToCanonicalStore(saved || next, {
           source: "persistBoardAfterRefresh",
@@ -3335,7 +3379,13 @@ async function refreshAllPicks(options = {}) {
   return result;
 }
 
-app.get("/health", (req, res) => {
+app.get("/health", async (req, res) => {
+  let homeDurable = null;
+  try {
+    homeDurable = await getHomeDurableStatusAsync();
+  } catch {
+    homeDurable = { build: HOME_RESTART_DURABILITY_VERSION, error: true };
+  }
   res.json({
     ok: true,
     message: "CourtEdge backend running",
@@ -3344,6 +3394,9 @@ app.get("/health", (req, res) => {
     tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
     emptyBoardGuardVersion: EMPTY_BOARD_GUARD_VERSION,
+    homeRestartDurabilityVersion: HOME_RESTART_DURABILITY_VERSION,
+    homeDurable,
+    durableStore: getDurableStoreHealthSync(),
     recoveryEndpoints: true,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
@@ -4226,6 +4279,7 @@ function stampAndPersistSeededBoard(board, reason, emergency) {
     ok: true,
     serverBuild: SERVER_BUILD,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
+    homeDurableBuild: HOME_RESTART_DURABILITY_VERSION,
     lastUpdated: new Date().toISOString(),
     seededBoardCache: true,
     seedReason: reason,
@@ -4234,6 +4288,18 @@ function stampAndPersistSeededBoard(board, reason, emergency) {
   picksCache = stamped;
   lastRefreshTime = Date.now();
   saveBoardCache(stamped);
+  // Bridge seed ? durable Home day records (awaited in background).
+  Promise.resolve()
+    .then(() =>
+      persistHomeBoardAtomic(stamped, {
+        todayDate: getTodayLocalDate(),
+        force: true,
+        fromBundle: Boolean(emergency),
+      })
+    )
+    .catch((error) => {
+      console.log("HOME DURABLE SEED PERSIST WARNING:", error.message);
+    });
   // Seed/recovery historically restored Home without Results admission.
   try {
     const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
@@ -4453,22 +4519,10 @@ app.post("/admin/recover-empty-board", (req, res) => {
   }
 });
 
-// Body-less sealed Results restore from bundled recovery (no scheduler token).
-// When ADMIN_SECRET is unset, allow emergency restore so post-deploy ephemeral
-// wipes can bring back sealed Jul 20 without dashboard credentials.
-app.post("/admin/recover-sealed-slate", (req, res, next) => {
-  const adminConfigured = Boolean(String(process.env.ADMIN_SECRET || "").trim());
-  const emergency =
-    req.body?.emergencySealedRestore === true ||
-    req.body?.emergencySealedRestore === "true" ||
-    req.query?.emergency === "1" ||
-    req.query?.emergency === "true" ||
-    !adminConfigured;
-  if (emergency && !adminConfigured) {
-    return next();
-  }
-  return requireAdminSecret(req, res, next);
-}, (req, res) => {
+// Body-less sealed Results restore from bundled recovery.
+// Fail-closed: ADMIN_SECRET missing ? 503; wrong secret ? 401.
+// Manual recovery must not be required after normal restarts once durable Home works.
+app.post("/admin/recover-sealed-slate", requireAdminSecret, (req, res) => {
   try {
     const slateDate = String(
       req.body?.slateDate || req.query?.slateDate || "2026-07-20"
@@ -4484,7 +4538,7 @@ app.post("/admin/recover-sealed-slate", (req, res, next) => {
       serverBuild: SERVER_BUILD,
       todayLocalDate: getTodayLocalDate(),
       slateDate,
-      reason: "ADMIN_RECOVER_SEALED_SLATE_EMERGENCY",
+      reason: "ADMIN_RECOVER_SEALED_SLATE",
     });
     return res.json({
       ok: result.ok !== false,
@@ -6481,6 +6535,42 @@ if (process.env.RUN_AUDIT === "1") {
       console.log("STARTUP DURABLE STORE ERROR:", error.message);
     }
 
+    // Home restart durability: restore Today/Tomorrow from durable store BEFORE
+    // bundled recovery. Durable sealed/draft beats bundle/seed/empty init.
+    try {
+      const todayCT = getTodayLocalDate();
+      const [y, m, d] = todayCT.split("-").map(Number);
+      const tomorrowCT = new Date(Date.UTC(y, m - 1, d + 1, 12))
+        .toISOString()
+        .slice(0, 10);
+      const homeHydrate = await hydrateHomeBoardFromDurable({
+        todayDate: todayCT,
+        tomorrowDate: tomorrowCT,
+        seedBoard: loadBoardCache(),
+      });
+      console.log(
+        "STARTUP HOME DURABLE HYDRATE:",
+        JSON.stringify({
+          build: homeHydrate.build,
+          todayCount: homeHydrate.todayCount,
+          tomorrowCount: homeHydrate.tomorrowCount,
+          actions: homeHydrate.actions?.length || 0,
+        })
+      );
+      if (homeHydrate.board && (homeHydrate.todayCount > 0 || homeHydrate.tomorrowCount > 0)) {
+        picksCache = {
+          ...homeHydrate.board,
+          serverBuild: SERVER_BUILD,
+          homeDurableHydrated: true,
+          lastUpdated: new Date().toISOString(),
+        };
+        lastRefreshTime = Date.now();
+        saveBoardCache(picksCache);
+      }
+    } catch (error) {
+      console.log("STARTUP HOME DURABLE HYDRATE ERROR:", error.message);
+    }
+
     // After durable hydrate: earlier restores can be overwritten by empty/stale
     // filesystem mirrors when Postgres is unset. Re-apply sealed Jul 20 here.
     try {
@@ -6605,12 +6695,43 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
-    app.listen(CONFIG.PORT, () => {
+    app.listen(CONFIG.PORT, async () => {
     console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
     console.log("CONFIG:", checkConfig());
     console.log("SERVER_BUILD:", SERVER_BUILD);
 
     hydratePicksCacheFromDisk();
+    if (!picksCache?.games?.length) {
+      try {
+        const todayCT = getTodayLocalDate();
+        const [y, m, d] = todayCT.split("-").map(Number);
+        const tomorrowCT = new Date(Date.UTC(y, m - 1, d + 1, 12))
+          .toISOString()
+          .slice(0, 10);
+        const homeHydrate = await hydrateHomeBoardFromDurable({
+          todayDate: todayCT,
+          tomorrowDate: tomorrowCT,
+        });
+        if (
+          homeHydrate.board &&
+          (homeHydrate.todayCount > 0 || homeHydrate.tomorrowCount > 0)
+        ) {
+          picksCache = {
+            ...homeHydrate.board,
+            serverBuild: SERVER_BUILD,
+            homeDurableHydrated: true,
+            lastUpdated: new Date().toISOString(),
+          };
+          lastRefreshTime = Date.now();
+          saveBoardCache(picksCache);
+          console.log(
+            `BOARD CACHE durable-home hydrated: today=${homeHydrate.todayCount}, tomorrow=${homeHydrate.tomorrowCount}`
+          );
+        }
+      } catch (error) {
+        console.log("LISTEN HOME DURABLE HYDRATE ERROR:", error.message);
+      }
+    }
     if (picksCache?.games?.length) {
       console.log(
         `BOARD CACHE hydrated: ${picksCache.games.length} games, lastUpdated=${picksCache.lastUpdated || "n/a"}`

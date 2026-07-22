@@ -234,7 +234,35 @@ export function saveBoardCache(board) {
   syncKeyToDurableFireAndForget(DURABLE_KEYS.BOARD_CACHE, payload, {
     writeLocalFile: false,
   });
+  // Home day records (Today/Tomorrow isolated) — fire-and-forget bridge;
+  // callers that need hard durability should await persistHomeBoardAtomic.
+  Promise.resolve()
+    .then(async () => {
+      const { persistHomeBoardAtomic } = await import(
+        "./courtEdgeHomeDurableStoreV1.js"
+      );
+      return persistHomeBoardAtomic(payload, {
+        todayDate: payload.slateDate || undefined,
+        fromBundle: Boolean(payload.fromBundle),
+      });
+    })
+    .catch(() => {
+      // non-fatal; empty-board guard + LKG still protect memory/disk
+    });
   return payload;
+}
+
+/**
+ * Awaited Home + board-cache durable persist (restart durability path).
+ */
+export async function saveBoardCacheDurable(board, options = {}) {
+  const payload = saveBoardCache(board);
+  if (!payload) return null;
+  const { persistHomeBoardAtomic } = await import(
+    "./courtEdgeHomeDurableStoreV1.js"
+  );
+  const home = await persistHomeBoardAtomic(payload, options);
+  return { board: payload, home };
 }
 
 export function getCourtEdgeLocalParts(now = new Date(), timeZone = SCHEDULER_CONFIG.timezone) {
