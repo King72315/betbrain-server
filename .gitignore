@@ -48,6 +48,14 @@ betbrain-server/board-cache.json.tmp
 betbrain-server/courtedge-scheduler-state-v1.json
 betbrain-server/courtedge-scheduler-state-v1.json.tmp
 
+# CourtEdge durable mirror + autonomous baselines (local only)
+betbrain-server/.durable-mirror-v1/
+betbrain-server/.fully-autonomous-baseline-v1/
+betbrain-server/courtedge-idempotency-v1.json
+betbrain-server/courtedge-watchdog-state-v1.json
+betbrain-server/courtedge-lab-pointer-v1.json
+betbrain-server/_tmp_autonomous_spec.txt
+
 # Player Intelligence durable stores (runtime learning caches)
 betbrain-server/player-intelligence-cache-v1.json
 betbrain-server/player-intelligence-cache-v1.json.tmp

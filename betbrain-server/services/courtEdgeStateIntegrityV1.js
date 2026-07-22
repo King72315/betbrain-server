@@ -12,12 +12,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { getTodayLocalDate } from "./slateScopeService.js";
 import { isLabSixPropLearningTrackDate } from "./courtEdgeLabV2Constants.js";
+import {
+  DURABLE_KEYS,
+  syncKeyToDurableFireAndForget,
+} from "./courtEdgeDurableStoreV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
-export const STATE_INTEGRITY_BUILD = "courteedge-lab-learning-track-floor-v1";
+export const STATE_INTEGRITY_BUILD = "courteedge-fully-autonomous-operation-v1";
 export const STATE_INTEGRITY_SCHEMA = "courtEdgeStateIntegrityV1";
 export const CANONICAL_STORE_VERSION = 1;
 
@@ -646,6 +650,11 @@ export function saveCanonicalStore(store, filePath = STORE_FILE) {
     updatedAt: new Date().toISOString(),
   };
   atomicWriteJson(filePath, next);
+  if (filePath === STORE_FILE) {
+    syncKeyToDurableFireAndForget(DURABLE_KEYS.CANONICAL_SLATES, next, {
+      writeLocalFile: false,
+    });
+  }
   return next;
 }
 

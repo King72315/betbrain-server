@@ -15,7 +15,9 @@
     "test:courtedge-home-completion": "node scripts/testCourtEdgeHomeCompletionTomorrowSixV1.js",
     "test:courtedge-analysis-integrity": "node scripts/testCourtEdgeAnalysisIntegrityV1.js",
     "test:courtedge-state-integrity": "node scripts/testCourtEdgeStateIntegrityV1.js",
-    "test:courtedge-tab-flow-repair": "node scripts/testCourtEdgeFullAppTabFlowRepairV1.js"
+    "test:courtedge-tab-flow-repair": "node scripts/testCourtEdgeFullAppTabFlowRepairV1.js",
+    "test:courtedge-scheduler": "node scripts/testCourtEdgeSchedulerV1.js",
+    "test:courtedge-fully-autonomous": "node scripts/testCourtEdgeFullyAutonomousOperationV1.js"
   },
   "engines": {
     "node": ">=18"
@@ -25,6 +27,7 @@
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "pg": "^8.22.0"
   }
 }

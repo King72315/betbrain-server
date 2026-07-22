@@ -39,6 +39,10 @@ import {
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
 import {
+  DURABLE_KEYS,
+  syncKeyToDurableFireAndForget,
+} from "./courtEdgeDurableStoreV1.js";
+import {
   recordGradedPropCalibration,
   attachProfileLabFieldsToTracked,
 } from "../engines/wnba/playerIntelligence/index.js";
@@ -245,6 +249,12 @@ function readJSON(file, fallback = []) {
 
 function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  if (file === TRACKED_FILE) {
+    const payload = Array.isArray(data) ? { props: data } : data;
+    syncKeyToDurableFireAndForget(DURABLE_KEYS.TRACKED_PROPS, payload, {
+      writeLocalFile: false,
+    });
+  }
 }
 
 function ensureTrackedFile() {

@@ -338,6 +338,7 @@ import {
 import {
   TAB_FLOW_REPAIR_BUILD,
   admitSealResult,
+  admitSealedPropsToResults,
   recoverSealedOrphansAtStartup,
   recoverHomeBoardAdmissionFromCache,
   repairBoardCacheTodayDateStampCorruption,
@@ -358,17 +359,30 @@ import {
   verifySchedulerToken,
   JOB_IDS,
 } from "./services/courtEdgeSchedulerV1.js";
+import {
+  getDurableStoreHealth,
+  getDurableStoreHealthSync,
+  hydrateWorkingFilesFromDurableStore,
+} from "./services/courtEdgeDurableStoreV1.js";
+import {
+  runIntegrityWatchdog,
+  loadLastWatchdogReport,
+} from "./services/courtEdgeIntegrityWatchdogV1.js";
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-home-analysis-hydrate-v1";
-const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-analysis-hydrate-v1";
+const SERVER_BUILD = "courteedge-fully-autonomous-operation-v1";
+const EMPTY_BOARD_GUARD_VERSION = "courteedge-fully-autonomous-operation-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
-const STATE_INTEGRITY_VERSION = "courteedge-lab-learning-track-floor-v1";
+const STATE_INTEGRITY_VERSION = "courteedge-fully-autonomous-operation-v1";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
+const AUTONOMOUS_OPS_VERSION = "courteedge-fully-autonomous-operation-v1";
+const SCHEDULER_HEARTBEAT_MS = Number(
+  process.env.COURTEDGE_SCHEDULER_HEARTBEAT_MS || 15 * 60 * 1000
+);
 
 function getRotationRuntimeContext(partial = {}) {
   return {
@@ -3751,6 +3765,44 @@ function buildSchedulerHandlers() {
       const dailyReport = attemptDailySlateReportBuild(props);
       return dailyReport;
     },
+    runWatchdog: async ({ schedulerState, board } = {}) => {
+      let labPayload = null;
+      try {
+        labPayload = buildCourtEdgeLabV2({
+          trackedProps: getTrackedProps(),
+          archives: getAllHistoryArchives(),
+          reports: getRawDailySlateReports(),
+          persistThreeSlate: false,
+        });
+      } catch {
+        labPayload = null;
+      }
+      return runIntegrityWatchdog({
+        board: board || getReadOnlyBoard(),
+        trackedProps: getTrackedProps(),
+        lab: {
+          currentLabSlateDate: labPayload?.slateDate || null,
+          labV2: labPayload,
+        },
+        schedulerState,
+        allowRepairs: true,
+        admitSealedToResults: async ({ slateDate, props, reason }) =>
+          admitSealedPropsToResults(slateDate, props, {
+            serverBuild: SERVER_BUILD,
+            reason,
+          }),
+        promoteGradedToLab: async ({ slateDate, reason }) => {
+          const props = getTrackedProps();
+          const dailyReport = attemptDailySlateReportBuild(props);
+          return {
+            ok: true,
+            slateDate,
+            reason,
+            dailyReport: dailyReport?.summary || dailyReport || null,
+          };
+        },
+      });
+    },
   };
 }
 
@@ -3785,22 +3837,70 @@ app.post(
 app.get(
   "/internal/courtedge/scheduler-status",
   requireSchedulerToken,
-  (req, res) => {
+  async (req, res) => {
     const status = getSchedulerStatus();
+    const durable = await getDurableStoreHealth();
+    const watchdog = await loadLastWatchdogReport();
+    const board = getReadOnlyBoard();
+    const tracked = getTrackedProps();
+    let labPayload = null;
+    try {
+      labPayload = buildCourtEdgeLabV2({
+        trackedProps: tracked,
+        archives: getAllHistoryArchives(),
+        reports: getRawDailySlateReports(),
+        persistThreeSlate: false,
+      });
+    } catch {
+      labPayload = null;
+    }
+    const today = getTodayLocalDate();
+    const trackedToday = tracked.filter(
+      (p) => String(p.slateDate || p.resultsSlateDate || "").slice(0, 10) === today
+    );
+    const gradedToday = trackedToday.filter((p) => {
+      const r = String(p.result || p.grade || "").toUpperCase();
+      return ["WIN", "LOSS", "PUSH", "W", "L", "P"].includes(r);
+    });
     res.json({
       ...status,
       serverBuild: SERVER_BUILD,
+      autonomousOpsBuild: AUTONOMOUS_OPS_VERSION,
       autoResolveIntervalMinutes: AUTO_RESOLVE_INTERVAL_MS / 60000,
+      schedulerHeartbeatMinutes: SCHEDULER_HEARTBEAT_MS / 60000,
+      durableStoreType: durable.type,
+      durableStoreHealth: durable,
+      lastDurableWrite: durable.lastDurableWriteAt,
+      lastStartupRecovery: durable.lastStartupRecovery,
+      watchdog,
+      resultsCohort: {
+        slateDate: today,
+        count: trackedToday.length,
+        graded: gradedToday.length,
+      },
+      newestLabSlate: labPayload?.slateDate || null,
+      activeBlock: labPayload?.activeThreeSlateBlock?.slateDates || null,
+      frozenBlocks: labPayload?.previousThreeSlateBlock?.slateDates || null,
+      readOnlyProviderCallCount: getPaidApiCallCount(),
+      boardSummary: {
+        todayWNBA: (board?.bestSixDisplayTodayWNBA || []).length,
+        tomorrowWNBA: (board?.bestSixDisplayTomorrowWNBA || []).length,
+        lastUpdated: board?.lastUpdated || null,
+      },
     });
   }
 );
 
-app.get("/admin/courtedge-scheduler-status", requireAdminSecret, (req, res) => {
+app.get("/admin/courtedge-scheduler-status", requireAdminSecret, async (req, res) => {
   const status = getSchedulerStatus();
+  const durable = await getDurableStoreHealth();
   res.json({
     ...status,
     serverBuild: SERVER_BUILD,
+    autonomousOpsBuild: AUTONOMOUS_OPS_VERSION,
     autoResolveIntervalMinutes: AUTO_RESOLVE_INTERVAL_MS / 60000,
+    durableStoreType: durable.type,
+    durableStoreHealth: durable,
   });
 });
 
@@ -5380,6 +5480,8 @@ app.get("/internal/courtedge/state-integrity", requireSchedulerToken, (req, res)
         previous: labPayload?.previousThreeSlateBlock?.slateDates || null,
         writesLiveWeights: labPayload?.writesLiveWeights === true,
       },
+      durableStore: getDurableStoreHealthSync(),
+      autonomousOpsBuild: AUTONOMOUS_OPS_VERSION,
     });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message });
@@ -6329,6 +6431,28 @@ if (process.env.RUN_AUDIT === "1") {
   }
 
   async function startServer() {
+    try {
+      const durableHydrate = await hydrateWorkingFilesFromDurableStore();
+      console.log(
+        "STARTUP DURABLE STORE HYDRATE:",
+        JSON.stringify({
+          backend: durableHydrate?.backend || null,
+          actions: (durableHydrate?.actions || []).length,
+        })
+      );
+      const durableHealth = await getDurableStoreHealth();
+      console.log(
+        "STARTUP DURABLE STORE HEALTH:",
+        JSON.stringify({
+          type: durableHealth.type,
+          postgresHealthy: durableHealth.postgresHealthy,
+          databaseUrlConfigured: durableHealth.databaseUrlConfigured,
+        })
+      );
+    } catch (error) {
+      console.log("STARTUP DURABLE STORE ERROR:", error.message);
+    }
+
     if (process.env.COURTEDGE_RESLATE_0622_V1 === "true") {
       try {
         let boardPicks = [];
@@ -6558,6 +6682,48 @@ if (process.env.RUN_AUDIT === "1") {
 
     console.log(
       `AUTO RESOLVE scheduled every ${AUTO_RESOLVE_INTERVAL_MS / 60000} minutes`
+    );
+
+    // In-process 15-minute autonomous heartbeat (complements Render Cron).
+    // Due-job evaluation inside runScheduledJobs prevents duplicate work.
+    let schedulerHeartbeatRunning = false;
+    const runHeartbeat = async (source = "in-process-heartbeat") => {
+      if (process.env.COURTEDGE_SCHEDULER_ENABLED === "false") return;
+      if (schedulerHeartbeatRunning) return;
+      schedulerHeartbeatRunning = true;
+      try {
+        const result = await runScheduledJobs({
+          source,
+          force: false,
+          serverBuild: SERVER_BUILD,
+          handlers: buildSchedulerHandlers(),
+        });
+        console.log(
+          "COURTEDGE SCHEDULER HEARTBEAT:",
+          JSON.stringify({
+            ok: result?.ok !== false,
+            source,
+            local: result?.courtEdgeLocalTime || null,
+            ran: (result?.jobsRun || []).map((j) => j.jobId || j),
+            skipped: (result?.jobsSkipped || []).length,
+            watchdogFindings: result?.watchdog?.findingCount ?? null,
+            durableType: result?.durableStore?.type || null,
+          })
+        );
+      } catch (error) {
+        console.log("COURTEDGE SCHEDULER HEARTBEAT ERROR:", error.message);
+      } finally {
+        schedulerHeartbeatRunning = false;
+      }
+    };
+    setTimeout(() => {
+      runHeartbeat("startup-heartbeat").catch(() => {});
+    }, 20_000);
+    setInterval(() => {
+      runHeartbeat("in-process-heartbeat").catch(() => {});
+    }, SCHEDULER_HEARTBEAT_MS);
+    console.log(
+      `COURTEDGE SCHEDULER heartbeat every ${SCHEDULER_HEARTBEAT_MS / 60000} minutes`
     );
   });
   }

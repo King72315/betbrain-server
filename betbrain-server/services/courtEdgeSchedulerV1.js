@@ -13,11 +13,17 @@ import {
   getTodayLocalDate,
   resolveHomeBoardSlateDate,
 } from "./slateScopeService.js";
+import {
+  DURABLE_KEYS,
+  getDurableStoreHealthSync,
+  syncKeyToDurableFireAndForget,
+} from "./courtEdgeDurableStoreV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const SCHEDULER_VERSION = "courtedge-scheduler-v1";
+export const AUTONOMOUS_OPS_BUILD = "courteedge-fully-autonomous-operation-v1";
 
 export const JOB_IDS = Object.freeze({
   TODAY_MORNING_REFRESH: "TODAY_MORNING_REFRESH",
@@ -207,6 +213,9 @@ export function saveSchedulerState(state) {
     updatedAt: new Date().toISOString(),
   };
   writeJsonSafe(stateFilePath, next);
+  syncKeyToDurableFireAndForget(DURABLE_KEYS.SCHEDULER_STATE, next, {
+    writeLocalFile: false,
+  });
   return next;
 }
 
@@ -222,6 +231,9 @@ export function saveBoardCache(board) {
     cacheVersion: SCHEDULER_VERSION,
   };
   writeJsonSafe(boardCacheFilePath, payload);
+  syncKeyToDurableFireAndForget(DURABLE_KEYS.BOARD_CACHE, payload, {
+    writeLocalFile: false,
+  });
   return payload;
 }
 
@@ -1152,13 +1164,13 @@ export async function runScheduledJobs(options = {}) {
         }
 
         if (item.jobId === JOB_IDS.TOMORROW_NIGHT_REFRESH) {
-          state.lastValidTomorrowSlateAt = new Date().toISOString();
+          state.lastValidTomorrowSlateAt = now.toISOString();
         } else {
-          state.lastValidTodaySlateAt = new Date().toISOString();
+          state.lastValidTodaySlateAt = now.toISOString();
         }
 
         releaseJobLock(state, item.jobId, lock.memKey, JOB_STATUS.SUCCEEDED, {
-          lastSuccessfulRunAt: new Date().toISOString(),
+          lastSuccessfulRunAt: now.toISOString(),
           lastCompletedSlateDate: item.slateDate,
           providerStatus: "ok",
           errorType: null,
@@ -1180,9 +1192,9 @@ export async function runScheduledJobs(options = {}) {
           slateDate: item.slateDate,
           source,
         });
-        state.lastGradingCheckAt = new Date().toISOString();
+        state.lastGradingCheckAt = now.toISOString();
         releaseJobLock(state, item.jobId, lock.memKey, JOB_STATUS.SUCCEEDED, {
-          lastSuccessfulRunAt: new Date().toISOString(),
+          lastSuccessfulRunAt: now.toISOString(),
           lastCompletedSlateDate: item.slateDate,
           providerStatus: gradeResult?.providerStatus || "ok",
           errorType: null,
@@ -1203,9 +1215,9 @@ export async function runScheduledJobs(options = {}) {
           slateDate: item.slateDate,
           source,
         });
-        state.lastLifecycleCompletionAt = new Date().toISOString();
+        state.lastLifecycleCompletionAt = now.toISOString();
         releaseJobLock(state, item.jobId, lock.memKey, JOB_STATUS.SUCCEEDED, {
-          lastSuccessfulRunAt: new Date().toISOString(),
+          lastSuccessfulRunAt: now.toISOString(),
           lastCompletedSlateDate: item.slateDate,
           providerStatus: "ok",
           errorType: null,
@@ -1245,18 +1257,43 @@ export async function runScheduledJobs(options = {}) {
 
   saveSchedulerState(state);
 
+  let watchdog = null;
+  if (typeof handlers.runWatchdog === "function") {
+    try {
+      watchdog = await handlers.runWatchdog({
+        source,
+        schedulerState: state,
+        board:
+          typeof handlers.getPreviousBoard === "function"
+            ? handlers.getPreviousBoard()
+            : loadBoardCache(),
+      });
+    } catch (error) {
+      watchdog = {
+        ok: false,
+        error: String(error?.message || error),
+      };
+    }
+  }
+
+  const durable = getDurableStoreHealthSync();
+
   return {
     ok: errors.length === 0,
     schedulerEnabled: true,
     serverBuild,
+    autonomousOpsBuild: AUTONOMOUS_OPS_BUILD,
     courtEdgeLocalTime: evaluation.local.localIso,
     slateDate: evaluation.local.slateDate,
     timezone: evaluation.local.timeZone,
     source,
+    lastHeartbeatAt: state.lastDispatcherAt,
     jobsChecked: [...new Set(jobsChecked)],
     jobsRun,
     jobsSkipped,
     errors,
+    watchdog,
+    durableStore: durable,
   };
 }
 
@@ -1321,13 +1358,47 @@ export function getSchedulerStatus(options = {}) {
     };
   }
 
+  const durable = getDurableStoreHealthSync();
+  const todayWNBA = board?.bestSixDisplayTodayWNBA || [];
+  const tomorrowWNBA = board?.bestSixDisplayTomorrowWNBA || [];
+  const lastJobSuccess = Object.values(state.jobs || {})
+    .map((j) => j.lastSuccessfulRunAt)
+    .filter(Boolean)
+    .sort()
+    .slice(-1)[0] || null;
+  const lastJobFailure = Object.values(state.jobs || {})
+    .filter((j) => j.status === JOB_STATUS.FAILED)
+    .map((j) => ({
+      jobId: j.jobId,
+      at: j.lastAttemptAt,
+      errorType: j.errorType,
+      errorMessage: j.errorMessage,
+    }))
+    .sort((a, b) => String(a.at || "").localeCompare(String(b.at || "")))
+    .slice(-1)[0] || null;
+
+  let nextDueOperation = null;
+  for (const id of Object.values(JOB_IDS)) {
+    const j = jobs[id];
+    if (j?.nextEligible === "due_now") {
+      nextDueOperation = id;
+      break;
+    }
+  }
+
   return {
     ok: true,
     schedulerVersion: SCHEDULER_VERSION,
+    autonomousOpsBuild: AUTONOMOUS_OPS_BUILD,
     schedulerEnabled: SCHEDULER_CONFIG.enabled && state.enabled !== false,
     timezone: SCHEDULER_CONFIG.timezone,
     courtEdgeLocalTime: local.localIso,
     courtEdgeSlateDate: local.slateDate || getTodayLocalDate(now),
+    lastHeartbeatAt: state.lastDispatcherAt,
+    lastDispatcherAt: state.lastDispatcherAt,
+    nextDueOperation,
+    lastSuccessfulOperationAt: lastJobSuccess,
+    lastFailedOperation: lastJobFailure,
     proposedWindows: SCHEDULER_CONFIG.windows,
     lastValidTodaySlateAt: state.lastValidTodaySlateAt,
     lastValidTomorrowSlateAt: state.lastValidTomorrowSlateAt,
@@ -1335,6 +1406,24 @@ export function getSchedulerStatus(options = {}) {
     lastLifecycleCompletionAt: state.lastLifecycleCompletionAt,
     boardCachePresent: Boolean(board?.games?.length || board?.lastUpdated),
     boardCacheUpdatedAt: board?.cachedAt || board?.lastUpdated || null,
+    todaySlate: {
+      propCount: todayWNBA.length,
+      sealedCount: todayWNBA.filter(
+        (p) => p?.sealedAt || p?.immutableOfficial || p?.contentHash
+      ).length,
+      contentHashes: todayWNBA.map((p) => p?.contentHash || null),
+    },
+    tomorrowSlate: {
+      propCount: tomorrowWNBA.length,
+      sealedCount: tomorrowWNBA.filter(
+        (p) => p?.sealedAt || p?.immutableOfficial || p?.contentHash
+      ).length,
+      contentHashes: tomorrowWNBA.map((p) => p?.contentHash || null),
+    },
+    durableStoreType: durable.type,
+    durableStoreHealth: durable,
+    lastDurableWriteAt: durable.lastDurableWriteAt,
+    lastStartupRecovery: durable.lastStartupRecovery,
     jobs,
   };
 }

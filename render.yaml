@@ -19,10 +19,18 @@ services:
         sync: false
       - key: BALLDONTLIE_KEY
         sync: false
+      - key: ADMIN_SECRET
+        sync: false
       - key: COURTEDGE_SCHEDULER_TOKEN
         sync: false
       - key: COURTEDGE_TIMEZONE
         value: America/Chicago
+      - key: COURTEDGE_SCHEDULER_ENABLED
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: courtedge-durable-db
+          property: connectionString
 
   - type: cron
     name: courtedge-scheduler-cron
@@ -45,3 +53,7 @@ services:
         value: America/Chicago
       - key: COURTEDGE_SCHEDULER_TIMEOUT_MS
         value: "120000"
+
+databases:
+  - name: courtedge-durable-db
+    plan: basic-256mb
