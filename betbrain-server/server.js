@@ -105,6 +105,11 @@ import { buildWnbaOpponentDefenseContext } from "./services/wnbaOpponentContextS
 import { PROVIDER_FALLBACK_POLICY } from "./services/providerFallbackPolicy.js";
 import { COURTEDGE_PLAYER_EVIDENCE_VERSION } from "./services/courtEdgePlayerEvidenceV1.js";
 import {
+  hydrateHomeBoardAnalysis,
+  HOME_ANALYSIS_HYDRATE_BUILD,
+  isShellHomeAnalysis,
+} from "./services/courtEdgeHomeAnalysisHydrateV1.js";
+import {
   applyWnbaShadowRecalibration,
   buildWnbaDefenseShadowContext,
   isWnbaShadowRecalibrationEnabled,
@@ -357,8 +362,8 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-home-fresh-slate-v1";
-const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-fresh-slate-v1";
+const SERVER_BUILD = "courteedge-home-analysis-hydrate-v1";
+const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-analysis-hydrate-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
@@ -3175,7 +3180,7 @@ async function refreshAllPicks(options = {}) {
     trackingMode: TRACKING_MODE,
   });
 
-  const result = {
+  let result = {
     ok: true,
     lastUpdated: new Date().toISOString(),
     config: checkConfig(),
@@ -3281,6 +3286,24 @@ async function refreshAllPicks(options = {}) {
     nbaGames,
     wnbaGames,
   };
+
+  // Hydrate shell analysis (missing L5/matchup/role) without reshuffling Best 6.
+  try {
+    const todayList =
+      result.bestSixDisplayTodayWNBA ||
+      result.bestSixDisplayWNBA ||
+      result.bestSixWNBA ||
+      [];
+    if (todayList.some(isShellHomeAnalysis)) {
+      result = await hydrateHomeBoardAnalysis(result, { onlyShells: true });
+      result.homeAnalysisHydrateOnRefresh = {
+        build: HOME_ANALYSIS_HYDRATE_BUILD,
+        at: new Date().toISOString(),
+      };
+    }
+  } catch (hydrateErr) {
+    console.log("HOME ANALYSIS HYDRATE ON REFRESH WARNING:", hydrateErr.message);
+  }
 
   picksCache = result;
   lastRefreshTime = Date.now();
@@ -4207,6 +4230,67 @@ app.get("/admin/board-cache-status", (req, res) => {
     boardServerBuild: board?.serverBuild || null,
     emptyForEmergencySeed: isBoardEmptyForEmergencySeed(),
   });
+});
+
+// Rebuild homeDetailedAnalysisV1 from BDL + Odds onto existing Best 6.
+// Does not reshuffle membership / sealed side / line / confidence / risk.
+app.post("/admin/hydrate-home-analysis", async (req, res) => {
+  try {
+    const board = picksCache || getReadOnlyBoard();
+    if (!board || !Array.isArray(board.games)) {
+      return res.status(404).json({
+        ok: false,
+        message: "No board cache to hydrate",
+        serverBuild: SERVER_BUILD,
+      });
+    }
+    const onlyShells = req.body?.onlyShells !== false && req.query?.all !== "1";
+    const forceAll = req.body?.forceAll === true || req.query?.all === "1";
+    const hydrated = await hydrateHomeBoardAnalysis(board, {
+      onlyShells: forceAll ? false : onlyShells,
+    });
+    picksCache = {
+      ...hydrated,
+      serverBuild: SERVER_BUILD,
+      lastUpdated: new Date().toISOString(),
+      homeAnalysisHydrateAdmin: {
+        build: HOME_ANALYSIS_HYDRATE_BUILD,
+        onlyShells: !forceAll,
+        at: new Date().toISOString(),
+      },
+    };
+    lastRefreshTime = Date.now();
+    saveBoardCache(picksCache);
+    const today =
+      picksCache.bestSixDisplayTodayWNBA ||
+      picksCache.bestSixDisplayWNBA ||
+      [];
+    return res.json({
+      ok: true,
+      serverBuild: SERVER_BUILD,
+      hydrateBuild: HOME_ANALYSIS_HYDRATE_BUILD,
+      onlyShells: !forceAll,
+      todayCount: today.length,
+      sample: today.slice(0, 6).map((p) => ({
+        player: p.player,
+        side: p.side || p.pick,
+        line: p.line || p.sealedLine,
+        coverage: p.homeDetailedAnalysisV1?.dataQuality?.coverage ?? null,
+        l5: p.homeDetailedAnalysisV1?.recentPerformance?.last5Points || null,
+        shell: p.homeDetailedAnalysisV1?.dataQuality?.shellAnalysis === true,
+        market: p.homeDetailedAnalysisV1?.marketAnalysis?.compactResult || null,
+        originalSide: p.homeDetailedAnalysisV1?.propSnapshot?.originalModelSide,
+      })),
+      lastUpdated: picksCache.lastUpdated,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: "hydrate-home-analysis failed",
+      error: error.message,
+      serverBuild: SERVER_BUILD,
+    });
+  }
 });
 
 // Body-less recovery: load bundled board when live cache is empty/zombie.

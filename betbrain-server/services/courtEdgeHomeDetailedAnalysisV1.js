@@ -145,6 +145,7 @@ function resolveSealedLine(pick = {}) {
 function resolveMarketDirection({
   openingLine,
   currentLine,
+  sealedLine,
   side,
   marketStatus,
 } = {}) {
@@ -157,15 +158,46 @@ function resolveMarketDirection({
   }
   const open = num(openingLine);
   const cur = num(currentLine);
+  const sealed = num(sealedLine);
   const s = normalizeSide(side);
-  if (open === null || cur === null || !s) {
+  const reference = cur ?? sealed;
+
+  // Sealed/current only (no open): honest NEUTRAL — never UNAVAILABLE≈AGAINST.
+  if (open === null && reference !== null && s) {
+    const sealedCurrentDelta =
+      sealed !== null && cur !== null ? cur - sealed : 0;
+    if (Math.abs(sealedCurrentDelta) < 0.5) {
+      return {
+        compact: "NEUTRAL",
+        relativeToSide: "NEUTRAL",
+        lineDelta: sealedCurrentDelta,
+        sealedCurrentOnly: true,
+        explanation:
+          "No opening line — sealed/current only; treated as NEUTRAL (not AGAINST).",
+      };
+    }
+    const withSide =
+      (s === "OVER" && sealedCurrentDelta > 0) ||
+      (s === "UNDER" && sealedCurrentDelta < 0);
+    return {
+      compact: withSide ? "WITH" : "AGAINST",
+      relativeToSide: withSide ? "WITH" : "AGAINST",
+      lineDelta: sealedCurrentDelta,
+      sealedCurrentOnly: true,
+      explanation: withSide
+        ? `Current moved ${sealedCurrentDelta > 0 ? "up" : "down"} from sealed in favor of ${s}.`
+        : `Current moved ${sealedCurrentDelta > 0 ? "up" : "down"} from sealed against ${s}.`,
+    };
+  }
+
+  if (open === null || reference === null || !s) {
     return {
       compact: "UNAVAILABLE",
       relativeToSide: "UNAVAILABLE",
       explanation: "Opening or current line missing — not treated as AGAINST.",
     };
   }
-  const delta = cur - open;
+  const delta = reference - open;
   if (Math.abs(delta) < 0.5) {
     return {
       compact: "NEUTRAL",
@@ -184,6 +216,15 @@ function resolveMarketDirection({
       ? `Line moved ${delta > 0 ? "up" : "down"} in favor of ${s}.`
       : `Line moved ${delta > 0 ? "up" : "down"} against ${s}.`,
   };
+}
+
+function translateFlipAction(action = "") {
+  const raw = String(action || "").trim().toUpperCase();
+  if (!raw || raw === "KEEP" || raw === "KEEP_ORIGINAL") {
+    return "Kept original side";
+  }
+  if (raw === "FLIP" || raw === "FLIP_SIDE") return "Flipped side";
+  return translateOrScrubAction(action) || "Kept original side";
 }
 
 function buildAvailabilitySection(pick = {}, evidence = {}) {
@@ -382,11 +423,19 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
       packet.layers?.freeze?.side
     )
   );
+  const sameTeamFlipHint = Boolean(
+    pick.sameTeamArbitrationFlip ||
+      pick.sameTeamArbitration?.applied ||
+      pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
+  );
   const originalSide = normalizeSide(
     first(
       pick.originalModelSide,
       pick.sameTeamArbitration?.originalModelSide,
+      pick.sameTeamArbitration?.originalOrganicSide,
       packet.layers?.freeze?.originalModelSide,
+      // Same-team policy forces Under from an organic Over lean.
+      sameTeamFlipHint && finalSide === "UNDER" ? "OVER" : null,
       finalSide
     )
   );
@@ -451,12 +500,14 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
   const marketVsFinal = resolveMarketDirection({
     openingLine,
     currentLine,
+    sealedLine,
     side: finalSide,
     marketStatus,
   });
   const marketVsOriginal = resolveMarketDirection({
     openingLine,
     currentLine,
+    sealedLine,
     side: originalSide,
     marketStatus,
   });
@@ -480,11 +531,7 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
   const confidence = canonicalDecision.finalConfidence;
   const risk = canonicalDecision.finalRisk;
 
-  const sameTeam = Boolean(
-    pick.sameTeamArbitrationFlip ||
-      pick.sameTeamArbitration?.applied ||
-      pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
-  );
+  const sameTeam = sameTeamFlipHint;
 
   const propSnapshot = {
     player: first(pick.player, pick.playerName, evidence.identity?.oddsPlayerName),
@@ -661,18 +708,20 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     finalRisk: risk,
   });
 
+  const flipRaw = first(
+    pick.flipFirst?.action,
+    pick.decisionDataIntelligence?.flipFirst?.action,
+    "KEEP"
+  );
+  const rescueRaw = first(pick.sideRescue?.action, pick.sideRescueAction, "KEEP_ORIGINAL");
   const finalDecision = {
     originalModelSide: originalSide,
     readerSide: normalizeSide(first(pick.readerSide, pick.wnbaReader?.finalSide)),
-    flipFirstAction: first(
-      pick.flipFirst?.action,
-      pick.decisionDataIntelligence?.flipFirst?.action,
-      "KEEP"
-    ),
-    sideRescueAction: first(pick.sideRescue?.action, pick.sideRescueAction, "KEEP_ORIGINAL"),
-    sideRescueDisplay: translateOrScrubAction(
-      first(pick.sideRescue?.action, pick.sideRescueAction, "KEEP_ORIGINAL")
-    ),
+    flipFirstAction: flipRaw,
+    flipFirstDisplay: translateFlipAction(flipRaw),
+    sideRescueAction: rescueRaw,
+    sideRescueDisplay:
+      translateOrScrubAction(rescueRaw) || translateFlipAction(rescueRaw),
     sameTeamArbitration: sameTeam
       ? {
           applied: true,
@@ -745,6 +794,21 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
   if (!last10Display.length) dataQuality.missingFields.push("last10Points");
   if (defenseStatus === "UNAVAILABLE") dataQuality.missingFields.push("opponentDefense");
   if (matchupHistory.status === "UNAVAILABLE") dataQuality.missingFields.push("matchupHistory");
+
+  // Shell gate: identity+market+projection+availability (~44%) without L5 is incomplete.
+  const coveragePct = num(evidence.dataQuality?.coveragePct, 0);
+  const shellAnalysis =
+    last5Pts.length < 3 && coveragePct > 0 && coveragePct <= 55;
+  dataQuality.analysisComplete = last5Pts.length >= 3 || coveragePct >= 66.6;
+  dataQuality.shellAnalysis = shellAnalysis;
+  dataQuality.completenessReason = shellAnalysis
+    ? "shell_missing_recent_form"
+    : dataQuality.analysisComplete
+      ? null
+      : "partial_without_form_floor";
+  if (shellAnalysis) {
+    dataQuality.missingFields.push("analysisShellIncomplete");
+  }
 
   const liveMarketReference = sealed
     ? {
@@ -827,6 +891,7 @@ export function attachHomeDetailedAnalysisV1(pick = {}, options = {}) {
           marketRelativeToFinalSide: resolveMarketDirection({
             openingLine: frozen.marketAnalysis?.openingLine,
             currentLine: liveLine,
+            sealedLine: frozen.marketAnalysis?.selectedSealedLine ?? frozen.canonical?.line,
             side: frozen.canonical?.side,
             marketStatus: liveLine == null ? "UNAVAILABLE" : "AVAILABLE",
           }),
@@ -905,7 +970,9 @@ export function formatHomeDetailedAnalysisReportText(analysis = {}, pick = {}) {
   const rescueDisplay =
     dec.sideRescueDisplay ||
     translateOrScrubAction(dec.sideRescueAction) ||
-    "—";
+    "Kept original side";
+  const flipDisplay =
+    dec.flipFirstDisplay || translateFlipAction(dec.flipFirstAction);
 
   const lines = [
     "  --- DETAILED ANALYSIS ---",
@@ -920,7 +987,7 @@ export function formatHomeDetailedAnalysisReportText(analysis = {}, pick = {}) {
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} itt ${env.impliedTeamTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"} (not true pace) rest ${env.daysRest ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult} (${mkt.marketRelativeToFinalSide?.explanation || ""})`,
     `  Availability: ${avail.displayStatus}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence}% | Risk ${dec.finalRisk} | Flip ${dec.flipFirstAction} | Rescue ${rescueDisplay} | SameTeam ${dec.sameTeamArbitration?.applied ? "YES" : "NO"}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence}% | Risk ${dec.finalRisk} | Flip ${flipDisplay} | Rescue ${rescueDisplay} | SameTeam ${dec.sameTeamArbitration?.applied ? "YES" : "NO"}`,
     dec.topPickTransparency
       ? `  Top: rank ${dec.topPickTransparency.rank} | ${dec.topPickTransparency.reason}${
           dec.topPickTransparency.scoreVsNext?.explanation
@@ -928,7 +995,9 @@ export function formatHomeDetailedAnalysisReportText(analysis = {}, pick = {}) {
             : ""
         }`
       : null,
-    `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"} missing [${(dq.missingFields || []).join(", ") || "none"}]`,
+    `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"} missing [${(dq.missingFields || []).join(", ") || "none"}]${
+      dq.shellAnalysis ? " | SHELL_INCOMPLETE" : ""
+    }`,
   ].filter(Boolean);
   return lines.join("\n");
 }

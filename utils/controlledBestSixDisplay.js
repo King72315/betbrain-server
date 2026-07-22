@@ -911,7 +911,18 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
     dec.sideRescueDisplay ||
     (String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
       ? "No stronger opposite-side case was found."
-      : dec.sideRescueAction || "—");
+      : /KEEP/i.test(String(dec.sideRescueAction || ""))
+        ? "Kept original side"
+        : /FLIP/i.test(String(dec.sideRescueAction || ""))
+          ? "Flipped side"
+          : dec.sideRescueAction || "—");
+  const flip =
+    dec.flipFirstDisplay ||
+    (/KEEP/i.test(String(dec.flipFirstAction || ""))
+      ? "Kept original side"
+      : /FLIP/i.test(String(dec.flipFirstAction || ""))
+        ? "Flipped side"
+        : dec.flipFirstAction || "—");
   return [
     "  --- DETAILED ANALYSIS ---",
     `  Snapshot: ${s.player || pick.player} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${conf}% | Risk ${risk} | ${s.sealedLiveStatus}`,
@@ -925,11 +936,13 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult}`,
     `  Availability: ${avail.displayStatus || "Unavailable"}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence ?? conf}% | Risk ${dec.finalRisk ?? risk} | Flip ${dec.flipFirstAction} | Rescue ${rescue}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence ?? conf}% | Risk ${dec.finalRisk ?? risk} | Flip ${flip} | Rescue ${rescue}`,
     dec.topPickTransparency
       ? `  Top: rank ${dec.topPickTransparency.rank} | ${dec.topPickTransparency.reason}`
       : null,
-    `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"}`,
+    `  Sources: coverage ${dq.coverage ?? "—"}% fetchedAt ${dq.fetchedAt || "—"}${
+      dq.shellAnalysis ? " | SHELL_INCOMPLETE" : ""
+    }`,
   ]
     .filter(Boolean)
     .join("\n");

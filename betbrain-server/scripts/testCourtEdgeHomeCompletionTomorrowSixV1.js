@@ -680,17 +680,18 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD state-integrity target retains empty-board guard", () => {
+test("62 SERVER_BUILD analysis-hydrate retains empty-board guard", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-home-fresh-slate-v1",
-    "SERVER_BUILD must be courteedge-home-fresh-slate-v1"
+    "courteedge-home-analysis-hydrate-v1",
+    "SERVER_BUILD must be courteedge-home-analysis-hydrate-v1"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
-  assert.match(src, /courteedge-home-fresh-slate-v1/);
+  assert.match(src, /courteedge-home-analysis-hydrate-v1/);
+  assert.match(src, /hydrate-home-analysis/);
   assert.match(src, /isPastOnlyLkgBoard/);
   assert.match(src, /STATE_INTEGRITY_VERSION/);
   assert.match(src, /mergeBoardDayIsolation/);

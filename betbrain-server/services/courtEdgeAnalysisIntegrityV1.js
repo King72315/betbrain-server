@@ -643,13 +643,15 @@ export function scrubConsumerFacingText(text = "") {
   return stripRawDecisionLabels(String(text || ""))
     .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
     .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
-    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NO_DECISIVE_RESCUE)\b/gi, "")
+    .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NO_DECISIVE_RESCUE|ROLE_TREND_CONTRADICTS_SIDE|KEEP_ORIGINAL|FLIP_SIDE)\b/gi, "")
+    .replace(/\bFlip\s+KEEP(?:_ORIGINAL)?\b/gi, "Kept original side")
+    .replace(/\bRescue\s+KEEP(?:_ORIGINAL)?\b/gi, "Kept original side")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
 export function consumerTextContainsRawCodes(text = "") {
-  return /\b(UNDER_GAP_BELOW_|OVER_GAP_BELOW_|DANGER_STACK_|DANGER_GATE_|NO_DECISIVE_RESCUE|BOARD_ONLY|NO_BET)\b/i.test(
+  return /\b(UNDER_GAP_BELOW_|OVER_GAP_BELOW_|DANGER_STACK_|DANGER_GATE_|NO_DECISIVE_RESCUE|BOARD_ONLY|NO_BET|ROLE_TREND_CONTRADICTS_SIDE|KEEP_ORIGINAL|FLIP_SIDE)\b/i.test(
     String(text || "")
   );
 }
@@ -659,6 +661,15 @@ export function translateOrScrubAction(action = "") {
   if (!raw) return null;
   if (/NO_DECISIVE_RESCUE/i.test(raw)) {
     return "No stronger opposite-side case was found.";
+  }
+  if (/^KEEP(_ORIGINAL)?$/i.test(raw)) {
+    return "Kept original side";
+  }
+  if (/^FLIP(_SIDE)?$/i.test(raw)) {
+    return "Flipped side";
+  }
+  if (/ROLE_TREND_CONTRADICTS_SIDE/i.test(raw)) {
+    return "Role trend conflicts with this side.";
   }
   if (/BOARD_ONLY|NO_BET|SHADOW_ONLY/i.test(raw)) {
     return scrubConsumerFacingText(raw) || "Kept as a playable board lean.";

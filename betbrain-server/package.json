@@ -10,6 +10,7 @@
     "test:courtedge-engine-expansion": "node scripts/runCourtEdgeEngineExpansionSuite.js",
     "test:courtedge-lab-v2": "node scripts/testCourtEdgeLabV2.js",
     "test:courtedge-best6-repair": "node scripts/testCourtEdgeBestSixPlayablePoolRepairV1.js",
+    "test:courtedge-home-analysis-hydrate": "node scripts/testCourtEdgeHomeAnalysisHydrateV1.js",
     "test:courtedge-home-analysis-calibration": "node scripts/testCourtEdgeHomeDetailedAnalysisSideCalibrationV1.js",
     "test:courtedge-home-completion": "node scripts/testCourtEdgeHomeCompletionTomorrowSixV1.js",
     "test:courtedge-analysis-integrity": "node scripts/testCourtEdgeAnalysisIntegrityV1.js",

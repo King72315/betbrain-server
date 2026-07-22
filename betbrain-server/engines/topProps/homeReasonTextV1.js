@@ -38,10 +38,20 @@ export const HOME_REASON_TRANSLATIONS = {
     "The projection edge is below the usual floor; kept as a playable board lean.",
   BOARD_ONLY:
     "Kept as a playable board lean on available evidence.",
+  ROLE_TREND_CONTRADICTS_SIDE:
+    "Role trend conflicts with this side.",
+  KEEP_ORIGINAL:
+    "Kept original side — no stronger opposite case.",
+  KEEP:
+    "Kept original side.",
+  FLIP_SIDE:
+    "Flipped to the opposite side.",
+  FLIP:
+    "Flipped to the opposite side.",
 };
 
 const RAW_CODE_RE =
-  /\b(UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+|NO_DECISIVE_RESCUE|INSUFFICIENT_EDGE_SOFT|GAP_FLOOR_BOARD_SOFT_PICK|READER_UNCERTAIN(?:_TEST)?|OVER_UNSTABLE_THIN_BOOK|OVER_THIN_GAP_VOLATILE|OVER_VOLATILE_WEAK_EDGE|LOW_VOLUME_OVER_TRAP|BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK)\b/gi;
+  /\b(UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+|NO_DECISIVE_RESCUE|INSUFFICIENT_EDGE_SOFT|GAP_FLOOR_BOARD_SOFT_PICK|READER_UNCERTAIN(?:_TEST)?|OVER_UNSTABLE_THIN_BOOK|OVER_THIN_GAP_VOLATILE|OVER_VOLATILE_WEAK_EDGE|LOW_VOLUME_OVER_TRAP|BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|ROLE_TREND_CONTRADICTS_SIDE|KEEP_ORIGINAL|FLIP_SIDE)\b/gi;
 
 export function translateHomeReasonCode(code = "") {
   const key = String(code || "").trim().toUpperCase();
