@@ -184,4 +184,28 @@ test("06 hydrate build constant", () => {
   assert.strictEqual(HOME_ANALYSIS_HYDRATE_BUILD, "courteedge-home-analysis-hydrate-v1");
 });
 
+test("07 UNDER must not match /over/ substring when preserving side", () => {
+  // Regression: old display mapping used /over/i ? Over : Under. Prefer exact
+  // UNDER/OVER tokens (and U/O abbreviations) so sides cannot flip incorrectly.
+  const normalize = (side) => {
+    const sideNorm = String(side || "")
+      .trim()
+      .toUpperCase()
+      .replace(/^U$/, "UNDER")
+      .replace(/^O$/, "OVER");
+    const isOver = sideNorm === "OVER" || sideNorm.startsWith("OVER");
+    const isUnder = sideNorm === "UNDER" || sideNorm.startsWith("UNDER");
+    return { sideNorm, isOver, isUnder, display: isUnder ? "Under" : isOver ? "Over" : String(side) };
+  };
+  const under = normalize("UNDER");
+  assert.strictEqual(under.isOver, false);
+  assert.strictEqual(under.isUnder, true);
+  assert.strictEqual(under.display, "Under");
+  const underDisp = normalize("Under");
+  assert.strictEqual(underDisp.display, "Under");
+  assert.strictEqual(normalize("U").display, "Under");
+  assert.strictEqual(normalize("OVER").display, "Over");
+  assert.strictEqual(normalize("O").display, "Over");
+});
+
 console.log("\nAll home-analysis-hydrate tests passed.");

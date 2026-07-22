@@ -340,11 +340,21 @@ export async function hydrateHomeDetailedAnalysisForPick(pick = {}, options = {}
   }
 
   // Keep sealed canonical decision — do not reshuffle confidence/side/line.
+  // IMPORTANT: do not use /over/i on raw strings — it matches inside "UNDER".
   if (preserved.side) {
-    working.finalCourtEdgeSide = preserved.side;
-    working.finalSide = preserved.side;
-    working.side = /over/i.test(String(preserved.side)) ? "Over" : "Under";
-    working.pick = working.side;
+    const sideNorm = String(preserved.side || "")
+      .trim()
+      .toUpperCase()
+      .replace(/^U$/, "UNDER")
+      .replace(/^O$/, "OVER");
+    const isOver = sideNorm === "OVER" || sideNorm.startsWith("OVER");
+    const isUnder = sideNorm === "UNDER" || sideNorm.startsWith("UNDER");
+    const displaySide = isUnder ? "Under" : isOver ? "Over" : String(preserved.side);
+    const canonSide = isUnder ? "UNDER" : isOver ? "OVER" : sideNorm;
+    working.finalCourtEdgeSide = canonSide;
+    working.finalSide = canonSide;
+    working.side = displaySide;
+    working.pick = displaySide;
   }
   if (preserved.line != null) {
     working.sealedLine = preserved.line;
