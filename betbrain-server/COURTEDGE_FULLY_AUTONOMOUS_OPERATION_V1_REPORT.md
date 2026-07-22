@@ -313,55 +313,60 @@ Covers: Chicago due windows, idempotent heartbeats, grading/lifecycle without ap
 
 ## 28. Commit hashes
 
-Recorded at ship time in §29 after `git push orgin`.
+- Ship commit: `e766d02` — `Ship CourtEdge fully autonomous operation v1.`
+- Pushed to: `orgin/betbrain-v2-rebuild` (`827bfc5..e766d02`)
 
 ---
 
 ## 29. Deployment details
 
-- Auto-deploy expected on push to `betbrain-v2-rebuild` for Render web service `betbrain-server-1`.
-- Cron + Postgres require dashboard/Blueprint apply (see §38).
+- Push completed to `orgin` on branch `betbrain-v2-rebuild`.
+- Render web auto-deploy expected for `https://betbrain-server-1.onrender.com`.
+- Cron + Postgres still require dashboard/Blueprint apply (see §38).
+- Post-push health poll recorded in this report after deploy settles.
 
 ---
 
 ## 30. Scheduler heartbeat proof
 
-**Not verified live.** Protected `GET /internal/courtedge/scheduler-status` requires `COURTEDGE_SCHEDULER_TOKEN`. Admin mirror requires `ADMIN_SECRET` (unset → 503). No agent access to token or Render Cron logs.
+**Not verified live.**
 
-After Nicholas sets token + Cron, proof command:
+Post-deploy probe of `GET /internal/courtedge/scheduler-status` returned:
 
-```bash
-curl -s -H "x-courtedge-scheduler-token: $COURTEDGE_SCHEDULER_TOKEN" \
-  https://betbrain-server-1.onrender.com/internal/courtedge/scheduler-status
+```json
+{"ok":false,"message":"COURTEDGE_SCHEDULER_TOKEN is not configured"}
 ```
 
-Expect recent `lastHeartbeatAt` / `lastDispatcherAt` within ~15–20 minutes while awake.
+HTTP **503**. Without the token on the web service, Cron cannot authenticate and status cannot be read. Render dashboard login was required (`https://dashboard.render.com/login`) — agent has no credentials.
 
 ---
 
 ## 31. First controlled restart result
 
-**Not performed** — Render restart API/dashboard unavailable to this agent.
+**Deploy restart observed (uncontrolled):** after auto-deploy of `e766d02`, live `GET /picks` showed **Today 0 / Tomorrow 0 / games 0** (empty board). Pre-deploy baseline had Today **6/6** sealed hashes. This is the ephemeral-disk durability failure Postgres is meant to fix. No authenticated manual restart API was available.
 
 ---
 
 ## 32. Second controlled restart result
 
-**Not performed** — same blocker.
+**Not performed** — Render dashboard login blocked Cron/DB/restart controls.
 
 ---
 
 ## 33. Full no-login slate-cycle proof
 
-**Not completed.** Observing a full Tomorrow→Today→seal→admit→grade→Lab cycle without manual POSTs requires live Cron + durable store + multi-hour observation window. Code paths exist; live cycle not proven.
+**Not completed.** Token unset + Cron not confirmable + empty post-deploy board. In-process heartbeat is coded to start ~20s after listen, but without markets restored / Cron waking free-tier sleep, a full no-login cycle was not observed.
 
 ---
 
 ## 34. Pre-restart and post-restart hash comparisons
 
-**Not available** (restarts not executed). Baseline Today hashes captured in `.fully-autonomous-baseline-v1/SUMMARY.json` for future compare:
+| Moment | Today sealed hashes |
+|---|---|
+| Pre-deploy baseline | 6 hashes (`aca9cfb3…` … `99bd4ae6…`) — see SUMMARY.json |
+| Post-deploy (~2 min) | **none** (empty board) |
 
-`aca9cfb3…`, `f641550b…`, `139103a2…`, `3f1e731a…`, `150d538d…`, `99bd4ae6…`
+Official sealed packets did **not** survive this deploy restart on ephemeral disk.
 
 ---
 
@@ -385,29 +390,37 @@ No frontend redesign, navigation, typography, or branding changes in this missio
 
 ## 38. Remaining limitations
 
-1. **Render Cron Job not confirmed created** on the live account.
-2. **`COURTEDGE_SCHEDULER_TOKEN` not verifiable** from this agent (must match on web + cron).
-3. **Postgres `courtedge-durable-db` not provisioned/attached** — without it, official state remains at risk on ephemeral disk (`FAILED` durability risk until DB is live).
-4. Free web plan **sleeps** — in-process heartbeat alone is insufficient; Cron must wake the service.
-5. `ADMIN_SECRET` unset → admin scheduler status 503.
-6. Tomorrow board was empty at baseline — autonomous Tomorrow refresh must run tonight’s window after Cron is live.
+1. **`COURTEDGE_SCHEDULER_TOKEN` is not configured on production** (live 503 from scheduler-status).
+2. **Render Cron Job not confirmed** — dashboard requires Nicholas login.
+3. **Postgres not attached** — post-deploy board emptied (Today 6→0), proving ephemeral FS is insufficient.
+4. Free web plan **sleeps** — Cron must wake the service even after token is set.
+5. `ADMIN_SECRET` unset → admin scheduler status unavailable.
+6. Agent cannot complete no-login acceptance or two controlled restarts without dashboard access.
 
 ### One-time Render dashboard steps (Nicholas)
 
-1. Open Render → Blueprint or service `betbrain-server-1`.
-2. Create PostgreSQL `courtedge-durable-db` (or apply Blueprint databases section) and link `DATABASE_URL` to the web service.
-3. Set web env:
-   - `COURTEDGE_SCHEDULER_TOKEN=<generate a long random secret>`
+1. Sign in at https://dashboard.render.com/
+2. Open service **betbrain-server-1** (web).
+3. Create PostgreSQL database (name suggestion: `courtedge-durable-db`, plan basic-256mb) **or** apply Blueprint from `render.yaml`.
+4. Link database → set web env `DATABASE_URL` (connection string).
+5. Set web env vars:
+   - `COURTEDGE_SCHEDULER_TOKEN=<long random secret>`
    - `COURTEDGE_TIMEZONE=America/Chicago`
    - `COURTEDGE_SCHEDULER_ENABLED=true`
-4. Create Cron Job `courtedge-scheduler-cron`:
+6. Create Cron Job **courtedge-scheduler-cron**:
    - Schedule: `*/15 * * * *`
-   - Root Dir: `betbrain-server`
+   - Root Directory: `betbrain-server`
    - Command: `node scripts/runCourtEdgeSchedulerCron.js`
-   - Same `COURTEDGE_SCHEDULER_TOKEN` + `COURTEDGE_SERVER_URL=https://betbrain-server-1.onrender.com` + `COURTEDGE_TIMEZONE=America/Chicago`
-5. Deploy / restart web once after env+DB attach.
-6. Confirm `scheduler-status` shows a fresh heartbeat.
-7. Perform two manual restarts; compare Today prop content hashes to baseline.
+   - Env: same `COURTEDGE_SCHEDULER_TOKEN`, `COURTEDGE_SERVER_URL=https://betbrain-server-1.onrender.com`, `COURTEDGE_TIMEZONE=America/Chicago`
+7. Manual Deploy / restart web once after env+DB attach.
+8. Verify:
+   ```bash
+   curl -s -H "x-courtedge-scheduler-token: $TOKEN" \
+     https://betbrain-server-1.onrender.com/internal/courtedge/scheduler-status
+   ```
+   Expect `schedulerEnabled: true`, recent `lastHeartbeatAt`, `durableStoreType: postgres`.
+9. Confirm Home Today/Tomorrow restore without `POST /refresh-picks`.
+10. Perform two additional restarts; compare sealed content hashes.
 
 ---
 
@@ -417,7 +430,7 @@ No frontend redesign, navigation, typography, or branding changes in this missio
 PARTIAL — SCHEDULER INFRASTRUCTURE NOT ACTIVE
 ```
 
-**Rationale:** Autonomous operation code, durable store, watchdog, heartbeat, tests, and Blueprint are complete and pushed. Live production Cron activation, Postgres durability attachment, no-login full slate-cycle observation, and two controlled restart hash proofs were blocked by missing Render credentials. Per mission rules, this cannot be claimed `FULLY AUTONOMOUS OPERATION VERIFIED` from local tests or code alone.
+**Rationale:** Build `courteedge-fully-autonomous-operation-v1` is **live** on production (`e766d02` pushed to `orgin`). Autonomous code, durable store, watchdog, tests, and Blueprint are complete. Live scheduler infrastructure is **not** active: `COURTEDGE_SCHEDULER_TOKEN` unset (503), Cron not creatable without Render login, and Postgres not attached (deploy restart emptied the sealed Today six). Per mission rules this cannot be `FULLY AUTONOMOUS OPERATION VERIFIED`.
 
 ---
 
