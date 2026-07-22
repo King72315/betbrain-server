@@ -14,9 +14,11 @@
 
 Home Today/Tomorrow restart durability is implemented: isolated durable day records (`home-day__{league}__{date}__{bucket}`), atomic persist with merge precedence, startup hydrate before bundled recovery, empty-board proof gate, sealed Tomorrow→Today rollover identity preservation, and fail-closed `/admin/recover-sealed-slate` when `ADMIN_SECRET` is missing.
 
-Automated tests **A–N + units/integration: 18/18 pass**. Prior autonomous suite **19/19 pass**.
+Automated tests **A–N + units/integration: 18/18 pass**.
 
-**Production could not complete restart verification in this run:** Render returned continuous **HTTP 502** (`x-render-routing: dynamic-paid-error`) so live restore, two controlled restarts, and fresh-container proofs against prod were blocked. `DATABASE_URL` was not confirmed connected on the live service (same class of failure as prior autonomous ops: filesystem/ephemeral without Postgres).
+**Live production (after hotfix `7f88bc0`):** build `courteedge-home-restart-durability-v1` came up; WNBA Today restored to **6/6** (Mitchell/McBride/Miles/Wilson/Boston/Stevens, hashes match baseline) via **startup bundled recovery** (`startup-empty-board-recovery-v1`). Tomorrow remains **0** (matches last known-good). `/health.homeDurable.durableActive === false`, `databaseUrlConfigured === false`, store type **`filesystem`**.
+
+Intermittent Render **HTTP 502** still occurs; two controlled dashboard restarts + Postgres-backed survival were **not** proven. Without `DATABASE_URL`, Home remains ephemeral across true fresh containers except for the deploy-bundled recovery bridge.
 
 **Final verdict:** `PARTIAL — DURABLE HOME STORE NOT ACTIVE`
 
@@ -204,7 +206,7 @@ No weight files, labels, or UI redesign changed.
 |---|---|
 | `69e42b3` | Make Home Today/Tomorrow restart-durable via Postgres-ready day store. |
 | `7f86db5` | Document Home restart durability v1 results and partial prod verdict. |
-| *(this commit)* | Fail-fast Postgres boot + startup hydrate budget to avoid Render 502 hangs. |
+| `7f88bc0` | Fail-fast Postgres boot + startup hydrate budget to avoid Render 502 hangs. |
 
 Pushed to `orgin` / `betbrain-v2-rebuild`.
 
@@ -212,7 +214,7 @@ Pushed to `orgin` / `betbrain-v2-rebuild`.
 
 ## 19. Deployment result
 
-Push to `orgin` / `betbrain-v2-rebuild` triggers Render autoDeploy. **Live health remained HTTP 502** during this mission (`dynamic-paid-error`), so deploy completion and post-deploy board restore could not be confirmed from the agent.
+Pushed to `orgin` / `betbrain-v2-rebuild` (autoDeploy). After `7f88bc0`, live `/health` returned **200** with `serverBuild=courteedge-home-restart-durability-v1` and `durableStore.type=filesystem` (`databaseUrlConfigured=false`, `durableActive=false`). Intermittent 502 cold-start flaps continue.
 
 ---
 
@@ -229,45 +231,45 @@ From last known-good autonomous baseline (`SUMMARY.json`):
 | Boston U14.5 | `150d538d…` |
 | Stevens O11.5 | `99bd4ae6…` |
 
-Tomorrow Best 6 at that baseline: **0** (no Tomorrow cohort to hash).
+Tomorrow Best 6 at that baseline: **0**.
 
-Live pre-deploy capture on this run: **unavailable (502)**.
+**Post-deploy live `/picks` (~2026-07-22T17:28Z):** Today **6/6** matching the same players/sides/lines/hash prefixes; Tomorrow **0**; `seedReason=startup-empty-board-recovery-v1`.
 
 ---
 
 ## 21. First restart result
 
-**Not executed** — production unreachable (502).
+Hotfix redeploy observed as a restart/fresh boot: Home Today restored automatically from bundled recovery **without** manual refresh/hydrate/recover POST. Postgres durable path **not** active.
 
 ---
 
 ## 22. Second restart result
 
-**Not executed** — production unreachable (502).
+**Not completed** — intermittent 502 and no Render dashboard/API credentials for a second controlled restart.
 
 ---
 
 ## 23. Fresh-container or redeploy result
 
-**Not executed** against live Render. Local Test D simulates fresh container restore from durable mirror and **passes**.
+`7f88bc0` redeploy: startup logged `board-cache` `missing_both`, then Today 6 via bundled recovery. Proves **bundle bridge** survival, not Postgres durable survival.
 
 ---
 
 ## 24. Confirmation that no manual recovery calls were used
 
-No successful live recovery/seed/refresh calls were possible (502). Code paths no longer require recover-sealed for normal Home restart once Postgres is active. Emergency seed remains a bridge only.
+No manual `/admin/recover-empty-board`, seed, hydrate, or `/refresh-picks` calls were required for the observed Today 6 restore. `/admin/recover-sealed-slate` is fail-closed without `ADMIN_SECRET`.
 
 ---
 
 ## 25. Confirmation that no provider refetch was needed for restoration
 
-Local durability tests restore from durable store **without provider calls**. Live confirmation blocked by 502.
+Live restore used bundled recovery (no provider refresh). Local Tests A–N restore from durable store without provider calls.
 
 ---
 
 ## 26. Confirmation that Results, Lab, and History remained intact
 
-No live mutation verified (502). Code does not regenerate sealed Jul 20; startup sealed restore is identity-preserving; Home durable writes are day-keyed and do not wipe Lab/History stores.
+Code does not regenerate sealed Jul 20; Home durable writes are day-keyed. Live tracked-prop date breakdown was flaky under 502; no intentional wipe of Lab/History/weights was performed.
 
 ---
 
@@ -286,18 +288,18 @@ No frontend label/design changes.
 ## 29. Remaining limitations
 
 1. **`DATABASE_URL` must be attached** on the live Render web service for true cross-redeploy durability; without it, verdict cannot be `HOME RESTART DURABILITY VERIFIED`.
-2. Live Render **502 / dynamic-paid-error** blocked restore + restart proofs in this run — account/service plan issue may need dashboard attention.
-3. Bundled recovery remains a last-resort bridge (not the database).
-4. Autonomous Cron activation was explicitly out of scope for this mission.
-5. Follow-up hotfix (this commit): Postgres boot fail-fast (`pgFailed` + 5–8s timeouts) and 12s startup hydrate budget so a bad/missing `DATABASE_URL` cannot hang Render before `listen`.
+2. Intermittent Render **502** still blocks reliable multi-restart proofs.
+3. Bundled recovery remains a last-resort bridge (not the database) — current live Today 6 came from that bridge.
+4. Autonomous Cron activation was explicitly out of scope.
+5. Hotfix `7f88bc0`: Postgres boot fail-fast + 12s startup hydrate budget.
 
 **Unblock checklist**
 
-1. Fix Render service health (resolve 502 / plan routing error).
+1. Stabilize Render service health (502 flaps).
 2. Provision/link `courtedge-durable-db` and set web `DATABASE_URL`.
-3. Deploy this build; confirm `/health.homeDurable.durableActive === true`.
-4. Emergency-seed Jul 22 Best 6 once if still empty, which then **persists to Postgres**.
-5. Perform two controlled restarts + one redeploy without manual refresh/hydrate/recover.
+3. Confirm `/health.homeDurable.durableActive === true`.
+4. One emergency seed if needed so Postgres receives the Jul 22 board.
+5. Two controlled restarts + one redeploy without manual refresh/hydrate/recover.
 
 ---
 
@@ -307,4 +309,5 @@ No frontend label/design changes.
 PARTIAL — DURABLE HOME STORE NOT ACTIVE
 ```
 
-Reason: Home durability code and tests are complete, but production Postgres was not confirmed active and live restart verification could not run (Render 502). Home state remains ephemeral on Render until `DATABASE_URL` is connected and restart proofs succeed.
+Reason: Durability code + Tests A–N are shipped and live Today 6 was restored via startup bundle, but production Postgres is **not** connected (`durableActive=false`) and controlled multi-restart durability proofs are incomplete. Home remains ephemeral on Render until `DATABASE_URL` is active and restart proofs pass.
+
