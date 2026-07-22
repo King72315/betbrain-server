@@ -650,6 +650,9 @@ export async function evaluateWnbaPropDecision(context = {}) {
   }
   pick.last5 = last5;
   pick.matchupGames = matchupGames;
+  // Persist season logs so sanitize/hydrate rebuilds can recover L10 without re-fetch.
+  pick.bdlSeasonGames = bdlSeasonGames;
+  pick.seasonGames = bdlSeasonGames;
 
   const qualityGate = evaluateWnbaTrackingEligibility(pick, dataCard, reader);
   const decisionIntelligence = evaluatePropDecisionIntelligenceV1(pick, {
