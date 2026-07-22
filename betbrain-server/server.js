@@ -356,7 +356,7 @@ import {
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from recovery/empty-board-recovery-v1.json when cache is empty.
-// Past-only LKG (all games PAST vs CT today) is never preserved — see isPastOnlyLkgBoard.
+// Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD = "courteedge-home-fresh-slate-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-fresh-slate-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
@@ -6403,7 +6403,7 @@ if (process.env.RUN_AUDIT === "1") {
           if (board && Array.isArray(board.games) && board.games.length > 0) {
             if (isPastOnlyLkgBoard(board, getTodayLocalDate())) {
               console.log(
-                `STARTUP: skipped past-only recovery board (${board.games.length} games) — awaiting fresh refresh`
+                `STARTUP: skipped past-only recovery board (${board.games.length} games) ? awaiting fresh refresh`
               );
             } else {
               stampAndPersistSeededBoard(
@@ -6417,17 +6417,17 @@ if (process.env.RUN_AUDIT === "1") {
             }
           } else {
             console.log(
-              "STARTUP: empty board — recovery file present but invalid"
+              "STARTUP: empty board ? recovery file present but invalid"
             );
           }
         } else {
           console.log(
-            "STARTUP: empty board — awaiting manual/scheduled refresh"
+            "STARTUP: empty board ? awaiting manual/scheduled refresh"
           );
         }
       } catch (err) {
         console.log("STARTUP EMPTY BOARD RECOVERY ERROR:", err.message);
-        console.log("STARTUP: empty board — awaiting manual/scheduled refresh");
+        console.log("STARTUP: empty board ? awaiting manual/scheduled refresh");
       }
     }
 
