@@ -365,7 +365,7 @@ import {
   hydrateWorkingFilesFromDurableStore,
 } from "./services/courtEdgeDurableStoreV1.js";
 import {
-  getHomeDurableStatusAsync,
+  getHomeDurableStatus,
   hydrateHomeBoardFromDurable,
   persistHomeBoardAtomic,
   HOME_DURABLE_BUILD,
@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-home-restart-durability-v1";
+const SERVER_BUILD = "courteedge-boot-health-first-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -3379,12 +3379,18 @@ async function refreshAllPicks(options = {}) {
   return result;
 }
 
-app.get("/health", async (req, res) => {
+app.get("/health", (req, res) => {
+  // Sync-only: never await Postgres here. A stuck DATABASE_URL / pool.end
+  // must not make Render health checks hang or flap 502.
   let homeDurable = null;
   try {
-    homeDurable = await getHomeDurableStatusAsync();
+    homeDurable = getHomeDurableStatus();
   } catch {
-    homeDurable = { build: HOME_RESTART_DURABILITY_VERSION, error: true };
+    homeDurable = {
+      build: HOME_RESTART_DURABILITY_VERSION,
+      durableActive: false,
+      error: true,
+    };
   }
   res.json({
     ok: true,
@@ -6532,6 +6538,21 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
+    // Bind port BEFORE durable/Postgres hydrate so Render health checks and
+    // free-tier cold starts get an immediate 200 /health (filesystem fail-open).
+    await new Promise((resolve, reject) => {
+      const server = app.listen(CONFIG.PORT, () => {
+        console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
+        console.log("CONFIG:", checkConfig());
+        console.log("SERVER_BUILD:", SERVER_BUILD);
+        console.log(
+          "STARTUP: listen-first boot; durable hydrate continues in background"
+        );
+        resolve(server);
+      });
+      server.on("error", reject);
+    });
+
     await withStartupBudget("DURABLE_STORE_HYDRATE", async () => {
       const durableHydrate = await hydrateWorkingFilesFromDurableStore();
       console.log(
@@ -6712,11 +6733,6 @@ if (process.env.RUN_AUDIT === "1") {
         console.log("STARTUP PROMOTE LAB 0628 V1 ERROR:", error.message);
       }
     }
-
-    app.listen(CONFIG.PORT, async () => {
-    console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
-    console.log("CONFIG:", checkConfig());
-    console.log("SERVER_BUILD:", SERVER_BUILD);
 
     hydratePicksCacheFromDisk();
     if (!picksCache?.games?.length) {
@@ -6914,7 +6930,6 @@ if (process.env.RUN_AUDIT === "1") {
     console.log(
       `COURTEDGE SCHEDULER heartbeat every ${SCHEDULER_HEARTBEAT_MS / 60000} minutes`
     );
-  });
   }
 
   startServer().catch((error) => {

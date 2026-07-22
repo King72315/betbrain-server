@@ -161,15 +161,24 @@ async function ensurePg() {
         `),
       ]);
       const timeoutMs = Number(process.env.COURTEDGE_PG_BOOT_MS || 8000);
-      await Promise.race([
-        boot,
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`postgres_boot_timeout_${timeoutMs}ms`)),
-            timeoutMs
-          )
-        ),
-      ]);
+      let bootTimer = null;
+      try {
+        await Promise.race([
+          boot,
+          new Promise((_, reject) => {
+            bootTimer = setTimeout(
+              () => reject(new Error(`postgres_boot_timeout_${timeoutMs}ms`)),
+              timeoutMs
+            );
+          }),
+        ]);
+      } finally {
+        if (bootTimer) clearTimeout(bootTimer);
+      }
+      // If a prior timeout already failed open, never promote to postgres.
+      if (pgFailed) {
+        return null;
+      }
       backendType = "postgres";
       lastDurableError = null;
       return pgPool;
@@ -177,12 +186,16 @@ async function ensurePg() {
       lastDurableError = String(error?.message || error);
       backendType = "filesystem-fallback";
       pgFailed = true;
-      try {
-        if (pgPool) await pgPool.end();
-      } catch {
-        // ignore
-      }
+      const poolToClose = pgPool;
       pgPool = null;
+      // Never await pool.end() unboundedly — a stuck TCP handshake can hang
+      // forever, leave pgReady unsettled, and block /health + startup.
+      if (poolToClose) {
+        Promise.race([
+          Promise.resolve(poolToClose.end()).catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]).catch(() => {});
+      }
       return null;
     }
   })();
