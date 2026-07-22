@@ -82,3 +82,5 @@ betbrain-server/.state-integrity-rejected-writes-v1.json.bak
 # CourtEdge tab-flow repair local baselines / temp
 betbrain-server/.tab-flow-baseline-v1/
 betbrain-server/.tmp-tab-flow-repair-v1/
+
+betbrain-server/.home-restart-durability-baseline-v1/
