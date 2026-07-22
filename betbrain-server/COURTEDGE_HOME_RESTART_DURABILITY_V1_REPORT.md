@@ -200,7 +200,13 @@ No weight files, labels, or UI redesign changed.
 
 ## 18. Commit hashes
 
-(Filled at commit time — see git log on `betbrain-v2-rebuild` for `courteedge-home-restart-durability-v1`.)
+| Commit | Message |
+|---|---|
+| `69e42b3` | Make Home Today/Tomorrow restart-durable via Postgres-ready day store. |
+| `7f86db5` | Document Home restart durability v1 results and partial prod verdict. |
+| *(this commit)* | Fail-fast Postgres boot + startup hydrate budget to avoid Render 502 hangs. |
+
+Pushed to `orgin` / `betbrain-v2-rebuild`.
 
 ---
 
@@ -283,6 +289,7 @@ No frontend label/design changes.
 2. Live Render **502 / dynamic-paid-error** blocked restore + restart proofs in this run — account/service plan issue may need dashboard attention.
 3. Bundled recovery remains a last-resort bridge (not the database).
 4. Autonomous Cron activation was explicitly out of scope for this mission.
+5. Follow-up hotfix (this commit): Postgres boot fail-fast (`pgFailed` + 5–8s timeouts) and 12s startup hydrate budget so a bad/missing `DATABASE_URL` cannot hang Render before `listen`.
 
 **Unblock checklist**
 

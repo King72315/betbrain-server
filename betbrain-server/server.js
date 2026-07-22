@@ -6513,7 +6513,26 @@ if (process.env.RUN_AUDIT === "1") {
   }
 
   async function startServer() {
-    try {
+    const startupBudgetMs = Number(
+      process.env.COURTEDGE_STARTUP_HYDRATE_MS || 12000
+    );
+    async function withStartupBudget(label, fn) {
+      try {
+        await Promise.race([
+          fn(),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`${label}_timeout_${startupBudgetMs}ms`)),
+              startupBudgetMs
+            )
+          ),
+        ]);
+      } catch (error) {
+        console.log(`STARTUP ${label} ERROR:`, error.message);
+      }
+    }
+
+    await withStartupBudget("DURABLE_STORE_HYDRATE", async () => {
       const durableHydrate = await hydrateWorkingFilesFromDurableStore();
       console.log(
         "STARTUP DURABLE STORE HYDRATE:",
@@ -6531,13 +6550,11 @@ if (process.env.RUN_AUDIT === "1") {
           databaseUrlConfigured: durableHealth.databaseUrlConfigured,
         })
       );
-    } catch (error) {
-      console.log("STARTUP DURABLE STORE ERROR:", error.message);
-    }
+    });
 
     // Home restart durability: restore Today/Tomorrow from durable store BEFORE
     // bundled recovery. Durable sealed/draft beats bundle/seed/empty init.
-    try {
+    await withStartupBudget("HOME_DURABLE_HYDRATE", async () => {
       const todayCT = getTodayLocalDate();
       const [y, m, d] = todayCT.split("-").map(Number);
       const tomorrowCT = new Date(Date.UTC(y, m - 1, d + 1, 12))
@@ -6557,7 +6574,10 @@ if (process.env.RUN_AUDIT === "1") {
           actions: homeHydrate.actions?.length || 0,
         })
       );
-      if (homeHydrate.board && (homeHydrate.todayCount > 0 || homeHydrate.tomorrowCount > 0)) {
+      if (
+        homeHydrate.board &&
+        (homeHydrate.todayCount > 0 || homeHydrate.tomorrowCount > 0)
+      ) {
         picksCache = {
           ...homeHydrate.board,
           serverBuild: SERVER_BUILD,
@@ -6567,9 +6587,7 @@ if (process.env.RUN_AUDIT === "1") {
         lastRefreshTime = Date.now();
         saveBoardCache(picksCache);
       }
-    } catch (error) {
-      console.log("STARTUP HOME DURABLE HYDRATE ERROR:", error.message);
-    }
+    });
 
     // After durable hydrate: earlier restores can be overwritten by empty/stale
     // filesystem mirrors when Postgres is unset. Re-apply sealed Jul 20 here.

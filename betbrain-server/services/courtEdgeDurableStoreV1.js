@@ -47,6 +47,7 @@ const FILE_MAP = Object.freeze({
 
 let pgPool = null;
 let pgReady = null;
+let pgFailed = false;
 let lastDurableWriteAt = null;
 let lastDurableError = null;
 let lastStartupRecovery = null;
@@ -111,12 +112,17 @@ async function ensurePg() {
     backendType = "filesystem";
     return null;
   }
+  if (pgFailed) {
+    backendType = backendType || "filesystem-fallback";
+    return null;
+  }
   if (pgPool) return pgPool;
   if (pgReady) return pgReady;
   pgReady = (async () => {
     try {
       const mod = await import("pg");
       const Pool = mod.default?.Pool || mod.Pool;
+      const connectMs = Number(process.env.COURTEDGE_PG_CONNECT_MS || 5000);
       pgPool = new Pool({
         connectionString: url,
         ssl:
@@ -125,38 +131,57 @@ async function ensurePg() {
             : { rejectUnauthorized: false },
         max: 2,
         idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 15_000,
+        connectionTimeoutMillis: Number.isFinite(connectMs) ? connectMs : 5000,
       });
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS courtedge_kv (
-          key TEXT PRIMARY KEY,
-          value JSONB NOT NULL,
-          record_version BIGINT NOT NULL DEFAULT 1,
-          content_hash TEXT,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS courtedge_locks (
-          lock_key TEXT PRIMARY KEY,
-          owner TEXT NOT NULL,
-          acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          expires_at TIMESTAMPTZ NOT NULL
-        );
-      `);
-      await pgPool.query(`
-        CREATE TABLE IF NOT EXISTS courtedge_idempotency (
-          idempotency_key TEXT PRIMARY KEY,
-          result JSONB NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
+      // Hard ceiling so a bad DATABASE_URL cannot hang Render startup.
+      const boot = Promise.all([
+        pgPool.query(`
+          CREATE TABLE IF NOT EXISTS courtedge_kv (
+            key TEXT PRIMARY KEY,
+            value JSONB NOT NULL,
+            record_version BIGINT NOT NULL DEFAULT 1,
+            content_hash TEXT,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        `),
+        pgPool.query(`
+          CREATE TABLE IF NOT EXISTS courtedge_locks (
+            lock_key TEXT PRIMARY KEY,
+            owner TEXT NOT NULL,
+            acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMPTZ NOT NULL
+          );
+        `),
+        pgPool.query(`
+          CREATE TABLE IF NOT EXISTS courtedge_idempotency (
+            idempotency_key TEXT PRIMARY KEY,
+            result JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        `),
+      ]);
+      const timeoutMs = Number(process.env.COURTEDGE_PG_BOOT_MS || 8000);
+      await Promise.race([
+        boot,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`postgres_boot_timeout_${timeoutMs}ms`)),
+            timeoutMs
+          )
+        ),
+      ]);
       backendType = "postgres";
       lastDurableError = null;
       return pgPool;
     } catch (error) {
       lastDurableError = String(error?.message || error);
       backendType = "filesystem-fallback";
+      pgFailed = true;
+      try {
+        if (pgPool) await pgPool.end();
+      } catch {
+        // ignore
+      }
       pgPool = null;
       return null;
     }
@@ -569,6 +594,7 @@ export function syncKeyToDurableFireAndForget(key, value, options = {}) {
 export function resetDurableStoreForTests() {
   pgPool = null;
   pgReady = null;
+  pgFailed = false;
   lastDurableWriteAt = null;
   lastDurableError = null;
   lastStartupRecovery = null;
