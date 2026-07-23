@@ -1,904 +1,769 @@
 [
   {
-    "slateDate": "2026-06-14",
-    "status": "in-progress",
-    "generatedAt": "2026-06-15T16:22:31.661Z",
-    "updatedAt": "2026-06-15T16:31:49.282Z",
-    "sections": {
-      "A": {
-        "title": "Slate Summary",
-        "slateDate": "2026-06-14",
-        "reportStatus": "in-progress",
-        "totalOfficialProps": 16,
-        "graded": 0,
-        "pending": 16,
-        "wins": 0,
-        "losses": 0,
-        "pushes": 0,
-        "overallWinRate": null,
-        "leagues": [
-          "WNBA"
-        ],
-        "generatedAt": "2026-06-15T16:31:49.282Z",
-        "updatedAt": "2026-06-15T16:31:49.282Z"
+    "slateDate": "2026-07-22",
+    "status": "final",
+    "pending": 0,
+    "graded": 6,
+    "wins": 4,
+    "losses": 2,
+    "pushes": 0,
+    "record": "4-2-0",
+    "winRate": 66.7,
+    "props": [
+      {
+        "player": "Kelsey Mitchell",
+        "playerName": "Kelsey Mitchell",
+        "team": "indianafever",
+        "opponent": "connecticutsun",
+        "side": "OVER",
+        "line": 21.5,
+        "status": "win",
+        "result": 23,
+        "actualStat": 23,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 82,
+        "bestSixRank": 1,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|kelseymitchell|indianafever|connecticutsun|points|OVER|21.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "B": {
-        "title": "Risk Bucket Breakdown",
-        "buckets": {
-          "LOW": {
-            "total": 4,
-            "graded": 0,
-            "pending": 4,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          },
-          "MEDIUM": {
-            "total": 12,
-            "graded": 0,
-            "pending": 12,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          },
-          "HIGH": {
-            "total": 0,
-            "graded": 0,
-            "pending": 0,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          }
-        }
+      {
+        "player": "Kayla McBride",
+        "playerName": "Kayla McBride",
+        "team": "minnesotalynx",
+        "opponent": "seattlestorm",
+        "side": "OVER",
+        "line": 17.5,
+        "status": "win",
+        "result": 20,
+        "actualStat": 20,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 86,
+        "bestSixRank": 2,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|kaylamcbride|minnesotalynx|seattlestorm|points|OVER|17.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "C": {
-        "title": "Projection/Fair Line Accuracy",
-        "sample": 0,
-        "projectionSideWinRate": null,
-        "avgProjected": null,
-        "avgFairLine": null,
-        "avgActual": null,
-        "avgError": null,
-        "avgAbsError": null,
-        "bias": "not enough data",
-        "bestCall": null,
-        "worstMiss": null,
-        "edgeBucketPerformance": {
-          "note": "not enough data for edge bucket breakdown"
-        },
-        "needsMoreData": true
+      {
+        "player": "Olivia Miles",
+        "playerName": "Olivia Miles",
+        "team": "minnesotalynx",
+        "opponent": "seattlestorm",
+        "side": "UNDER",
+        "line": 17.5,
+        "status": "win",
+        "result": 13,
+        "actualStat": 13,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 76,
+        "bestSixRank": 3,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|oliviamiles|minnesotalynx|seattlestorm|points|UNDER|17.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "D": {
-        "title": "Engine/Signal Performance",
-        "groups": {
-          "last5": {
-            "supports_side": {
-              "sample": 10,
-              "pending": 10,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "neutral": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "opposes_side": {
-              "sample": 1,
-              "pending": 1,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "seasonAverage": {
-            "supports_side": {
-              "sample": 13,
-              "pending": 13,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "neutral": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "opposes_side": {
-              "sample": 1,
-              "pending": 1,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "h2h": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "opponentDefense": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "usageMinutes": {
-            "minutes_down": {
-              "sample": 9,
-              "pending": 9,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "minutes_up": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "stable": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "injuryAvailability": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "homeAway": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "restTravel": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "pace": {
-            "not enough data": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "marketBookCount": {
-            "1-2": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "supportDangerGap": {
-            "10-19": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "5-9": {
-              "sample": 3,
-              "pending": 3,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "20+": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "confidenceBucket": {
-            "Under 55": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "projectionEdgeBucket": {
-            "4+": {
-              "sample": 6,
-              "pending": 6,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "Under 1.5": {
-              "sample": 4,
-              "pending": 4,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "2.5-3.9": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "1.5-2.4": {
-              "sample": 4,
-              "pending": 4,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "riskBucket": {
-            "MEDIUM": {
-              "sample": 12,
-              "pending": 12,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "LOW": {
-              "sample": 4,
-              "pending": 4,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "tier": {
-            "LEAN": {
-              "sample": 16,
-              "pending": 16,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          }
-        }
+      {
+        "player": "A'ja Wilson",
+        "playerName": "A'ja Wilson",
+        "team": "lasvegasaces",
+        "opponent": "washingtonmystics",
+        "side": "OVER",
+        "line": 23.5,
+        "status": "win",
+        "result": 38,
+        "actualStat": 38,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 58,
+        "bestSixRank": 4,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|ajawilson|lasvegasaces|washingtonmystics|points|OVER|23.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "E": {
-        "title": "Loss/Miss Type Report",
-        "losses": [],
-        "totalLosses": 0
+      {
+        "player": "Aliyah Boston",
+        "playerName": "Aliyah Boston",
+        "team": "indianafever",
+        "opponent": "connecticutsun",
+        "side": "UNDER",
+        "line": 14.5,
+        "status": "loss",
+        "result": 22,
+        "actualStat": 22,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 46,
+        "bestSixRank": 5,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|aliyahboston|indianafever|connecticutsun|points|UNDER|14.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "F": {
-        "title": "Calibration Recommendations",
-        "signalsToTrustMore": [],
-        "signalsToTrustLess": [],
-        "riskBucketNotes": [
-          "LOW: insufficient sample (0 decided)",
-          "MEDIUM: insufficient sample (0 decided)",
-          "HIGH: insufficient sample (0 decided)"
-        ],
-        "projectionNotes": [
-          "Not enough graded projection data for bias call."
-        ],
-        "sampleSizeGaps": [
-          "last5/supports_side: needs more data",
-          "last5/neutral: needs more data",
-          "last5/opposes_side: needs more data",
-          "seasonAverage/supports_side: needs more data",
-          "seasonAverage/neutral: needs more data",
-          "seasonAverage/opposes_side: needs more data",
-          "h2h/not enough data: needs more data",
-          "opponentDefense/not enough data: needs more data"
-        ],
-        "nextAdjustment": "Do not adjust yet — overall sample too small.",
-        "doNotAdjustYet": true,
-        "note": "Report only — no engine weights were changed."
+      {
+        "player": "Azura Stevens",
+        "playerName": "Azura Stevens",
+        "team": "chicagosky",
+        "opponent": "newyorkliberty",
+        "side": "OVER",
+        "line": 11.5,
+        "status": "loss",
+        "result": 8,
+        "actualStat": 8,
+        "league": "WNBA",
+        "slateDate": "2026-07-22",
+        "confidence": 72,
+        "bestSixRank": 6,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-22|WNBA|azurastevens|chicagosky|newyorkliberty|points|OVER|11.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       }
-    },
-    "reportStatus": "in-progress"
+    ],
+    "propCount": 6,
+    "rebuiltAt": "2026-07-23T07:51:26.088Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
   },
   {
-    "slateDate": "2026-06-15",
-    "status": "in-progress",
-    "generatedAt": "2026-06-15T16:22:31.664Z",
-    "updatedAt": "2026-06-15T16:31:49.283Z",
-    "sections": {
-      "A": {
-        "title": "Slate Summary",
-        "slateDate": "2026-06-15",
-        "reportStatus": "in-progress",
-        "totalOfficialProps": 8,
-        "graded": 0,
-        "pending": 8,
-        "wins": 0,
-        "losses": 0,
-        "pushes": 0,
-        "overallWinRate": null,
-        "leagues": [
-          "WNBA"
-        ],
-        "generatedAt": "2026-06-15T16:31:49.283Z",
-        "updatedAt": "2026-06-15T16:31:49.283Z"
+    "slateDate": "2026-07-20",
+    "status": "final",
+    "pending": 0,
+    "graded": 6,
+    "wins": 4,
+    "losses": 2,
+    "pushes": 0,
+    "record": "4-2-0",
+    "winRate": 66.7,
+    "props": [
+      {
+        "player": "Rhyne Howard",
+        "playerName": "Rhyne Howard",
+        "team": "atlantadream",
+        "opponent": "chicagosky",
+        "side": "UNDER",
+        "line": 18.5,
+        "status": "win",
+        "result": 11,
+        "actualStat": 11,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 66,
+        "bestSixRank": 1,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|rhynehoward|atlantadream|chicagosky|points|UNDER|18.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "B": {
-        "title": "Risk Bucket Breakdown",
-        "buckets": {
-          "LOW": {
-            "total": 5,
-            "graded": 0,
-            "pending": 5,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          },
-          "MEDIUM": {
-            "total": 3,
-            "graded": 0,
-            "pending": 3,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          },
-          "HIGH": {
-            "total": 0,
-            "graded": 0,
-            "pending": 0,
-            "wins": 0,
-            "losses": 0,
-            "pushes": 0,
-            "winRate": null,
-            "netUnits": 0,
-            "avgConfidence": null,
-            "avgFairLineEdge": null,
-            "avgProjectionEdge": null,
-            "avgSupport": null,
-            "avgDanger": null,
-            "avgSupportDangerGap": null,
-            "smallSampleNote": null
-          }
-        }
+      {
+        "player": "Alyssa Thomas",
+        "playerName": "Alyssa Thomas",
+        "team": "phoenixmercury",
+        "opponent": "connecticutsun",
+        "side": "OVER",
+        "line": 13.5,
+        "status": "loss",
+        "result": 7,
+        "actualStat": 7,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 58,
+        "bestSixRank": 2,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|alyssathomas|phoenixmercury|connecticutsun|points|OVER|13.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "C": {
-        "title": "Projection/Fair Line Accuracy",
-        "sample": 0,
-        "projectionSideWinRate": null,
-        "avgProjected": null,
-        "avgFairLine": null,
-        "avgActual": null,
-        "avgError": null,
-        "avgAbsError": null,
-        "bias": "not enough data",
-        "bestCall": null,
-        "worstMiss": null,
-        "edgeBucketPerformance": {
-          "note": "not enough data for edge bucket breakdown"
-        },
-        "needsMoreData": true
+      {
+        "player": "Azura Stevens",
+        "playerName": "Azura Stevens",
+        "team": "chicagosky",
+        "opponent": "atlantadream",
+        "side": "OVER",
+        "line": 11.5,
+        "status": "win",
+        "result": 20,
+        "actualStat": 20,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 59,
+        "bestSixRank": 3,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|azurastevens|chicagosky|atlantadream|points|OVER|11.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "D": {
-        "title": "Engine/Signal Performance",
-        "groups": {
-          "last5": {
-            "supports_side": {
-              "sample": 6,
-              "pending": 6,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "neutral": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "seasonAverage": {
-            "neutral": {
-              "sample": 3,
-              "pending": 3,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "supports_side": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "h2h": {
-            "not enough data": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "opponentDefense": {
-            "not enough data": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "usageMinutes": {
-            "minutes_up": {
-              "sample": 3,
-              "pending": 3,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "stable": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "injuryAvailability": {
-            "not enough data": {
-              "sample": 6,
-              "pending": 6,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "clear": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "homeAway": {
-            "not enough data": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "restTravel": {
-            "not enough data": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "pace": {
-            "not enough data": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "marketBookCount": {
-            "3-4": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "supportDangerGap": {
-            "20+": {
-              "sample": 6,
-              "pending": 6,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "10-19": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "confidenceBucket": {
-            "55-59": {
-              "sample": 4,
-              "pending": 4,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "Under 55": {
-              "sample": 4,
-              "pending": 4,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "projectionEdgeBucket": {
-            "2.5-3.9": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "4+": {
-              "sample": 3,
-              "pending": 3,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "1.5-2.4": {
-              "sample": 2,
-              "pending": 2,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "Under 1.5": {
-              "sample": 1,
-              "pending": 1,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "riskBucket": {
-            "LOW": {
-              "sample": 5,
-              "pending": 5,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            },
-            "MEDIUM": {
-              "sample": 3,
-              "pending": 3,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          },
-          "tier": {
-            "LEAN": {
-              "sample": 8,
-              "pending": 8,
-              "graded": 0,
-              "wins": 0,
-              "losses": 0,
-              "pushes": 0,
-              "winRate": null,
-              "needsMoreData": true,
-              "smallSampleNote": "No graded props in this group"
-            }
-          }
-        }
+      {
+        "player": "Brittney Griner",
+        "playerName": "Brittney Griner",
+        "team": "connecticutsun",
+        "opponent": "phoenixmercury",
+        "side": "OVER",
+        "line": 12.5,
+        "status": "win",
+        "result": 19,
+        "actualStat": 19,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 63,
+        "bestSixRank": 4,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|brittneygriner|connecticutsun|phoenixmercury|points|OVER|12.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "E": {
-        "title": "Loss/Miss Type Report",
-        "losses": [],
-        "totalLosses": 0
+      {
+        "player": "Charlisse Leger-Walker",
+        "playerName": "Charlisse Leger-Walker",
+        "team": "connecticutsun",
+        "opponent": "phoenixmercury",
+        "side": "UNDER",
+        "line": 8.5,
+        "status": "win",
+        "result": 5,
+        "actualStat": 5,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 50,
+        "bestSixRank": 5,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|charlisselegerwalker|connecticutsun|phoenixmercury|points|UNDER|8.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       },
-      "F": {
-        "title": "Calibration Recommendations",
-        "signalsToTrustMore": [],
-        "signalsToTrustLess": [],
-        "riskBucketNotes": [
-          "LOW: insufficient sample (0 decided)",
-          "MEDIUM: insufficient sample (0 decided)",
-          "HIGH: insufficient sample (0 decided)"
-        ],
-        "projectionNotes": [
-          "Not enough graded projection data for bias call."
-        ],
-        "sampleSizeGaps": [
-          "last5/supports_side: needs more data",
-          "last5/neutral: needs more data",
-          "seasonAverage/neutral: needs more data",
-          "seasonAverage/supports_side: needs more data",
-          "h2h/not enough data: needs more data",
-          "opponentDefense/not enough data: needs more data",
-          "usageMinutes/minutes_up: needs more data",
-          "usageMinutes/stable: needs more data"
-        ],
-        "nextAdjustment": "Do not adjust yet — overall sample too small.",
-        "doNotAdjustYet": true,
-        "note": "Report only — no engine weights were changed."
+      {
+        "player": "Angel Reese",
+        "playerName": "Angel Reese",
+        "team": "atlantadream",
+        "opponent": "chicagosky",
+        "side": "OVER",
+        "line": 16.5,
+        "status": "loss",
+        "result": 8,
+        "actualStat": 8,
+        "league": "WNBA",
+        "slateDate": "2026-07-20",
+        "confidence": 61,
+        "bestSixRank": 6,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-20|WNBA|angelreese|atlantadream|chicagosky|points|OVER|16.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
       }
-    },
-    "reportStatus": "in-progress"
+    ],
+    "propCount": 6,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
+  },
+  {
+    "slateDate": "2026-07-17",
+    "status": "final",
+    "pending": 0,
+    "graded": 6,
+    "wins": 3,
+    "losses": 3,
+    "pushes": 0,
+    "record": "3-3-0",
+    "winRate": 50,
+    "props": [
+      {
+        "player": "Nneka Ogwumike",
+        "playerName": "Nneka Ogwumike",
+        "team": "losangelessparks",
+        "opponent": "chicagosky",
+        "side": "OVER",
+        "line": 16.5,
+        "status": "win",
+        "result": 18,
+        "actualStat": 18,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 65,
+        "bestSixRank": 1,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|nnekaogwumike|losangelessparks|chicagosky|points|OVER|16.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Dominique Malonga",
+        "playerName": "Dominique Malonga",
+        "team": "seattlestorm",
+        "opponent": "indianafever",
+        "side": "UNDER",
+        "line": 16.5,
+        "status": "loss",
+        "result": 28,
+        "actualStat": 28,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 50,
+        "bestSixRank": 2,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|dominiquemalonga|seattlestorm|indianafever|points|UNDER|16.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Isabelle Harrison",
+        "playerName": "Isabelle Harrison",
+        "team": "torontotempo",
+        "opponent": "atlantadream",
+        "side": "OVER",
+        "line": 11.5,
+        "status": "loss",
+        "result": 10,
+        "actualStat": 10,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 52,
+        "bestSixRank": 3,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|isabelleharrison|torontotempo|atlantadream|points|OVER|11.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Rhyne Howard",
+        "playerName": "Rhyne Howard",
+        "team": "atlantadream",
+        "opponent": "torontotempo",
+        "side": "UNDER",
+        "line": 19.5,
+        "status": "win",
+        "result": 10,
+        "actualStat": 10,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 58,
+        "bestSixRank": 4,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|rhynehoward|atlantadream|torontotempo|points|UNDER|19.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Kelsey Mitchell",
+        "playerName": "Kelsey Mitchell",
+        "team": "indianafever",
+        "opponent": "seattlestorm",
+        "side": "OVER",
+        "line": 22.5,
+        "status": "win",
+        "result": 30,
+        "actualStat": 30,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 69,
+        "bestSixRank": 5,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|kelseymitchell|indianafever|seattlestorm|points|OVER|22.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Naz Hillmon",
+        "playerName": "Naz Hillmon",
+        "team": "atlantadream",
+        "opponent": "torontotempo",
+        "side": "UNDER",
+        "line": 9.5,
+        "status": "loss",
+        "result": 24,
+        "actualStat": 24,
+        "league": "WNBA",
+        "slateDate": "2026-07-17",
+        "confidence": 42,
+        "bestSixRank": 6,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-17|WNBA|nazhillmon|atlantadream|torontotempo|points|UNDER|9.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      }
+    ],
+    "propCount": 6,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
+  },
+  {
+    "slateDate": "2026-07-16",
+    "status": "final",
+    "pending": 0,
+    "graded": 3,
+    "wins": 0,
+    "losses": 3,
+    "pushes": 0,
+    "record": "0-3-0",
+    "winRate": 0,
+    "props": [
+      {
+        "player": "Bridget Carleton",
+        "playerName": "Bridget Carleton",
+        "team": "portlandfire",
+        "opponent": "washingtonmystics",
+        "side": "Over",
+        "line": 8.5,
+        "status": "loss",
+        "result": 6,
+        "actualStat": 6,
+        "league": "WNBA",
+        "slateDate": "2026-07-16",
+        "confidence": 55,
+        "bestSixRank": 1,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-16|WNBA|bridgetcarleton|portlandfire|washingtonmystics|points|OVER|8.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Sonia Citron",
+        "playerName": "Sonia Citron",
+        "team": "washingtonmystics",
+        "opponent": "portlandfire",
+        "side": "Over",
+        "line": 12.5,
+        "status": "loss",
+        "result": 8,
+        "actualStat": 8,
+        "league": "WNBA",
+        "slateDate": "2026-07-16",
+        "confidence": 52,
+        "bestSixRank": 2,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-16|WNBA|soniacitron|washingtonmystics|portlandfire|points|OVER|12.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Shakira Austin",
+        "playerName": "Shakira Austin",
+        "team": "washingtonmystics",
+        "opponent": "portlandfire",
+        "side": "Under",
+        "line": 17.5,
+        "status": "loss",
+        "result": 19,
+        "actualStat": 19,
+        "league": "WNBA",
+        "slateDate": "2026-07-16",
+        "confidence": 47,
+        "bestSixRank": 3,
+        "immutableOfficial": true,
+        "officialPropId": "2026-07-16|WNBA|shakiraaustin|washingtonmystics|portlandfire|points|UNDER|17.5",
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      }
+    ],
+    "propCount": 3,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
+  },
+  {
+    "slateDate": "2026-07-15",
+    "status": "final",
+    "pending": 0,
+    "graded": 6,
+    "wins": 3,
+    "losses": 3,
+    "pushes": 0,
+    "record": "3-3-0",
+    "winRate": 50,
+    "props": [
+      {
+        "player": "Kayla Thornton",
+        "playerName": "Kayla Thornton",
+        "team": "goldenstatevalkyries",
+        "opponent": "indianafever",
+        "line": 9.5,
+        "status": "loss",
+        "result": 11,
+        "actualStat": 11,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 42,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Aliyah Boston",
+        "playerName": "Aliyah Boston",
+        "team": "indianafever",
+        "opponent": "goldenstatevalkyries",
+        "line": 15.5,
+        "status": "loss",
+        "result": 15,
+        "actualStat": 15,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 43,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Kelsey Mitchell",
+        "playerName": "Kelsey Mitchell",
+        "team": "indianafever",
+        "opponent": "goldenstatevalkyries",
+        "line": 20.5,
+        "status": "loss",
+        "result": 20,
+        "actualStat": 20,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 61,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Dominique Malonga",
+        "playerName": "Dominique Malonga",
+        "team": "seattlestorm",
+        "opponent": "chicagosky",
+        "line": 17.5,
+        "status": "win",
+        "result": 16,
+        "actualStat": 16,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 55,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Kayla McBride",
+        "playerName": "Kayla McBride",
+        "team": "minnesotalynx",
+        "opponent": "losangelessparks",
+        "line": 18.5,
+        "status": "win",
+        "result": 24,
+        "actualStat": 24,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 73,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Natasha Howard",
+        "playerName": "Natasha Howard",
+        "team": "minnesotalynx",
+        "opponent": "losangelessparks",
+        "side": "Under",
+        "line": 16.5,
+        "status": "win",
+        "result": 10,
+        "actualStat": 10,
+        "league": "WNBA",
+        "slateDate": "2026-07-15",
+        "confidence": 32,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      }
+    ],
+    "propCount": 6,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
+  },
+  {
+    "slateDate": "2026-07-14",
+    "status": "final",
+    "pending": 0,
+    "graded": 4,
+    "wins": 0,
+    "losses": 4,
+    "pushes": 0,
+    "record": "0-4-0",
+    "winRate": 0,
+    "props": [
+      {
+        "player": "Nyara Sabally",
+        "playerName": "Nyara Sabally",
+        "team": "torontotempo",
+        "opponent": "washingtonmystics",
+        "line": 10.5,
+        "status": "loss",
+        "result": 13,
+        "actualStat": 13,
+        "league": "WNBA",
+        "slateDate": "2026-07-14",
+        "confidence": 42,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Sonia Citron",
+        "playerName": "Sonia Citron",
+        "team": "washingtonmystics",
+        "opponent": "torontotempo",
+        "line": 17.5,
+        "status": "loss",
+        "result": 2,
+        "actualStat": 2,
+        "league": "WNBA",
+        "slateDate": "2026-07-14",
+        "confidence": 65,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Marina Mabrey",
+        "playerName": "Marina Mabrey",
+        "team": "torontotempo",
+        "opponent": "washingtonmystics",
+        "line": 23.5,
+        "status": "loss",
+        "result": 8,
+        "actualStat": 8,
+        "league": "WNBA",
+        "slateDate": "2026-07-14",
+        "confidence": 64,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Sarah Ashlee Barker",
+        "playerName": "Sarah Ashlee Barker",
+        "team": "portlandfire",
+        "opponent": "connecticutsun",
+        "line": 10.5,
+        "status": "loss",
+        "result": 9,
+        "actualStat": 9,
+        "league": "WNBA",
+        "slateDate": "2026-07-14",
+        "confidence": 54,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      }
+    ],
+    "propCount": 4,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
+  },
+  {
+    "slateDate": "2026-07-08",
+    "status": "final",
+    "pending": 0,
+    "graded": 5,
+    "wins": 2,
+    "losses": 3,
+    "pushes": 0,
+    "record": "2-3-0",
+    "winRate": 40,
+    "props": [
+      {
+        "player": "Flau'jae Johnson",
+        "playerName": "Flau'jae Johnson",
+        "team": "seattlestorm",
+        "opponent": "atlantadream",
+        "line": 12.5,
+        "status": "win",
+        "result": 14,
+        "actualStat": 14,
+        "league": "WNBA",
+        "slateDate": "2026-07-08",
+        "confidence": 80,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Bridget Carleton",
+        "playerName": "Bridget Carleton",
+        "team": "portlandfire",
+        "opponent": "lasvegasaces",
+        "line": 13.5,
+        "status": "loss",
+        "result": 9,
+        "actualStat": 9,
+        "league": "WNBA",
+        "slateDate": "2026-07-08",
+        "confidence": 80,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Carla Leite",
+        "playerName": "Carla Leite",
+        "team": "portlandfire",
+        "opponent": "lasvegasaces",
+        "line": 14.5,
+        "status": "loss",
+        "result": 13,
+        "actualStat": 13,
+        "league": "WNBA",
+        "slateDate": "2026-07-08",
+        "confidence": 81,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Allisha Gray",
+        "playerName": "Allisha Gray",
+        "team": "atlantadream",
+        "opponent": "seattlestorm",
+        "line": 18.5,
+        "status": "loss",
+        "result": 22,
+        "actualStat": 22,
+        "league": "WNBA",
+        "slateDate": "2026-07-08",
+        "confidence": 84,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      },
+      {
+        "player": "Dominique Malonga",
+        "playerName": "Dominique Malonga",
+        "team": "seattlestorm",
+        "opponent": "atlantadream",
+        "line": 15.5,
+        "status": "win",
+        "result": 15,
+        "actualStat": 15,
+        "league": "WNBA",
+        "slateDate": "2026-07-08",
+        "confidence": 78,
+        "immutableOfficial": true,
+        "officialPropId": null,
+        "trackingType": "OFFICIAL",
+        "controlledBestSixDisplayTracked": true
+      }
+    ],
+    "propCount": 5,
+    "rebuiltAt": "2026-07-23T07:51:26.090Z",
+    "rebuildSource": "courteedge-results-lab-refresh-v1-tracked-rebuild"
   }
 ]

@@ -451,8 +451,28 @@ export function getAllHistoryArchives() {
 
   return fs
     .readdirSync(HISTORY_ARCHIVE_DIR)
-    .filter((name) => name.endsWith(".json"))
-    .map((name) => readJSON(path.join(HISTORY_ARCHIVE_DIR, name), null))
+    .filter((name) => name.endsWith(".json") && !name.endsWith(".bak"))
+    .map((name) => {
+      const full = readJSON(path.join(HISTORY_ARCHIVE_DIR, name), null);
+      if (!full || typeof full !== "object") return null;
+      // Rotation/lifecycle only need metadata. Loading full prop blobs (100MB+)
+      // OOMs free-tier Render and stalls /tracked-props + /courtedge/lab.
+      const propCount = Array.isArray(full.props)
+        ? full.props.length
+        : Number(full.propCount || 0) || 0;
+      return {
+        slateDate: full.slateDate,
+        phase: full.phase,
+        archivedAt: full.archivedAt,
+        updatedAt: full.updatedAt,
+        propCount,
+        // Empty array keeps `.filter`/`.map` callers safe; length signal via propCount.
+        props: [],
+        report: full.report || null,
+        record: full.record || full.report?.record || null,
+        _archivePropsOmited: propCount > 0,
+      };
+    })
     .filter(Boolean)
     .filter((archive) => isOnOrAfterCleanDataCutoff(archive?.slateDate))
     .sort((a, b) =>

@@ -176,15 +176,30 @@ export default function PropLabScreen() {
     try {
       if (opts?.refreshGrades) {
         setBuilding(true);
-        await resolveTrackedProps({ requireLikelyFinished: true });
-        await buildDailySlateReports({ forceRebuild: true });
+        const resolved = await resolveTrackedProps({ requireLikelyFinished: true });
+        if (!resolved.ok) {
+          throw new Error(
+            resolved.message || "Resolve tracked props failed during Lab refresh"
+          );
+        }
+        const built = await buildDailySlateReports({ forceRebuild: true });
+        if (!built.ok) {
+          throw new Error(
+            built.message || "Daily slate report rebuild failed during Lab refresh"
+          );
+        }
       }
       const list = await fetchDailySlateReports();
+      if (!list.ok) {
+        throw new Error("Daily slate reports unavailable");
+      }
       const slateDate = list.currentLabSlateDate || null;
       const labRes = await fetchCourtEdgeLabV2({
         slateDate: slateDate || undefined,
         page: rawPage,
         pageSize: 50,
+        // Bust any intermediary cache on explicit refresh.
+        ...(opts?.refreshGrades ? { includeAllRawRows: false } : {}),
       });
       if (!labRes.ok || !labRes.labV2) {
         // Fallback: labV2 embedded on daily reports response
@@ -205,6 +220,11 @@ export default function PropLabScreen() {
       setBuilding(false);
     }
   }, [rawPage]);
+
+  const handleRefreshLab = useCallback(() => {
+    setRefreshing(true);
+    load({ refreshGrades: true });
+  }, [load]);
 
   useFocusEffect(
     useCallback(() => {
@@ -266,10 +286,7 @@ export default function PropLabScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load({ refreshGrades: true });
-            }}
+            onRefresh={handleRefreshLab}
           />
         }
       >
@@ -280,15 +297,34 @@ export default function PropLabScreen() {
               CourtEdge Lab V2 · analysis only · three-slate calibration
             </Text>
           </View>
-          <CopyReportButton
-            getReportText={() => reportText}
-            slateDate={current?.slateDate || null}
-          />
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.refreshBtn,
+                (refreshing || loading || building) && styles.refreshBtnDisabled,
+              ]}
+              onPress={handleRefreshLab}
+              disabled={refreshing || loading || building}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.refreshBtnText}>
+                {building || refreshing ? "Refreshing…" : "Refresh"}
+              </Text>
+            </TouchableOpacity>
+            <CopyReportButton
+              getReportText={() => reportText}
+              slateDate={current?.slateDate || null}
+            />
+          </View>
         </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {loading ? <Text style={styles.muted}>Loading Lab V2…</Text> : null}
-        {building ? <Text style={styles.muted}>Refreshing grades & rebuilding Lab…</Text> : null}
+        {building ? (
+          <Text style={styles.muted}>
+            Resolving grades · rebuilding reports · reloading Lab…
+          </Text>
+        ) : null}
 
         {/* Filters */}
         <SectionCard title="Filters" defaultOpen={false}>
@@ -958,6 +994,17 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#0b1220" },
   content: { padding: 16, paddingBottom: 48 },
   headerRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, gap: 12 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  refreshBtn: {
+    backgroundColor: "#14532d",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#22c55e",
+  },
+  refreshBtnDisabled: { opacity: 0.5 },
+  refreshBtnText: { color: "#bbf7d0", fontSize: 12, fontWeight: "800" },
   pageTitle: { color: "#f8fafc", fontSize: 24, fontWeight: "700" },
   pageSub: { color: "#94a3b8", fontSize: 12, marginTop: 4 },
   sectionCard: {

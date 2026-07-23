@@ -81,14 +81,27 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
     return { state: null, slateDate: date, reason: "quarantined_excluded" };
   }
 
-  const archiveEntry = (archives || []).find(
-    (entry) => String(entry.slateDate || "") === date
+  const activeResultsSlateDate = pickActiveResultsSlateDate(
+    trackedProps,
+    reports,
+    today,
+    lockedSlates
   );
-  if (archiveEntry?.props?.length || getHistoryArchiveProps(date).length) {
+  if (activeResultsSlateDate && date === activeResultsSlateDate) {
+    const slateProps = trackedProps.filter(
+      (prop) => String(prop.slateDate || "") === date
+    );
+    const graded = slateProps.filter((prop) => isResolvedStatus(prop.status));
+    const pending = slateProps.length - graded.length;
     return {
-      state: SLATE_LIFECYCLE_STATES.ARCHIVED_HISTORY,
+      state:
+        pending > 0
+          ? SLATE_LIFECYCLE_STATES.PARTIALLY_GRADED
+          : SLATE_LIFECYCLE_STATES.TRACKING_ACTIVE,
       slateDate: date,
-      reason: "history_archive_exists",
+      reason: "active_results_pointer",
+      trackedCount: slateProps.length,
+      gradedCount: graded.length,
     };
   }
 
@@ -104,6 +117,22 @@ export function resolveSlateLifecycleState(slateDate, context = {}) {
       state: SLATE_LIFECYCLE_STATES.LAB_CURRENT,
       slateDate: date,
       reason: "current_lab_slate",
+    };
+  }
+
+  const archiveEntry = (archives || []).find(
+    (entry) => String(entry.slateDate || "") === date
+  );
+  if (
+    (Number(archiveEntry?.propCount) || 0) > 0 ||
+    archiveEntry?._archivePropsOmited === true ||
+    (Array.isArray(archiveEntry?.props) && archiveEntry.props.length > 0) ||
+    getHistoryArchiveProps(date).length
+  ) {
+    return {
+      state: SLATE_LIFECYCLE_STATES.ARCHIVED_HISTORY,
+      slateDate: date,
+      reason: "history_archive_exists",
     };
   }
 
@@ -314,6 +343,17 @@ function resolveTrackedPropLifecycleState(prop = {}, context = {}) {
 
   if (rotation.currentLabSlateDate === slateDate) {
     return TRACKED_PROP_LIFECYCLE.LAB_CURRENT;
+  }
+
+  // Active Results pointer wins over a premature History archive entry for the
+  // same date (e.g. Jul 22 archived while still blocking Results with grades).
+  if (
+    activeResultsSlateDate &&
+    slateDate === activeResultsSlateDate &&
+    isResultsCohortProp(prop) &&
+    prop.homeStaged !== true
+  ) {
+    return TRACKED_PROP_LIFECYCLE.ACTIVE_RESULTS;
   }
 
   if (

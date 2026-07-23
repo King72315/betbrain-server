@@ -537,7 +537,10 @@ function getArchivedHistoryDates(archives = []) {
         (entry) =>
           String(entry.phase || "").toUpperCase() === "ARCHIVED" &&
           entry.slateDate &&
-          (entry.props?.length || entry.report)
+          (entry.propCount > 0 ||
+            entry._archivePropsOmited === true ||
+            (Array.isArray(entry.props) && entry.props.length > 0) ||
+            entry.report)
       )
       .map((entry) => String(entry.slateDate))
   );

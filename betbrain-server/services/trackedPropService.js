@@ -543,6 +543,9 @@ export function labelPreV1ShadowProps(props = [], metadata = {}) {
 
 export function isOfficialResultsProp(pick = {}) {
   if (isPreV1ShadowProp(pick)) return false;
+  // Immutable official seal wins over stale TEST / excludedFromOfficialRecord
+  // mislabels (same posture as Lab isOfficialBestSixProp).
+  if (pick.immutableOfficial === true && pick.homeStaged !== true) return true;
   if (isTrackAdmittedResultsProp(pick)) return true;
   if (isTestTrackingPick(pick)) return false;
   if (pick.excludedFromOfficialRecord === true) return false;
