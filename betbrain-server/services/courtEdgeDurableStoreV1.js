@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
 export const DURABLE_STORE_VERSION = "courtedge-durable-store-v1";
-export const DURABLE_STORE_BUILD = "courteedge-home-restart-durability-v1";
+export const DURABLE_STORE_BUILD = "courteedge-backend-network-regression-repair-v1";
 
 export const DURABLE_KEYS = Object.freeze({
   BOARD_CACHE: "board-cache",
@@ -122,7 +122,7 @@ async function ensurePg() {
     try {
       const mod = await import("pg");
       const Pool = mod.default?.Pool || mod.Pool;
-      const connectMs = Number(process.env.COURTEDGE_PG_CONNECT_MS || 5000);
+      const connectMs = Number(process.env.COURTEDGE_PG_CONNECT_MS || 4000);
       pgPool = new Pool({
         connectionString: url,
         ssl:
@@ -131,7 +131,8 @@ async function ensurePg() {
             : { rejectUnauthorized: false },
         max: 2,
         idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: Number.isFinite(connectMs) ? connectMs : 5000,
+        connectionTimeoutMillis: Number.isFinite(connectMs) ? connectMs : 4000,
+        allowExitOnIdle: true,
       });
       // Hard ceiling so a bad DATABASE_URL cannot hang Render startup.
       const boot = Promise.all([
@@ -160,21 +161,32 @@ async function ensurePg() {
           );
         `),
       ]);
-      const timeoutMs = Number(process.env.COURTEDGE_PG_BOOT_MS || 8000);
-      let bootTimer = null;
-      try {
-        await Promise.race([
-          boot,
-          new Promise((_, reject) => {
-            bootTimer = setTimeout(
-              () => reject(new Error(`postgres_boot_timeout_${timeoutMs}ms`)),
-              timeoutMs
-            );
-          }),
-        ]);
-      } finally {
-        if (bootTimer) clearTimeout(bootTimer);
-      }
+      // Always attach handlers so a late boot failure after timeout cannot
+      // become an unhandledRejection that crashes the Node process.
+      boot.catch(() => {});
+      const timeoutMs = Number(process.env.COURTEDGE_PG_BOOT_MS || 6000);
+      let settled = false;
+      await new Promise((resolve, reject) => {
+        const bootTimer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error(`postgres_boot_timeout_${timeoutMs}ms`));
+        }, timeoutMs);
+        boot.then(
+          () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(bootTimer);
+            resolve();
+          },
+          (error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(bootTimer);
+            reject(error);
+          }
+        );
+      });
       // If a prior timeout already failed open, never promote to postgres.
       if (pgFailed) {
         return null;
@@ -191,10 +203,16 @@ async function ensurePg() {
       // Never await pool.end() unboundedly — a stuck TCP handshake can hang
       // forever, leave pgReady unsettled, and block /health + startup.
       if (poolToClose) {
-        Promise.race([
-          Promise.resolve(poolToClose.end()).catch(() => {}),
-          new Promise((resolve) => setTimeout(resolve, 1000)),
-        ]).catch(() => {});
+        Promise.resolve()
+          .then(() => poolToClose.end())
+          .catch(() => {});
+        setTimeout(() => {
+          try {
+            poolToClose.end().catch(() => {});
+          } catch {
+            // ignore
+          }
+        }, 250);
       }
       return null;
     }
@@ -359,13 +377,26 @@ export async function durableGet(key) {
       lastDurableError = String(error?.message || error);
     }
   }
-  const mirror = readJsonSafe(mirrorPathForKey(key), null);
-  if (mirror != null) {
-    return { ok: true, source: "mirror", value: mirror };
-  }
-  const file = readJsonSafe(filePathForKey(key), null);
-  if (file != null) {
-    return { ok: true, source: "filesystem", value: file };
+  const maxReadBytes = Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000);
+  const mirror = mirrorPathForKey(key);
+  const file = filePathForKey(key);
+  for (const [source, candidate] of [
+    ["mirror", mirror],
+    ["filesystem", file],
+  ]) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      if (fs.statSync(candidate).size > maxReadBytes) {
+        lastDurableError = `${key}_oversized_${source}`;
+        continue;
+      }
+      const value = readJsonSafe(candidate, null);
+      if (value != null) {
+        return { ok: true, source, value };
+      }
+    } catch (error) {
+      lastDurableError = String(error?.message || error);
+    }
   }
   return { ok: false, source: null, value: null };
 }
@@ -548,11 +579,40 @@ export async function withDurableLock(lockKey, fn, options = {}) {
  */
 export async function hydrateWorkingFilesFromDurableStore(options = {}) {
   const keys = options.keys || Object.values(DURABLE_KEYS);
+  const maxFileBytes = Number(
+    options.maxFileBytes || process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000
+  );
   const actions = [];
   const pool = await ensurePg();
+
+  function fileTooLarge(file) {
+    try {
+      if (!file || !fs.existsSync(file)) return false;
+      return fs.statSync(file).size > maxFileBytes;
+    } catch {
+      return false;
+    }
+  }
+
   for (const key of keys) {
-    const remote = await durableGet(key);
+    // Yield so /health can answer during multi-file hydrate on free-tier CPUs.
+    await new Promise((resolve) => setImmediate(resolve));
     const localPath = filePathForKey(key);
+    const mirrorFile = mirrorPathForKey(key);
+    if (fileTooLarge(localPath) || fileTooLarge(mirrorFile)) {
+      const bytes = Math.max(
+        fileTooLarge(localPath) ? fs.statSync(localPath).size : 0,
+        fileTooLarge(mirrorFile) ? fs.statSync(mirrorFile).size : 0
+      );
+      actions.push({
+        key,
+        action: "skipped_oversized",
+        bytes,
+        maxFileBytes,
+      });
+      continue;
+    }
+    const remote = await durableGet(key);
     const local = readJsonSafe(localPath, null);
     if (!remote.ok || remote.value == null) {
       if (local != null && pool) {

@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-boot-health-first-v1";
+const SERVER_BUILD = "courteedge-backend-network-regression-repair-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -3379,6 +3379,10 @@ async function refreshAllPicks(options = {}) {
   return result;
 }
 
+// Boot phase for ops diagnosis. /health stays sync and answers as soon as
+ // the port is bound ? even while deferred hydrate is still running.
+let bootPhase = "starting";
+
 app.get("/health", (req, res) => {
   // Sync-only: never await Postgres here. A stuck DATABASE_URL / pool.end
   // must not make Render health checks hang or flap 502.
@@ -3396,6 +3400,7 @@ app.get("/health", (req, res) => {
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
+    bootPhase,
     stateIntegrityVersion: STATE_INTEGRITY_VERSION,
     tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
     boardSchemaVersion: BOARD_SCHEMA_VERSION,
@@ -6477,84 +6482,110 @@ if (process.env.RUN_AUDIT === "1") {
       process.exit(1);
     });
 } else {
-  const rehydrateResult = rehydrateLockedSlatesOnStartup();
-  if (!rehydrateResult.startupIntegrity) {
-    runTrackedPropStartupIntegrityCheck();
+  // CRITICAL: bind the port BEFORE any sync integrity / durable hydrate work.
+  // aef8425 moved listen ahead of Postgres hydrate but left rehydrateLockedSlates
+  // + large JSON I/O before listen ? that starved Render health checks (~30s+)
+  // and blocked the event loop after listen during hydrate (local repro: health
+  // returned 000 until hydrate finished). Fail-open filesystem if Postgres dies.
+  const startupBudgetMs = Number(
+    process.env.COURTEDGE_STARTUP_HYDRATE_MS || 8000
+  );
+  const startupHeartbeatDelayMs = Number(
+    process.env.COURTEDGE_STARTUP_HEARTBEAT_DELAY_MS || 60_000
+  );
+
+  function yieldEventLoop() {
+    return new Promise((resolve) => setImmediate(resolve));
   }
 
-  try {
-    const orphanRecovery = recoverSealedOrphansAtStartup({
-      serverBuild: SERVER_BUILD,
-      todayLocalDate: getTodayLocalDate(),
-    });
-    console.log(
-      "STARTUP TAB-FLOW SEALED ORPHAN RECOVERY:",
-      JSON.stringify({
-        ok: orphanRecovery.ok,
-        repairedCount: orphanRecovery.repairedCount,
-        skipped: orphanRecovery.skipped?.length || 0,
-        build: orphanRecovery.build,
-      })
-    );
-  } catch (error) {
-    console.log("STARTUP TAB-FLOW ORPHAN RECOVERY ERROR:", error.message);
-  }
-
-  try {
-    const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
-      serverBuild: SERVER_BUILD,
-      todayLocalDate: getTodayLocalDate(),
-    });
-    console.log(
-      "STARTUP TAB-FLOW DATE STAMP REPAIR:",
-      JSON.stringify({
-        repaired: dateStampRepair.repaired,
-        prior: dateStampRepair.prior || null,
-        restoredCount: dateStampRepair.restoredCount || 0,
-        reason: dateStampRepair.reason || null,
-      })
-    );
-  } catch (error) {
-    console.log("STARTUP TAB-FLOW DATE STAMP REPAIR ERROR:", error.message);
-  }
-
-  async function startServer() {
-    const startupBudgetMs = Number(
-      process.env.COURTEDGE_STARTUP_HYDRATE_MS || 12000
-    );
-    async function withStartupBudget(label, fn) {
-      try {
-        await Promise.race([
-          fn(),
-          new Promise((_, reject) =>
-            setTimeout(
-              () => reject(new Error(`${label}_timeout_${startupBudgetMs}ms`)),
-              startupBudgetMs
-            )
-          ),
-        ]);
-      } catch (error) {
-        console.log(`STARTUP ${label} ERROR:`, error.message);
-      }
-    }
-
-    // Bind port BEFORE durable/Postgres hydrate so Render health checks and
-    // free-tier cold starts get an immediate 200 /health (filesystem fail-open).
-    await new Promise((resolve, reject) => {
-      const server = app.listen(CONFIG.PORT, () => {
-        console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
-        console.log("CONFIG:", checkConfig());
-        console.log("SERVER_BUILD:", SERVER_BUILD);
-        console.log(
-          "STARTUP: listen-first boot; durable hydrate continues in background"
-        );
-        resolve(server);
+  async function withStartupBudget(label, fn) {
+    // Attach a catch to the work promise so a late rejection after timeout
+    // cannot become an unhandledRejection that kills the process.
+    const work = Promise.resolve()
+      .then(fn)
+      .catch((error) => {
+        console.log(`STARTUP ${label} LATE ERROR:`, error?.message || error);
       });
-      server.on("error", reject);
-    });
+    try {
+      await Promise.race([
+        work,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`${label}_timeout_${startupBudgetMs}ms`)),
+            startupBudgetMs
+          )
+        ),
+      ]);
+    } catch (error) {
+      console.log(`STARTUP ${label} ERROR:`, error.message);
+    }
+  }
+
+  async function runDeferredStartup() {
+    bootPhase = "hydrating";
+    let rehydrateResult = { results: [], startupIntegrity: true };
+    try {
+      rehydrateResult = rehydrateLockedSlatesOnStartup();
+      if (!rehydrateResult.startupIntegrity) {
+        runTrackedPropStartupIntegrityCheck();
+      }
+    } catch (error) {
+      console.log("STARTUP REHYDRATE ERROR:", error.message);
+    }
+    await yieldEventLoop();
+
+    try {
+      const orphanRecovery = recoverSealedOrphansAtStartup({
+        serverBuild: SERVER_BUILD,
+        todayLocalDate: getTodayLocalDate(),
+      });
+      console.log(
+        "STARTUP TAB-FLOW SEALED ORPHAN RECOVERY:",
+        JSON.stringify({
+          ok: orphanRecovery.ok,
+          repairedCount: orphanRecovery.repairedCount,
+          skipped: orphanRecovery.skipped?.length || 0,
+          build: orphanRecovery.build,
+        })
+      );
+    } catch (error) {
+      console.log("STARTUP TAB-FLOW ORPHAN RECOVERY ERROR:", error.message);
+    }
+    await yieldEventLoop();
+
+    try {
+      const dateStampRepair = repairBoardCacheTodayDateStampCorruption({
+        serverBuild: SERVER_BUILD,
+        todayLocalDate: getTodayLocalDate(),
+      });
+      console.log(
+        "STARTUP TAB-FLOW DATE STAMP REPAIR:",
+        JSON.stringify({
+          repaired: dateStampRepair.repaired,
+          prior: dateStampRepair.prior || null,
+          restoredCount: dateStampRepair.restoredCount || 0,
+          reason: dateStampRepair.reason || null,
+        })
+      );
+    } catch (error) {
+      console.log("STARTUP TAB-FLOW DATE STAMP REPAIR ERROR:", error.message);
+    }
+    await yieldEventLoop();
 
     await withStartupBudget("DURABLE_STORE_HYDRATE", async () => {
-      const durableHydrate = await hydrateWorkingFilesFromDurableStore();
+      const durableHydrate = await hydrateWorkingFilesFromDurableStore({
+        // Boot-critical keys only ? skip huge reports / idempotency blobs.
+        keys: [
+          "board-cache",
+          "scheduler-state",
+          "canonical-slates",
+          "tracked-props",
+          "three-slate-blocks",
+          "lifecycle-journal",
+          "state-locks",
+        ],
+        maxFileBytes: Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000),
+      });
       console.log(
         "STARTUP DURABLE STORE HYDRATE:",
         JSON.stringify({
@@ -6572,6 +6603,7 @@ if (process.env.RUN_AUDIT === "1") {
         })
       );
     });
+    await yieldEventLoop();
 
     // Home restart durability: restore Today/Tomorrow from durable store BEFORE
     // bundled recovery. Durable sealed/draft beats bundle/seed/empty init.
@@ -6609,6 +6641,7 @@ if (process.env.RUN_AUDIT === "1") {
         saveBoardCache(picksCache);
       }
     });
+    await yieldEventLoop();
 
     // After durable hydrate: earlier restores can be overwritten by empty/stale
     // filesystem mirrors when Postgres is unset. Re-apply sealed Jul 20 here.
@@ -6658,24 +6691,24 @@ if (process.env.RUN_AUDIT === "1") {
           "STARTUP LAB WIPE BLOCKED: COURTEDGE_LAB_WIPE_V1=true requires COURTEDGE_ALLOW_DESTRUCTIVE_STARTUP=true"
         );
       } else {
-      try {
-        const wipeResult = resetLabNoRestore({
-          backupReason: "startup-lab-wipe-v1",
-        });
-        console.log(
-          "STARTUP LAB WIPE V1:",
-          JSON.stringify({
-            ok: wipeResult.ok,
-            backupId: wipeResult.backupId,
-            clearedArchives: wipeResult.clearedArchives,
-            clearedRegistry: wipeResult.clearedRegistry,
-            after: wipeResult.after,
-            meta: wipeResult.meta,
-          })
-        );
-      } catch (error) {
-        console.log("STARTUP LAB WIPE V1 ERROR:", error.message);
-      }
+        try {
+          const wipeResult = resetLabNoRestore({
+            backupReason: "startup-lab-wipe-v1",
+          });
+          console.log(
+            "STARTUP LAB WIPE V1:",
+            JSON.stringify({
+              ok: wipeResult.ok,
+              backupId: wipeResult.backupId,
+              clearedArchives: wipeResult.clearedArchives,
+              clearedRegistry: wipeResult.clearedRegistry,
+              after: wipeResult.after,
+              meta: wipeResult.meta,
+            })
+          );
+        } catch (error) {
+          console.log("STARTUP LAB WIPE V1 ERROR:", error.message);
+        }
       }
     } else if (process.env.COURTEDGE_HISTORY_REBUILD_V1 === "true") {
       try {
@@ -6891,6 +6924,7 @@ if (process.env.RUN_AUDIT === "1") {
 
     // In-process 15-minute autonomous heartbeat (complements Render Cron).
     // Due-job evaluation inside runScheduledJobs prevents duplicate work.
+    // Delay first beat so cold-start hydrate is not competing with OOM-prone work.
     let schedulerHeartbeatRunning = false;
     const runHeartbeat = async (source = "in-process-heartbeat") => {
       if (process.env.COURTEDGE_SCHEDULER_ENABLED === "false") return;
@@ -6923,13 +6957,39 @@ if (process.env.RUN_AUDIT === "1") {
     };
     setTimeout(() => {
       runHeartbeat("startup-heartbeat").catch(() => {});
-    }, 20_000);
+    }, startupHeartbeatDelayMs);
     setInterval(() => {
       runHeartbeat("in-process-heartbeat").catch(() => {});
     }, SCHEDULER_HEARTBEAT_MS);
     console.log(
-      `COURTEDGE SCHEDULER heartbeat every ${SCHEDULER_HEARTBEAT_MS / 60000} minutes`
+      `COURTEDGE SCHEDULER heartbeat every ${SCHEDULER_HEARTBEAT_MS / 60000} minutes (first in ${startupHeartbeatDelayMs / 1000}s)`
     );
+    bootPhase = "ready";
+    console.log("STARTUP: deferred hydrate complete; bootPhase=ready");
+  }
+
+  async function startServer() {
+    await new Promise((resolve, reject) => {
+      const server = app.listen(CONFIG.PORT, () => {
+        bootPhase = "listening";
+        console.log(`CourtEdge server running on port ${CONFIG.PORT}`);
+        console.log("CONFIG:", checkConfig());
+        console.log("SERVER_BUILD:", SERVER_BUILD);
+        console.log(
+          "STARTUP: port bound immediately; heavy hydrate deferred (fail-open filesystem)"
+        );
+        resolve(server);
+      });
+      server.on("error", reject);
+    });
+
+    // Never await hydrate before returning ? /health must stay responsive.
+    setImmediate(() => {
+      runDeferredStartup().catch((error) => {
+        bootPhase = "degraded";
+        console.error("DEFERRED STARTUP ERROR (process stays up):", error);
+      });
+    });
   }
 
   startServer().catch((error) => {
