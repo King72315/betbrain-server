@@ -182,11 +182,12 @@ export default function PropLabScreen() {
             resolved.message || "Resolve tracked props failed during Lab refresh"
           );
         }
-        const built = await buildDailySlateReports({ forceRebuild: true });
+        // Rebuild reports without forceRebuild — full force rebuild can OOM
+        // free-tier Render by rewriting multi‑MB sealed blobs into reports.
+        const built = await buildDailySlateReports({});
         if (!built.ok) {
-          throw new Error(
-            built.message || "Daily slate report rebuild failed during Lab refresh"
-          );
+          // Non-fatal: Lab can still reload from existing reports + tracked store.
+          console.log("LAB REFRESH BUILD WARNING:", built.message);
         }
       }
       const list = await fetchDailySlateReports();
@@ -198,8 +199,6 @@ export default function PropLabScreen() {
         slateDate: slateDate || undefined,
         page: rawPage,
         pageSize: 50,
-        // Bust any intermediary cache on explicit refresh.
-        ...(opts?.refreshGrades ? { includeAllRawRows: false } : {}),
       });
       if (!labRes.ok || !labRes.labV2) {
         // Fallback: labV2 embedded on daily reports response
