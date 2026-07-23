@@ -166,6 +166,7 @@ export default function PropLabScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshNote, setRefreshNote] = useState<string | null>(null);
   const [filters, setFilters] = useState<LabFilters>(DEFAULT_FILTERS);
   const [expandedPacket, setExpandedPacket] = useState<string | null>(null);
   const [rawPage, setRawPage] = useState(1);
@@ -173,43 +174,85 @@ export default function PropLabScreen() {
 
   const load = useCallback(async (opts?: { refreshGrades?: boolean }) => {
     setError(null);
+    if (!opts?.refreshGrades) setRefreshNote(null);
     try {
+      let resolveNote: string | null = null;
       if (opts?.refreshGrades) {
         setBuilding(true);
-        const resolved = await resolveTrackedProps({ requireLikelyFinished: true });
+        // Match Results "Resolve All": grade started/finished games, not only
+        // "likely finished". Soft report build (no forceRebuild) may promote a
+        // newly graded-complete active Results slate; never forceRebuild all
+        // history — that OOMs free-tier Render.
+        const resolved = await resolveTrackedProps({
+          requireLikelyFinished: false,
+        });
         if (!resolved.ok) {
           throw new Error(
             resolved.message || "Resolve tracked props failed during Lab refresh"
           );
         }
-        // Rebuild reports without forceRebuild — full force rebuild can OOM
-        // free-tier Render by rewriting multi‑MB sealed blobs into reports.
-        const built = await buildDailySlateReports({});
-        if (!built.ok) {
-          // Non-fatal: Lab can still reload from existing reports + tracked store.
-          console.log("LAB REFRESH BUILD WARNING:", built.message);
+        const summary: any = resolved.summary || {};
+        const graded =
+          summary.gradedCount ??
+          summary.resolvedCount ??
+          summary.newlyGraded ??
+          null;
+        const pending =
+          summary.stillPending ??
+          summary.pendingTotal ??
+          summary.pendingCount ??
+          null;
+        resolveNote =
+          resolved.message ||
+          (graded != null
+            ? `Resolved · graded ${graded}${pending != null ? ` · pending ${pending}` : ""}`
+            : "Resolved tracked props");
+
+        if (resolved.activeResultsSlateDate) {
+          const built = await buildDailySlateReports({
+            slateDate: resolved.activeResultsSlateDate,
+            forceRebuild: false,
+          });
+          if (built.ok) {
+            resolveNote = `${resolveNote} · report build ok`;
+          }
         }
+        // Canonical Lab reload: GET /courtedge/lab rebuilds Lab V2 in-process
+        // from tracked props + reports (no sealed-blob rewrite loop).
       }
-      const list = await fetchDailySlateReports();
-      if (!list.ok) {
-        throw new Error("Daily slate reports unavailable");
-      }
-      const slateDate = list.currentLabSlateDate || null;
+
+      // Do not pin to rotation currentLabSlateDate — Lab default is newest
+      // eligible completed slate on/after the learning-track floor.
       const labRes = await fetchCourtEdgeLabV2({
-        slateDate: slateDate || undefined,
         page: rawPage,
         pageSize: 50,
       });
-      if (!labRes.ok || !labRes.labV2) {
-        // Fallback: labV2 embedded on daily reports response
+      if (labRes.ok && labRes.labV2) {
+        setLabV2(labRes.labV2);
+        const cur = labRes.labV2?.currentSlate;
+        const record = cur
+          ? `${cur.wins ?? 0}-${cur.losses ?? 0}-${cur.pushes ?? 0}`
+          : null;
+        setRefreshNote(
+          [
+            resolveNote,
+            cur?.slateDate
+              ? `Lab ${cur.slateDate}${record ? ` · ${record}` : ""}`
+              : null,
+            labRes.serverBuild ? `build ${labRes.serverBuild}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null
+        );
+      } else {
+        const list = await fetchDailySlateReports();
         if (list.labV2) {
           setLabV2(list.labV2);
+          setRefreshNote(resolveNote);
         } else {
           setError(labRes.error || labRes.message || "Lab V2 unavailable");
           setLabV2(null);
         }
-      } else {
-        setLabV2(labRes.labV2);
       }
     } catch (err: any) {
       setError(err?.message || "Failed to load Prop Lab");
@@ -321,8 +364,11 @@ export default function PropLabScreen() {
         {loading ? <Text style={styles.muted}>Loading Lab V2…</Text> : null}
         {building ? (
           <Text style={styles.muted}>
-            Resolving grades · rebuilding reports · reloading Lab…
+            Resolving grades · reloading Lab from /courtedge/lab…
           </Text>
+        ) : null}
+        {!building && refreshNote ? (
+          <Text style={styles.muted}>{refreshNote}</Text>
         ) : null}
 
         {/* Filters */}

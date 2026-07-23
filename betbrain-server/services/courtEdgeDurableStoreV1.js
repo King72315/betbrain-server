@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const SERVER_ROOT = path.join(__dirname, "..");
 
 export const DURABLE_STORE_VERSION = "courtedge-durable-store-v1";
-export const DURABLE_STORE_BUILD = "courteedge-backend-network-regression-repair-v1";
+export const DURABLE_STORE_BUILD = "courteedge-results-lab-refresh-v1";
 
 export const DURABLE_KEYS = Object.freeze({
   BOARD_CACHE: "board-cache",

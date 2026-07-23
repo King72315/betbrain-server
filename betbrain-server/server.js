@@ -4780,21 +4780,35 @@ app.post("/daily-slate-reports/build", (req, res) => {
       });
     }
 
+    // forceRebuild without slateDate rewrites every historical report + Lab V2
+    // and OOMs free-tier Render (surfaced as HTTP 502). Require a target date.
+    if (forceRebuild && !slateDate) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "forceRebuild requires slateDate. Use GET /courtedge/lab to reload Lab, or pass slateDate for a single-slate rebuild.",
+        serverBuild: SERVER_BUILD,
+      });
+    }
+
     const props = getTrackedProps();
     const result = buildDailySlateReportsFromTrackedProps(props, {
       slateDate,
       forceRebuild,
     });
 
+    // Avoid returning every report blob (often with embedded labV2) ? that alone
+    // can tip memory on free-tier after a successful build.
     res.json({
       ok: true,
       message: slateDate
         ? `Daily slate report built for ${slateDate}`
         : "Daily slate reports built for all slates",
-      reports: result.reports,
       built: result.built,
       summary: result.summary,
       dailyReport: result.summary,
+      reportCount: Array.isArray(result.reports) ? result.reports.length : 0,
+      serverBuild: SERVER_BUILD,
     });
   } catch (error) {
     console.log("BUILD DAILY SLATE REPORTS ERROR:", error.message);
@@ -4803,6 +4817,7 @@ app.post("/daily-slate-reports/build", (req, res) => {
       ok: false,
       message: "Daily slate report build failed",
       error: error.message,
+      serverBuild: SERVER_BUILD,
     });
   }
 });

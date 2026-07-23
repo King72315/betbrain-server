@@ -558,6 +558,7 @@ export const resolveTrackedProps = async (options?: {
       props: Array.isArray(data.props) ? data.props : [],
       summary: data.summary || null,
       analytics: data.analytics || null,
+      activeResultsSlateDate: data.activeResultsSlateDate || null,
     };
   } catch (err) {
     console.log("RESOLVE TRACKED PROPS FAILED:", err);
@@ -568,6 +569,7 @@ export const resolveTrackedProps = async (options?: {
       props: [],
       summary: null,
       analytics: null,
+      activeResultsSlateDate: null,
     };
   }
 };
