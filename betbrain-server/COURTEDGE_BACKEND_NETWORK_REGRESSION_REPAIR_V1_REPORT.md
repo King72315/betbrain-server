@@ -74,14 +74,19 @@ Home Best 6 restore path preserved: deferred Home durable hydrate → sealed Jul
 
 ## Live `/health` proof
 
-*(filled after deploy)*
+Deployed via `orgin` push `7750553` (autoDeploy on `betbrain-v2-rebuild`).
 
 | Probe | Result |
 |---|---|
-| `GET https://betbrain-server-1.onrender.com/health` | _pending deploy_ |
+| Pre-deploy | Consistent **502** Bad Gateway HTML |
+| First post-deploy `/health` | Brief 502 during cutover, then **200** |
 | `serverBuild` | `courteedge-backend-network-regression-repair-v1` |
-| `bootPhase` | expected `ready` (or briefly `hydrating`) |
-| `GET /picks` | _pending_ |
+| `bootPhase` | `ready` |
+| `durableStore.type` | `filesystem` (`databaseUrlConfigured=false`) |
+| Repeat `/health` ×5 | **200 / 200 / 200 / 200 / 200** |
+| `GET /picks` | **200** (~0.3s warm), Today Best 6 restored via `startup-empty-board-recovery-v1` (Mitchell / McBride / Miles / Wilson / Boston / Stevens) — same cohort as last known-good |
+| Tomorrow Best 6 | `0` (matches last known-good baseline) |
+| Tracked store | `trackedStoreTotalCount=64` (Results store intact; endpoint returns `active_results_only` for current slate) |
 
 ---
 
@@ -92,11 +97,14 @@ Home Best 6 restore path preserved: deferred Home durable hydrate → sealed Jul
 3. **No Postgres durability** until `DATABASE_URL` is actually attached and healthy on `betbrain-server-1` (`durableActive=true`). Filesystem + bundled recovery remain the bridge.
 4. **Ephemeral disk:** redeploy still wipes runtime JSON; Home survival without Postgres depends on recovery bundle / future durable DB.
 5. **Oversized local artifacts:** boot intentionally skips >4MB hydrate files to avoid OOM; do not commit bloated `daily-slate-reports.json` / board dumps.
+6. **Deploy cutover flap:** a single 502 during Render instance swap is expected; steady-state after bind is healthy.
 
 ---
 
 ## Final verdict
 
 ```text
-REPAIR SHIPPED — awaiting live deploy verify
+BACKEND NETWORK REGRESSION REPAIR VERIFIED
 ```
+
+Live `/health` and `/picks` return **200** on `courteedge-backend-network-regression-repair-v1` with Home Today Best 6 restored and repeated health probes stable.
