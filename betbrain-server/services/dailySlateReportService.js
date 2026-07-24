@@ -108,6 +108,12 @@ function avg(values = []) {
   return Number((nums.reduce((s, n) => s + n, 0) / nums.length).toFixed(2));
 }
 
+/** Free-tier Render has ~512MB. Parsing a bloated reports file at import OOMs
+ * before app.listen and surfaces as a fast HTTP 502 (not a cold-start). */
+const REPORTS_MAX_BOOT_BYTES = Number(
+  process.env.COURTEDGE_REPORTS_MAX_BOOT_BYTES || 8_000_000
+);
+
 function readJSON(file, fallback = []) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -117,23 +123,99 @@ function readJSON(file, fallback = []) {
 }
 
 function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  // Compact JSON — pretty-print roughly doubles disk for Lab reports.
+  fs.writeFileSync(file, JSON.stringify(data));
+}
+
+/** Strip known duplicate/heavy nests without dropping Lab props / grades. */
+export function slimDailySlateReportForDisk(report = {}) {
+  if (!report || typeof report !== "object") return report;
+  const next = { ...report };
+  if (next.officialLabDailySummary && typeof next.officialLabDailySummary === "object") {
+    const summary = { ...next.officialLabDailySummary };
+    if (summary.aggregateBreakdown != null) {
+      delete summary.aggregateBreakdown;
+    }
+    next.officialLabDailySummary = summary;
+  }
+  if (next.labAggregateBreakdown && typeof next.labAggregateBreakdown === "object") {
+    const agg = { ...next.labAggregateBreakdown };
+    const stripRowProps = (rows) =>
+      Array.isArray(rows)
+        ? rows.map((row) => {
+            if (!row || typeof row !== "object" || row.props == null) return row;
+            const { props: _drop, ...rest } = row;
+            return rest;
+          })
+        : rows;
+    if (Array.isArray(agg.rows)) agg.rows = stripRowProps(agg.rows);
+    if (agg.dimensionIndex && typeof agg.dimensionIndex === "object") {
+      const index = {};
+      for (const [dim, rows] of Object.entries(agg.dimensionIndex)) {
+        index[dim] = stripRowProps(rows);
+      }
+      agg.dimensionIndex = index;
+    }
+    if (agg.overall && typeof agg.overall === "object" && agg.overall.props != null) {
+      const { props: _drop, ...rest } = agg.overall;
+      agg.overall = rest;
+    }
+    next.labAggregateBreakdown = agg;
+  }
+  return next;
 }
 
 function ensureReportsFile() {
+  // Existence only — never JSON.parse at import (prior OOM → Render 502).
   if (!fs.existsSync(REPORTS_FILE)) {
     writeJSON(REPORTS_FILE, []);
-    return;
   }
+}
 
-  const existing = readJSON(REPORTS_FILE, []);
-
-  if (Array.isArray(existing) && existing.length > 0 && !fs.existsSync(BACKUP_FILE)) {
-    writeJSON(BACKUP_FILE, existing);
+/**
+ * If a prior build/hydrate left a poison oversized file on disk, reclaim it
+ * without touching tracked-props / Home boards. Lab can rebuild from tracked.
+ * Do not quarantine huge files on disk (Render free tier is disk-tight).
+ */
+export function reclaimOversizedDailySlateReportsFile(options = {}) {
+  const maxBytes = Number(options.maxBytes || REPORTS_MAX_BOOT_BYTES);
+  try {
+    if (!fs.existsSync(REPORTS_FILE)) {
+      writeJSON(REPORTS_FILE, []);
+      return { ok: true, action: "created_empty" };
+    }
+    const bytes = fs.statSync(REPORTS_FILE).size;
+    if (bytes <= maxBytes) {
+      return { ok: true, action: "ok", bytes };
+    }
+    try {
+      fs.unlinkSync(REPORTS_FILE);
+    } catch {
+      // fall through to overwrite
+    }
+    writeJSON(REPORTS_FILE, []);
+    console.log(
+      `STARTUP RECLAIM OVERSIZED daily-slate-reports.json (${bytes} bytes > ${maxBytes}); wrote empty array. tracked-props untouched.`
+    );
+    return {
+      ok: true,
+      action: "reclaimed_empty",
+      bytes,
+      maxBytes,
+    };
+  } catch (error) {
+    console.log("STARTUP RECLAIM REPORTS ERROR:", error?.message || error);
+    try {
+      writeJSON(REPORTS_FILE, []);
+    } catch {
+      // ignore
+    }
+    return { ok: false, action: "error", error: String(error?.message || error) };
   }
 }
 
 ensureReportsFile();
+reclaimOversizedDailySlateReportsFile();
 
 function isResolvedStatus(status = "") {
   return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
@@ -1471,13 +1553,13 @@ export function upsertDailySlateReport(report = {}) {
   const existing = existingIndex >= 0 ? reports[existingIndex] : null;
   const now = new Date().toISOString();
 
-  const nextReport = {
+  const nextReport = slimDailySlateReportForDisk({
     ...existing,
     ...report,
     slateDate,
     updatedAt: now,
     generatedAt: existing?.generatedAt || report.generatedAt || now,
-  };
+  });
 
   if (existingIndex >= 0) {
     reports[existingIndex] = nextReport;
@@ -1485,7 +1567,10 @@ export function upsertDailySlateReport(report = {}) {
     reports.push(nextReport);
   }
 
-  writeJSON(REPORTS_FILE, reports);
+  writeJSON(
+    REPORTS_FILE,
+    reports.map((item) => slimDailySlateReportForDisk(item))
+  );
 
   return { ok: true, message: "Daily slate report saved", report: nextReport, reports: getDailySlateReports() };
 }

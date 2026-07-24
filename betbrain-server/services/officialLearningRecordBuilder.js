@@ -666,7 +666,8 @@ export function attachOfficialLearningToReport(report = {}, props = []) {
       ...summary,
       moduleAttribution: moduleStats,
       missTypeCounts,
-      aggregateBreakdown,
+      // Do not nest the full breakdown here — it is stored once as
+      // labAggregateBreakdown. Nesting doubled disk + parse RAM on free tier.
       labLearningVersion: LAB_LEARNING_VERSION,
     },
     labAggregateBreakdown: aggregateBreakdown,

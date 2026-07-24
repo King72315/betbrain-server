@@ -94,9 +94,11 @@ function rollupRecords(records = [], dimension, getKey) {
       modulesHelped: helped,
       modulesHurt: hurt,
       modulesNeutral: neutral,
+      // Keep ids only — embedding full learning records here duplicated every
+      // dimension row and ballooned daily-slate-reports.json past free-tier RAM
+      // (Render 502 before listen). Full packets stay on officialLearningRecords.
       propIds,
       smallSample: group.length < 3,
-      props: group,
     });
   }
 

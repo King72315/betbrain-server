@@ -355,10 +355,38 @@ export function getDurableStoreHealthSync() {
   };
 }
 
-export async function durableGet(key) {
+export async function durableGet(key, options = {}) {
+  const maxBytes = Number(
+    options.maxBytes || process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000
+  );
+  const skipOversized = options.skipOversized === true;
   const pool = await ensurePg();
   if (pool) {
     try {
+      if (skipOversized) {
+        const meta = await pool.query(
+          `SELECT octet_length(value::text) AS bytes,
+                  record_version, content_hash, updated_at
+           FROM courtedge_kv WHERE key = $1`,
+          [key]
+        );
+        if (meta.rows[0]) {
+          const bytes = Number(meta.rows[0].bytes) || 0;
+          if (bytes > maxBytes) {
+            lastDurableError = `${key}_oversized_postgres_${bytes}`;
+            return {
+              ok: false,
+              source: "postgres",
+              oversized: true,
+              bytes,
+              value: null,
+              recordVersion: Number(meta.rows[0].record_version) || 1,
+              contentHash: meta.rows[0].content_hash || null,
+              updatedAt: meta.rows[0].updated_at || null,
+            };
+          }
+        }
+      }
       const res = await pool.query(
         "SELECT value, record_version, content_hash, updated_at FROM courtedge_kv WHERE key = $1",
         [key]
@@ -377,7 +405,7 @@ export async function durableGet(key) {
       lastDurableError = String(error?.message || error);
     }
   }
-  const maxReadBytes = Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000);
+  const maxReadBytes = maxBytes;
   const mirror = mirrorPathForKey(key);
   const file = filePathForKey(key);
   for (const [source, candidate] of [
@@ -388,6 +416,15 @@ export async function durableGet(key) {
       if (!fs.existsSync(candidate)) continue;
       if (fs.statSync(candidate).size > maxReadBytes) {
         lastDurableError = `${key}_oversized_${source}`;
+        if (skipOversized) {
+          return {
+            ok: false,
+            source,
+            oversized: true,
+            bytes: fs.statSync(candidate).size,
+            value: null,
+          };
+        }
         continue;
       }
       const value = readJsonSafe(candidate, null);
@@ -604,16 +641,71 @@ export async function hydrateWorkingFilesFromDurableStore(options = {}) {
         fileTooLarge(localPath) ? fs.statSync(localPath).size : 0,
         fileTooLarge(mirrorFile) ? fs.statSync(mirrorFile).size : 0
       );
+      if (key === DURABLE_KEYS.DAILY_SLATE_REPORTS) {
+        try {
+          atomicWriteJson(localPath, []);
+          atomicWriteJson(mirrorFile, []);
+        } catch {
+          // ignore
+        }
+      }
       actions.push({
         key,
         action: "skipped_oversized",
         bytes,
         maxFileBytes,
       });
+      // Still probe remote size (without loading) so we can neutralize poison.
+      const remoteMeta = await durableGet(key, {
+        skipOversized: true,
+        maxBytes: maxFileBytes,
+      });
+      if (remoteMeta.oversized && key === DURABLE_KEYS.DAILY_SLATE_REPORTS && pool) {
+        try {
+          await durablePut(key, [], {
+            recordVersion: Number(remoteMeta.recordVersion || 1) + 1,
+            force: true,
+          });
+          actions.push({
+            key,
+            action: "neutralized_oversized_remote",
+            bytes: remoteMeta.bytes,
+          });
+        } catch (error) {
+          lastDurableError = String(error?.message || error);
+        }
+      }
       continue;
     }
-    const remote = await durableGet(key);
+    const remote = await durableGet(key, {
+      skipOversized: true,
+      maxBytes: maxFileBytes,
+    });
     const local = readJsonSafe(localPath, null);
+    if (remote.oversized) {
+      actions.push({
+        key,
+        action: "skipped_oversized_remote",
+        bytes: remote.bytes,
+        maxFileBytes,
+      });
+      if (key === DURABLE_KEYS.DAILY_SLATE_REPORTS && pool) {
+        try {
+          await durablePut(key, Array.isArray(local) ? local : [], {
+            recordVersion: Number(remote.recordVersion || 1) + 1,
+            force: true,
+          });
+          actions.push({
+            key,
+            action: "neutralized_oversized_remote",
+            bytes: remote.bytes,
+          });
+        } catch (error) {
+          lastDurableError = String(error?.message || error);
+        }
+      }
+      continue;
+    }
     if (!remote.ok || remote.value == null) {
       if (local != null && pool) {
         await durablePut(key, local, { recordVersion: 1 });
