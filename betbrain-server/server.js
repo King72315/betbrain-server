@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-refresh-oom-split-v2";
+const SERVER_BUILD = "courteedge-refresh-oom-split-v3";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -1627,10 +1627,12 @@ function trackSideAuditRejection(audit, side, reasons = []) {
 
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   const gamesRaw = await fetchOddsGameCards(league, daysAhead);
-  // Free-tier Render: hard-cap games so refresh cannot OOM the dyno.
+  const isSlimRefresh = process.env.COURTEDGE_REFRESH_SLIM !== "false";
   const maxGames = Math.max(
     1,
-    Number(process.env.COURTEDGE_REFRESH_MAX_GAMES || 6)
+    Number(
+      process.env.COURTEDGE_REFRESH_MAX_GAMES || (isSlimRefresh ? 4 : 8)
+    )
   );
   const games = Array.isArray(gamesRaw) ? gamesRaw.slice(0, maxGames) : [];
   const sideAudit = createSideAudit();
@@ -1677,6 +1679,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     gamesFetched: gamesRaw?.length || 0,
     gamesAnalyzed: games.length,
     maxGames,
+    slimRefresh: isSlimRefresh,
   });
 
   const players = league === "NBA" ? await fetchPlayers() : [];
@@ -1821,11 +1824,13 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       let bdlSeasonGamesRaw = [];
       if (league === "WNBA") {
-        if (seasonStatsCache.has(playerKey)) {
+        if (isSlimRefresh) {
+          // Slim refresh: reuse last5 instead of full-season BDL dumps (OOM source).
+          bdlSeasonGamesRaw = Array.isArray(last5) ? last5 : [];
+        } else if (seasonStatsCache.has(playerKey)) {
           bdlSeasonGamesRaw = seasonStatsCache.get(playerKey);
         } else {
           const raw = await fetchPlayerStats(playerName, league);
-          // Keep a short tail only — full season arrays OOM free-tier refresh.
           bdlSeasonGamesRaw = Array.isArray(raw) ? raw.slice(-20) : [];
           seasonStatsCache.set(playerKey, bdlSeasonGamesRaw);
         }
@@ -1852,12 +1857,16 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       const matchupKey = `${playerKey}|${clean(opponent)}|${gameCutoff || ""}`;
       let matchupGames = matchupCache.get(matchupKey);
       if (!matchupGames) {
-        matchupGames = await fetchLast3VsOpponent(
-          playerName,
-          opponent,
-          league,
-          { beforeTime: gameCutoff, playerTeam: team }
-        );
+        if (isSlimRefresh) {
+          matchupGames = [];
+        } else {
+          matchupGames = await fetchLast3VsOpponent(
+            playerName,
+            opponent,
+            league,
+            { beforeTime: gameCutoff, playerTeam: team }
+          );
+        }
         matchupCache.set(matchupKey, matchupGames);
       }
 
@@ -3753,9 +3762,13 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   lastRefreshError = null;
   const scope = String(options.scope || "all").toLowerCase();
   const includeNba = options.includeNba === true;
+  const chainTomorrow =
+    options.chainTomorrow === true ||
+    String(options.chainTomorrow || "").toLowerCase() === "true" ||
+    String(options.chainTomorrow || "") === "1";
 
-  // Free-tier OOM guard: never build Today+Tomorrow in one heap. Split "all"
-  // into sequential legs with a pause so GC can reclaim provider payloads.
+  // Free-tier OOM guard: default "all" builds Today only. Tomorrow is a separate
+  // leg only when chainTomorrow=1 (still sequential with a long pause).
   refreshInFlight = (async () => {
     if (scope === "all") {
       const todayResult = await refreshAllPicks({ scope: "today", includeNba });
@@ -3766,6 +3779,9 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
         games: todayResult?.games?.length || 0,
         todayCandidates: todayResult?.todayCandidateCount,
       });
+      if (!chainTomorrow) {
+        return todayResult;
+      }
       await new Promise((resolve) => setTimeout(resolve, 8000));
       if (typeof global.gc === "function") {
         try {
@@ -3827,7 +3843,11 @@ app.post("/refresh-picks", async (req, res) => {
     const includeNba =
       String(req.query.includeNba || req.body?.includeNba || "").toLowerCase() ===
       "true";
-    const refreshOpts = { scope, includeNba };
+    const chainTomorrow =
+      String(req.query.chainTomorrow || req.body?.chainTomorrow || "").toLowerCase() ===
+        "true" ||
+      String(req.query.chainTomorrow || req.body?.chainTomorrow || "") === "1";
+    const refreshOpts = { scope, includeNba, chainTomorrow };
     if (!wantsSync) {
       const kick = startRefreshAllPicksBackground("http-refresh-picks", refreshOpts);
       return res.json({
@@ -3835,19 +3855,23 @@ app.post("/refresh-picks", async (req, res) => {
         async: true,
         scope,
         includeNba,
+        chainTomorrow,
         splitLegs: scope === "all",
         message: kick.alreadyRunning
           ? "Refresh already in progress"
-          : scope === "all"
-            ? "Refresh started in background (today then tomorrow; avoids OOM)"
-            : "Refresh started in background (avoids proxy timeout)",
+          : scope === "all" && !chainTomorrow
+            ? "Refresh started (Today only; pass chainTomorrow=1 for Tomorrow leg)"
+            : scope === "all"
+              ? "Refresh started in background (today then tomorrow; avoids OOM)"
+              : "Refresh started in background (avoids proxy timeout)",
         serverBuild: SERVER_BUILD,
         ...kick,
       });
     }
-    // Sync wait=1 with scope=all still splits to keep free-tier alive.
+    // Sync wait=1 with scope=all still prefers today-only unless chained.
     if (scope === "all") {
       const todayResult = await refreshAllPicks({ scope: "today", includeNba });
+      if (!chainTomorrow) return res.json(todayResult);
       await new Promise((resolve) => setTimeout(resolve, 4000));
       const tomorrowResult = await refreshAllPicks({
         scope: "tomorrow",

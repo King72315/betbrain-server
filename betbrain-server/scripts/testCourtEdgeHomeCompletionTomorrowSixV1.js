@@ -686,11 +686,11 @@ test("62 SERVER_BUILD refresh-oom-split retains empty-board guard", () => {
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-refresh-oom-split-v2",
-    "SERVER_BUILD must be courteedge-refresh-oom-split-v2"
+    "courteedge-refresh-oom-split-v3",
+    "SERVER_BUILD must be courteedge-refresh-oom-split-v3"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
-  assert.match(src, /courteedge-refresh-oom-split-v2/);
+  assert.match(src, /courteedge-refresh-oom-split-v3/);
   assert.match(src, /hydrate-home-analysis/);
   assert.match(src, /isPastOnlyLkgBoard/);
   assert.match(src, /STATE_INTEGRITY_VERSION/);
