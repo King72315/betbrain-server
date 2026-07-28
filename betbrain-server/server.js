@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-refresh-oom-split-v3";
+const SERVER_BUILD = "courteedge-refresh-oom-split-v4";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -3762,13 +3762,17 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   lastRefreshError = null;
   const scope = String(options.scope || "all").toLowerCase();
   const includeNba = options.includeNba === true;
+  // Default ON: Home needs Tomorrow Best 6. Slim refresh keeps this under free-tier RAM.
+  // Pass chainTomorrow=0 to skip the Tomorrow leg.
+  const chainTomorrowRaw = options.chainTomorrow;
   const chainTomorrow =
-    options.chainTomorrow === true ||
-    String(options.chainTomorrow || "").toLowerCase() === "true" ||
-    String(options.chainTomorrow || "") === "1";
+    chainTomorrowRaw === undefined || chainTomorrowRaw === null || chainTomorrowRaw === ""
+      ? scope === "all"
+      : chainTomorrowRaw === true ||
+        String(chainTomorrowRaw).toLowerCase() === "true" ||
+        String(chainTomorrowRaw) === "1";
 
-  // Free-tier OOM guard: default "all" builds Today only. Tomorrow is a separate
-  // leg only when chainTomorrow=1 (still sequential with a long pause).
+  // Free-tier OOM guard: never build Today+Tomorrow in one heap. Sequential slim legs.
   refreshInFlight = (async () => {
     if (scope === "all") {
       const todayResult = await refreshAllPicks({ scope: "today", includeNba });
@@ -3782,7 +3786,7 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
       if (!chainTomorrow) {
         return todayResult;
       }
-      await new Promise((resolve) => setTimeout(resolve, 8000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       if (typeof global.gc === "function") {
         try {
           global.gc();
@@ -3843,10 +3847,11 @@ app.post("/refresh-picks", async (req, res) => {
     const includeNba =
       String(req.query.includeNba || req.body?.includeNba || "").toLowerCase() ===
       "true";
+    const chainRaw = req.query.chainTomorrow ?? req.body?.chainTomorrow;
     const chainTomorrow =
-      String(req.query.chainTomorrow || req.body?.chainTomorrow || "").toLowerCase() ===
-        "true" ||
-      String(req.query.chainTomorrow || req.body?.chainTomorrow || "") === "1";
+      chainRaw === undefined || chainRaw === null || chainRaw === ""
+        ? scope === "all"
+        : String(chainRaw).toLowerCase() === "true" || String(chainRaw) === "1";
     const refreshOpts = { scope, includeNba, chainTomorrow };
     if (!wantsSync) {
       const kick = startRefreshAllPicksBackground("http-refresh-picks", refreshOpts);
@@ -3859,16 +3864,13 @@ app.post("/refresh-picks", async (req, res) => {
         splitLegs: scope === "all",
         message: kick.alreadyRunning
           ? "Refresh already in progress"
-          : scope === "all" && !chainTomorrow
-            ? "Refresh started (Today only; pass chainTomorrow=1 for Tomorrow leg)"
-            : scope === "all"
-              ? "Refresh started in background (today then tomorrow; avoids OOM)"
-              : "Refresh started in background (avoids proxy timeout)",
+          : scope === "all" && chainTomorrow
+            ? "Refresh started (Today then Tomorrow slim legs)"
+            : "Refresh started in background (avoids proxy timeout)",
         serverBuild: SERVER_BUILD,
         ...kick,
       });
     }
-    // Sync wait=1 with scope=all still prefers today-only unless chained.
     if (scope === "all") {
       const todayResult = await refreshAllPicks({ scope: "today", includeNba });
       if (!chainTomorrow) return res.json(todayResult);
