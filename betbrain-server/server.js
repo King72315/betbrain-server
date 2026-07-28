@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-boot-oom-reports-slim-v1";
+const SERVER_BUILD = "courteedge-refresh-oom-split-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -1628,6 +1628,39 @@ function trackSideAuditRejection(audit, side, reasons = []) {
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   const games = await fetchOddsGameCards(league, daysAhead);
   const sideAudit = createSideAudit();
+  const yieldBetweenGames = () =>
+    new Promise((resolve) => setImmediate(resolve));
+
+  const slimPickForBoardMemory = (pick = {}) => {
+    if (!pick || typeof pick !== "object") return pick;
+    const next = { ...pick };
+    if (Array.isArray(next.gameLogs) && next.gameLogs.length > 10) {
+      next.gameLogs = next.gameLogs.slice(0, 10);
+    }
+    if (Array.isArray(next.last10) && next.last10.length > 10) {
+      next.last10 = next.last10.slice(0, 10);
+    }
+    if (Array.isArray(next.last5) && next.last5.length > 5) {
+      next.last5 = next.last5.slice(0, 5);
+    }
+    if (Array.isArray(next.matchupGames) && next.matchupGames.length > 8) {
+      next.matchupGames = next.matchupGames.slice(0, 8);
+    }
+    if (next.wnbaDataCard && typeof next.wnbaDataCard === "object") {
+      const card = { ...next.wnbaDataCard };
+      if (Array.isArray(card.last10) && card.last10.length > 10) {
+        card.last10 = card.last10.slice(0, 10);
+      }
+      if (Array.isArray(card.matchupGames) && card.matchupGames.length > 8) {
+        card.matchupGames = card.matchupGames.slice(0, 8);
+      }
+      if (Array.isArray(card.bdlSeasonGames) && card.bdlSeasonGames.length > 12) {
+        card.bdlSeasonGames = card.bdlSeasonGames.slice(0, 12);
+      }
+      next.wnbaDataCard = card;
+    }
+    return next;
+  };
 
   console.log("PROPS PIPELINE GAMES FETCHED:", {
     league,
@@ -2552,7 +2585,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       }
 
       builtPicks.push({
-        ...bestPick,
+        ...slimPickForBoardMemory(bestPick),
         label: `${playerName} ? ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
       });
 
@@ -2588,6 +2621,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       rejectedPickCount: rejectedPicks.length,
       rejectedSample: rejectedPicks.slice(0, 12),
     });
+    // Free-tier Render: yield between games so /health can answer and GC can run.
+    await yieldBetweenGames();
   }
 
   console.log("SIDE AUDIT:", {
@@ -3686,13 +3721,50 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   }
   lastRefreshStartedAt = new Date().toISOString();
   lastRefreshError = null;
-  refreshInFlight = refreshAllPicks(options)
+  const scope = String(options.scope || "all").toLowerCase();
+  const includeNba = options.includeNba === true;
+
+  // Free-tier OOM guard: never build Today+Tomorrow in one heap. Split "all"
+  // into sequential legs with a pause so GC can reclaim provider payloads.
+  refreshInFlight = (async () => {
+    if (scope === "all") {
+      const todayResult = await refreshAllPicks({ scope: "today", includeNba });
+      console.log("ASYNC REFRESH LEG COMPLETE:", {
+        reason,
+        leg: "today",
+        serverBuild: SERVER_BUILD,
+        games: todayResult?.games?.length || 0,
+        todayCandidates: todayResult?.todayCandidateCount,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      if (typeof global.gc === "function") {
+        try {
+          global.gc();
+        } catch {
+          // ignore
+        }
+      }
+      const tomorrowResult = await refreshAllPicks({
+        scope: "tomorrow",
+        includeNba,
+      });
+      console.log("ASYNC REFRESH LEG COMPLETE:", {
+        reason,
+        leg: "tomorrow",
+        serverBuild: SERVER_BUILD,
+        games: tomorrowResult?.games?.length || 0,
+        tomorrowCandidates: tomorrowResult?.tomorrowCandidateCount,
+      });
+      return tomorrowResult || todayResult;
+    }
+    return refreshAllPicks(options);
+  })()
     .then((result) => {
       lastRefreshFinishedAt = new Date().toISOString();
       lastRefreshError = null;
       console.log("ASYNC REFRESH COMPLETE:", {
         reason,
-        scope: options.scope || "all",
+        scope,
         serverBuild: SERVER_BUILD,
         games: result?.games?.length || 0,
         tomorrowCandidates: result?.tomorrowCandidateCount,
@@ -3713,7 +3785,7 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
     started: true,
     alreadyRunning: false,
     status: getRefreshStatus(),
-    scope: options.scope || "all",
+    scope,
   };
 }
 
@@ -3733,12 +3805,25 @@ app.post("/refresh-picks", async (req, res) => {
         async: true,
         scope,
         includeNba,
+        splitLegs: scope === "all",
         message: kick.alreadyRunning
           ? "Refresh already in progress"
-          : "Refresh started in background (avoids proxy timeout)",
+          : scope === "all"
+            ? "Refresh started in background (today then tomorrow; avoids OOM)"
+            : "Refresh started in background (avoids proxy timeout)",
         serverBuild: SERVER_BUILD,
         ...kick,
       });
+    }
+    // Sync wait=1 with scope=all still splits to keep free-tier alive.
+    if (scope === "all") {
+      const todayResult = await refreshAllPicks({ scope: "today", includeNba });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const tomorrowResult = await refreshAllPicks({
+        scope: "tomorrow",
+        includeNba,
+      });
+      return res.json(tomorrowResult || todayResult);
     }
     const result = await refreshAllPicks(refreshOpts);
     res.json(result);
@@ -3755,6 +3840,40 @@ app.post("/refresh-picks", async (req, res) => {
       preservedBoard: Boolean(getReadOnlyBoard()?.games?.length),
     });
   }
+});
+
+// Alias: some clients call POST /refresh (was missing → proxy/network failure).
+app.post("/refresh", (req, res) => {
+  const wait = String(req.query.wait || req.body?.wait || "").toLowerCase();
+  const scope = String(req.query.scope || req.body?.scope || "all").toLowerCase();
+  const includeNba =
+    String(req.query.includeNba || req.body?.includeNba || "").toLowerCase() ===
+    "true";
+  const wantsSync = wait === "1" || wait === "true" || wait === "sync";
+  if (!wantsSync) {
+    const kick = startRefreshAllPicksBackground("http-refresh-alias", {
+      scope,
+      includeNba,
+    });
+    return res.json({
+      ok: true,
+      async: true,
+      scope,
+      includeNba,
+      splitLegs: scope === "all",
+      aliasedFrom: "/refresh",
+      message: kick.alreadyRunning
+        ? "Refresh already in progress"
+        : "Refresh started in background (avoids proxy timeout)",
+      serverBuild: SERVER_BUILD,
+      ...kick,
+    });
+  }
+  return res.status(400).json({
+    ok: false,
+    message: "Use POST /refresh-picks?wait=1 for sync refresh",
+    serverBuild: SERVER_BUILD,
+  });
 });
 
 app.get("/refresh-picks/status", (req, res) => {
