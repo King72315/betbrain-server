@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-refresh-oom-split-v1";
+const SERVER_BUILD = "courteedge-refresh-oom-split-v2";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-learning-track-floor-v1";
@@ -1626,10 +1626,19 @@ function trackSideAuditRejection(audit, side, reasons = []) {
 }
 
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
-  const games = await fetchOddsGameCards(league, daysAhead);
+  const gamesRaw = await fetchOddsGameCards(league, daysAhead);
+  // Free-tier Render: hard-cap games so refresh cannot OOM the dyno.
+  const maxGames = Math.max(
+    1,
+    Number(process.env.COURTEDGE_REFRESH_MAX_GAMES || 6)
+  );
+  const games = Array.isArray(gamesRaw) ? gamesRaw.slice(0, maxGames) : [];
   const sideAudit = createSideAudit();
   const yieldBetweenGames = () =>
     new Promise((resolve) => setImmediate(resolve));
+  const seasonStatsCache = new Map();
+  const last5Cache = new Map();
+  const matchupCache = new Map();
 
   const slimPickForBoardMemory = (pick = {}) => {
     if (!pick || typeof pick !== "object") return pick;
@@ -1665,7 +1674,9 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   console.log("PROPS PIPELINE GAMES FETCHED:", {
     league,
     daysAhead,
-    gamesFetched: games.length,
+    gamesFetched: gamesRaw?.length || 0,
+    gamesAnalyzed: games.length,
+    maxGames,
   });
 
   const players = league === "NBA" ? await fetchPlayers() : [];
@@ -1719,7 +1730,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           Number(b.bookCount || 0) - Number(a.bookCount || 0) ||
           Number(b.marketQuality || 0) - Number(a.marketQuality || 0)
       )
-      .slice(0, 8);
+      .slice(0, 6);
     const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
     const wnbaGameContext =
       league === "WNBA" && isCourteEdgeWnbaV1Enabled()
@@ -1798,13 +1809,27 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       const projectionData = projectionMap.get(clean(playerName)) || {};
       const gameCutoff = game.commenceTime || game.time || game.date;
+      const playerKey = clean(playerName);
 
-      const last5 = await fetchLast5(playerName, league, {
-        beforeTime: gameCutoff,
-      });
+      let last5 = last5Cache.get(`${playerKey}|${gameCutoff || ""}`);
+      if (!last5) {
+        last5 = await fetchLast5(playerName, league, {
+          beforeTime: gameCutoff,
+        });
+        last5Cache.set(`${playerKey}|${gameCutoff || ""}`, last5);
+      }
 
-      const bdlSeasonGamesRaw =
-        league === "WNBA" ? await fetchPlayerStats(playerName, league) : [];
+      let bdlSeasonGamesRaw = [];
+      if (league === "WNBA") {
+        if (seasonStatsCache.has(playerKey)) {
+          bdlSeasonGamesRaw = seasonStatsCache.get(playerKey);
+        } else {
+          const raw = await fetchPlayerStats(playerName, league);
+          // Keep a short tail only — full season arrays OOM free-tier refresh.
+          bdlSeasonGamesRaw = Array.isArray(raw) ? raw.slice(-20) : [];
+          seasonStatsCache.set(playerKey, bdlSeasonGamesRaw);
+        }
+      }
 
       const bdlSeasonGames = filterGamesBeforeCutoff(
         bdlSeasonGamesRaw,
@@ -1824,12 +1849,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           ? 0
           : getProjectionPoints(playerName, projectionMap);
 
-      const matchupGames = await fetchLast3VsOpponent(
-        playerName,
-        opponent,
-        league,
-        { beforeTime: gameCutoff, playerTeam: team }
-      );
+      const matchupKey = `${playerKey}|${clean(opponent)}|${gameCutoff || ""}`;
+      let matchupGames = matchupCache.get(matchupKey);
+      if (!matchupGames) {
+        matchupGames = await fetchLast3VsOpponent(
+          playerName,
+          opponent,
+          league,
+          { beforeTime: gameCutoff, playerTeam: team }
+        );
+        matchupCache.set(matchupKey, matchupGames);
+      }
 
       const last5Profile = summarizeScoringProfile(last5);
 
@@ -3736,7 +3766,7 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
         games: todayResult?.games?.length || 0,
         todayCandidates: todayResult?.todayCandidateCount,
       });
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await new Promise((resolve) => setTimeout(resolve, 8000));
       if (typeof global.gc === "function") {
         try {
           global.gc();
@@ -3818,7 +3848,7 @@ app.post("/refresh-picks", async (req, res) => {
     // Sync wait=1 with scope=all still splits to keep free-tier alive.
     if (scope === "all") {
       const todayResult = await refreshAllPicks({ scope: "today", includeNba });
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 4000));
       const tomorrowResult = await refreshAllPicks({
         scope: "tomorrow",
         includeNba,

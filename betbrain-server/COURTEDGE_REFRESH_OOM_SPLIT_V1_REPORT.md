@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | **Date (CT)** | 2026-07-27 |
-| **Build** | `courteedge-refresh-oom-split-v1` |
+| **Build** | `courteedge-refresh-oom-split-v2` |
 | **Prod** | https://betbrain-server-1.onrender.com |
 
 ## Symptom
@@ -18,8 +18,9 @@ Free-tier (~512MB) OOM while building **Today + Tomorrow** in one refresh heap. 
 
 1. Split `scope=all` into sequential **today → pause/GC → tomorrow** legs (async and sync paths).
 2. Yield between games in `buildPicksForDay`; slim large game-log / matchup arrays on picks.
-3. Add `POST /refresh` alias → same background refresh kick.
-4. Build bump: `courteedge-refresh-oom-split-v1`.
+3. Cap games/day (default 6), props/game (6), and cache season/last5/matchup fetches per player within a day build.
+4. Add `POST /refresh` alias → same background refresh kick.
+5. Build bump: `courteedge-refresh-oom-split-v2`.
 
 ## Verify
 

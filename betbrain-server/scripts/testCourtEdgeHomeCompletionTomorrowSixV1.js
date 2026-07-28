@@ -680,23 +680,25 @@ test("61 Tempo and Valkyries resolve", () => {
   assert.strictEqual(resolveWnbaTeamId("Golden State Valkyries"), "goldenstatevalkyries");
 });
 
-test("62 SERVER_BUILD analysis-hydrate retains empty-board guard", () => {
+test("62 SERVER_BUILD refresh-oom-split retains empty-board guard", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "server.js"), "utf8");
   const m = src.match(/const SERVER_BUILD = "([^"]+)"/);
   assert.ok(m, "SERVER_BUILD declaration missing in server.js");
   assert.strictEqual(
     m[1],
-    "courteedge-home-analysis-hydrate-v1",
-    "SERVER_BUILD must be courteedge-home-analysis-hydrate-v1"
+    "courteedge-refresh-oom-split-v2",
+    "SERVER_BUILD must be courteedge-refresh-oom-split-v2"
   );
   assert.match(src, /EMPTY_BOARD_GUARD_VERSION/);
-  assert.match(src, /courteedge-home-analysis-hydrate-v1/);
+  assert.match(src, /courteedge-refresh-oom-split-v2/);
   assert.match(src, /hydrate-home-analysis/);
   assert.match(src, /isPastOnlyLkgBoard/);
   assert.match(src, /STATE_INTEGRITY_VERSION/);
   assert.match(src, /mergeBoardDayIsolation/);
   assert.match(src, /syncBoardToCanonicalStore/);
   assert.match(src, /bestSixDisplayTomorrowWNBA: sanitized\.bestSixDisplayTomorrowWNBA/);
+  assert.match(src, /splitLegs/);
+  assert.match(src, /ASYNC REFRESH LEG COMPLETE/);
 });
 
 test("63 empty previous board never preserved-over", () => {
