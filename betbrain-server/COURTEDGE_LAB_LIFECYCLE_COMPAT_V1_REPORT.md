@@ -124,14 +124,16 @@ Prod: `https://betbrain-server-1.onrender.com`
 3. `GET /courtedge/lab/2026-07-16` → exactly 3 props; legacy / uninstrumented
 4. `GET /courtedge/lab/2026-07-29` → pending OK; not frozen into Previous
 
-### Post-deploy verify
+### Post-deploy verify (2026-07-28/29 live)
 
-| Check | Expected |
+| Check | Result |
 | --- | --- |
 | `SERVER_BUILD` | `courteedge-lab-lifecycle-compat-v2` |
-| Lab current | `2026-07-22` |
-| Active | `2/3` · Jul 20 + Jul 22 (+ Jul 29 pending on-deck) |
-| Previous | historical block ending Jul 16 (not 20/22/29) |
-| Jul 16 | 3-prop immutable |
-| Win rate Δ (incomplete active) | N/A |
-| Weight writes | false |
+| Lab current | `2026-07-22` · 4-2-0 · sixProp · evidenceCoverage 100 |
+| Active | `2/3` · completed `[2026-07-20, 2026-07-22]` · pending `[2026-07-29]` |
+| Previous | `[2026-07-14, 2026-07-15, 2026-07-16]` — Jul 29 **not** included |
+| Jul 16 | 3 props · legacy · uninstrumented |
+| Win rate Δ (incomplete active) | `available=false` · `display=N/A` |
+| Weight writes | `false` |
+| Tests | Lab V2 **98/98** |
+| Commit | `5a850e0` on `betbrain-v2-rebuild` → `orgin` |
