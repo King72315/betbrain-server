@@ -122,12 +122,17 @@ export function clearFrozenThreeSlateMembershipCache() {
  * active instrumented learning track. Ineligible dates already sitting in an
  * incomplete active block are demoted to legacy (not frozen as a fake block).
  *
+ * Sealed-pending dates may sit in active for floor / on-deck visibility, but a
+ * block freezes to immutable 3/3 ONLY when three members are fully graded
+ * (present in completedDates). Pending must never poison a freeze.
+ *
  * activeBlock holds the in-progress learning block (1/3–2/3). When a block
- * reaches 3/3 it freezes immutable membership and active becomes a new empty
- * 0/3 block until the next eligible completed slate arrives.
+ * reaches 3/3 graded it freezes immutable membership and active becomes a new
+ * empty 0/3 block (plus any remaining sealed-pending on-deck dates).
  */
 export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   const dates = [...new Set((completedDates || []).map(String).filter(Boolean))].sort();
+  const completedSet = new Set(dates);
   const learningDates = Array.isArray(options.learningDates)
     ? [...new Set(options.learningDates.map(String).filter(Boolean))].sort()
     : dates;
@@ -222,7 +227,8 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
   }
 
   // Heal corrupt non-anchor frozen blocks that mixed learning-track dates with
-  // legacy dates (immutable anchors and pure completed learning 3/3 stay).
+  // legacy dates, OR froze sealed-pending / partially graded dates as a fake 3/3
+  // (immutable anchors and pure fully-graded learning 3/3 stay).
   if (restrictToLearning) {
     const historicalAnchorDateSet = new Set(
       HISTORICAL_THREE_SLATE_ANCHORS.flat().map(String)
@@ -239,6 +245,7 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
       const hasHistoricalMember = blockDates.some((d) =>
         historicalAnchorDateSet.has(d)
       );
+      const allFullyGraded = blockDates.every((d) => completedSet.has(d));
       // Non-anchor block that dragged a historical-anchor member (e.g. 06-22)
       // into a fake learning 3/3 with Jul 17/20 — dissolve.
       if (hasHistoricalMember) {
@@ -249,11 +256,21 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
         }
         continue;
       }
+      // Fake freeze that included sealed-pending / partial grades — dissolve so
+      // graded members re-enter active and pending never stays in a 3/3 block.
       if (
         learningInBlock.length === blockDates.length &&
-        blockDates.length === GROUP_SIZE
+        blockDates.length === GROUP_SIZE &&
+        !allFullyGraded
       ) {
-        // Valid peeled learning block (A-B-C of six-prop track).
+        continue;
+      }
+      if (
+        learningInBlock.length === blockDates.length &&
+        blockDates.length === GROUP_SIZE &&
+        allFullyGraded
+      ) {
+        // Valid peeled learning block (A-B-C of six-prop track, all graded).
         healed.push(block);
         continue;
       }
@@ -314,11 +331,13 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
 
   const frozenBlocks = [...priorFrozen];
 
-  // Peel complete chunks into frozen; a trailing exact-3 also freezes and
-  // yields a fresh empty active block (never leave 3/3 pinned as active).
-  while (working.length >= GROUP_SIZE) {
-    const chunk = working.slice(0, GROUP_SIZE);
-    working = working.slice(GROUP_SIZE);
+  // Peel freezable chunks: first N completed dates only. Sealed-pending may sit
+  // later in `working` but never enter a frozen 3/3 membership.
+  while (true) {
+    const completedInWorking = working.filter((d) => completedSet.has(d));
+    if (completedInWorking.length < GROUP_SIZE) break;
+    const chunk = completedInWorking.slice(0, GROUP_SIZE);
+    working = working.filter((d) => !chunk.includes(d));
     if (!frozenBlocks.some((b) => sameDates(b.slateDates, chunk))) {
       frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
     }
@@ -326,16 +345,27 @@ export function syncThreeSlateBlocksV2(completedDates = [], options = {}) {
 
   let activeBlock = null;
   if (working.length > 0) {
+    const completedActive = working.filter((d) => completedSet.has(d));
+    const pendingActive = working.filter((d) => !completedSet.has(d));
+    // Progress counts graded members when any exist; pending-only floor slates
+    // still show 1/3 membership so sealed-pending stays visible (not legacy).
+    const progressCount =
+      completedActive.length > 0 ? completedActive.length : pendingActive.length;
     activeBlock = {
       groupId: `block-${frozenBlocks.length + 1}`,
       groupIndex: frozenBlocks.length,
       sequenceNumber: frozenBlocks.length + 1,
       slateDates: working,
       slateCount: working.length,
+      completedSlateDates: completedActive,
+      pendingSlateDates: pendingActive,
       incomplete: true,
       frozen: false,
-      progress: `${working.length}/${GROUP_SIZE}`,
-      progressLabel: `Slate ${working.length} of ${GROUP_SIZE}`,
+      progress: `${progressCount}/${GROUP_SIZE}`,
+      progressLabel:
+        pendingActive.length > 0 && completedActive.length > 0
+          ? `Slate ${progressCount} of ${GROUP_SIZE} (+${pendingActive.length} sealed-pending)`
+          : `Slate ${progressCount} of ${GROUP_SIZE}`,
       buildVersion: LAB_V2_BUILD,
       instrumentedLearning: true,
     };
@@ -805,24 +835,37 @@ export function buildHistoryThreeSlateGroupsV2(input = {}, maybeOptions = {}) {
     frozenBlocks = store.frozenBlocks || [];
     activeBlock = store.activeBlock;
   } else {
-    // Ephemeral chunking — instrumented learning dates only for active track
+    // Ephemeral chunking — freeze only fully graded learning dates; sealed-pending
+    // remain in active and never form a fake 3/3.
     frozenBlocks = [];
-    const remaining = [...learningDates];
-    while (remaining.length >= GROUP_SIZE) {
-      const chunk = remaining.splice(0, GROUP_SIZE);
+    const completedLearning = learningDates.filter((d) => dates.includes(d));
+    const pendingLearning = learningDates.filter((d) => !dates.includes(d));
+    const remainingCompleted = [...completedLearning];
+    while (remainingCompleted.length >= GROUP_SIZE) {
+      const chunk = remainingCompleted.splice(0, GROUP_SIZE);
       frozenBlocks.push(makeCompleteBlock(frozenBlocks.length, chunk));
     }
+    const remaining = [...remainingCompleted, ...pendingLearning].sort();
     if (remaining.length > 0) {
+      const completedActive = remaining.filter((d) => dates.includes(d));
+      const pendingActive = remaining.filter((d) => !dates.includes(d));
+      const progressCount =
+        completedActive.length > 0 ? completedActive.length : pendingActive.length;
       activeBlock = {
         groupId: `block-${frozenBlocks.length + 1}`,
         groupIndex: frozenBlocks.length,
         sequenceNumber: frozenBlocks.length + 1,
         slateDates: remaining,
         slateCount: remaining.length,
+        completedSlateDates: completedActive,
+        pendingSlateDates: pendingActive,
         incomplete: true,
         frozen: false,
-        progress: `${remaining.length}/${GROUP_SIZE}`,
-        progressLabel: `Slate ${remaining.length} of ${GROUP_SIZE}`,
+        progress: `${progressCount}/${GROUP_SIZE}`,
+        progressLabel:
+          pendingActive.length > 0 && completedActive.length > 0
+            ? `Slate ${progressCount} of ${GROUP_SIZE} (+${pendingActive.length} sealed-pending)`
+            : `Slate ${progressCount} of ${GROUP_SIZE}`,
         buildVersion: LAB_V2_BUILD,
         instrumentedLearning: true,
       };

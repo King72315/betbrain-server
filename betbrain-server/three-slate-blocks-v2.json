@@ -14,9 +14,9 @@
       "frozen": true,
       "progress": "3/3",
       "progressLabel": "Slate 3 of 3 — Block Complete",
-      "frozenAt": "2026-07-22T07:55:23.329Z",
-      "completionTimestamp": "2026-07-22T07:55:23.329Z",
-      "buildVersion": "courteedge-lab-learning-track-floor-v1"
+      "frozenAt": "2026-07-29T04:54:01.900Z",
+      "completionTimestamp": "2026-07-29T04:54:01.900Z",
+      "buildVersion": "courteedge-lab-lifecycle-compat-v2"
     },
     {
       "groupId": "block-2",
@@ -32,9 +32,9 @@
       "frozen": true,
       "progress": "3/3",
       "progressLabel": "Slate 3 of 3 — Block Complete",
-      "frozenAt": "2026-07-22T07:31:41.142Z",
-      "completionTimestamp": "2026-07-22T07:31:41.142Z",
-      "buildVersion": "courteedge-fully-autonomous-operation-v1"
+      "frozenAt": "2026-07-29T04:54:01.900Z",
+      "completionTimestamp": "2026-07-29T04:54:01.900Z",
+      "buildVersion": "courteedge-lab-lifecycle-compat-v2"
     }
   ],
   "activeBlock": {
@@ -43,14 +43,22 @@
     "sequenceNumber": 3,
     "slateDates": [
       "2026-07-20",
+      "2026-07-22",
+      "2026-07-29"
+    ],
+    "slateCount": 3,
+    "completedSlateDates": [
+      "2026-07-20",
       "2026-07-22"
     ],
-    "slateCount": 2,
+    "pendingSlateDates": [
+      "2026-07-29"
+    ],
     "incomplete": true,
     "frozen": false,
     "progress": "2/3",
-    "progressLabel": "Slate 2 of 3",
-    "buildVersion": "courteedge-results-lab-refresh-v1",
+    "progressLabel": "Slate 2 of 3 (+1 sealed-pending)",
+    "buildVersion": "courteedge-lab-lifecycle-compat-v2",
     "instrumentedLearning": true
   },
   "legacySlateDates": [
@@ -59,11 +67,10 @@
     "2026-07-08",
     "2026-07-14",
     "2026-07-15",
-    "2026-07-16",
-    "2026-07-17"
+    "2026-07-16"
   ],
   "demotedFromActive": [],
   "learningTrack": "instrumented-six-prop-v1",
   "version": "history-three-slate-groups-v2",
-  "updatedAt": "2026-07-23T07:52:10.421Z"
+  "updatedAt": "2026-07-29T04:54:01.903Z"
 }

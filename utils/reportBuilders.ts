@@ -1228,6 +1228,11 @@ export function buildPropLabV2Report(input: {
     "",
     "=== 2. Three-Slate Improvement Block ===",
     `Active ${active.progress || "N/A"} · ${active.record || "N/A"} (${formatLabPct(active.winRateMetric ?? active.winRate)})`,
+    ...(active.pendingSlateDates?.length
+      ? [
+          `Sealed-pending (not freezable): ${active.pendingSlateDates.join(" · ")}`,
+        ]
+      : []),
     `Previous ${previous.record || "N/A"} (${formatLabPct(previous.winRateMetric ?? previous.winRate)})`,
     winDelta.line,
     ...(winDelta.note ? [winDelta.note] : []),
@@ -1271,6 +1276,11 @@ export function buildPropLabV2Report(input: {
     visibleSummary: joinLines([
       `Current slate: ${current.slateDate || "N/A"} · ${current.record || "0-0-0"} (${formatLabPct(current.winRateMetric ?? current.winRate)})`,
       `Active three-slate: ${(active.progress || "0/3")} · ${(active.slateDates || []).join(" · ") || "none"}`,
+      ...(active.pendingSlateDates?.length
+        ? [
+            `Sealed-pending: ${active.pendingSlateDates.join(" · ")} (awaiting grades — not freezable)`,
+          ]
+        : []),
       `Previous block: ${(previous.slateDates || []).join(" · ") || "none"}`,
       `Official Best 6 shown: ${(lab.officialBestSixResults || []).length}`,
       `Engines on scoreboard: ${Object.keys(engines).length}`,

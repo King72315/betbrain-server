@@ -2009,6 +2009,116 @@ test(96, "Sealed-pending on-track floor slate stays Lab current + active 1/3 (no
   assert.ok(!(lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-17"));
 });
 
+test(97, "Sealed-pending must not freeze a 3/3 with two graded + one pending", () => {
+  resetBlocks();
+  const pending29 = makeSix("2026-07-29").map((p) => ({
+    ...p,
+    status: "pending",
+    result: null,
+  }));
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: [
+      ...makeHistoricalFrozenBlockProps(),
+      ...makeSix("2026-07-20"),
+      ...makeSix("2026-07-22"),
+      ...pending29,
+    ],
+    persistThreeSlate: true,
+  });
+  assert.equal(lab.slateDate, "2026-07-22");
+  assert.equal(lab.activeThreeSlateBlock?.progress, "2/3");
+  assert.deepEqual(lab.activeThreeSlateBlock?.completedSlateDates, [
+    "2026-07-20",
+    "2026-07-22",
+  ]);
+  assert.deepEqual(lab.activeThreeSlateBlock?.pendingSlateDates, ["2026-07-29"]);
+  assert.ok((lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-29"));
+  assert.ok(!(lab.previousThreeSlateBlock?.slateDates || []).includes("2026-07-29"));
+  assert.equal(lab.threeSlateComparison?.metrics?.winRate?.available, false);
+  assert.equal(lab.threeSlateComparison?.metrics?.winRate?.display, "N/A");
+});
+
+test(98, "Heal dissolves frozen block that included sealed-pending member", () => {
+  resetBlocks();
+  // Seed anchors + completed learning dates, then force-corrupt a frozen 3/3
+  // that mixed graded Jul 20/22 with pending Jul 29 (prod poison case).
+  syncThreeSlateBlocksV2(
+    [
+      "2026-06-21",
+      "2026-06-22",
+      "2026-07-08",
+      "2026-07-14",
+      "2026-07-15",
+      "2026-07-16",
+      "2026-07-20",
+      "2026-07-22",
+    ],
+    {
+      learningDates: ["2026-07-20", "2026-07-22", "2026-07-29"],
+      legacyDates: [
+        "2026-06-21",
+        "2026-06-22",
+        "2026-07-08",
+        "2026-07-14",
+        "2026-07-15",
+        "2026-07-16",
+      ],
+    }
+  );
+  const storePath = path.join(__dirname, "..", "three-slate-blocks-v2.json");
+  const raw = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  raw.frozenBlocks = [
+    ...(raw.frozenBlocks || []).filter(
+      (b) =>
+        !(b.slateDates || []).some((d) =>
+          ["2026-07-20", "2026-07-22", "2026-07-29"].includes(String(d))
+        )
+    ),
+    {
+      groupId: "block-3",
+      groupIndex: 2,
+      sequenceNumber: 3,
+      slateDates: ["2026-07-20", "2026-07-22", "2026-07-29"],
+      slateCount: 3,
+      incomplete: false,
+      frozen: true,
+      progress: "3/3",
+      progressLabel: "Slate 3 of 3 — Block Complete",
+    },
+  ];
+  raw.activeBlock = {
+    groupId: "block-4",
+    slateDates: [],
+    slateCount: 0,
+    incomplete: true,
+    frozen: false,
+    empty: true,
+    progress: "0/3",
+  };
+  fs.writeFileSync(storePath, JSON.stringify(raw, null, 2));
+
+  const pending29 = makeSix("2026-07-29").map((p) => ({
+    ...p,
+    status: "pending",
+    result: null,
+  }));
+  const lab = buildCourtEdgeLabV2({
+    trackedProps: [
+      ...makeHistoricalFrozenBlockProps(),
+      ...makeSix("2026-07-20"),
+      ...makeSix("2026-07-22"),
+      ...pending29,
+    ],
+    persistThreeSlate: true,
+  });
+  assert.ok(!(lab.previousThreeSlateBlock?.slateDates || []).includes("2026-07-29"));
+  assert.equal(lab.activeThreeSlateBlock?.progress, "2/3");
+  assert.ok((lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-20"));
+  assert.ok((lab.activeThreeSlateBlock?.slateDates || []).includes("2026-07-22"));
+  assert.ok((lab.activeThreeSlateBlock?.pendingSlateDates || []).includes("2026-07-29"));
+  assert.equal(lab.threeSlateComparison?.metrics?.winRate?.available, false);
+});
+
 console.log("\n==============================");
 console.log(`Lab V2 tests: ${passed} passed, ${failed} failed`);
 console.log("==============================");

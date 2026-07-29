@@ -1030,12 +1030,18 @@ export function buildCourtEdgeLabV2(options = {}) {
     currentSlate: currentSlateSummary,
     activeThreeSlateBlock: activeBlock,
     previousThreeSlateBlock: previousBlock,
-    // Prefer comparison from a non-empty active block; after 3/3 freeze the
-    // empty active falls through to the just-frozen previous block.
-    threeSlateComparison:
-      (activeBlock?.slateDates || []).length > 0
-        ? activeBlock?.comparison || previousBlock?.comparison || null
-        : previousBlock?.comparison || activeBlock?.comparison || null,
+    // Active-vs-previous deltas only when the active block itself is the subject.
+    // After a real 3/3 freeze the empty active falls through to the just-frozen
+    // previous block's comparison (completed block vs prior completed block).
+    // Incomplete active (incl. sealed-pending on-deck) must NOT inherit that.
+    threeSlateComparison: (() => {
+      const activeDates = activeBlock?.slateDates || [];
+      if (activeDates.length > 0) {
+        return activeBlock?.comparison || null;
+      }
+      // Empty active 0/3 after freeze — expose last completed block comparison.
+      return previousBlock?.comparison || activeBlock?.comparison || null;
+    })(),
 
     overallSummary: currentSlateSummary,
     officialBestSixResults: buildBestSixResults(slateRecords),

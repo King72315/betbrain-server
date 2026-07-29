@@ -530,13 +530,23 @@ export default function PropLabScreen() {
                 <MetricRow
                   label="Progress"
                   value={`${activeBlock.progress || `${activeBlock.slateCount}/3`}${
-                    activeBlock.slateCount === 3 ? " — Block Complete" : ""
+                    activeBlock.slateCount === 3 && activeBlock.incomplete !== true
+                      ? " — Block Complete"
+                      : activeBlock.pendingSlateDates?.length
+                        ? ` · ${activeBlock.pendingSlateDates.length} sealed-pending`
+                        : ""
                   }`}
                 />
                 <MetricRow
                   label="Dates"
                   value={(activeBlock.slateDates || []).map(formatSlateLabel).join(" · ") || "—"}
                 />
+                {(activeBlock.pendingSlateDates || []).length > 0 ? (
+                  <MetricRow
+                    label="Sealed-pending (not freezable)"
+                    value={activeBlock.pendingSlateDates.map(formatSlateLabel).join(" · ")}
+                  />
+                ) : null}
                 <MetricRow
                   label="Block instrumentation"
                   value={
