@@ -379,7 +379,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-lab-lifecycle-compat-v2";
+const SERVER_BUILD = "courteedge-pre-next-slate-selection-integrity-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v2";

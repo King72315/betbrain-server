@@ -738,6 +738,30 @@ function assignTrueRisk(candidate = {}, metrics = {}, riskDebts = [], riskRepair
     }
   }
 
+  // Material sealed conflicts: never Low Risk (Jul 30 McBride lesson).
+  const materialConflict =
+    candidate.sameTeamArbitrationFlip === true ||
+    candidate.policyConflictMarker === "SAME_TEAM_POLICY_CONFLICT" ||
+    (Array.isArray(candidate.materialConflicts) &&
+      candidate.materialConflicts.length > 0) ||
+    (() => {
+      const engines = candidate.courtEdgeEngineSignalsV1?.engines || {};
+      const def = engines.defensiveArchetype || engines.defensiveArchetypeEngine;
+      const sanity = engines.projectionSanity || engines.projectionSanityEngine;
+      const side = String(metrics.side || candidate.side || "").toUpperCase();
+      const defDir = String(def?.direction || "").toUpperCase();
+      if (defDir && side && defDir !== side && (defDir === "OVER" || defDir === "UNDER")) {
+        return true;
+      }
+      if (sanity?.hurt === true || Number(sanity?.confidenceAdjustment) <= -3) {
+        return true;
+      }
+      return false;
+    })();
+  if (materialConflict && trueRisk === "LOW") {
+    trueRisk = "MEDIUM";
+  }
+
   const riskAfter = riskLabelFromTrueRisk(trueRisk);
   return { trueRisk, riskBeforeDecision: riskBefore, riskAfterDecision: riskAfter };
 }
@@ -875,6 +899,25 @@ export function promoteBestSixCohortPick(pick = {}) {
       "TRACK"
   ).toUpperCase();
   const sideRescueAction = String(sr.action || pick.sideRescueAction || "").toUpperCase();
+
+  // Hard Best 6 exclusions — never launder via promotion/repair labels.
+  if (sideRescueAction === "NO_DECISIVE_RESCUE") {
+    return {
+      ...pick,
+      naturalDecision: originalEligibility,
+      excludedFromOfficialBestSix: true,
+      bestSixExclusionReason: "REJECTED_BEST_6 — NO_DECISIVE_RESCUE",
+      resultsAdmissionEligible: false,
+      controlledBestSixDisplayTracked: false,
+      decisionIntelligence: {
+        ...di,
+        trackEligibility: originalEligibility === "TRACK" ? "BOARD_ONLY" : originalEligibility,
+        bestSixEligibility: false,
+        bestSixPromoted: false,
+        integrityRejection: "NO_DECISIVE_RESCUE",
+      },
+    };
+  }
 
   const qualityFlags = [];
   if (originalEligibility !== "TRACK") qualityFlags.push(originalEligibility);

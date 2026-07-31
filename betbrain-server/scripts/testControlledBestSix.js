@@ -213,11 +213,24 @@ function testTopNbaDifferentTeams() {
 }
 
 function testNoDifferentTeamCandidate() {
-  const picks = [
-    makeWnbaPick({ player: "A", team: "Mystics", overScore: 90 }),
-    makeWnbaPick({ player: "B", team: "Mystics", overScore: 85 }),
+  // Top-2 same-team constraint: when Best 6 only has one team, take one Top pick.
+  // (Selection integrity may demote a second same-team Over before Best 6; test Top-2 directly.)
+  const bestSix = [
+    {
+      ...makeWnbaPick({ player: "A", team: "Mystics", overScore: 90, confidence: 90 }),
+      bestSixRank: 1,
+      controlledBestSixRank: 1,
+      bestPropScore: 90,
+      decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "MEDIUM" },
+    },
+    {
+      ...makeWnbaPick({ player: "B", team: "Mystics", overScore: 85, confidence: 85 }),
+      bestSixRank: 2,
+      controlledBestSixRank: 2,
+      bestPropScore: 85,
+      decisionIntelligence: { trackEligibility: "TRACK", trueRisk: "MEDIUM" },
+    },
   ];
-  const { bestSix } = selectControlledBestSix(picks, "WNBA");
   const { topProps, audit } = selectTopTwoFromBestSix(bestSix, "WNBA");
   assert.strictEqual(topProps.length, 1);
   assert.strictEqual(audit.noDifferentTeamCandidate, true);
@@ -663,7 +676,10 @@ function testDisplayDoesNotPreFilterBoardOnly() {
 }
 
 function run() {
-  assert.strictEqual(CONTROLLED_BEST_SIX_VERSION, "controlled-best-six-lifecycle-stale-sealed-v1");
+  assert.strictEqual(
+    CONTROLLED_BEST_SIX_VERSION,
+    "controlled-best-six-selection-integrity-v1"
+  );
 
   const tests = [
     ["1. WNBA Best 6 returns max 6", testWnbaBestSixMaxSix],

@@ -343,7 +343,7 @@ test("14 Today and Tomorrow use independent per-day Best 6 pools", () => {
     (combined.bestSixDisplayTodayWNBA?.length || 0) === 6 ||
       (combined.controlledBestSixAudit?.perDaySelection === true && t === 6)
   );
-  assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("playable-pool"));
+  assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("selection-integrity") || CONTROLLED_BEST_SIX_VERSION.includes("playable-pool"));
   assert.ok(PLAYABLE_POOL_CONTRACT_VERSION);
 });
 
@@ -590,7 +590,10 @@ test("31 Every selected card has a readable reason", () => {
 });
 
 test("32 Stale previous-build candidate packets are rejected by version contract", () => {
-  assert.ok(CONTROLLED_BEST_SIX_VERSION.includes("playable-pool-repair"));
+  assert.ok(
+    CONTROLLED_BEST_SIX_VERSION.includes("selection-integrity") ||
+      CONTROLLED_BEST_SIX_VERSION.includes("playable-pool-repair")
+  );
   assert.notStrictEqual(
     CONTROLLED_BEST_SIX_VERSION,
     "controlled-best-six-lifecycle-stale-sealed-v1"

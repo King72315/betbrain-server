@@ -129,7 +129,12 @@ export function evaluateCeilingFloorDistribution(ctx = {}) {
 
   const reasons = [];
   if (blendedHitRate !== null) {
-    reasons.push(`Blended hit rate vs line: ${(blendedHitRate * 100).toFixed(1)}%.`);
+    const overHitPct = Number((blendedHitRate * 100).toFixed(1));
+    const underHitPct = Number(((1 - blendedHitRate) * 100).toFixed(1));
+    // hitRate is P(points > line) = Over hit rate. Always label both sides.
+    reasons.push(
+      `Over hit rate: ${overHitPct}%. Under hit rate: ${underHitPct}%.`
+    );
   }
   if (role.sampleSize > 0 && season.sampleSize > 0 && role.average !== null && season.average !== null) {
     const diff = Number((role.average - season.average).toFixed(1));

@@ -22,7 +22,7 @@ import { finalizeSameTeamForcedUnderPresentation } from "./sameTeamForcedSidePre
 
 export const SAME_TEAM_OPPORTUNITY_V2_VERSION = "same-team-opportunity-v2";
 export const SAME_TEAM_OPPORTUNITY_V2_BUILD =
-  "courteedge-same-team-opportunity-v2";
+  "courteedge-same-team-arbitration-integrity-v1";
 
 const DEMOTED_RANKING_PENALTY = 42;
 const PRIMARY_RANKING_BOOST = 8;
@@ -339,10 +339,18 @@ export function underCandidateQualifies(pick = {}) {
   const overCase = num(pick.wnbaReader?.overCase?.score ?? pick.overCaseScore);
   const rescue = String(pick.sideRescue?.action || "").toUpperCase();
 
-  if (rescue === "NO_BET") return false;
+  if (rescue === "NO_BET" || rescue === "NO_DECISIVE_RESCUE") return false;
 
-  if (eligibility === "TRACK") return true;
-  if (eligibility === "BOARD_ONLY" && underGap >= 1.5) return true;
+  // Integrity: BOARD_ONLY alone is not enough to keep a forced Under.
+  if (eligibility === "BOARD_ONLY") return false;
+
+  if (eligibility === "TRACK") {
+    // Still require a real Under edge — not a projection still above the line.
+    const line = num(pick.line ?? pick.selectedLine);
+    const projection = num(pick.projection ?? pick.projectedPoints);
+    if (line != null && projection != null && projection > line) return false;
+    return underGap >= 1.5 || underCase >= overCase + 4;
+  }
 
   // Independent reader/gap evidence — same spirit as V1 underIndependentlyWins.
   const gapOk = underGap >= 1.5;
@@ -434,9 +442,8 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
     audit.primaryKeptOver += 1;
 
     for (const secondary of secondaries) {
-      // LOCKED PRODUCT RULE: deterministic same-team arbitration.
-      // Keep stronger Over; always flip weaker teammate to Under.
-      // Do not require Under to independently qualify before flipping.
+      // Integrity rule: keep stronger Over; only flip weaker teammate when
+      // independent organic Under evidence supports it. Otherwise DROP + replace.
       const underResult = reevaluatePropAsUnderCandidate(secondary.pick, {
         slateCandidates: list,
         teamCandidates: overs,
@@ -450,7 +457,70 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
       };
       const independentlyQualified =
         underResult.ok && underCandidateQualifies(underPickRaw);
-      // Preserve organic Over analysis; force final Under with honest presentation.
+
+      // Attach temporary fields for integrity unsupported check
+      const probePick = {
+        ...underPickRaw,
+        side: "Under",
+        pick: "Under",
+        originalModelSide: "OVER",
+        sameTeamArbitrationFlip: true,
+        independentlyQualifiedUnder: independentlyQualified,
+        sameTeamOpportunityV2: {
+          independentlyQualifiedUnder: independentlyQualified,
+          role: "SECONDARY_UNDER",
+        },
+        organicUnderEvidence: independentlyQualified ? "ok" : "weak",
+        organicEvidenceStrength: independentlyQualified ? "ok" : "weak",
+        projection: underPickRaw.projection ?? secondary.pick.projection,
+        fairLine: underPickRaw.fairLine ?? secondary.pick.fairLine,
+        line: underPickRaw.line ?? secondary.pick.line,
+      };
+
+      // Drop when Under does not independently qualify (organic evidence required).
+      // Full integrity vetoes also run later in Best 6 selection filter.
+      const line = Number(probePick.line);
+      const projection = Number(probePick.projection);
+      const fair = Number(probePick.fairLine);
+      const projectionAbove =
+        Number.isFinite(line) && Number.isFinite(projection) && projection > line;
+      const fairAbove =
+        Number.isFinite(line) && Number.isFinite(fair) && fair > line;
+      const unsupported =
+        !independentlyQualified ||
+        projectionAbove ||
+        fairAbove ||
+        String(probePick.organicEvidenceStrength).toLowerCase() === "weak";
+
+      if (unsupported) {
+        decisions.set(pickKey(secondary.pick), {
+          role: "SECONDARY_DEMOTED",
+          opportunityStrengthScore: secondary.opportunityStrengthScore,
+          opportunityStrengthComponents: secondary.components,
+          rankingBoost: 0,
+          rankingPenalty: DEMOTED_RANKING_PENALTY,
+          primaryPlayer: primary.pick.player,
+          clusterKey,
+          underQualified: false,
+          dropReason: "UNSUPPORTED_FORCED_UNDER",
+          replaceWithNextEligible: true,
+        });
+        audit.secondaryDemoted += 1;
+        clusterAudit.secondaries.push({
+          player: secondary.pick.player,
+          score: secondary.opportunityStrengthScore,
+          action: "DROP_UNSUPPORTED_FORCED_UNDER",
+          underQualified: false,
+          policyFlip: false,
+          reasons: [
+            !independentlyQualified ? "NO_INDEPENDENT_UNDER_EVIDENCE" : null,
+            projectionAbove ? "PROJECTION_ABOVE_UNDER_LINE" : null,
+            fairAbove ? "FAIR_LINE_ABOVE_UNDER_LINE" : null,
+          ].filter(Boolean),
+        });
+        continue;
+      }
+
       const underPick = finalizeSameTeamForcedUnderPresentation({
         originalPick: secondary.pick,
         forcedPick: {
@@ -459,6 +529,10 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
           pick: "Under",
           decisionRecomputeReason:
             underPickRaw.decisionRecomputeReason || "same_team_arbitration_flip",
+          trueRisk: "HIGH",
+          riskLabel: "High Risk",
+          policyConflictMarker: "SAME_TEAM_POLICY_CONFLICT",
+          topPickBlockedByIntegrity: true,
         },
         primaryPlayer: primary.pick.player,
         independentlyQualifiedUnder: independentlyQualified,
@@ -474,14 +548,14 @@ export function arbitrateSameTeamOpportunityV2(candidates = [], options = {}) {
         clusterKey,
         underQualified: independentlyQualified,
         policyFlip: true,
-        flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP",
+        flipReasonCode: "SAME_TEAM_ARBITRATION_FLIP_ORGANIC",
         replacedPick: underPick,
       });
       audit.secondaryFlippedUnder += 1;
       clusterAudit.secondaries.push({
         player: secondary.pick.player,
         score: secondary.opportunityStrengthScore,
-        action: "SAME_TEAM_ARBITRATION_FLIP",
+        action: "SAME_TEAM_ARBITRATION_FLIP_ORGANIC",
         underQualified: independentlyQualified,
         policyFlip: true,
       });

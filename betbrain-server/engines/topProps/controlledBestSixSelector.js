@@ -45,7 +45,15 @@ import {
   buildCanonicalDecisionBundle,
 } from "../decisionIntelligence/sideSelectionTrustV1.js";
 import { applyHomeDisplayWhyToPick } from "./homeReasonTextV1.js";
-export const CONTROLLED_BEST_SIX_VERSION = "controlled-best-six-playable-pool-repair-v1";
+import {
+  BEST_SIX_SELECTION_INTEGRITY_BUILD,
+  BEST_SIX_SELECTION_INTEGRITY_VERSION,
+  filterCandidatesForBestSixIntegrity,
+  applyConflictConfidenceRiskRecalibration,
+  evaluateBestSixSelectionIntegrity,
+} from "./bestSixSelectionIntegrityV1.js";
+export const CONTROLLED_BEST_SIX_VERSION =
+  "controlled-best-six-selection-integrity-v1";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -53,6 +61,10 @@ export const MAX_GAME_IN_BEST_SIX = 3;
 const SIDE_BALANCE_SWAP_MARGIN = 24;
 const SIDE_BALANCE_MINORITY = 3;
 export const PLAYABLE_POOL_CONTRACT_VERSION = "playable-pool-contract-v1";
+export {
+  BEST_SIX_SELECTION_INTEGRITY_VERSION,
+  BEST_SIX_SELECTION_INTEGRITY_BUILD,
+};
 
 const BEST_SIX_GATE_DEMOTION_PENALTIES = {
   OVER_UNSTABLE_THIN_BOOK: 110,
@@ -842,11 +854,22 @@ export function classifyPlayablePoolState(pick = {}) {
   const track = String(
     di.trackEligibility || pick.trackingEligibility || pick.wnbaTrackingDecision || ""
   ).toUpperCase();
+  // NO_DECISIVE_RESCUE is board-visible but not Official Best 6 eligible.
+  if (sr.action === "NO_DECISIVE_RESCUE") {
+    return {
+      state: "WEAK_BUT_PLAYABLE",
+      reason: "NO_DECISIVE_RESCUE",
+      playable: true,
+      weakButPlayable: true,
+      bestSixEligible: false,
+      hardBestSixExclusion: "NO_DECISIVE_RESCUE",
+    };
+  }
+
   const softDemotion =
     pick.weakButPlayable === true ||
     track === "BOARD_ONLY" ||
     track === "SHADOW_ONLY" ||
-    sr.action === "NO_DECISIVE_RESCUE" ||
     sr.action === "BOARD_ONLY" ||
     di.bestSixEligibility === false ||
     String(di.trueRisk || pick.trueRisk || "").toUpperCase() === "HIGH";
@@ -919,6 +942,27 @@ export function annotateResultsAdmission(pick = {}) {
     pick.decisionIntelligence?.trackEligibility ||
     pick.wnbaTrackingDecision ||
     "TRACK";
+
+  // Integrity hard exclusions must never be laundered by Best 6 promotion.
+  const integrity = evaluateBestSixSelectionIntegrity(pick, { allowFillCandidates: false });
+  if (!integrity.eligible) {
+    return {
+      ...integrity.pick,
+      naturalDecision,
+      resultsAdmissionEligible: false,
+      excludedFromOfficialBestSix: true,
+      bestSixExclusionReason: integrity.primaryReason,
+      controlledBestSixDisplayTracked: false,
+      decisionIntelligence: {
+        ...(pick.decisionIntelligence || {}),
+        trackEligibility: naturalDecision || "BOARD_ONLY",
+        bestSixEligibility: false,
+        bestSixPromoted: false,
+        integrityRejection: integrity.primaryReason,
+        hardExclusions: integrity.hardExclusions,
+      },
+    };
+  }
 
   const promoted = promoteBestSixCohortPick({
     ...pick,
@@ -1091,12 +1135,14 @@ export function selectControlledBestSix(candidates = [], league = "", options = 
   scored.sort(compareByScore);
   audit.scoredCount = scored.length;
 
+  const integrity = applyBestSixIntegrityGate(scored, audit, options);
   const selected = selectBestSixWithDiversity(
-    scored,
+    integrity,
     {
       limit: options.bestSixLimit ?? BEST_SIX_LIMIT,
       maxPerTeam: options.maxPerTeam ?? MAX_TEAM_IN_BEST_SIX,
       maxPerGame: options.maxPerGame ?? MAX_GAME_IN_BEST_SIX,
+      allowShortSlate: true,
     },
     audit
   );
@@ -1104,11 +1150,59 @@ export function selectControlledBestSix(candidates = [], league = "", options = 
 
   audit.selectedBestSixCount = ranked.length;
   audit.selectedBestSixTeams = [...new Set(ranked.map(getPickTeamKey))];
+  audit.shortSlate =
+    ranked.length < (options.bestSixLimit ?? BEST_SIX_LIMIT) &&
+    integrity.length < (options.bestSixLimit ?? BEST_SIX_LIMIT);
 
   return {
     bestSix: ranked,
     controlledBestSixAudit: audit,
   };
+}
+
+function applyBestSixIntegrityGate(scored = [], audit = {}, options = {}) {
+  if (!scored.length) return scored;
+  const leagueCode = String(scored[0]?.league || "").toUpperCase();
+  if (leagueCode !== "WNBA") return scored;
+
+  const filtered = filterCandidatesForBestSixIntegrity(scored, {
+    allowFillCandidates: false,
+  });
+  audit.selectionIntegrity = {
+    version: BEST_SIX_SELECTION_INTEGRITY_VERSION,
+    build: BEST_SIX_SELECTION_INTEGRITY_BUILD,
+    acceptedCount: filtered.acceptedCount,
+    rejectedCount: filtered.rejectedCount,
+    rejected: filtered.rejected.map((r) => ({
+      player: r.player,
+      reason: r.reason,
+      hardExclusions: r.hardExclusions,
+    })),
+    debugRows: filtered.debugRows,
+  };
+  for (const r of filtered.rejected) {
+    audit.rejected.push({
+      reason: r.reason,
+      integrity: true,
+      pick: summarizePickForAudit(r.pick || { player: r.player }),
+    });
+  }
+  // Prefer eligible props; if fewer than limit, do NOT promote hard-excluded.
+  // Optional fill band only when explicitly requested and no hard conflicts.
+  if (
+    filtered.accepted.length < (options.bestSixLimit ?? BEST_SIX_LIMIT) &&
+    options.allowIntegrityFill === true
+  ) {
+    const fill = filterCandidatesForBestSixIntegrity(scored, {
+      allowFillCandidates: true,
+    });
+    const fillOnly = fill.accepted.filter(
+      (p) => !filtered.accepted.some((a) => playerKey(a) === playerKey(p))
+    );
+    audit.selectionIntegrity.fillAccepted = fillOnly.length;
+    return [...filtered.accepted, ...fillOnly].map(applyConflictConfidenceRiskRecalibration);
+  }
+  return filtered.accepted;
 }
 
 export function selectBestSixDisplay(candidates = [], league = "", options = {}) {
@@ -1141,17 +1235,22 @@ export function selectBestSixDisplay(candidates = [], league = "", options = {})
   scored.sort(compareBySafetyScore);
   audit.scoredCount = scored.length;
 
+  const integrity = applyBestSixIntegrityGate(scored, audit, options);
   const selected = selectBestSixWithDiversity(
-    scored,
+    integrity,
     {
       limit: options.bestSixLimit ?? BEST_SIX_LIMIT,
       maxPerTeam: options.maxPerTeam ?? MAX_TEAM_IN_BEST_SIX,
       maxPerGame: options.maxPerGame ?? MAX_GAME_IN_BEST_SIX,
+      allowShortSlate: true,
     },
     audit
   );
   const ranked = rankBestSix(selected, leagueCode, { forDisplay: true });
   audit.safetyScoreOrdered = true;
+  audit.shortSlate =
+    ranked.length < (options.bestSixLimit ?? BEST_SIX_LIMIT) &&
+    integrity.length < (options.bestSixLimit ?? BEST_SIX_LIMIT);
 
   audit.selectedBestSixCount = ranked.length;
   audit.selectedBestSixTeams = [...new Set(ranked.map(getPickTeamKey))];
