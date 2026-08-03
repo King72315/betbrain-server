@@ -633,28 +633,102 @@ export function collectWnbaCandidatesFromGames(games = []) {
 }
 
 /**
- * 4 props per game: safest Over + safest Under on each team (distinct players).
- * Used for Home when server canonical Controlled Best Board V2 is not yet available.
+ * 4 props per game: best organic Over + best organic Under on each team.
+ * Never flips sides to fill a slot. Weak/forced candidates are rejected;
+ * a slot stays empty rather than forcing a bad prop.
  */
-export function pickSafestTeamOverUnder(teamPicks = []) {
-  const list = Array.isArray(teamPicks) ? teamPicks : [];
-  const overs = list
-    .filter((p) => normalizePickSide(p.side || p.pick) === "OVER")
-    .sort((a, b) => displayPickRankScore(b) - displayPickRankScore(a));
-  const unders = list
-    .filter((p) => normalizePickSide(p.side || p.pick) === "UNDER")
-    .sort((a, b) => displayPickRankScore(b) - displayPickRankScore(a));
+function isForcedOrFlippedSide(pick = {}) {
+  if (pick.forcedSide === true || pick.autoFlip === true || pick.sideChanged === true) {
+    return true;
+  }
+  const side = normalizePickSide(pick.side || pick.pick);
+  const organic = normalizePickSide(
+    pick.organicSide || pick.naturalSide || pick.originalModelSide || ""
+  );
+  // Organic stamp present and disagrees with displayed side → flipped/forced.
+  if (organic && side && organic !== side) return true;
+  return false;
+}
 
-  const selectedOver = overs[0] || null;
+function teamSlotSafetyScore(pick = {}) {
+  const conf = Number(
+    pick.confidence ?? pick.pickScore ?? pick.bestPropScore ?? pick.winProbability ?? 0
+  );
+  const base = Number.isFinite(conf) ? conf : 0;
+  const risk = resolveTrueRisk(pick);
+  const riskAdj = risk === "LOW" ? 12 : risk === "HIGH" ? -18 : 0;
+  const eligibility = resolveTrackEligibility(pick);
+  const eligAdj =
+    eligibility === "TRACK"
+      ? 10
+      : eligibility === "NO_BET"
+        ? -50
+        : eligibility === "SHADOW_ONLY"
+          ? -20
+          : 0;
+  const rank = displayPickRankScore(pick);
+  return base + riskAdj + eligAdj + Math.min(rank, 100) * 0.05;
+}
+
+/** Minimum organic quality to occupy a team Over/Under slot (no weak forced fills). */
+export const TEAM_SLOT_MIN_SAFETY_SCORE = 42;
+
+export function pickSafestTeamOverUnder(teamPicks = [], options = {}) {
+  const list = Array.isArray(teamPicks) ? teamPicks : [];
+  const minScore =
+    options.minSafetyScore == null
+      ? TEAM_SLOT_MIN_SAFETY_SCORE
+      : Number(options.minSafetyScore);
+
+  const organic = list.filter((p) => {
+    if (!p?.player) return false;
+    if (isForcedOrFlippedSide(p)) return false;
+    const side = normalizePickSide(p.side || p.pick);
+    if (side !== "OVER" && side !== "UNDER") return false;
+    // Keep natural decision only — never invent the opposite side from this row.
+    return true;
+  });
+
+  const overs = organic
+    .filter((p) => normalizePickSide(p.side || p.pick) === "OVER")
+    .map((p) => ({ pick: p, score: teamSlotSafetyScore(p) }))
+    .filter((row) => row.score >= minScore)
+    .sort((a, b) => b.score - a.score);
+
+  const unders = organic
+    .filter((p) => normalizePickSide(p.side || p.pick) === "UNDER")
+    .map((p) => ({ pick: p, score: teamSlotSafetyScore(p) }))
+    .filter((row) => row.score >= minScore)
+    .sort((a, b) => b.score - a.score);
+
+  const selectedOver = overs[0]?.pick || null;
   const selectedUnder =
     unders.find(
-      (u) =>
+      (row) =>
         !selectedOver ||
-        String(u.player || "").toLowerCase() !==
+        String(row.pick.player || "").toLowerCase() !==
           String(selectedOver.player || "").toLowerCase()
-    ) || null;
+    )?.pick || null;
 
-  return { selectedOver, selectedUnder, overs, unders };
+  return {
+    selectedOver,
+    selectedUnder,
+    overs: overs.map((r) => r.pick),
+    unders: unders.map((r) => r.pick),
+    emptyOverReason: selectedOver
+      ? null
+      : overs.length === 0 &&
+          organic.some((p) => normalizePickSide(p.side || p.pick) === "OVER")
+        ? "NO_OVER_MEETS_SAFETY_FLOOR"
+        : "NO_ORGANIC_OVER_CANDIDATE",
+    emptyUnderReason: selectedUnder
+      ? null
+      : unders.length === 0 &&
+          organic.some((p) => normalizePickSide(p.side || p.pick) === "UNDER")
+        ? "NO_UNDER_MEETS_SAFETY_FLOOR"
+        : "NO_ORGANIC_UNDER_CANDIDATE",
+    forcedSidesUsed: false,
+  };
 }
 
 export function isTeamBalancedFourPropBoard(picks = []) {
@@ -664,6 +738,7 @@ export function isTeamBalancedFourPropBoard(picks = []) {
   let overs = 0;
   let unders = 0;
   for (const pick of list) {
+    if (isForcedOrFlippedSide(pick)) return false;
     const side = normalizePickSide(pick.side || pick.pick);
     if (side === "OVER") overs += 1;
     if (side === "UNDER") unders += 1;
@@ -682,7 +757,10 @@ export function isTeamBalancedFourPropBoard(picks = []) {
 }
 
 /**
- * Build Controlled Best Board as 4 props/game from game candidate pools.
+ * Build Controlled Best Board as up to 4 props/game from organic team pools.
+ * Over slot = best natural Over on that team.
+ * Under slot = best natural Under on that team.
+ * Never flips a prop to fill the opposite slot.
  */
 export function buildFourPropGameBoardFromGames(games = [], league = "WNBA") {
   const leagueCode = normalizeLeagueCode(league);
@@ -721,47 +799,33 @@ export function buildFourPropGameBoardFromGames(games = [], league = "WNBA") {
       const { selectedOver, selectedUnder } = pickSafestTeamOverUnder(
         byTeam.get(tk) || []
       );
-      if (selectedOver) {
-        board.push({
-          ...selectedOver,
-          league: leagueCode,
-          teamSlot: "Over",
-          selectedTeamSlot: "Over",
-          controlledBestBoard: true,
-          variableBoardSize: true,
-          membershipModel: CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL,
-          boardSelectionSource: "FOUR_PROP_GAME_SAFEST_TEAM_SLOTS",
-          game: selectedOver.game || game.game,
-          gameId: selectedOver.gameId || game.gameId,
-          slateDate: selectedOver.slateDate || game.slateDate,
-          dayBucket: selectedOver.dayBucket || game.dayBucket,
-          dateLabel: selectedOver.dateLabel || game.dateLabel,
-          commenceTime: selectedOver.commenceTime || game.commenceTime,
-        });
-      }
-      if (selectedUnder) {
-        board.push({
-          ...selectedUnder,
-          league: leagueCode,
-          teamSlot: "Under",
-          selectedTeamSlot: "Under",
-          controlledBestBoard: true,
-          variableBoardSize: true,
-          membershipModel: CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL,
-          boardSelectionSource: "FOUR_PROP_GAME_SAFEST_TEAM_SLOTS",
-          game: selectedUnder.game || game.game,
-          gameId: selectedUnder.gameId || game.gameId,
-          slateDate: selectedUnder.slateDate || game.slateDate,
-          dayBucket: selectedUnder.dayBucket || game.dayBucket,
-          dateLabel: selectedUnder.dateLabel || game.dateLabel,
-          commenceTime: selectedUnder.commenceTime || game.commenceTime,
-        });
-      }
+      const stamp = (pick, slot) => ({
+        ...pick,
+        league: leagueCode,
+        teamSlot: slot,
+        selectedTeamSlot: slot,
+        controlledBestBoard: true,
+        variableBoardSize: true,
+        membershipModel: CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL,
+        boardSelectionSource: "FOUR_PROP_GAME_BEST_ORGANIC_TEAM_SLOTS",
+        forcedSide: false,
+        autoFlip: false,
+        sideChanged: false,
+        organicSide: normalizePickSide(pick.side || pick.pick),
+        game: pick.game || game.game,
+        gameId: pick.gameId || game.gameId,
+        slateDate: pick.slateDate || game.slateDate,
+        dayBucket: pick.dayBucket || game.dayBucket,
+        dateLabel: pick.dateLabel || game.dateLabel,
+        commenceTime: pick.commenceTime || game.commenceTime,
+      });
+      if (selectedOver) board.push(stamp(selectedOver, "Over"));
+      if (selectedUnder) board.push(stamp(selectedUnder, "Under"));
     }
   }
 
   return dedupeControlledBoardPicks(board).sort(
-    (a, b) => displayPickRankScore(b) - displayPickRankScore(a)
+    (a, b) => teamSlotSafetyScore(b) - teamSlotSafetyScore(a)
   );
 }
 
@@ -1320,7 +1384,7 @@ export function buildLeagueControlledBestSixReportText({
     `Results Tracked: ${resultsTrack}/${controlledTotal || bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Best 6 Overall (view): ${overallCount}/${overallViewLimit}`,
-    `Board rule: 4 props/game (1 Over + 1 Under per team)`,
+    `Board rule: 4 props/game · best organic Over + Under per team (never forced)`,
     `Board Candidates: ${boardCandidates}`,
     `High Risk (board): ${highRisk || 0}`,
     "",

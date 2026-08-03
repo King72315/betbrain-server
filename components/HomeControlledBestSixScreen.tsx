@@ -105,7 +105,7 @@ function LeagueDateSection({
           </Text>
           <Text style={styles.sectionSubtext}>
             {summary.variableBoardSize
-              ? `4 props per game · safest Over + Under on each team (${summary.controlledBestSixTotal} board) · Results tracks Official membership`
+              ? `Best organic Over + Under per team (never forced) · ${summary.controlledBestSixTotal} board`
               : `Top ${summary.bestSixLimit} board ranks · All Best 6 tracked in Results`}{" "}
             ({summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
           </Text>
