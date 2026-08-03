@@ -204,6 +204,7 @@ import {
   buildOfficialSlateDiagnostics,
   validateOfficialSlateLifecycle,
   repairImproperThinSealedPregame,
+  repairInvalidLegacyBoardSealPregameV3,
   OFFICIAL_SLATE_BUILD_TAG,
 } from "./services/officialSlateService.js";
 
@@ -379,7 +380,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-pre-next-slate-selection-integrity-v1";
+const SERVER_BUILD = "courteedge-canonical-controlled-board-sealing-path-v3";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v2";
@@ -3099,9 +3100,13 @@ async function refreshAllPicks(options = {}) {
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
-  // Stage 1 ? Upsert Tomorrow Best 6 as DRAFT; seal only when full 6 or FINAL_THIN_SLATE.
+  // Stage 1 — Upsert Tomorrow Controlled Best Board as DRAFT; seal full V2 membership.
+  const tomorrowCanonicalWNBA =
+    controlledSelection.selectedPropsTomorrowWNBA ||
+    controlledSelection.bestSixDisplayTomorrowWNBA ||
+    [];
   const tomorrowDisplayBestSix = [
-    ...(controlledSelection.bestSixDisplayTomorrowWNBA || []),
+    ...tomorrowCanonicalWNBA,
     ...(controlledSelection.bestSixDisplayTomorrowNBA || []),
   ];
   const officialSealResult = sealTomorrowOfficialSlates(
@@ -3110,6 +3115,22 @@ async function refreshAllPicks(options = {}) {
       todayLocalDate: getTodayLocalDate(),
       serverBuild: SERVER_BUILD,
       selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+      variableBoardSize: Boolean(
+        controlledSelection.membershipModel === "controlled-best-board-v2" ||
+          tomorrowCanonicalWNBA.length
+      ),
+      membershipModel: controlledSelection.membershipModel || null,
+      selectedProps: tomorrowCanonicalWNBA.length
+        ? tomorrowCanonicalWNBA
+        : undefined,
+      selectionBuildId:
+        controlledSelection.selectionBuildIdTomorrow ||
+        tomorrowCanonicalWNBA[0]?.selectionBuildId ||
+        null,
+      sealRequestBuildId:
+        controlledSelection.selectionBuildIdTomorrow ||
+        tomorrowCanonicalWNBA[0]?.selectionBuildId ||
+        null,
     }
   );
   for (const sealRow of officialSealResult?.results || []) {
@@ -3153,9 +3174,14 @@ async function refreshAllPicks(options = {}) {
     serverBuild: SERVER_BUILD,
   });
 
-  // Home Today Best 6 always stamps calendar today ? never overnight Results hold date.
+  // Home Today Controlled Best Board — canonical membership (variable size).
+  const todayCanonicalWNBA =
+    cohortBundle.controlledBestBoard ||
+    controlledSelection.selectedPropsTodayWNBA ||
+    cohortBundle.bestSixDisplayTodayWNBA ||
+    [];
   const todayDisplayBestSix = [
-    ...(cohortBundle.bestSixDisplayTodayWNBA || []),
+    ...todayCanonicalWNBA,
     ...(cohortBundle.bestSixDisplayTodayNBA || []),
   ].map((p) => ({
     ...p,
@@ -3163,16 +3189,84 @@ async function refreshAllPicks(options = {}) {
     dayBucket: "TODAY",
     dateLabel: p.dateLabel || "Today",
     trackingAdmissionSource:
-      p.trackingAdmissionSource || "CONTROLLED_BEST_SIX_DISPLAY",
-    sourcePool: p.sourcePool || "CONTROLLED_BEST_SIX_DISPLAY",
+      p.trackingAdmissionSource ||
+      (p.membershipModel === "controlled-best-board-v2"
+        ? "CONTROLLED_BEST_BOARD"
+        : "CONTROLLED_BEST_SIX_DISPLAY"),
+    sourcePool:
+      p.sourcePool ||
+      (p.membershipModel === "controlled-best-board-v2"
+        ? "CONTROLLED_BEST_BOARD"
+        : "CONTROLLED_BEST_SIX_DISPLAY"),
     controlledBestSixDisplay: true,
   }));
+
+  const todaySelectionBuildId =
+    cohortBundle.selectionBuildId ||
+    controlledSelection.selectionBuildIdToday ||
+    todayCanonicalWNBA[0]?.selectionBuildId ||
+    null;
 
   let todayPregameRepair = null;
   let calendarTodaySeal = null;
 
-  // Improper thin seal on calendar today (unstarted, >=6 playable) -> audited reseal.
-  if (todayDisplayBestSix.length >= 6) {
+  // V3: replace invalid legacy six-row / wrong-membership seal while pregame.
+  if (todayCanonicalWNBA.length) {
+    todayPregameRepair = repairInvalidLegacyBoardSealPregameV3(
+      todayCanonicalWNBA.map((p) => ({
+        ...p,
+        slateDate: calendarToday,
+        dayBucket: "TODAY",
+      })),
+      {
+        slateDate: calendarToday,
+        todayLocalDate: calendarToday,
+        serverBuild: SERVER_BUILD,
+        selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+        selectionBuildId: todaySelectionBuildId,
+        sealRequestBuildId: todaySelectionBuildId,
+      }
+    );
+    if (todayPregameRepair?.repaired) {
+      const repairedProps = todayPregameRepair.props || todayCanonicalWNBA;
+      applySlateLockFreeze(calendarToday, repairedProps);
+      persistSealedSlateBundle(calendarToday, repairedProps, {
+        serverBuild: SERVER_BUILD,
+        sealReason:
+          todayPregameRepair.reason ||
+          "PREGAME_REPAIR_CANONICAL_CONTROLLED_BOARD_V3",
+        lockReason: "today_pregame_canonical_v3_repair",
+      });
+      addTrackedProps(repairedProps, {
+        skipTopPickReferences: true,
+        preFilteredCohort: true,
+        allowLockedBestSixBackfill: true,
+      });
+      admitSealResult(
+        {
+          ok: true,
+          sealed: true,
+          slateDate: calendarToday,
+          props: repairedProps,
+          sealReason:
+            todayPregameRepair.reason ||
+            "PREGAME_REPAIR_CANONICAL_CONTROLLED_BOARD_V3",
+        },
+        {
+          serverBuild: SERVER_BUILD,
+          reason: "TODAY_PREGAME_CANONICAL_V3_REPAIR_ADMISSION",
+          promoteToResults: true,
+          dayBucket: "TODAY",
+        }
+      );
+      calendarTodaySeal = todayPregameRepair;
+    } else if (todayPregameRepair?.preserved) {
+      calendarTodaySeal = todayPregameRepair;
+    }
+  }
+
+  // Legacy thin-seal repair (<6) when V3 path did not run.
+  if (!calendarTodaySeal?.repaired && !calendarTodaySeal?.preserved && todayDisplayBestSix.length >= 6) {
     todayPregameRepair = repairImproperThinSealedPregame(todayDisplayBestSix, {
       slateDate: calendarToday,
       todayLocalDate: calendarToday,
@@ -3213,17 +3307,39 @@ async function refreshAllPicks(options = {}) {
     }
   }
 
-  // Independent of overnight Results hold: seal calendar-today Best 6 when
-  // unsealed and playable pool is ready (full 6 preferred; thin only if <6).
-  if (!calendarTodaySeal?.repaired && todayDisplayBestSix.length) {
+  // Independent of overnight Results hold: seal calendar-today canonical board.
+  if (!calendarTodaySeal?.repaired && !calendarTodaySeal?.preserved && todayDisplayBestSix.length) {
     addTrackedProps(todayDisplayBestSix, {
       skipTopPickReferences: true,
       preFilteredCohort: true,
       allowLockedBestSixBackfill: false,
     });
-    // sealTodayFallbackOfficialSlate hardcodes generationWindowClosed/forceThinSeal;
-    // full Best 6 must use sealOfficialSlate for FULL_BEST_SIX eligibility.
-    if (todayDisplayBestSix.length >= 6) {
+    const useVariable =
+      todayCanonicalWNBA.length > 0 &&
+      (todayCanonicalWNBA[0]?.membershipModel === "controlled-best-board-v2" ||
+        controlledSelection.membershipModel === "controlled-best-board-v2");
+    if (useVariable) {
+      // Seal exact WNBA canonical membership only — never mix NBA into the V2 assert.
+      const wnbaSealProps = todayCanonicalWNBA.map((p) => ({
+        ...p,
+        slateDate: calendarToday,
+        dayBucket: "TODAY",
+        dateLabel: p.dateLabel || "Today",
+      }));
+      calendarTodaySeal = sealOfficialSlate(wnbaSealProps, {
+        slateDate: calendarToday,
+        todayLocalDate: calendarToday,
+        serverBuild: SERVER_BUILD,
+        selectorVersion: CONTROLLED_BEST_SIX_VERSION,
+        variableBoardSize: true,
+        membershipModel: "controlled-best-board-v2",
+        selectedProps: wnbaSealProps,
+        selectionBuildId: todaySelectionBuildId,
+        sealRequestBuildId: todaySelectionBuildId,
+        forceSealVariableBoard: true,
+        reason: "FULL_CONTROLLED_BEST_BOARD",
+      });
+    } else if (todayDisplayBestSix.length >= 6) {
       calendarTodaySeal = sealOfficialSlate(todayDisplayBestSix, {
         slateDate: calendarToday,
         todayLocalDate: calendarToday,
@@ -3358,6 +3474,42 @@ async function refreshAllPicks(options = {}) {
     bestSixDisplayTodayNBA: cohortBundle.bestSixDisplayTodayNBA || [],
     bestSixDisplayTomorrowWNBA,
     bestSixDisplayTomorrowNBA,
+    bestSixOverallWNBA: controlledSelection.bestSixOverallWNBA || [],
+    controlledBestBoard:
+      cohortBundle.controlledBestBoard || todayCanonicalWNBA || [],
+    selectedPropsTodayWNBA: todayCanonicalWNBA || [],
+    selectedPropsTomorrowWNBA:
+      controlledSelection.selectedPropsTomorrowWNBA ||
+      controlledSelection.bestSixDisplayTomorrowWNBA ||
+      [],
+    officialMembership:
+      calendarTodaySeal?.props ||
+      cohortBundle.officialMembership ||
+      todayCanonicalWNBA ||
+      [],
+    membershipSource:
+      cohortBundle.membershipSource ||
+      controlledSelection.membershipModel ||
+      "controlled-best-board-v2",
+    boardVersion:
+      cohortBundle.boardVersion ||
+      controlledSelection.membershipModel ||
+      null,
+    membershipModel:
+      controlledSelection.membershipModel ||
+      todayCanonicalWNBA[0]?.membershipModel ||
+      null,
+    variableBoardSize: Boolean(
+      todayCanonicalWNBA.length > 6 ||
+        todayCanonicalWNBA[0]?.variableBoardSize ||
+        controlledSelection.membershipModel === "controlled-best-board-v2"
+    ),
+    selectionBuildId: todaySelectionBuildId,
+    sealBuildId:
+      calendarTodaySeal?.selectionBuildId ||
+      calendarTodaySeal?.props?.[0]?.selectionBuildId ||
+      null,
+    controlledBestBoardV2: controlledSelection.controlledBestBoardV2 || null,
     lastKnownGoodTodayMerged: lkgToday.mergedCount || 0,
     lastKnownGoodTomorrowMerged: lkgTomorrow.mergedCount || 0,
     tomorrowCandidateCount: countDayBucketCandidates(games, "TOMORROW"),

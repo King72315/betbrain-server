@@ -8,6 +8,38 @@ export const NBA_TOP_PICK_LIMIT = 2;
 export const SUPPORTED_LEAGUES = ["NBA", "WNBA"];
 export const DISPLAY_SIDE_BALANCE_MINORITY = 3;
 export const DISPLAY_SIDE_BALANCE_SWAP_MARGIN = 24;
+export const CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL = "controlled-best-board-v2";
+
+/**
+ * Variable Controlled Best Board V2: Official membership size is selectedProps.length
+ * (often 12). Best 6 Overall remains a separate view capped at 6.
+ */
+export function isVariableControlledBoard(meta = {}, pool = []) {
+  if (meta?.variableBoardSize === true) return true;
+  if (meta?.membershipSource === CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL) return true;
+  if (meta?.boardVersion === CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL) return true;
+  if (meta?.membershipModel === CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL) return true;
+  if (
+    Array.isArray(meta?.controlledBestBoard) &&
+    meta.controlledBestBoard.length > BEST_SIX_LIMIT
+  ) {
+    return true;
+  }
+  return (Array.isArray(pool) ? pool : []).some(
+    (pick) =>
+      pick?.variableBoardSize === true ||
+      pick?.membershipModel === CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL ||
+      pick?.controlledBestBoard === true
+  );
+}
+
+export function resolveControlledBoardCap(pool = [], defaultLimit = BEST_SIX_LIMIT, meta = {}) {
+  const list = Array.isArray(pool) ? pool : [];
+  if (isVariableControlledBoard(meta, list)) {
+    return Math.max(list.length, Number(meta.officialCount) || 0, 1);
+  }
+  return defaultLimit;
+}
 
 export const DATE_VIEWS = ["today", "tomorrow", "full_board"];
 /**
@@ -572,19 +604,53 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
   const explicitToday = isWNBA
     ? data.bestSixDisplayTodayWNBA
     : data.bestSixDisplayTodayNBA;
-  // Never fall back to Results/Lab cohort (bestSix*) for Home Today.
+  const explicitTomorrow = isWNBA
+    ? data.bestSixDisplayTomorrowWNBA
+    : data.bestSixDisplayTomorrowNBA;
+
+  // Canonical V2/V3: Home Today must use controlledBestBoard / selectedProps, not
+  // the sealed legacy Best 6 overall ranking.
+  const canonicalToday =
+    isWNBA &&
+    Array.isArray(data.controlledBestBoard) &&
+    data.controlledBestBoard.length
+      ? data.controlledBestBoard
+      : isWNBA &&
+          Array.isArray(data.selectedPropsTodayWNBA) &&
+          data.selectedPropsTodayWNBA.length
+        ? data.selectedPropsTodayWNBA
+        : null;
+
+  // Never fall back to Results/Lab cohort (bestSix*) for Home Today/Tomorrow.
   const bestSixDisplayToday =
-    Array.isArray(explicitToday) && explicitToday.length
+    canonicalToday ||
+    (Array.isArray(explicitToday) && explicitToday.length
       ? explicitToday
-      : filterBestSixByDateView(display.length ? display : bestSix, "today");
+      : filterBestSixByDateView(display.length ? display : bestSix, "today"));
+  const bestSixDisplayTomorrow =
+    Array.isArray(explicitTomorrow) && explicitTomorrow.length
+      ? explicitTomorrow
+      : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow");
+  const combinedDisplay =
+    display.length
+      ? display
+      : [...bestSixDisplayToday, ...bestSixDisplayTomorrow];
 
   return {
     league: leagueCode,
     games,
     bestSix,
-    bestSixDisplay: display.length ? display : bestSix,
+    bestSixDisplay: combinedDisplay.length ? combinedDisplay : bestSix,
     bestSixDisplayToday,
+    bestSixDisplayTomorrow,
+    bestSixOverall: isWNBA
+      ? data.bestSixOverallWNBA || []
+      : data.bestSixOverallNBA || [],
     topProps: isWNBA ? data.topWNBAProps || [] : data.topNBAProps || [],
+    variableBoardSize: isVariableControlledBoard(data, bestSixDisplayToday),
+    membershipSource: data.membershipSource || null,
+    selectionBuildId: data.selectionBuildId || null,
+    boardVersion: data.boardVersion || null,
   };
 }
 
@@ -593,32 +659,62 @@ export function buildLeagueBestSixBoard({
   bestSix = [],
   bestSixDisplay = [],
   bestSixDisplayToday = [],
+  bestSixDisplayTomorrow = [],
   topProps = [],
   games = [],
   dateView = "today",
   bestSixLimit = BEST_SIX_LIMIT,
+  boardMeta = null,
 } = {}) {
   const leagueCode = normalizeLeagueCode(league);
   const displayPool = resolveBestSixDisplayPool(bestSixDisplay, bestSix);
   const today = getChicagoCalendarDate();
-  const serverTodayPool = filterCalendarTodayHomePool(
-    bestSixDisplayToday?.length
+  const hasExplicitToday = Array.isArray(bestSixDisplayToday) && bestSixDisplayToday.length > 0;
+  const hasExplicitTomorrow =
+    Array.isArray(bestSixDisplayTomorrow) && bestSixDisplayTomorrow.length > 0;
+  const meta = boardMeta || {};
+  const todayUncapped = filterCalendarTodayHomePool(
+    hasExplicitToday
       ? bestSixDisplayToday
-      : filterBestSixByDateView(bestSix, "today"),
+      : filterBestSixByDateView(displayPool, "today"),
     today
-  ).slice(0, bestSixLimit);
+  );
+  const todayCap = resolveControlledBoardCap(todayUncapped, bestSixLimit, {
+    ...meta,
+    controlledBestBoard: bestSixDisplayToday,
+  });
+  const serverTodayPool = todayUncapped.slice(0, todayCap);
+  // Prefer explicit server Tomorrow array (already sanitized). Otherwise fill from
+  // display + board candidates via resolveDateScopedDisplayPool (do not short-circuit
+  // on a partial dayBucket-derived pool).
+  const tomorrowUncapped = hasExplicitTomorrow ? bestSixDisplayTomorrow : [];
+  const tomorrowCap = resolveControlledBoardCap(tomorrowUncapped, bestSixLimit, meta);
+  const serverTomorrowPool = tomorrowUncapped.slice(0, tomorrowCap);
+  const variable =
+    isVariableControlledBoard(meta, serverTodayPool) ||
+    isVariableControlledBoard(meta, serverTomorrowPool) ||
+    todayCap > BEST_SIX_LIMIT ||
+    tomorrowCap > BEST_SIX_LIMIT;
+  const activeLimit =
+    dateView === "tomorrow"
+      ? tomorrowCap
+      : dateView === "today"
+        ? todayCap
+        : variable
+          ? Math.max(displayPool.length, bestSixLimit)
+          : bestSixLimit;
   const scopedPool =
     dateView === "full_board"
       ? applyDisplaySideBalance(
-          displayPool.slice(0, bestSixLimit),
+          displayPool.slice(0, activeLimit),
           collectLeagueCandidatesFromGames(games, leagueCode),
-          { limit: bestSixLimit }
+          { limit: activeLimit }
         )
       : dateView === "today" && serverTodayPool.length > 0
         ? applyDisplaySideBalance(
             serverTodayPool,
             collectLeagueCandidatesFromGames(games, leagueCode),
-            { limit: bestSixLimit }
+            { limit: activeLimit }
           )
         : dateView === "today"
           ? applyDisplaySideBalance(
@@ -628,20 +724,26 @@ export function buildLeagueBestSixBoard({
                   games,
                   leagueCode,
                   dateView,
-                  bestSixLimit
+                  activeLimit
                 ),
                 today
               ),
               collectLeagueCandidatesFromGames(games, leagueCode),
-              { limit: bestSixLimit }
+              { limit: activeLimit }
             )
-        : resolveDateScopedDisplayPool(
-          displayPool,
-          games,
-          leagueCode,
-          dateView,
-          bestSixLimit
-        );
+        : dateView === "tomorrow" && hasExplicitTomorrow
+          ? applyDisplaySideBalance(
+              serverTomorrowPool,
+              collectLeagueCandidatesFromGames(games, leagueCode),
+              { limit: activeLimit }
+            )
+          : resolveDateScopedDisplayPool(
+              displayPool,
+              games,
+              leagueCode,
+              dateView,
+              activeLimit
+            );
   const derivedTopProps = selectTopTwoFromDisplayBestSix(
     scopedPool,
     leagueCode,
@@ -656,9 +758,11 @@ export function buildLeagueBestSixBoard({
     topProps,
     games,
     dateView,
-    bestSixLimit,
+    bestSixLimit: activeLimit,
+    overallViewLimit: BEST_SIX_LIMIT,
     scopedDisplayPool: scopedPool,
     bestSixCards,
+    variableBoardSize: variable,
   });
 
   return { league: leagueCode, bestSixCards, summary, topPickBadgeMap, displayPool, scopedPool };
@@ -678,6 +782,8 @@ export function buildLeagueControlledSummary({
   games = [],
   dateView = "today",
   bestSixLimit = BEST_SIX_LIMIT,
+  overallViewLimit = BEST_SIX_LIMIT,
+  variableBoardSize = false,
   bestSixWNBA,
   bestSixDisplayWNBA,
   topWNBAProps,
@@ -737,7 +843,10 @@ export function buildLeagueControlledSummary({
     controlledBestSixTrack: resultsTrackedCount,
     resultsTrackedCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
-    bestSixLimit,
+    bestSixLimit: Math.max(bestSixLimit, scopedTotal),
+    overallViewLimit,
+    variableBoardSize,
+    bestSixOverallCount: Math.min(scopedTotal, overallViewLimit),
     topPicks: topPickCount,
     topPickLimit,
     boardCandidates: scopedCandidates.length,
@@ -961,32 +1070,35 @@ export function buildLeagueControlledBestSixReportText({
   const leagueCode = normalizeLeagueCode(league);
   const viewLabel = formatDateViewLabel(dateView);
   const bestSixLimit = summary.bestSixLimit ?? BEST_SIX_LIMIT;
+  const overallViewLimit = summary.overallViewLimit ?? BEST_SIX_LIMIT;
   const topPickLimit = summary.topPickLimit ?? getTopPickLimitForLeague(leagueCode);
   const controlledTotal = summary.controlledBestSixTotal ?? bestSixCards.length;
   const topPicks = summary.topPicks ?? 0;
   const boardCandidates = summary.boardCandidates ?? 0;
   const highRisk = summary.highRisk ?? 0;
   const resultsTrack = summary.controlledBestSixTrack ?? summary.controlledBestSix ?? 0;
+  const overallCount =
+    summary.bestSixOverallCount ?? Math.min(controlledTotal, overallViewLimit);
 
   const lines = [
-    `${leagueCode} Props — Controlled Best 6`,
+    `${leagueCode} Props — Controlled Best Board`,
     `View: ${viewLabel}`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
     "--- Summary ---",
-    `Controlled Best 6: ${controlledTotal}/${bestSixLimit}`,
-    `Results Tracked: ${resultsTrack}/${bestSixLimit}`,
+    `Controlled Best Board: ${controlledTotal}`,
+    `Results Tracked: ${resultsTrack}/${controlledTotal || bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
+    `Best 6 Overall (view): ${overallCount}/${overallViewLimit}`,
     `Board Candidates: ${boardCandidates}`,
-    `Selected / Tracked: ${resultsTrack}/${bestSixLimit}`,
     `High Risk (board): ${highRisk || 0}`,
     "",
-    "--- Controlled Best 6 ---",
+    "--- Controlled Best Board ---",
     bestSixCards.length
       ? bestSixCards
           .map((pick, index) => formatControlledBestSixPickLine(pick, index, leagueCode))
           .join("\n\n")
-      : `No Controlled Best 6 props for ${viewLabel}.`,
+      : `No Controlled Best Board props for ${viewLabel}.`,
   ];
 
   if (includeFullBoard && games.length) {
@@ -998,7 +1110,7 @@ export function buildLeagueControlledBestSixReportText({
   }
 
   if (loading) {
-    lines.push("", "Status: Loading Controlled Best 6...");
+    lines.push("", "Status: Loading Controlled Best Board...");
   }
 
   return lines.filter((line) => line !== null).join("\n");
@@ -1048,7 +1160,7 @@ export function buildHomeControlledBestSixReportText({
       );
     }
     return [
-      "CourtEdge Home — Today + Tomorrow Controlled Best 6",
+      "CourtEdge Home — Today + Tomorrow Controlled Best Board",
       lastUpdated ? `Last updated: ${lastUpdated}` : null,
       "",
       blocks.join("\n\n---\n\n"),
@@ -1070,7 +1182,7 @@ export function buildHomeControlledBestSixReportText({
 
   const titleView = formatDateViewLabel(dateView);
   return [
-    `CourtEdge Home — ${titleView} Controlled Best 6`,
+    `CourtEdge Home — ${titleView} Controlled Best Board`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
     sections.join("\n\n---\n\n"),

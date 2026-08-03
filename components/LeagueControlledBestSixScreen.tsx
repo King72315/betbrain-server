@@ -16,7 +16,6 @@ import LoadErrorBanner from "./LoadErrorBanner";
 import { LEAGUE_THEME, type SupportedLeague } from "./leagueBestSixTheme";
 import {
   fetchSavedPicks,
-  refreshSavedPicks,
   savePick,
 } from "../services/api";
 import { formatApiLoadError } from "../utils/apiLoadError";
@@ -57,10 +56,18 @@ export default function LeagueControlledBestSixScreen({
   const [bestSix, setBestSix] = useState<any[]>([]);
   const [bestSixDisplay, setBestSixDisplay] = useState<any[]>([]);
   const [bestSixDisplayToday, setBestSixDisplayToday] = useState<any[]>([]);
+  const [bestSixDisplayTomorrow, setBestSixDisplayTomorrow] = useState<any[]>([]);
   const [topProps, setTopProps] = useState<any[]>([]);
   const [slateSummary, setSlateSummary] = useState<{
     bestSixLimit?: number;
     controlledBestSixVersion?: string;
+    variableBoardSize?: boolean;
+    membershipSource?: string | null;
+    boardVersion?: string | null;
+    membershipModel?: string | null;
+    controlledBestBoard?: any[];
+    officialCount?: number;
+    selectionBuildId?: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,16 +90,27 @@ export default function LeagueControlledBestSixScreen({
         bestSix,
         bestSixDisplay,
         bestSixDisplayToday,
+        bestSixDisplayTomorrow,
         topProps,
         games,
         dateView: effectiveDateView,
         bestSixLimit: slateSummary?.bestSixLimit ?? BEST_SIX_LIMIT,
+        boardMeta: {
+          variableBoardSize: slateSummary?.variableBoardSize,
+          membershipSource: slateSummary?.membershipSource,
+          boardVersion: slateSummary?.boardVersion,
+          membershipModel: slateSummary?.membershipModel,
+          controlledBestBoard: slateSummary?.controlledBestBoard,
+          officialCount: slateSummary?.officialCount,
+          selectionBuildId: slateSummary?.selectionBuildId,
+        },
       }),
     [
       league,
       bestSix,
       bestSixDisplay,
       bestSixDisplayToday,
+      bestSixDisplayTomorrow,
       topProps,
       games,
       effectiveDateView,
@@ -119,10 +137,21 @@ export default function LeagueControlledBestSixScreen({
       setBestSix(payload.bestSix);
       setBestSixDisplay(payload.bestSixDisplay);
       setBestSixDisplayToday(payload.bestSixDisplayToday);
+      setBestSixDisplayTomorrow(payload.bestSixDisplayTomorrow);
       setTopProps(payload.topProps);
       setSlateSummary({
         bestSixLimit: data.bestSixLimit ?? BEST_SIX_LIMIT,
         controlledBestSixVersion: data.controlledBestSixVersion,
+        variableBoardSize: payload.variableBoardSize,
+        membershipSource: payload.membershipSource || data.membershipSource,
+        boardVersion: payload.boardVersion || data.boardVersion,
+        membershipModel: data.membershipModel,
+        controlledBestBoard: data.controlledBestBoard,
+        officialCount:
+          data.officialMembership?.length ||
+          data.controlledBestBoard?.length ||
+          undefined,
+        selectionBuildId: payload.selectionBuildId || data.selectionBuildId,
       });
       setLastUpdated(data.lastUpdated || null);
       setLoadError(formatApiLoadError(data));
@@ -132,6 +161,7 @@ export default function LeagueControlledBestSixScreen({
       setBestSix([]);
       setBestSixDisplay([]);
       setBestSixDisplayToday([]);
+      setBestSixDisplayTomorrow([]);
       setTopProps([]);
       setLoadError(String(err));
     } finally {
@@ -139,13 +169,13 @@ export default function LeagueControlledBestSixScreen({
     }
   };
 
-  const runRefresh = async () => {
+  const runReload = async () => {
     try {
       setRefreshing(true);
-      await refreshSavedPicks();
+      // Soft reload only — GET /picks. Server rebuild lives in Settings.
       await loadPicks();
     } catch (err) {
-      console.log("REFRESH ERROR:", err);
+      console.log("RELOAD ERROR:", err);
       setLoadError(String(err));
     } finally {
       setRefreshing(false);
@@ -208,7 +238,7 @@ export default function LeagueControlledBestSixScreen({
         style={styles.scroll}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={runRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={runReload} />
         }
       >
         <View style={[styles.header, { borderColor: theme.headerBorder }]}>
@@ -216,7 +246,7 @@ export default function LeagueControlledBestSixScreen({
             {isHome ? "CourtEdge" : `${league} Props`}
           </Text>
           <Text style={styles.subtitle}>
-            {isHome ? `Tomorrow — ${league} Controlled Best 6` : "Controlled Best 6"}
+            {isHome ? `Tomorrow — ${league} Controlled Best Board` : "Controlled Best Board"}
           </Text>
           <Text style={styles.dateLine}>Date: {todayLabel}</Text>
           <Text style={styles.motto}>
@@ -266,17 +296,17 @@ export default function LeagueControlledBestSixScreen({
         )}
 
         <TouchableOpacity
-          onPress={runRefresh}
+          onPress={runReload}
           style={[styles.refreshButton, { backgroundColor: theme.refreshBg }]}
           disabled={refreshing || loading}
         >
           <Text style={styles.refreshText}>
-            {refreshing || loading ? "Refreshing..." : "Refresh Picks"}
+            {refreshing || loading ? "Reloading..." : "Reload Board"}
           </Text>
         </TouchableOpacity>
 
         {loading ? (
-          <Text style={styles.loadingText}>Loading Controlled Best 6...</Text>
+          <Text style={styles.loadingText}>Loading Controlled Best Board...</Text>
         ) : null}
 
         <LoadErrorBanner message={loadError} />
@@ -288,7 +318,7 @@ export default function LeagueControlledBestSixScreen({
             </Text>
             <View style={styles.summaryRow}>
               <SummaryMetric
-                label="Controlled Best 6"
+                label="Board"
                 value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
               />
               <SummaryMetric
@@ -301,8 +331,8 @@ export default function LeagueControlledBestSixScreen({
               />
               <SummaryMetric label="Board Candidates" value={summary.boardCandidates} />
               <SummaryMetric
-                label="Selected"
-                value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
+                label="Best 6 View"
+                value={`${summary.bestSixOverallCount ?? Math.min(summary.controlledBestSixTotal, 6)}/6`}
               />
               <SummaryMetric label="High Risk" value={summary.highRisk ?? 0} />
             </View>
@@ -312,11 +342,12 @@ export default function LeagueControlledBestSixScreen({
         {!loading && !loadError && bestSixCards.length > 0 ? (
           <View style={styles.bestSixSection}>
             <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
-              {isHome ? `Tomorrow — ${league} Best 6` : "Controlled Best 6"}
+              {isHome ? `Tomorrow — ${league} Controlled Best Board` : "Controlled Best Board"}
             </Text>
             <Text style={styles.sectionSubtext}>
-              Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
-              {summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
+              {summary.variableBoardSize
+                ? `Team-balanced board (${summary.controlledBestSixTotal}) · Full membership tracked in Results (${summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)`
+                : `Top ${summary.bestSixLimit} board ranks · All Best 6 tracked in Results (${summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)`}
             </Text>
             {bestSixCards.map((pick, index) => (
               <PropCard
@@ -334,7 +365,7 @@ export default function LeagueControlledBestSixScreen({
         {!loading && !loadError && bestSixCards.length === 0 && effectiveDateView !== "full_board" ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>
-              No {league} Controlled Best 6 for {formatDateViewLabel(effectiveDateView)}.
+              No {league} Controlled Best Board for {formatDateViewLabel(effectiveDateView)}.
             </Text>
             <Text style={styles.emptyText}>
               {isHome

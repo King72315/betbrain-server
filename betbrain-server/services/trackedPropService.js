@@ -1240,6 +1240,15 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const bestSixDisplayNBA =
     selection.bestSixDisplayNBA || selection.bestSixNBA || [];
 
+  const wnbaUsesCanonicalBoard =
+    selection.membershipModel === "controlled-best-board-v2" ||
+    selection.controlledBestBoardV2?.variableBoardSize === true ||
+    (selection.selectedPropsWNBA || []).some(
+      (p) =>
+        p?.membershipModel === "controlled-best-board-v2" ||
+        p?.controlledBestBoard === true
+    );
+
   // Mixed-slate Today members (often <6 when Tomorrow props outrank them).
   const homeTodayDisplayWNBA = filterTodayResultsTrackingPicks(
     bestSixDisplayWNBA,
@@ -1251,6 +1260,7 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   );
 
   // Rebuild calendar-today Home Best 6 from today's full candidate board.
+  // Canonical V2: never fill/slice — Official membership is selectedProps as-is.
   const todayCandidatesAll = filterTodayResultsTrackingPicks(
     fullGeneratedCandidates,
     todayLocalDate
@@ -1261,13 +1271,36 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
   const todayNbaCandidatesForDisplay = todayCandidatesAll.filter(
     (pick) => String(pick.league || "").toUpperCase() === "NBA"
   );
+
+  const canonicalTodayWNBA = (
+    selection.selectedPropsTodayWNBA ||
+    selection.bestSixDisplayTodayWNBA ||
+    homeTodayDisplayWNBA ||
+    []
+  ).map((p, i) =>
+    annotateResultsAdmission({
+      ...p,
+      controlledBestBoardRank: p.controlledBestBoardRank || i + 1,
+      bestSixRank: p.controlledBestBoardRank || p.bestSixRank || i + 1,
+      controlledBestSixRank:
+        p.controlledBestBoardRank || p.controlledBestSixRank || i + 1,
+      controlledBestSixDisplay: true,
+      sourcePool: "CONTROLLED_BEST_BOARD",
+      trackingAdmissionSource: "CONTROLLED_BEST_BOARD",
+      membershipModel: p.membershipModel || selection.membershipModel,
+      selectionBuildId: p.selectionBuildId || selection.selectionBuildIdToday,
+    })
+  );
+
   const filledTodayDisplayWNBA = stampTopLabelsOnBestSix(
-    resolveTodayBestSixForResults(
-      homeTodayDisplayWNBA,
-      todayWnbaCandidatesForDisplay,
-      "WNBA",
-      options
-    ),
+    wnbaUsesCanonicalBoard
+      ? canonicalTodayWNBA
+      : resolveTodayBestSixForResults(
+          homeTodayDisplayWNBA,
+          todayWnbaCandidatesForDisplay,
+          "WNBA",
+          options
+        ),
     "WNBA",
     options
   );
@@ -1381,12 +1414,33 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     fullGeneratedCandidates,
     bestSixWNBA,
     bestSixNBA,
-    // Home Today must be the filled calendar-today Best 6 (not the thin
-    // Today slice of a mixed Today+Tomorrow ranking).
+    // Home Today: canonical V2 board membership (no fill-to-6) when available.
     bestSixDisplayTodayWNBA: filledTodayDisplayWNBA,
     bestSixDisplayTodayNBA: filledTodayDisplayNBA,
     bestSixDisplayTomorrowWNBA: selection.bestSixDisplayTomorrowWNBA || [],
     bestSixDisplayTomorrowNBA: selection.bestSixDisplayTomorrowNBA || [],
+    bestSixOverallWNBA: selection.bestSixOverallWNBA || [],
+    controlledBestBoard: wnbaUsesCanonicalBoard
+      ? filledTodayDisplayWNBA
+      : null,
+    officialMembership: useOfficialResultsCohort
+      ? bestSixCohort
+      : wnbaUsesCanonicalBoard
+        ? filledTodayDisplayWNBA
+        : null,
+    membershipSource: wnbaUsesCanonicalBoard
+      ? "controlled-best-board-v2"
+      : admissionPath,
+    boardVersion: wnbaUsesCanonicalBoard
+      ? "controlled-best-board-v2"
+      : null,
+    selectionBuildId:
+      selection.selectionBuildIdToday ||
+      selection.selectionBuildId ||
+      filledTodayDisplayWNBA[0]?.selectionBuildId ||
+      null,
+    sealBuildId: null,
+    topPicks: selection.topProps || [],
     topProps: selection.topProps || [],
     topNBAProps: selection.topNBAProps || [],
     topWNBAProps: selection.topWNBAProps || [],

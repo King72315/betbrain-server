@@ -52,8 +52,14 @@ import {
   applyConflictConfidenceRiskRecalibration,
   evaluateBestSixSelectionIntegrity,
 } from "./bestSixSelectionIntegrityV1.js";
+import {
+  selectControlledBestBoard,
+  selectControlledBestBoardCombined,
+  CONTROLLED_BEST_BOARD_BUILD,
+  CONTROLLED_BEST_BOARD_VERSION,
+} from "./controlledBestBoardV2.js";
 export const CONTROLLED_BEST_SIX_VERSION =
-  "controlled-best-six-selection-integrity-v1";
+  "controlled-best-board-canonical-sealing-path-v3";
 export const BEST_SIX_LIMIT = 6;
 export const TOP_TWO_LIMIT = 2;
 export const MAX_TEAM_IN_BEST_SIX = 2;
@@ -64,6 +70,10 @@ export const PLAYABLE_POOL_CONTRACT_VERSION = "playable-pool-contract-v1";
 export {
   BEST_SIX_SELECTION_INTEGRITY_VERSION,
   BEST_SIX_SELECTION_INTEGRITY_BUILD,
+  CONTROLLED_BEST_BOARD_VERSION,
+  CONTROLLED_BEST_BOARD_BUILD,
+  selectControlledBestBoard,
+  selectControlledBestBoardCombined,
 };
 
 const BEST_SIX_GATE_DEMOTION_PENALTIES = {
@@ -1207,6 +1217,30 @@ function applyBestSixIntegrityGate(scored = [], audit = {}, options = {}) {
 
 export function selectBestSixDisplay(candidates = [], league = "", options = {}) {
   const leagueCode = String(league || "").toUpperCase();
+
+  // WNBA future boards: team-balanced variable Controlled Best Board.
+  // Historical sealed memberships are not regenerated through this path.
+  if (leagueCode === "WNBA" && options.useControlledBestBoard !== false) {
+    const board = selectControlledBestBoard(candidates, {
+      ...options,
+      league: leagueCode,
+      requestedSlateDate:
+        options.requestedSlateDate ||
+        options.slateDate ||
+        candidates[0]?.canonicalSlateDate ||
+        candidates[0]?.slateDate ||
+        null,
+      expectedDayBucket: options.expectedDayBucket || null,
+    });
+    return {
+      bestSix: board.board,
+      controlledBestSixDisplayAudit: board.controlledBestSixDisplayAudit,
+      controlledBestBoardAudit: board.audit,
+      topPicks: board.topPicks,
+      bestSixOverall: board.bestSixOverall,
+    };
+  }
+
   const audit = createControlledBestSixAudit(leagueCode);
   audit.displayMode = true;
 
@@ -1475,6 +1509,98 @@ function mergeDayBucketBestSix(todaySix = [], tomorrowSix = []) {
 
 export function selectControlledBestSixCombined(gameCards = [], options = {}) {
   const candidates = collectAllGeneratedCandidates(gameCards);
+
+  // WNBA: variable team-balanced Controlled Best Board (CT date partitions).
+  if (options.useControlledBestBoard !== false) {
+    const wnbaCombined = selectControlledBestBoardCombined(candidates, {
+      ...options,
+      league: "WNBA",
+    });
+    const nbaBest = selectControlledBestSix(candidates, "NBA", {
+      ...options,
+      useControlledBestBoard: false,
+    });
+    const nbaDisplayToday = selectBestSixDisplay(
+      filterPicksByDayBucket(candidates, "TODAY"),
+      "NBA",
+      { ...options, useControlledBestBoard: false, expectedDayBucket: "TODAY" }
+    );
+    const nbaDisplayTomorrow = selectBestSixDisplay(
+      filterPicksByDayBucket(candidates, "TOMORROW"),
+      "NBA",
+      { ...options, useControlledBestBoard: false, expectedDayBucket: "TOMORROW" }
+    );
+    const nbaDisplay = {
+      bestSix: mergeDayBucketBestSix(
+        nbaDisplayToday.bestSix,
+        nbaDisplayTomorrow.bestSix
+      ),
+      controlledBestSixDisplayAudit: {
+        perDaySelection: true,
+        todayCount: nbaDisplayToday.bestSix.length,
+        tomorrowCount: nbaDisplayTomorrow.bestSix.length,
+      },
+    };
+
+    const wnbaTop = selectTopTwoFromBestSix(
+      wnbaCombined.tomorrow?.board?.length
+        ? wnbaCombined.tomorrow.board
+        : wnbaCombined.today?.board || wnbaCombined.board,
+      "WNBA",
+      { topLimit: options.wnbaTopLimit ?? CONFIG.WNBA_TOP_PROP_LIMIT }
+    );
+    const nbaTop = selectTopTwoFromBestSix(
+      nbaDisplayTomorrow.bestSix.length
+        ? nbaDisplayTomorrow.bestSix
+        : filterPicksByDayBucket(nbaDisplay.bestSix, "TOMORROW"),
+      "NBA",
+      { topLimit: options.nbaTopLimit ?? CONFIG.NBA_TOP_PROP_LIMIT }
+    );
+
+    return {
+      bestSixWNBA: wnbaCombined.board,
+      bestSixNBA: nbaBest.bestSix,
+      bestSixDisplayWNBA: wnbaCombined.board,
+      bestSixDisplayNBA: nbaDisplay.bestSix,
+      bestSixDisplayTodayWNBA: wnbaCombined.today?.board || [],
+      bestSixDisplayTomorrowWNBA: wnbaCombined.tomorrow?.board || [],
+      bestSixOverallWNBA: wnbaCombined.bestSixOverall || [],
+      selectedPropsWNBA: wnbaCombined.selectedProps || wnbaCombined.board || [],
+      selectedPropsTodayWNBA:
+        wnbaCombined.today?.selectedProps || wnbaCombined.today?.board || [],
+      selectedPropsTomorrowWNBA:
+        wnbaCombined.tomorrow?.selectedProps ||
+        wnbaCombined.tomorrow?.board ||
+        [],
+      selectionBuildId: wnbaCombined.selectionBuildId || null,
+      selectionBuildIdToday: wnbaCombined.today?.selectionBuildId || null,
+      selectionBuildIdTomorrow: wnbaCombined.tomorrow?.selectionBuildId || null,
+      membershipModel: wnbaCombined.membershipModel || null,
+      controlledBestBoardV2: wnbaCombined.controlledBestBoardV2 || null,
+      officialMembershipWNBA:
+        wnbaCombined.officialMembership || wnbaCombined.board || [],
+      topWNBA: wnbaTop.topProps || wnbaCombined.topPicks,
+      topNBA: nbaTop.topProps || [],
+      controlledBestBoardAudit: wnbaCombined.audit,
+      controlledBestSixAudit: {
+        wnba: wnbaCombined.audit,
+        nba: nbaBest.controlledBestSixAudit,
+        boardMode: "CONTROLLED_BEST_BOARD_V2",
+        membershipModel: wnbaCombined.membershipModel || null,
+        selectionBuildId: wnbaCombined.selectionBuildId || null,
+      },
+      controlledBestSixDisplayAudit: {
+        wnba: wnbaCombined.audit,
+        nba: nbaDisplay.controlledBestSixDisplayAudit,
+        boardMode: "CONTROLLED_BEST_BOARD_V2",
+        title: "Controlled Best Board",
+        membershipModel: wnbaCombined.membershipModel || null,
+        selectionBuildId: wnbaCombined.selectionBuildId || null,
+      },
+      topTwoAudit: { wnba: wnbaTop, nba: nbaTop },
+    };
+  }
+
   const todayCandidates = filterPicksByDayBucket(candidates, "TODAY");
   const tomorrowCandidates = filterPicksByDayBucket(candidates, "TOMORROW");
   // Undated / unlabeled keep a fallback lane so empty day buckets don't starve.

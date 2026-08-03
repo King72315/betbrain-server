@@ -17,7 +17,6 @@ import LoadErrorBanner from "./LoadErrorBanner";
 import { LEAGUE_THEME, type SupportedLeague } from "./leagueBestSixTheme";
 import {
   fetchSavedPicks,
-  refreshSavedPicks,
   savePick,
 } from "../services/api";
 import { formatApiLoadError } from "../utils/apiLoadError";
@@ -70,7 +69,7 @@ function LeagueDateSection({
           {league} -- {viewLabel}
         </Text>
         <Text style={styles.leagueSubtext}>
-          Controlled Best 6 · Top 2 on Top tab · All 6 → Results
+          Controlled Best Board · Top 2 on Top tab · Full board → Results
         </Text>
       </View>
 
@@ -79,7 +78,7 @@ function LeagueDateSection({
           <Text style={styles.summaryTitle}>{viewLabel} Summary</Text>
           <View style={styles.summaryRow}>
             <SummaryMetric
-              label="Best 6"
+              label="Board"
               value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
             />
             <SummaryMetric
@@ -92,8 +91,8 @@ function LeagueDateSection({
             />
             <SummaryMetric label="Candidates" value={summary.boardCandidates} />
             <SummaryMetric
-              label="Selected"
-              value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
+              label="Best 6 View"
+              value={`${summary.bestSixOverallCount ?? Math.min(summary.controlledBestSixTotal, 6)}/6`}
             />
           </View>
         </View>
@@ -102,11 +101,13 @@ function LeagueDateSection({
       {!loading && !loadError && bestSixCards.length > 0 ? (
         <View style={styles.bestSixSection}>
           <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
-            {viewLabel} -- {league} Best 6
+            {viewLabel} -- {league} Controlled Best Board
           </Text>
           <Text style={styles.sectionSubtext}>
-            Top {summary.bestSixLimit} board ranks · All Best 6 tracked in Results (
-            {summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
+            {summary.variableBoardSize
+              ? `Team-balanced board (${summary.controlledBestSixTotal}) · All members tracked in Results`
+              : `Top ${summary.bestSixLimit} board ranks · All Best 6 tracked in Results`}{" "}
+            ({summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
           </Text>
           {bestSixCards.map((pick, index) => (
             <PropCard
@@ -124,7 +125,7 @@ function LeagueDateSection({
       {!loading && !loadError && bestSixCards.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>
-            No {league} Controlled Best 6 for {viewLabel}.
+            No {league} Controlled Best Board for {viewLabel}.
           </Text>
           <Text style={styles.emptyText}>
             {alternateLeagueHasProps
@@ -154,10 +155,20 @@ function buildBoardForView(
     bestSix: payload.bestSix,
     bestSixDisplay: payload.bestSixDisplay,
     bestSixDisplayToday: payload.bestSixDisplayToday,
+    bestSixDisplayTomorrow: payload.bestSixDisplayTomorrow,
     topProps: payload.topProps,
     games: payload.games,
     dateView,
     bestSixLimit,
+    boardMeta: {
+      variableBoardSize: payload.variableBoardSize,
+      membershipSource: payload.membershipSource || picksData.membershipSource,
+      boardVersion: payload.boardVersion || picksData.boardVersion,
+      membershipModel: picksData.membershipModel,
+      controlledBestBoard: picksData.controlledBestBoard,
+      officialCount: picksData.officialMembership?.length,
+      selectionBuildId: payload.selectionBuildId || picksData.selectionBuildId,
+    },
   });
 }
 
@@ -201,10 +212,11 @@ export default function HomeControlledBestSixScreen() {
     void loadPicks("quiet");
   };
 
-  const runRefresh = async () => {
+  const runReload = async () => {
     try {
       setRefreshing(true);
-      await refreshSavedPicks();
+      // Soft reload only — GET /picks. Never kick server rebuild from Home
+      // (scope=all OOMs the free-tier dyno → "Network request failed").
       await loadPicks("full");
     } catch (err) {
       setLoadError(String(err));
@@ -298,7 +310,7 @@ export default function HomeControlledBestSixScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={runRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={runReload} />
         }
       >
         <View style={styles.headerCard}>
@@ -387,12 +399,12 @@ export default function HomeControlledBestSixScreen() {
         </View>
 
         <TouchableOpacity
-          onPress={runRefresh}
+          onPress={runReload}
           style={[styles.refreshButton, { backgroundColor: activeTheme.refreshBg }]}
           disabled={refreshing || loading}
         >
           <Text style={styles.refreshText}>
-            {refreshing || loading ? "Refreshing..." : "Refresh Picks"}
+            {refreshing || loading ? "Reloading..." : "Reload Board"}
           </Text>
         </TouchableOpacity>
 

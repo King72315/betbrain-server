@@ -22,6 +22,14 @@ import {
 } from "./slateLockService.js";
 import { getTodayLocalDate } from "./slateScopeService.js";
 import { CONTROLLED_BEST_SIX_VERSION } from "../engines/topProps/controlledBestSixSelector.js";
+import {
+  assertOfficialMatchesControlledBoard,
+  CANONICAL_BOARD_MEMBERSHIP_MODEL,
+  CANONICAL_BOARD_SEAL_BUILD,
+  MEMBERSHIP_FAIL,
+  shouldUseVariableBoardSeal,
+  validateCanonicalBoardInvariants,
+} from "../engines/topProps/controlledBestBoardCanonicalV3.js";
 import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
 import { attachCanonicalSealedProp } from "./canonicalSealedProp.js";
 
@@ -33,6 +41,7 @@ const AUDIT_FILE = path.join(SERVER_ROOT, "lifecycle-integrity-audit.json");
 export const OFFICIAL_SLATE_VERSION = "official-slate-immutable-v2";
 export const OFFICIAL_SLATE_BUILD_TAG = "courteedge-lifecycle-integrity-v1.1";
 export const BEST_SIX_FULL_COUNT = 6;
+export const LEGACY_PATH_SEALED_BEFORE_V3_FIX = "LEGACY_PATH_SEALED_BEFORE_V3_FIX";
 
 /** Internal seal status — not a user-facing label. */
 export const OFFICIAL_SEAL_STATUS = Object.freeze({
@@ -255,17 +264,68 @@ export function isPregameGenerationWindowClosed(options = {}) {
 /**
  * Seal only when Best 6 is full, OR the generation window is closed and a
  * thin board is all that exists (FINAL_THIN_SLATE). Never seal a partial early.
+ *
+ * Canonical Controlled Best Board V2: seal the full variable board (no 6-cap).
+ * Eligibility is board completeness (membershipValid / expectedOfficialCount),
+ * not a fixed six-row target.
  */
 export function evaluateOfficialSealEligibility(propCount = 0, options = {}) {
   const count = Math.max(0, Number(propCount) || 0);
+  const variable =
+    options.variableBoardSize === true ||
+    options.membershipModel === CANONICAL_BOARD_MEMBERSHIP_MODEL ||
+    shouldUseVariableBoardSeal([], options);
+
   if (count <= 0) {
     return {
       eligible: false,
       status: OFFICIAL_SEAL_STATUS.DRAFT,
       reason: "EMPTY_BOARD",
       controlledBestSixCount: count,
+      officialCount: count,
     };
   }
+
+  if (variable) {
+    if (options.membershipValid === false) {
+      return {
+        eligible: false,
+        status: OFFICIAL_SEAL_STATUS.DRAFT,
+        reason: MEMBERSHIP_FAIL.OFFICIAL_BOARD_MEMBERSHIP_INTEGRITY_FAIL,
+        controlledBestSixCount: count,
+        officialCount: count,
+      };
+    }
+    const expected = Number(options.expectedOfficialCount);
+    if (Number.isFinite(expected) && expected > 0 && count !== expected) {
+      return {
+        eligible: false,
+        status: OFFICIAL_SEAL_STATUS.DRAFT,
+        reason: "OFFICIAL_COUNT_MISMATCH_BOARD",
+        controlledBestSixCount: count,
+        officialCount: count,
+        expectedOfficialCount: expected,
+      };
+    }
+    // Variable board: seal whenever membership is present and valid.
+    // Do not wait for a fixed six — Unders must not be dropped to reach 6.
+    if (
+      options.forceSealVariableBoard === true ||
+      isPregameGenerationWindowClosed(options) ||
+      count >= 1
+    ) {
+      return {
+        eligible: true,
+        status: OFFICIAL_SEAL_STATUS.READY_TO_SEAL,
+        reason: "FULL_CONTROLLED_BEST_BOARD",
+        sealReason: "FULL_CONTROLLED_BEST_BOARD",
+        controlledBestSixCount: count,
+        officialCount: count,
+        variableBoardSize: true,
+      };
+    }
+  }
+
   if (count >= BEST_SIX_FULL_COUNT) {
     return {
       eligible: true,
@@ -273,6 +333,7 @@ export function evaluateOfficialSealEligibility(propCount = 0, options = {}) {
       reason: "FULL_BEST_SIX",
       sealReason: "FULL_BEST_SIX",
       controlledBestSixCount: Math.min(count, BEST_SIX_FULL_COUNT),
+      officialCount: Math.min(count, BEST_SIX_FULL_COUNT),
     };
   }
   if (isPregameGenerationWindowClosed(options)) {
@@ -282,6 +343,7 @@ export function evaluateOfficialSealEligibility(propCount = 0, options = {}) {
       reason: "FINAL_THIN_SLATE",
       sealReason: "FINAL_THIN_SLATE",
       controlledBestSixCount: count,
+      officialCount: count,
     };
   }
   return {
@@ -289,6 +351,7 @@ export function evaluateOfficialSealEligibility(propCount = 0, options = {}) {
     status: OFFICIAL_SEAL_STATUS.DRAFT,
     reason: "PARTIAL_BOARD_AWAITING_FULL_OR_WINDOW_CLOSE",
     controlledBestSixCount: count,
+    officialCount: count,
   };
 }
 
@@ -313,6 +376,7 @@ export function getOfficialSlateDraft(slateDate = "") {
 
 /**
  * Upsert Tomorrow board as DRAFT / READY_TO_SEAL without locking membership.
+ * Canonical V2 boards keep full selectedProps — never slice(0, 6).
  */
 export function upsertOfficialSlateDraft(props = [], options = {}) {
   const slateDate = String(options.slateDate || props[0]?.slateDate || "").trim();
@@ -331,24 +395,112 @@ export function upsertOfficialSlateDraft(props = [], options = {}) {
     };
   }
 
-  const incoming = (Array.isArray(props) ? props : [])
+  const variable = shouldUseVariableBoardSeal(props, options);
+  const sorted = (Array.isArray(props) ? props : [])
     .filter((p) => p?.player)
     .sort(
       (a, b) =>
-        Number(a.bestSixRank || a.controlledBestSixRank || 99) -
-        Number(b.bestSixRank || b.controlledBestSixRank || 99)
-    )
-    .slice(0, BEST_SIX_FULL_COUNT);
+        Number(
+          a.controlledBestBoardRank ||
+            a.bestSixRank ||
+            a.controlledBestSixRank ||
+            99
+        ) -
+        Number(
+          b.controlledBestBoardRank ||
+            b.bestSixRank ||
+            b.controlledBestSixRank ||
+            99
+        )
+    );
+  // Legacy fixed Best 6 only — never truncate controlled-best-board-v2.
+  const incoming = variable
+    ? sorted
+    : sorted.slice(0, BEST_SIX_FULL_COUNT);
+
+  if (variable && options.selectionBuildId && options.sealRequestBuildId) {
+    if (
+      String(options.selectionBuildId) !== String(options.sealRequestBuildId)
+    ) {
+      return {
+        ok: false,
+        sealed: false,
+        status: OFFICIAL_SEAL_STATUS.DRAFT,
+        eligible: false,
+        eligibilityReason: MEMBERSHIP_FAIL.STALE_SELECTION_BUILD,
+        slateDate,
+        propCount: incoming.length,
+        message: MEMBERSHIP_FAIL.STALE_SELECTION_BUILD,
+      };
+    }
+  }
+
+  if (variable && options.selectedProps) {
+    const match = assertOfficialMatchesControlledBoard({
+      officialProps: incoming,
+      selectedProps: options.selectedProps,
+      selectionBuildId: options.selectionBuildId,
+      sealRequestBuildId: options.sealRequestBuildId,
+    });
+    if (!match.ok) {
+      return {
+        ok: false,
+        sealed: false,
+        status: OFFICIAL_SEAL_STATUS.DRAFT,
+        eligible: false,
+        eligibilityReason: match.status,
+        membershipReasons: match.reasons,
+        slateDate,
+        propCount: incoming.length,
+        message: match.status,
+      };
+    }
+  }
+
+  const boardInvariants = variable
+    ? validateCanonicalBoardInvariants({
+        selectedProps: incoming,
+        audit: { sixRowCapApplied: !variable && incoming.length === 6 },
+      })
+    : { ok: true };
 
   const eligibility = evaluateOfficialSealEligibility(incoming.length, {
     ...options,
     slateDate,
+    variableBoardSize: variable,
+    membershipModel: variable
+      ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+      : options.membershipModel,
+    membershipValid: boardInvariants.ok,
+    expectedOfficialCount: options.expectedOfficialCount,
+    forceSealVariableBoard: variable,
   });
+
+  if (variable && !boardInvariants.ok) {
+    eligibility.eligible = false;
+    eligibility.status = OFFICIAL_SEAL_STATUS.DRAFT;
+    eligibility.reason = boardInvariants.status;
+  }
 
   const draftProps = incoming.map((pick, index) => ({
     ...pick,
     slateDate,
-    bestSixRank: pick.bestSixRank || pick.controlledBestSixRank || index + 1,
+    bestSixRank:
+      pick.controlledBestBoardRank ||
+      pick.bestSixRank ||
+      pick.controlledBestSixRank ||
+      index + 1,
+    controlledBestBoardRank:
+      pick.controlledBestBoardRank ||
+      pick.bestSixRank ||
+      pick.controlledBestSixRank ||
+      index + 1,
+    membershipModel: variable
+      ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+      : pick.membershipModel || null,
+    variableBoardSize: variable || pick.variableBoardSize === true,
+    selectionBuildId:
+      pick.selectionBuildId || options.selectionBuildId || null,
     officialPropId:
       pick.officialPropId ||
       buildOfficialPropId(
@@ -369,12 +521,19 @@ export function upsertOfficialSlateDraft(props = [], options = {}) {
     eligibilityReason: eligibility.reason,
     sealReason: eligibility.sealReason || null,
     controlledBestSixCount: draftProps.length,
+    officialCount: draftProps.length,
+    membershipModel: variable ? CANONICAL_BOARD_MEMBERSHIP_MODEL : null,
+    boardVersion: variable ? CANONICAL_BOARD_MEMBERSHIP_MODEL : null,
+    variableBoardSize: variable,
+    selectionBuildId: options.selectionBuildId || draftProps[0]?.selectionBuildId || null,
     props: draftProps,
     updatedAt: new Date().toISOString(),
     serverBuild: options.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
+    sealBuild: variable ? CANONICAL_BOARD_SEAL_BUILD : options.sealBuild || null,
   };
   writeDraftStore(store);
 
+  const denom = variable ? draftProps.length : BEST_SIX_FULL_COUNT;
   return {
     ok: true,
     sealed: false,
@@ -385,7 +544,10 @@ export function upsertOfficialSlateDraft(props = [], options = {}) {
     slateDate,
     propCount: draftProps.length,
     props: draftProps,
-    message: `Official slate ${slateDate} ${eligibility.status} (${draftProps.length}/${BEST_SIX_FULL_COUNT})`,
+    variableBoardSize: variable,
+    membershipModel: variable ? CANONICAL_BOARD_MEMBERSHIP_MODEL : null,
+    selectionBuildId: options.selectionBuildId || null,
+    message: `Official slate ${slateDate} ${eligibility.status} (${draftProps.length}/${denom})`,
   };
 }
 
@@ -460,16 +622,37 @@ export function sealOfficialSlate(props = [], options = {}) {
     return { ok: false, message: `No props to seal for ${slateDate}`, slateDate };
   }
 
+  const variable =
+    draftResult.variableBoardSize === true ||
+    shouldUseVariableBoardSeal(incoming, options);
+
   const sealReason =
     draftResult.sealReason ||
     options.reason ||
-    (incoming.length >= BEST_SIX_FULL_COUNT ? "FULL_BEST_SIX" : "FINAL_THIN_SLATE");
+    (variable
+      ? "FULL_CONTROLLED_BEST_BOARD"
+      : incoming.length >= BEST_SIX_FULL_COUNT
+        ? "FULL_BEST_SIX"
+        : "FINAL_THIN_SLATE");
 
   const frozenProps = incoming.map((pick, index) =>
     freezeOfficialProp(
       {
         ...pick,
-        bestSixRank: pick.bestSixRank || pick.controlledBestSixRank || index + 1,
+        bestSixRank:
+          pick.controlledBestBoardRank ||
+          pick.bestSixRank ||
+          pick.controlledBestSixRank ||
+          index + 1,
+        membershipModel: variable
+          ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+          : pick.membershipModel || null,
+        boardVersion: variable
+          ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+          : pick.boardVersion || null,
+        variableBoardSize: variable,
+        selectionBuildId:
+          pick.selectionBuildId || options.selectionBuildId || null,
         slateDate,
       },
       { slateDate, sealedAt, serverBuild, calibrationVersion: options.calibrationVersion }
@@ -485,26 +668,39 @@ export function sealOfficialSlate(props = [], options = {}) {
     unique.push(prop);
   }
 
+  const officialSealMeta = {
+    sealed: true,
+    status: OFFICIAL_SEAL_STATUS.SEALED,
+    sealedAt,
+    version: OFFICIAL_SLATE_VERSION,
+    buildTag: OFFICIAL_SLATE_BUILD_TAG,
+    serverBuild,
+    selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
+    sealBuild: variable ? CANONICAL_BOARD_SEAL_BUILD : options.sealBuild || null,
+    membershipModel: variable ? CANONICAL_BOARD_MEMBERSHIP_MODEL : null,
+    boardVersion: variable ? CANONICAL_BOARD_MEMBERSHIP_MODEL : null,
+    variableBoardSize: variable,
+    officialCount: unique.length,
+    bestSixOverallCount: Math.min(6, unique.length),
+    teamSlotRules: variable ? "one-over-one-under-per-team" : null,
+    selectionBuildId:
+      options.selectionBuildId || unique[0]?.selectionBuildId || null,
+    officialPropIds: unique.map((p) => p.officialPropId),
+    sourcePool: variable
+      ? "CONTROLLED_BEST_BOARD"
+      : "CONTROLLED_BEST_SIX_DISPLAY",
+    sealReason,
+    lifecycleStage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
+    stage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
+  };
+
   const lockResult = lockSlate(slateDate, {
     reason: sealReason,
     autoLocked: true,
     allowFutureOfficialSeal: true,
     trackedProps: unique,
     getTrackedProps: () => unique,
-    officialSeal: {
-      sealed: true,
-      status: OFFICIAL_SEAL_STATUS.SEALED,
-      sealedAt,
-      version: OFFICIAL_SLATE_VERSION,
-      buildTag: OFFICIAL_SLATE_BUILD_TAG,
-      serverBuild,
-      selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
-      officialPropIds: unique.map((p) => p.officialPropId),
-      sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
-      sealReason,
-      lifecycleStage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
-      stage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
-    },
+    officialSeal: officialSealMeta,
   });
 
   if (!lockResult.ok && !lockResult.alreadyLocked) {
@@ -521,21 +717,15 @@ export function sealOfficialSlate(props = [], options = {}) {
     writeSnapshotPatch(slateDate, (snap) => ({
       ...snap,
       immutableOfficial: true,
+      membershipModel: officialSealMeta.membershipModel,
+      boardVersion: officialSealMeta.boardVersion,
+      variableBoardSize: officialSealMeta.variableBoardSize,
+      selectionBuildId: officialSealMeta.selectionBuildId,
       officialSeal: {
-        sealed: true,
-        status: OFFICIAL_SEAL_STATUS.SEALED,
-        sealedAt,
-        version: OFFICIAL_SLATE_VERSION,
-        buildTag: OFFICIAL_SLATE_BUILD_TAG,
-        serverBuild,
-        selectorVersion: options.selectorVersion || CONTROLLED_BEST_SIX_VERSION,
+        ...officialSealMeta,
         officialPropIds: (snap.props || []).map(
           (p) => p.officialPropId || buildOfficialPropId(p, slateDate)
         ),
-        sourcePool: "CONTROLLED_BEST_SIX_DISPLAY",
-        sealReason,
-        lifecycleStage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
-        stage: OFFICIAL_LIFECYCLE_STAGE.HOME_TOMORROW,
       },
       props: (snap.props || []).map((p) =>
         p.officialPropId
@@ -554,6 +744,8 @@ export function sealOfficialSlate(props = [], options = {}) {
     officialPropIds: unique.map((p) => p.officialPropId),
     reason: sealReason,
     sealedAt,
+    membershipModel: officialSealMeta.membershipModel,
+    selectionBuildId: officialSealMeta.selectionBuildId,
   });
 
   return {
@@ -565,6 +757,9 @@ export function sealOfficialSlate(props = [], options = {}) {
     propCount: unique.length,
     officialPropIds: unique.map((p) => p.officialPropId),
     props: unique,
+    membershipModel: officialSealMeta.membershipModel,
+    variableBoardSize: variable,
+    selectionBuildId: officialSealMeta.selectionBuildId,
     lockResult,
     message: `Official slate ${slateDate} sealed with ${unique.length} immutable props (${sealReason})`,
   };
@@ -1060,19 +1255,45 @@ export function sealTomorrowOfficialSlates(picks = [], options = {}) {
 
   const results = [];
   for (const [slateDate, datePicks] of byDate.entries()) {
-    const ranked = [...datePicks]
-      .sort(
-        (a, b) =>
-          Number(a.bestSixRank || a.controlledBestSixRank || 99) -
-          Number(b.bestSixRank || b.controlledBestSixRank || 99)
-      )
-      .slice(0, BEST_SIX_FULL_COUNT);
+    const variable = shouldUseVariableBoardSeal(datePicks, options);
+    const ranked = [...datePicks].sort(
+      (a, b) =>
+        Number(
+          a.controlledBestBoardRank ||
+            a.bestSixRank ||
+            a.controlledBestSixRank ||
+            99
+        ) -
+        Number(
+          b.controlledBestBoardRank ||
+            b.bestSixRank ||
+            b.controlledBestSixRank ||
+            99
+        )
+    );
+    // Legacy fixed six only — V2 board membership must not be truncated.
+    const membership = variable
+      ? ranked
+      : ranked.slice(0, BEST_SIX_FULL_COUNT);
 
-    // Always refresh draft; seal only if full six or FINAL_THIN_SLATE.
-    const draft = upsertOfficialSlateDraft(ranked, {
+    // Always refresh draft; seal only if full six or FINAL_THIN_SLATE / full V2 board.
+    const draft = upsertOfficialSlateDraft(membership, {
       ...options,
       slateDate,
       todayLocalDate: today,
+      variableBoardSize: variable,
+      membershipModel: variable
+        ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+        : options.membershipModel,
+      forceSealVariableBoard: variable,
+      selectedProps: options.selectedProps || (variable ? membership : undefined),
+      selectionBuildId:
+        options.selectionBuildId || membership[0]?.selectionBuildId || null,
+      sealRequestBuildId:
+        options.sealRequestBuildId ||
+        options.selectionBuildId ||
+        membership[0]?.selectionBuildId ||
+        null,
     });
 
     if (!draft.eligible) {
@@ -1090,11 +1311,26 @@ export function sealTomorrowOfficialSlates(picks = [], options = {}) {
     }
 
     results.push(
-      sealOfficialSlate(ranked, {
+      sealOfficialSlate(membership, {
         ...options,
         slateDate,
         todayLocalDate: today,
-        reason: draft.sealReason || options.reason || "FULL_BEST_SIX",
+        variableBoardSize: variable,
+        membershipModel: variable
+          ? CANONICAL_BOARD_MEMBERSHIP_MODEL
+          : options.membershipModel,
+        selectedProps: options.selectedProps || (variable ? membership : undefined),
+        selectionBuildId:
+          options.selectionBuildId || membership[0]?.selectionBuildId || null,
+        sealRequestBuildId:
+          options.sealRequestBuildId ||
+          options.selectionBuildId ||
+          membership[0]?.selectionBuildId ||
+          null,
+        reason:
+          draft.sealReason ||
+          options.reason ||
+          (variable ? "FULL_CONTROLLED_BEST_BOARD" : "FULL_BEST_SIX"),
       })
     );
   }
@@ -1302,3 +1538,197 @@ export function repairImproperThinSealedPregame(fullSixProps = [], options = {})
     sealResult,
   };
 }
+
+/**
+ * V3 pregame repair: invalid legacy six-row / wrong-membership seal while
+ * canonical board games have not started. Audits prior membership, clears lock,
+ * reseals exact controlledBestBoardV2.selectedProps. If any board tip-off passed,
+ * preserve membership and stamp LEGACY_PATH_SEALED_BEFORE_V3_FIX.
+ */
+export function repairInvalidLegacyBoardSealPregameV3(
+  canonicalSelectedProps = [],
+  options = {}
+) {
+  const slateDate = String(
+    options.slateDate || options.todayLocalDate || getTodayLocalDate()
+  ).trim();
+  if (!slateDate) {
+    return { ok: false, repaired: false, reason: "MISSING_SLATE_DATE" };
+  }
+
+  const incoming = (Array.isArray(canonicalSelectedProps)
+    ? canonicalSelectedProps
+    : []
+  ).filter((p) => p?.player);
+  if (!incoming.length) {
+    return {
+      ok: true,
+      repaired: false,
+      reason: "EMPTY_CANONICAL_BOARD",
+      slateDate,
+    };
+  }
+
+  const nowMs = Date.parse(options.now || new Date().toISOString());
+  const boardGameStarted = incoming.some((p) => {
+    if (propStarted(p)) return true;
+    const tip = Date.parse(p.commenceTime || p.commenceTimeUtc || p.tipoff || "");
+    return Number.isFinite(tip) && tip <= nowMs;
+  });
+
+  const existing = getOfficialSlate(slateDate);
+  const sealed =
+    isOfficialSlateSealed(slateDate) ||
+    isSlateLocked(slateDate) ||
+    existing?.sealed === true;
+
+  const priorProps =
+    existing?.props || getLockedSnapshot(slateDate)?.props || [];
+  const priorModel =
+    existing?.snapshot?.officialSeal?.membershipModel ||
+    priorProps[0]?.membershipModel ||
+    null;
+  const alreadyCanonical =
+    priorModel === CANONICAL_BOARD_MEMBERSHIP_MODEL &&
+    priorProps.length === incoming.length;
+
+  const match = assertOfficialMatchesControlledBoard({
+    officialProps: priorProps,
+    selectedProps: incoming,
+    selectionBuildId: options.selectionBuildId,
+    sealRequestBuildId:
+      priorProps[0]?.selectionBuildId ||
+      existing?.snapshot?.officialSeal?.selectionBuildId ||
+      null,
+  });
+
+  const needsRepair =
+    sealed &&
+    (!alreadyCanonical || priorProps.length !== incoming.length || !match.ok);
+
+  if (!sealed) {
+    const sealResult = sealOfficialSlate(incoming, {
+      ...options,
+      slateDate,
+      todayLocalDate: slateDate,
+      variableBoardSize: true,
+      membershipModel: CANONICAL_BOARD_MEMBERSHIP_MODEL,
+      selectedProps: incoming,
+      selectionBuildId:
+        options.selectionBuildId || incoming[0]?.selectionBuildId,
+      sealRequestBuildId:
+        options.sealRequestBuildId ||
+        options.selectionBuildId ||
+        incoming[0]?.selectionBuildId,
+      forceSealVariableBoard: true,
+      generationWindowClosed: true,
+      reason: "FULL_CONTROLLED_BEST_BOARD",
+    });
+    return {
+      ok: Boolean(sealResult.ok),
+      repaired: Boolean(sealResult.sealed),
+      reason: sealResult.sealReason || "FULL_CONTROLLED_BEST_BOARD",
+      slateDate,
+      propCount: sealResult.propCount || incoming.length,
+      props: sealResult.props || incoming,
+      sealResult,
+    };
+  }
+
+  if (!needsRepair) {
+    return {
+      ok: true,
+      repaired: false,
+      reason: "ALREADY_CANONICAL",
+      slateDate,
+      propCount: priorProps.length,
+    };
+  }
+
+  if (boardGameStarted) {
+    writeSnapshotPatch(slateDate, (snap) => ({
+      ...snap,
+      legacyPathSealedBeforeV3Fix: true,
+      officialSeal: {
+        ...(snap.officialSeal || {}),
+        legacyPathSealedBeforeV3Fix: true,
+        legacyMarker: LEGACY_PATH_SEALED_BEFORE_V3_FIX,
+      },
+    }));
+    appendLifecycleAudit({
+      type: LEGACY_PATH_SEALED_BEFORE_V3_FIX,
+      slateDate,
+      priorCount: priorProps.length,
+      canonicalCount: incoming.length,
+      message:
+        "Games started — preserve Official membership; V3 applies prospectively only",
+    });
+    return {
+      ok: true,
+      repaired: false,
+      preserved: true,
+      reason: LEGACY_PATH_SEALED_BEFORE_V3_FIX,
+      slateDate,
+      propCount: priorProps.length,
+      props: priorProps,
+      gamesStarted: true,
+    };
+  }
+
+  const clearResult = clearSlateLockForPregameRepair(slateDate, {
+    reason: "INVALID_LEGACY_SIX_SEAL_BEFORE_V3",
+    serverBuild: options.serverBuild || OFFICIAL_SLATE_BUILD_TAG,
+    allowFull: true,
+  });
+  if (!clearResult.ok) {
+    return {
+      ok: false,
+      repaired: false,
+      reason: "CLEAR_LOCK_FAILED",
+      slateDate,
+      clearResult,
+      message: clearResult.message,
+    };
+  }
+
+  const sealResult = sealOfficialSlate(incoming, {
+    ...options,
+    slateDate,
+    todayLocalDate: slateDate,
+    variableBoardSize: true,
+    membershipModel: CANONICAL_BOARD_MEMBERSHIP_MODEL,
+    selectedProps: incoming,
+    selectionBuildId:
+      options.selectionBuildId || incoming[0]?.selectionBuildId,
+    sealRequestBuildId:
+      options.sealRequestBuildId ||
+      options.selectionBuildId ||
+      incoming[0]?.selectionBuildId,
+    forceSealVariableBoard: true,
+    generationWindowClosed: true,
+    reason: "PREGAME_REPAIR_CANONICAL_CONTROLLED_BOARD_V3",
+  });
+
+  appendLifecycleAudit({
+    type: "INVALID_LEGACY_BOARD_SEAL_PREGAME_REPAIRED_V3",
+    slateDate,
+    priorCount: priorProps.length,
+    newCount: sealResult.propCount || incoming.length,
+    priorAuditPath: clearResult.auditPath,
+    retainedSnapshotPath: clearResult.retainedSnapshotPath,
+    selectionBuildId: options.selectionBuildId || null,
+  });
+
+  return {
+    ok: Boolean(sealResult.ok || sealResult.sealed),
+    repaired: Boolean(sealResult.sealed || sealResult.alreadySealed),
+    reason: "PREGAME_REPAIR_CANONICAL_CONTROLLED_BOARD_V3",
+    slateDate,
+    priorCount: priorProps.length,
+    propCount: sealResult.propCount || incoming.length,
+    props: sealResult.props || incoming,
+    clearResult,
+    sealResult,
+  };
+}
+
