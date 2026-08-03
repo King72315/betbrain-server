@@ -115,6 +115,52 @@ export function stablePickKey(pick = {}) {
   ].join("|");
 }
 
+/**
+ * Collapse duplicate Official/display rows (same player/side/line) that inflate
+ * variable-board counts when the server concatenates sealed + display arrays.
+ * Prefer the richer analysis payload when choosing a survivor.
+ */
+export function dedupeControlledBoardPicks(picks = []) {
+  const list = Array.isArray(picks) ? picks : [];
+  const byKey = new Map();
+  for (const pick of list) {
+    if (!pick?.player) continue;
+    const key = stablePickKey(pick);
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, pick);
+      continue;
+    }
+    const prevCoverage = Number(
+      prev.homeDetailedAnalysisV1?.dataQuality?.coverage ??
+        prev.analysisCoverage ??
+        0
+    );
+    const nextCoverage = Number(
+      pick.homeDetailedAnalysisV1?.dataQuality?.coverage ??
+        pick.analysisCoverage ??
+        0
+    );
+    const prevFetched = Date.parse(
+      prev.homeDetailedAnalysisV1?.dataQuality?.fetchedAt ||
+        prev.fetchedAt ||
+        0
+    );
+    const nextFetched = Date.parse(
+      pick.homeDetailedAnalysisV1?.dataQuality?.fetchedAt ||
+        pick.fetchedAt ||
+        0
+    );
+    if (
+      nextCoverage > prevCoverage ||
+      (nextCoverage === prevCoverage && nextFetched > prevFetched)
+    ) {
+      byKey.set(key, pick);
+    }
+  }
+  return [...byKey.values()];
+}
+
 export function displayPickRankScore(pick = {}) {
   return Number(
     pick.topPickSafetyScore ??
@@ -622,19 +668,22 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
         : null;
 
   // Never fall back to Results/Lab cohort (bestSix*) for Home Today/Tomorrow.
-  const bestSixDisplayToday =
+  const bestSixDisplayToday = dedupeControlledBoardPicks(
     canonicalToday ||
-    (Array.isArray(explicitToday) && explicitToday.length
-      ? explicitToday
-      : filterBestSixByDateView(display.length ? display : bestSix, "today"));
-  const bestSixDisplayTomorrow =
+      (Array.isArray(explicitToday) && explicitToday.length
+        ? explicitToday
+        : filterBestSixByDateView(display.length ? display : bestSix, "today"))
+  );
+  const bestSixDisplayTomorrow = dedupeControlledBoardPicks(
     Array.isArray(explicitTomorrow) && explicitTomorrow.length
       ? explicitTomorrow
-      : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow");
-  const combinedDisplay =
+      : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow")
+  );
+  const combinedDisplay = dedupeControlledBoardPicks(
     display.length
       ? display
-      : [...bestSixDisplayToday, ...bestSixDisplayTomorrow];
+      : [...bestSixDisplayToday, ...bestSixDisplayTomorrow]
+  );
 
   return {
     league: leagueCode,
@@ -673,11 +722,13 @@ export function buildLeagueBestSixBoard({
   const hasExplicitTomorrow =
     Array.isArray(bestSixDisplayTomorrow) && bestSixDisplayTomorrow.length > 0;
   const meta = boardMeta || {};
-  const todayUncapped = filterCalendarTodayHomePool(
-    hasExplicitToday
-      ? bestSixDisplayToday
-      : filterBestSixByDateView(displayPool, "today"),
-    today
+  const todayUncapped = dedupeControlledBoardPicks(
+    filterCalendarTodayHomePool(
+      hasExplicitToday
+        ? bestSixDisplayToday
+        : filterBestSixByDateView(displayPool, "today"),
+      today
+    )
   );
   const todayCap = resolveControlledBoardCap(todayUncapped, bestSixLimit, {
     ...meta,
@@ -687,7 +738,9 @@ export function buildLeagueBestSixBoard({
   // Prefer explicit server Tomorrow array (already sanitized). Otherwise fill from
   // display + board candidates via resolveDateScopedDisplayPool (do not short-circuit
   // on a partial dayBucket-derived pool).
-  const tomorrowUncapped = hasExplicitTomorrow ? bestSixDisplayTomorrow : [];
+  const tomorrowUncapped = dedupeControlledBoardPicks(
+    hasExplicitTomorrow ? bestSixDisplayTomorrow : []
+  );
   const tomorrowCap = resolveControlledBoardCap(tomorrowUncapped, bestSixLimit, meta);
   const serverTomorrowPool = tomorrowUncapped.slice(0, tomorrowCap);
   const variable =
