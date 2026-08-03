@@ -632,6 +632,139 @@ export function collectWnbaCandidatesFromGames(games = []) {
   return collectLeagueCandidatesFromGames(games, "WNBA");
 }
 
+/**
+ * 4 props per game: safest Over + safest Under on each team (distinct players).
+ * Used for Home when server canonical Controlled Best Board V2 is not yet available.
+ */
+export function pickSafestTeamOverUnder(teamPicks = []) {
+  const list = Array.isArray(teamPicks) ? teamPicks : [];
+  const overs = list
+    .filter((p) => normalizePickSide(p.side || p.pick) === "OVER")
+    .sort((a, b) => displayPickRankScore(b) - displayPickRankScore(a));
+  const unders = list
+    .filter((p) => normalizePickSide(p.side || p.pick) === "UNDER")
+    .sort((a, b) => displayPickRankScore(b) - displayPickRankScore(a));
+
+  const selectedOver = overs[0] || null;
+  const selectedUnder =
+    unders.find(
+      (u) =>
+        !selectedOver ||
+        String(u.player || "").toLowerCase() !==
+          String(selectedOver.player || "").toLowerCase()
+    ) || null;
+
+  return { selectedOver, selectedUnder, overs, unders };
+}
+
+export function isTeamBalancedFourPropBoard(picks = []) {
+  const list = dedupeControlledBoardPicks(picks);
+  if (!list.length) return false;
+  const byTeam = new Map();
+  let overs = 0;
+  let unders = 0;
+  for (const pick of list) {
+    const side = normalizePickSide(pick.side || pick.pick);
+    if (side === "OVER") overs += 1;
+    if (side === "UNDER") unders += 1;
+    const tk = getPickTeamKey(pick) || "unknown";
+    if (!byTeam.has(tk)) byTeam.set(tk, { overs: 0, unders: 0, total: 0 });
+    const row = byTeam.get(tk);
+    row.total += 1;
+    if (side === "OVER") row.overs += 1;
+    if (side === "UNDER") row.unders += 1;
+  }
+  if (overs === 0 || unders === 0) return false;
+  for (const row of byTeam.values()) {
+    if (row.overs > 1 || row.unders > 1 || row.total > 2) return false;
+  }
+  return true;
+}
+
+/**
+ * Build Controlled Best Board as 4 props/game from game candidate pools.
+ */
+export function buildFourPropGameBoardFromGames(games = [], league = "WNBA") {
+  const leagueCode = normalizeLeagueCode(league);
+  const board = [];
+
+  for (const game of games || []) {
+    const gameLeague = normalizeLeagueCode(game.league || leagueCode);
+    if (game.league && gameLeague !== leagueCode) continue;
+
+    const pool = collectLeagueCandidatesFromGames([game], leagueCode);
+    if (!pool.length) continue;
+
+    const byTeam = new Map();
+    for (const pick of pool) {
+      const tk = getPickTeamKey(pick);
+      if (!tk) continue;
+      if (!byTeam.has(tk)) byTeam.set(tk, []);
+      byTeam.get(tk).push(pick);
+    }
+
+    // Prefer exactly two teams (away/home); fall back to whatever teams exist.
+    const teamKeys = [];
+    const awayKey = getPickTeamKey({
+      team: game.away || game.awayTeam || game.rawAwayTeam,
+    });
+    const homeKey = getPickTeamKey({
+      team: game.home || game.homeTeam || game.rawHomeTeam,
+    });
+    if (awayKey && byTeam.has(awayKey)) teamKeys.push(awayKey);
+    if (homeKey && byTeam.has(homeKey) && homeKey !== awayKey) {
+      teamKeys.push(homeKey);
+    }
+    if (!teamKeys.length) teamKeys.push(...byTeam.keys());
+
+    for (const tk of teamKeys.slice(0, 2)) {
+      const { selectedOver, selectedUnder } = pickSafestTeamOverUnder(
+        byTeam.get(tk) || []
+      );
+      if (selectedOver) {
+        board.push({
+          ...selectedOver,
+          league: leagueCode,
+          teamSlot: "Over",
+          selectedTeamSlot: "Over",
+          controlledBestBoard: true,
+          variableBoardSize: true,
+          membershipModel: CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL,
+          boardSelectionSource: "FOUR_PROP_GAME_SAFEST_TEAM_SLOTS",
+          game: selectedOver.game || game.game,
+          gameId: selectedOver.gameId || game.gameId,
+          slateDate: selectedOver.slateDate || game.slateDate,
+          dayBucket: selectedOver.dayBucket || game.dayBucket,
+          dateLabel: selectedOver.dateLabel || game.dateLabel,
+          commenceTime: selectedOver.commenceTime || game.commenceTime,
+        });
+      }
+      if (selectedUnder) {
+        board.push({
+          ...selectedUnder,
+          league: leagueCode,
+          teamSlot: "Under",
+          selectedTeamSlot: "Under",
+          controlledBestBoard: true,
+          variableBoardSize: true,
+          membershipModel: CONTROLLED_BEST_BOARD_MEMBERSHIP_MODEL,
+          boardSelectionSource: "FOUR_PROP_GAME_SAFEST_TEAM_SLOTS",
+          game: selectedUnder.game || game.game,
+          gameId: selectedUnder.gameId || game.gameId,
+          slateDate: selectedUnder.slateDate || game.slateDate,
+          dayBucket: selectedUnder.dayBucket || game.dayBucket,
+          dateLabel: selectedUnder.dateLabel || game.dateLabel,
+          commenceTime: selectedUnder.commenceTime || game.commenceTime,
+        });
+      }
+    }
+  }
+
+  return dedupeControlledBoardPicks(board).sort(
+    (a, b) => displayPickRankScore(b) - displayPickRankScore(a)
+  );
+}
+
 export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
   const leagueCode = normalizeLeagueCode(league);
   const isWNBA = leagueCode === "WNBA";
@@ -656,7 +789,7 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
 
   // Canonical V2/V3: Home Today must use controlledBestBoard / selectedProps, not
   // the sealed legacy Best 6 overall ranking.
-  const canonicalToday =
+  const canonicalTodayRaw =
     isWNBA &&
     Array.isArray(data.controlledBestBoard) &&
     data.controlledBestBoard.length
@@ -666,21 +799,58 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
           data.selectedPropsTodayWNBA.length
         ? data.selectedPropsTodayWNBA
         : null;
+  const canonicalToday = canonicalTodayRaw
+    ? dedupeControlledBoardPicks(canonicalTodayRaw)
+    : null;
+  const canonicalIsBalanced =
+    canonicalToday && isTeamBalancedFourPropBoard(canonicalToday);
+
+  const today = getChicagoCalendarDate();
+  const tomorrow = shiftChicagoDate(today, 1);
+  const gamesToday = (games || []).filter((g) => {
+    const d = String(g.slateDate || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d === today;
+    const commence = g.commenceTime || g.time;
+    if (!commence) return String(g.dayBucket || "").toUpperCase() === "TODAY";
+    return resolvePickSlateDateForHome({ commenceTime: commence }) === today;
+  });
+  const gamesTomorrow = (games || []).filter((g) => {
+    const d = String(g.slateDate || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d === tomorrow;
+    const commence = g.commenceTime || g.time;
+    if (!commence) return String(g.dayBucket || "").toUpperCase() === "TOMORROW";
+    return resolvePickSlateDateForHome({ commenceTime: commence }) === tomorrow;
+  });
+
+  const fourPropToday = buildFourPropGameBoardFromGames(gamesToday, leagueCode);
+  const fourPropTomorrow = buildFourPropGameBoardFromGames(
+    gamesTomorrow,
+    leagueCode
+  );
 
   // Never fall back to Results/Lab cohort (bestSix*) for Home Today/Tomorrow.
-  const bestSixDisplayToday = dedupeControlledBoardPicks(
-    canonicalToday ||
-      (Array.isArray(explicitToday) && explicitToday.length
-        ? explicitToday
-        : filterBestSixByDateView(display.length ? display : bestSix, "today"))
+  const legacyToday = dedupeControlledBoardPicks(
+    Array.isArray(explicitToday) && explicitToday.length
+      ? explicitToday
+      : filterBestSixByDateView(display.length ? display : bestSix, "today")
   );
-  const bestSixDisplayTomorrow = dedupeControlledBoardPicks(
+  const legacyTomorrow = dedupeControlledBoardPicks(
     Array.isArray(explicitTomorrow) && explicitTomorrow.length
       ? explicitTomorrow
       : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow")
   );
+
+  const bestSixDisplayToday =
+    canonicalIsBalanced
+      ? canonicalToday
+      : fourPropToday.length
+        ? fourPropToday
+        : legacyToday;
+  const bestSixDisplayTomorrow = fourPropTomorrow.length
+    ? fourPropTomorrow
+    : legacyTomorrow;
   const combinedDisplay = dedupeControlledBoardPicks(
-    display.length
+    display.length && isTeamBalancedFourPropBoard(display)
       ? display
       : [...bestSixDisplayToday, ...bestSixDisplayTomorrow]
   );
@@ -696,10 +866,17 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
       ? data.bestSixOverallWNBA || []
       : data.bestSixOverallNBA || [],
     topProps: isWNBA ? data.topWNBAProps || [] : data.topNBAProps || [],
-    variableBoardSize: isVariableControlledBoard(data, bestSixDisplayToday),
-    membershipSource: data.membershipSource || null,
+    variableBoardSize:
+      isVariableControlledBoard(data, bestSixDisplayToday) ||
+      isTeamBalancedFourPropBoard(bestSixDisplayToday),
+    membershipSource:
+      data.membershipSource ||
+      (fourPropToday.length && !canonicalIsBalanced
+        ? "four-prop-game-safest-team-slots"
+        : null),
     selectionBuildId: data.selectionBuildId || null,
     boardVersion: data.boardVersion || null,
+    boardSelectionSource: bestSixDisplayToday[0]?.boardSelectionSource || null,
   };
 }
 
@@ -1143,6 +1320,7 @@ export function buildLeagueControlledBestSixReportText({
     `Results Tracked: ${resultsTrack}/${controlledTotal || bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
     `Best 6 Overall (view): ${overallCount}/${overallViewLimit}`,
+    `Board rule: 4 props/game (1 Over + 1 Under per team)`,
     `Board Candidates: ${boardCandidates}`,
     `High Risk (board): ${highRisk || 0}`,
     "",
