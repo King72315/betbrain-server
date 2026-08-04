@@ -21,14 +21,16 @@ import {
   resetHistoryArchives,
 } from "../../services/api";
 import {
-  HISTORY_FILTERS,
+  HISTORY_LEAGUE_TABS,
+  HISTORY_TYPE_FILTERS,
   buildHistoryEntries,
-  filterHistoryEntries,
+  filterHistoryEntriesCompound,
   formatRecordLine,
   formatSlateDateLabel,
   getPickStatus,
   type HistoryEntry,
-  type HistoryFilter,
+  type HistoryLeagueTab,
+  type HistoryTypeFilter,
 } from "../../utils/historyArchive";
 import {
   HISTORY_RETENTION_DAYS,
@@ -231,7 +233,8 @@ export default function History() {
     currentLabSlateDate: null,
     historySlateDates: [],
   });
-  const [filter, setFilter] = useState<HistoryFilter>("All");
+  const [leagueTab, setLeagueTab] = useState<HistoryLeagueTab>("WNBA");
+  const [typeFilter, setTypeFilter] = useState<HistoryTypeFilter>("All");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -344,8 +347,8 @@ export default function History() {
   );
 
   const filteredEntries = useMemo(
-    () => filterHistoryEntries(retainedEntries, filter),
-    [retainedEntries, filter]
+    () => filterHistoryEntriesCompound(retainedEntries, leagueTab, typeFilter),
+    [retainedEntries, leagueTab, typeFilter]
   );
 
   const summary = useMemo(() => {
@@ -389,7 +392,10 @@ export default function History() {
     buildHistoryReport({
       entries: retainedEntries,
       filteredEntries,
-      filter,
+      filter:
+        leagueTab === "All" && typeFilter === "All"
+          ? "All"
+          : `${leagueTab} · ${typeFilter}`,
       loading,
       error: loadError,
       retentionDays: HISTORY_RETENTION_DAYS,
@@ -534,22 +540,56 @@ export default function History() {
           </Text>
         </View>
 
+        <View style={styles.leagueTabRow}>
+          {HISTORY_LEAGUE_TABS.map((tab) => {
+            const isActive = leagueTab === tab;
+            const accent =
+              tab === "WNBA"
+                ? { border: "#f472b6", bg: "#500724", text: "#fbcfe8" }
+                : tab === "NBA"
+                  ? { border: "#60a5fa", bg: "#1e3a8a", text: "#dbeafe" }
+                  : { border: "#22c55e", bg: "#14532d", text: "#bbf7d0" };
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setLeagueTab(tab)}
+                style={[
+                  styles.leagueTabButton,
+                  isActive && {
+                    borderColor: accent.border,
+                    backgroundColor: accent.bg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.leagueTabText,
+                    isActive && { color: accent.text },
+                  ]}
+                >
+                  {tab === "All" ? "All Leagues" : tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterRow}
           contentContainerStyle={styles.filterContent}
         >
-          {HISTORY_FILTERS.map((item) => (
+          {HISTORY_TYPE_FILTERS.map((item) => (
             <TouchableOpacity
               key={item}
-              style={[styles.filterChip, filter === item && styles.filterChipActive]}
-              onPress={() => setFilter(item)}
+              style={[styles.filterChip, typeFilter === item && styles.filterChipActive]}
+              onPress={() => setTypeFilter(item)}
             >
               <Text
                 style={[
                   styles.filterChipText,
-                  filter === item && styles.filterChipTextActive,
+                  typeFilter === item && styles.filterChipTextActive,
                 ]}
               >
                 {item}
@@ -879,6 +919,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 13,
     fontWeight: "800",
+  },
+  leagueTabRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 10,
+  },
+  leagueTabButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  leagueTabText: {
+    color: "#94a3b8",
+    textAlign: "center",
+    fontWeight: "900",
+    fontSize: 13,
   },
   filterRow: {
     marginBottom: 14,

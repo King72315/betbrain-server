@@ -7,7 +7,6 @@ import {
   formatSlateDateLabel,
   getPickStatus,
   type HistoryEntry,
-  type HistoryFilter,
 } from "./historyArchive";
 import { type SlateRotation } from "./slateRotation";
 import {
@@ -489,7 +488,7 @@ function formatHistoryPickLine(pick: any, index: number) {
 export function buildHistoryReport(input: {
   entries: HistoryEntry[];
   filteredEntries: HistoryEntry[];
-  filter: HistoryFilter;
+  filter: string;
   loading: boolean;
   error?: string | null;
   retentionDays?: number;

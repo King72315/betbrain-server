@@ -10,16 +10,26 @@ import {
 
 export { CLEAN_DATA_CUTOFF, isOnOrAfterCleanDataCutoff };
 
-export const HISTORY_FILTERS = [
+export const HISTORY_LEAGUE_TABS = ["All", "NBA", "WNBA"] as const;
+export const HISTORY_TYPE_FILTERS = [
   "All",
-  "NBA",
-  "WNBA",
   "Saved Picks",
   "Archived Lab Slates",
   "Wins",
   "Losses",
 ] as const;
 
+/** Combined chip list (legacy). Prefer HISTORY_LEAGUE_TABS + HISTORY_TYPE_FILTERS. */
+export const HISTORY_FILTERS = [
+  ...HISTORY_LEAGUE_TABS,
+  "Saved Picks",
+  "Archived Lab Slates",
+  "Wins",
+  "Losses",
+] as const;
+
+export type HistoryLeagueTab = (typeof HISTORY_LEAGUE_TABS)[number];
+export type HistoryTypeFilter = (typeof HISTORY_TYPE_FILTERS)[number];
 export type HistoryFilter = (typeof HISTORY_FILTERS)[number];
 
 export type HistoryEntryType = "saved-picks" | "official-slate";
@@ -381,34 +391,72 @@ export function buildHistoryEntries(
   });
 }
 
-export function filterHistoryEntries(entries: HistoryEntry[], filter: HistoryFilter) {
-  if (filter === "All") return entries;
-
-  if (filter === "NBA") {
+export function filterHistoryEntriesByLeague(
+  entries: HistoryEntry[],
+  league: HistoryLeagueTab | HistoryFilter
+) {
+  if (league === "NBA") {
     return entries.filter((entry) => entry.leagues.includes("NBA"));
   }
-
-  if (filter === "WNBA") {
+  if (league === "WNBA") {
     return entries.filter((entry) => entry.leagues.includes("WNBA"));
   }
+  return entries;
+}
 
-  if (filter === "Saved Picks") {
+export function filterHistoryEntriesByType(
+  entries: HistoryEntry[],
+  typeFilter: HistoryTypeFilter | HistoryFilter
+) {
+  if (typeFilter === "Saved Picks") {
     return entries.filter((entry) => entry.type === "saved-picks");
   }
-
-  if (filter === "Archived Lab Slates") {
+  if (typeFilter === "Archived Lab Slates") {
     return entries.filter((entry) => entry.type === "official-slate");
   }
-
-  if (filter === "Wins") {
+  if (typeFilter === "Wins") {
     return entries.filter((entry) => entry.hasGradedPerformance && entry.netUnits > 0);
   }
-
-  if (filter === "Losses") {
+  if (typeFilter === "Losses") {
     return entries.filter((entry) => entry.hasGradedPerformance && entry.netUnits < 0);
   }
-
   return entries;
+}
+
+export function filterHistoryEntries(
+  entries: HistoryEntry[],
+  filter: HistoryFilter,
+  typeFilter: HistoryTypeFilter = "All"
+) {
+  if (filter === "NBA" || filter === "WNBA") {
+    return filterHistoryEntriesByType(
+      filterHistoryEntriesByLeague(entries, filter),
+      typeFilter
+    );
+  }
+  if (
+    filter === "Saved Picks" ||
+    filter === "Archived Lab Slates" ||
+    filter === "Wins" ||
+    filter === "Losses"
+  ) {
+    return filterHistoryEntriesByType(entries, filter);
+  }
+  return filterHistoryEntriesByType(
+    filterHistoryEntriesByLeague(entries, "All"),
+    typeFilter
+  );
+}
+
+export function filterHistoryEntriesCompound(
+  entries: HistoryEntry[],
+  league: HistoryLeagueTab,
+  typeFilter: HistoryTypeFilter
+) {
+  return filterHistoryEntriesByType(
+    filterHistoryEntriesByLeague(entries, league),
+    typeFilter
+  );
 }
 
 export function formatSlateDateLabel(slateDate: string) {
