@@ -1744,6 +1744,7 @@ export function buildDailySlateReportsFromTrackedProps(
           report,
         });
         attachGradedResultsToSnapshot(slateDate, trackedProps);
+        // LOCK V1: direct Results → History (promoteSlateToLab shims to History)
         promoteSlateToLab(slateDate, { report, props: slateProps });
         clearActiveTopPicksSnapshot(slateDate);
       }

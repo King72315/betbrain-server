@@ -1,11 +1,8 @@
 /**
- * CourtEdge Official Slate — immutable Best 6 lifecycle contract.
+ * CourtEdge Official Slate — immutable Controlled Best Board lifecycle.
  *
- * Stages: Home (Tomorrow seal) → Results (grade only) → Lab (learn) → History (read-only).
+ * Stages: Home → Results → History (Lab stage removed for new seals).
  * Once sealed, membership/identity never regenerates, replaces, or reorders.
- *
- * Persists under slate-snapshots/{date}.json with officialSeal metadata.
- * Does not delete existing tracked props, Lab, or History.
  */
 import fs from "fs";
 import path from "path";
@@ -30,6 +27,7 @@ import {
   shouldUseVariableBoardSeal,
   validateCanonicalBoardInvariants,
 } from "../engines/topProps/controlledBestBoardCanonicalV3.js";
+import { assertNoDuplicateMembership } from "../engines/topProps/variableTeamBoardHomeHistoryLockV1.js";
 import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
 import { attachCanonicalSealedProp } from "./canonicalSealedProp.js";
 
@@ -395,28 +393,52 @@ export function upsertOfficialSlateDraft(props = [], options = {}) {
     };
   }
 
-  const variable = shouldUseVariableBoardSeal(props, options);
+  const variable = shouldUseVariableBoardSeal(props, {
+    ...options,
+    forceVariableBoard: options.league === "WNBA" || options.forceVariableBoard,
+  });
   const sorted = (Array.isArray(props) ? props : [])
     .filter((p) => p?.player)
     .sort(
       (a, b) =>
         Number(
-          a.controlledBestBoardRank ||
+          a.safetyRank ||
+            a.sealedSafetyRank ||
+            a.controlledBestBoardRank ||
             a.bestSixRank ||
             a.controlledBestSixRank ||
             99
         ) -
         Number(
-          b.controlledBestBoardRank ||
+          b.safetyRank ||
+            b.sealedSafetyRank ||
+            b.controlledBestBoardRank ||
             b.bestSixRank ||
             b.controlledBestSixRank ||
             99
         )
     );
-  // Legacy fixed Best 6 only — never truncate controlled-best-board-v2.
+  // Legacy fixed Best 6 only — never truncate controlled-best-board / WNBA.
   const incoming = variable
     ? sorted
     : sorted.slice(0, BEST_SIX_FULL_COUNT);
+
+  if (variable) {
+    const dup = assertNoDuplicateMembership(incoming, slateDate);
+    if (!dup.ok) {
+      return {
+        ok: false,
+        sealed: false,
+        status: OFFICIAL_SEAL_STATUS.DRAFT,
+        eligible: false,
+        eligibilityReason: MEMBERSHIP_FAIL.DUPLICATE_BOARD_MEMBERSHIP,
+        duplicateCheck: dup,
+        slateDate,
+        propCount: incoming.length,
+        message: MEMBERSHIP_FAIL.DUPLICATE_BOARD_MEMBERSHIP,
+      };
+    }
+  }
 
   if (variable && options.selectionBuildId && options.sealRequestBuildId) {
     if (

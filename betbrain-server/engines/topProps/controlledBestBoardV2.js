@@ -38,8 +38,10 @@ export const MAX_PROPS_PER_TEAM = 2;
 export const MAX_OVERS_PER_TEAM = 1;
 export const MAX_UNDERS_PER_TEAM = 1;
 export const MAX_PROPS_PER_GAME = 4;
-export const TOP_PICKS_LIMIT = 2;
-export const BEST_SIX_OVERALL_LIMIT = 6;
+/** @deprecated Removed from product — kept as 0 so accidental slices yield empty. */
+export const TOP_PICKS_LIMIT = 0;
+/** @deprecated Removed from product — kept as 0. */
+export const BEST_SIX_OVERALL_LIMIT = 0;
 
 /** Extreme single-book gap (Paige-type) → MARKET_SANITY_HOLD */
 export const MARKET_SANITY_GAP_POINTS = 8;
@@ -867,29 +869,14 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
     });
   }
 
-  const ranked = [...verifiedBoard].sort(
-    (a, b) => (b.teamSideScore || 0) - (a.teamSideScore || 0)
-  );
-  const topPicks = ranked.slice(0, TOP_PICKS_LIMIT).map((p, i) => ({
-    ...p,
-    topPickRank: i + 1,
-    isTopPick: true,
-  }));
-  const bestSixOverall = ranked.slice(0, BEST_SIX_OVERALL_LIMIT).map((p, i) => ({
-    ...p,
-    bestSixOverallRank: i + 1,
-    bestSixOverallView: true,
-  }));
-
-  const stampedBoard = ranked.map((p, i) => ({
+  // Full board ranked by safety later in canonical packet (safest → riskiest).
+  // Do not emit Top / Best 6 Overall membership surfaces.
+  const stampedBoard = verifiedBoard.map((p, i) => ({
     ...p,
     controlledBestBoardRank: i + 1,
-    controlledBestBoardSize: ranked.length,
-    isTopPick: topPicks.some((t) => playerKey(t) === playerKey(p) && t.side === p.side),
-    bestSixOverallRank:
-      bestSixOverall.find(
-        (b) => playerKey(b) === playerKey(p) && b.side === p.side
-      )?.bestSixOverallRank || null,
+    controlledBestBoardSize: verifiedBoard.length,
+    isTopPick: false,
+    bestSixOverallRank: null,
     controlledBestSixDisplay: true,
     controlledBestSixRank: i + 1,
     resultsAdmissionEligible: true,
@@ -905,8 +892,8 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
   const preliminary = {
     board: stampedBoard,
     bestSix: stampedBoard,
-    topPicks,
-    bestSixOverall,
+    topPicks: [],
+    bestSixOverall: [],
     audit: {
       version: CONTROLLED_BEST_BOARD_VERSION,
       build: CONTROLLED_BEST_BOARD_BUILD,
@@ -925,8 +912,11 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
       qualifiedOverSlots,
       qualifiedUnderSlots,
       emptySlots,
-      topPicksCount: Math.min(TOP_PICKS_LIMIT, stampedBoard.length),
-      bestSixOverallCount: Math.min(BEST_SIX_OVERALL_LIMIT, stampedBoard.length),
+      topPicksCount: 0,
+      bestSixOverallCount: 0,
+      topPicksRemoved: true,
+      bestSixRemoved: true,
+      labLifecycleRemoved: true,
       maxPropsPerTeam: MAX_PROPS_PER_TEAM,
       maxPropsPerGame: MAX_PROPS_PER_GAME,
       forcedSides: 0,
@@ -937,6 +927,7 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
       quarantine,
       title: `CourtEdge Controlled Best Board — ${requestedSlateDate} CT`,
       sixRowCapApplied: false,
+      noGlobalCap: true,
     },
   };
 

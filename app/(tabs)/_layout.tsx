@@ -1,6 +1,11 @@
 import { Tabs } from "expo-router";
 import React from "react";
 
+/**
+ * CourtEdge navigation lock V1:
+ * Home → Results → History
+ * Top and Lab tabs removed from active product.
+ */
 export default function TabsLayout() {
   return (
     <Tabs
@@ -32,6 +37,7 @@ export default function TabsLayout() {
         name="top-props"
         options={{
           title: "Top",
+          href: null,
         }}
       />
 
@@ -46,6 +52,7 @@ export default function TabsLayout() {
         name="prop-lab"
         options={{
           title: "Lab",
+          href: null,
         }}
       />
 

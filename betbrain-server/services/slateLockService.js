@@ -633,6 +633,12 @@ export function writeSlateHistoryArchive(slateDate, options = {}) {
     props,
     report: report || existing.report || null,
     snapshotFile: existing.snapshotFile || `slate-snapshots/${date}.json`,
+    lifecyclePath: options.lifecyclePath || existing.lifecyclePath || null,
+    labStageSkipped:
+      options.labStageSkipped === true
+        ? true
+        : existing.labStageSkipped || false,
+    promotedAt: options.promotedAt || existing.promotedAt || null,
   };
 
   writeJSON(historyArchivePath(date), archive);
@@ -987,26 +993,39 @@ export function getHistoryArchiveProps(slateDate) {
 }
 
 export function promoteSlateToLab(slateDate, options = {}) {
+  // LOCK V1: Lab lifecycle removed. Redirect to direct Results→History.
+  // Historical readers may still see phase LAB in old archives; new finals go to ARCHIVED.
+  return promoteCompletedResultsToHistory(slateDate, {
+    ...options,
+    legacyLabShim: true,
+  });
+}
+
+/**
+ * Direct Results → History promotion (no Lab stage).
+ * Stores full prop analysis packets on each historical prop.
+ */
+export function promoteCompletedResultsToHistory(slateDate, options = {}) {
   const date = String(slateDate || "");
   if (!date) return { ok: false, message: "Missing slateDate" };
 
   if (!isOnOrAfterCleanDataCutoff(date)) {
     return {
       ok: false,
-      message: `Slate ${date} is before clean data cutoff — Lab promotion skipped`,
+      message: `Slate ${date} is before clean data cutoff — History promotion skipped`,
       skippedPreCutoff: true,
     };
   }
 
   if (isFutureSlateDate(date, getTodayLocalDate())) {
     recordBlockedWrite({
-      action: "promoteSlateToLab",
+      action: "promoteCompletedResultsToHistory",
       slateDate: date,
       reason: "future_slate",
     });
     return {
       ok: false,
-      message: `Slate ${date} is in the future — Lab promotion blocked`,
+      message: `Slate ${date} is in the future — History promotion blocked`,
       blockedByFutureGame: true,
     };
   }
@@ -1023,7 +1042,7 @@ export function promoteSlateToLab(slateDate, options = {}) {
   const now = new Date().toISOString();
 
   if (!props.length) {
-    return { ok: false, message: `No props available to promote slate ${date}` };
+    return { ok: false, message: `No props available to archive slate ${date}` };
   }
 
   if (report) {
@@ -1033,7 +1052,7 @@ export function promoteSlateToLab(slateDate, options = {}) {
     if (reportStatus !== "final" || pending > 0) {
       return {
         ok: false,
-        message: `Slate ${date} daily report is not final — Lab promotion blocked`,
+        message: `Slate ${date} daily report is not final — History promotion blocked`,
         blockedByIncompleteReport: true,
       };
     }
@@ -1042,15 +1061,58 @@ export function promoteSlateToLab(slateDate, options = {}) {
   if (hasUnresolvedGradingProps(props)) {
     return {
       ok: false,
-      message: `Slate ${date} has unresolved props — Lab promotion blocked`,
+      message: `Slate ${date} has unresolved props — History promotion blocked`,
       blockedByUnresolvedGrades: true,
     };
   }
 
+  // Attach former Lab-style analysis onto each prop for History detail.
+  const enrichedProps = props.map((p) => ({
+    ...p,
+    historyDetail: {
+      identity: {
+        player: p.player,
+        team: p.team || p.teamKey,
+        opponent: p.opponent,
+        game: p.game,
+        eventId: p.providerEventId || p.gameId || p.eventId,
+        slateDate: date,
+        side: p.side || p.pick,
+        line: p.officialLine ?? p.line,
+        teamSlot: p.teamSlot || p.selectedTeamSlot,
+        safetyRank: p.safetyRank || p.sealedSafetyRank || p.controlledBestBoardRank,
+      },
+      result: {
+        actualPoints: p.result ?? p.actualPoints ?? null,
+        grade: p.status || p.grade || null,
+        resultMargin: p.resultMargin ?? p.normalizedMargin ?? null,
+        projectionError: p.projectionError ?? null,
+        finalGameScore: p.finalGameScore ?? null,
+        minutes: p.minutes ?? p.actualMinutes ?? null,
+        starter: p.starter ?? null,
+      },
+      pregameModelData: p.homeDetailedAnalysisV1 || p.playerState || p.decisionIntelligence || null,
+      signalAnalysis: {
+        decisionPacket: p.decisionIntelligence || p.decisionPacket || null,
+        engineSignalPacket: p.engineSignalPacket || p.signalLedger || null,
+        supporting: p.supportingSignals || null,
+        opposing: p.opposingSignals || null,
+      },
+      postgameAnalysis: p.postgameAnalysis || null,
+      labDataAttachedToProp: true,
+    },
+    homeHistoryLockBuild:
+      p.homeHistoryLockBuild ||
+      "courteedge-final-variable-team-board-home-history-lock-v1",
+  }));
+
   const archiveResult = writeSlateHistoryArchive(date, {
-    props,
+    props: enrichedProps,
     report,
-    phase: SLATE_PHASE.LAB,
+    phase: SLATE_PHASE.ARCHIVED,
+    lifecyclePath: "HOME_RESULTS_HISTORY",
+    labStageSkipped: true,
+    promotedAt: now,
   });
 
   const registry = getRegistry();
@@ -1059,23 +1121,26 @@ export function promoteSlateToLab(slateDate, options = {}) {
   if (index < 0) {
     registry.slates.push({
       slateDate: date,
-      phase: SLATE_PHASE.LAB,
+      phase: SLATE_PHASE.ARCHIVED,
       lockedAt: snapshot.lockedAt || null,
-      lockReason: snapshot.lockReason || "auto_lab",
-      propCount: props.length,
+      lockReason: snapshot.lockReason || "auto_history",
+      propCount: enrichedProps.length,
       historyArchiveFile: `history-archive/${date}.json`,
-      labPromotedAt: now,
+      historyPromotedAt: now,
+      labPromotedAt: options.legacyLabShim ? now : null,
       finalReportAt: report ? now : null,
+      labStageSkipped: true,
     });
     index = registry.slates.length - 1;
   } else {
     registry.slates[index] = {
       ...registry.slates[index],
-      phase: SLATE_PHASE.LAB,
-      labPromotedAt: now,
-      propCount: props.length,
+      phase: SLATE_PHASE.ARCHIVED,
+      historyPromotedAt: now,
+      propCount: enrichedProps.length,
       historyArchiveFile: `history-archive/${date}.json`,
       finalReportAt: report ? now : registry.slates[index].finalReportAt || now,
+      labStageSkipped: true,
     };
   }
 
@@ -1083,10 +1148,11 @@ export function promoteSlateToLab(slateDate, options = {}) {
 
   return {
     ok: true,
-    message: `Slate ${date} promoted to LAB`,
+    message: `Slate ${date} promoted directly to HISTORY (Lab skipped)`,
     slateDate: date,
     entry: registry.slates[index],
     archive: archiveResult.archive,
+    labStageSkipped: true,
   };
 }
 

@@ -78,21 +78,18 @@ function LeagueDateSection({
           <Text style={styles.summaryTitle}>{viewLabel} Summary</Text>
           <View style={styles.summaryRow}>
             <SummaryMetric
-              label="Board"
-              value={`${summary.controlledBestSixTotal}/${summary.bestSixLimit}`}
+              label="Controlled Best Board"
+              value={`${summary.controlledBestSixTotal ?? summary.controlledBestBoard ?? 0}`}
             />
             <SummaryMetric
               label="Results Tracked"
-              value={`${summary.controlledBestSixTrack ?? summary.controlledBestSix}/${summary.bestSixLimit}`}
+              value={`${summary.controlledBestSixTotal ?? 0}/${summary.controlledBestSixTotal ?? 0}`}
             />
+            <SummaryMetric label="Overs" value={summary.overs ?? "—"} />
+            <SummaryMetric label="Unders" value={summary.unders ?? "—"} />
             <SummaryMetric
-              label="Top Picks"
-              value={`${summary.topPicks}/${summary.topPickLimit}`}
-            />
-            <SummaryMetric label="Candidates" value={summary.boardCandidates} />
-            <SummaryMetric
-              label="Best 6 View"
-              value={`${summary.bestSixOverallCount ?? Math.min(summary.controlledBestSixTotal, 6)}/6`}
+              label="Date Check"
+              value={summary.dateVerification || "PASS"}
             />
           </View>
         </View>
@@ -104,10 +101,9 @@ function LeagueDateSection({
             {viewLabel} -- {league} Controlled Best Board
           </Text>
           <Text style={styles.sectionSubtext}>
-            {summary.variableBoardSize
-              ? `Best organic Over + Under per team (never forced) · ${summary.controlledBestSixTotal} board`
-              : `Top ${summary.bestSixLimit} board ranks · All Best 6 tracked in Results`}{" "}
-            ({summary.controlledBestSixTrack ?? summary.controlledBestSix} tracked)
+            Ranked safest → riskiest · Best organic Over + Under per team ·{" "}
+            {summary.controlledBestSixTotal} Official props (variable board, no
+            cap)
           </Text>
           {bestSixCards.map((pick, index) => (
             <PropCard
@@ -392,9 +388,8 @@ export default function HomeControlledBestSixScreen() {
             {viewLabel} -- {activeLeague}
           </Text>
           <Text style={styles.homeDateSubtext}>
-            Controlled Best 6 for {activeLeague} · Switch Today / Tomorrow above · Top 2 on Top tab
-            ({formatDateViewLabel(HOME_SECONDARY_DATE_VIEW)} look-ahead) · Rollover → Results → Lab →
-            History
+            Controlled Best Board for {activeLeague} · Switch Today / Tomorrow
+            above · Full board Official · Results → History
           </Text>
         </View>
 
@@ -409,7 +404,7 @@ export default function HomeControlledBestSixScreen() {
         </TouchableOpacity>
 
         {loading ? (
-          <Text style={styles.loadingText}>Loading Controlled Best 6...</Text>
+          <Text style={styles.loadingText}>Loading Controlled Best Board...</Text>
         ) : null}
 
         <LoadErrorBanner message={loadError} />

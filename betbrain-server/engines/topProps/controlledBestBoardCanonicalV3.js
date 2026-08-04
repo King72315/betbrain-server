@@ -4,14 +4,21 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import {
+  HOME_HISTORY_LOCK_BUILD,
+  applySafetyRanking,
+  assertNoDuplicateMembership,
+  assertSelectionBuildLock,
+  LOCK_FAIL,
+} from "./variableTeamBoardHomeHistoryLockV1.js";
 
 // Keep version strings inline to avoid circular import with controlledBestBoardV2.
 export const CANONICAL_BOARD_VERSION = "controlled-best-board-v2";
 export const CANONICAL_BOARD_BUILD =
   "courteedge-mandatory-team-over-under-pair-selection-v2";
 export const CANONICAL_BOARD_MEMBERSHIP_MODEL = "controlled-best-board-v2";
-export const CANONICAL_BOARD_SEAL_BUILD =
-  "courteedge-canonical-controlled-board-sealing-path-v3";
+/** Structural lock supersedes V3 seal build label for new seals. */
+export const CANONICAL_BOARD_SEAL_BUILD = HOME_HISTORY_LOCK_BUILD;
 
 export const MEMBERSHIP_FAIL = {
   OFFICIAL_BOARD_MEMBERSHIP_INTEGRITY_FAIL:
@@ -24,6 +31,7 @@ export const MEMBERSHIP_FAIL = {
   TEAM_CAP_EXCEEDED: "TEAM_CAP_EXCEEDED",
   PLAYER_DUPLICATE: "PLAYER_DUPLICATE",
   SIDE_CHANGED_AFTER_PAIR: "SIDE_CHANGED_AFTER_PAIR",
+  DUPLICATE_BOARD_MEMBERSHIP: LOCK_FAIL.DUPLICATE_BOARD_MEMBERSHIP,
 };
 
 function str(v) {
@@ -81,10 +89,9 @@ export function buildCanonicalControlledBoardPacket(boardResult = {}, options = 
   const selectionBuildId =
     options.selectionBuildId || createSelectionBuildId(slateDate);
 
-  const selectedProps = (boardResult.board || boardResult.bestSix || []).map(
+  const stamped = (boardResult.board || boardResult.selectedProps || boardResult.bestSix || []).map(
     (pick, index) => {
       const side = normalizeSide(pick.side || pick.pick);
-      const slot = String(pick.teamSlot || pick.selectedTeamSlot || "").toUpperCase();
       const id = boardSelectionId(pick, slateDate);
       return {
         ...pick,
@@ -95,7 +102,6 @@ export function buildCanonicalControlledBoardPacket(boardResult = {}, options = 
         variableBoardSize: true,
         controlledBestBoard: true,
         controlledBestBoardRank: pick.controlledBestBoardRank || index + 1,
-        controlledBestSixRank: pick.controlledBestSixRank || index + 1,
         controlledBestSixDisplay: true,
         sourcePool: "CONTROLLED_BEST_BOARD",
         trackingAdmissionSource: "CONTROLLED_BEST_BOARD",
@@ -111,44 +117,61 @@ export function buildCanonicalControlledBoardPacket(boardResult = {}, options = 
         slateDate: slateDate || pick.slateDate,
         canonicalSlateDate: pick.canonicalSlateDate || slateDate,
         requestedSlateDate: pick.requestedSlateDate || slateDate,
+        homeHistoryLockBuild: HOME_HISTORY_LOCK_BUILD,
       };
     }
   );
 
-  const bestSixOverall = (boardResult.bestSixOverall || selectedProps.slice(0, 6)).map(
-    (p, i) => ({
-      ...p,
-      bestSixOverallRank: i + 1,
-      bestSixOverallView: true,
-      // Explicit: not a membership substitute
-      officialMembershipSource: "VIEW_ONLY",
-    })
-  );
-
-  const topPicks = boardResult.topPicks || selectedProps.slice(0, 2);
+  const dupCheck = assertNoDuplicateMembership(stamped, slateDate);
+  const safety = applySafetyRanking(stamped, slateDate);
+  const selectedProps = safety.props;
 
   const packet = {
     membershipModel: CANONICAL_BOARD_MEMBERSHIP_MODEL,
     boardVersion: CANONICAL_BOARD_VERSION,
     boardBuild: CANONICAL_BOARD_BUILD,
     sealBuild: CANONICAL_BOARD_SEAL_BUILD,
+    homeHistoryLockBuild: HOME_HISTORY_LOCK_BUILD,
     selectionBuildId,
     variableBoardSize: true,
+    noGlobalCap: true,
     teamSlotRules: "one-over-one-under-per-team",
     verifiedSlateDate: slateDate,
     timezone: "America/Chicago",
     selectedProps,
     officialCount: selectedProps.length,
-    bestSixOverall,
-    bestSixOverallCount: Math.min(6, selectedProps.length),
-    topPicks,
-    audit: boardResult.audit || boardResult.controlledBestBoardAudit || {},
+    // Removed from active product — empty for API compatibility only
+    bestSixOverall: [],
+    bestSixOverallCount: 0,
+    topPicks: [],
+    topPicksRemoved: true,
+    bestSixRemoved: true,
+    labLifecycleRemoved: true,
+    audit: {
+      ...(boardResult.audit || boardResult.controlledBestBoardAudit || {}),
+      duplicateCheck: dupCheck,
+      safetyRankingOk: safety.ok,
+    },
     officialMembership: selectedProps,
+    controlledBestBoard: { selectedProps },
   };
 
   const invariants = validateCanonicalBoardInvariants(packet);
+  if (!dupCheck.ok) {
+    invariants.ok = false;
+    invariants.status = MEMBERSHIP_FAIL.DUPLICATE_BOARD_MEMBERSHIP;
+    invariants.reasons = [
+      ...(invariants.reasons || []),
+      MEMBERSHIP_FAIL.DUPLICATE_BOARD_MEMBERSHIP,
+    ];
+  }
+  if (!safety.ok) {
+    invariants.ok = false;
+    invariants.reasons = [...(invariants.reasons || []), LOCK_FAIL.SAFETY_RANK_INVALID];
+  }
   packet.invariants = invariants;
   packet.membershipValid = invariants.ok;
+  packet.duplicateCheck = dupCheck;
 
   return packet;
 }
@@ -231,12 +254,17 @@ export function assertOfficialMatchesControlledBoard({
   sealRequestBuildId = null,
 } = {}) {
   const reasons = [];
-  if (
-    selectionBuildId &&
-    sealRequestBuildId &&
-    String(selectionBuildId) !== String(sealRequestBuildId)
-  ) {
+  const buildLock = assertSelectionBuildLock({
+    selectionBuildId,
+    sealBuildId: sealRequestBuildId,
+  });
+  if (!buildLock.ok) {
     reasons.push(MEMBERSHIP_FAIL.STALE_SELECTION_BUILD);
+  }
+  const dupOfficial = assertNoDuplicateMembership(officialProps);
+  const dupBoard = assertNoDuplicateMembership(selectedProps);
+  if (!dupOfficial.ok || !dupBoard.ok) {
+    reasons.push(MEMBERSHIP_FAIL.DUPLICATE_BOARD_MEMBERSHIP);
   }
 
   const boardIds = new Set(
@@ -286,6 +314,17 @@ export function isCanonicalBoardProp(pick = {}) {
 export function shouldUseVariableBoardSeal(props = [], options = {}) {
   if (options.membershipModel === CANONICAL_BOARD_MEMBERSHIP_MODEL) return true;
   if (options.variableBoardSize === true) return true;
+  if (options.forceVariableBoard === true) return true;
+  // Home-History lock: WNBA always uses full controlled board (no six-cap).
   const list = Array.isArray(props) ? props : [];
+  if (
+    list.some(
+      (p) =>
+        String(p.league || "").toUpperCase() === "WNBA" ||
+        isCanonicalBoardProp(p)
+    )
+  ) {
+    return true;
+  }
   return list.some(isCanonicalBoardProp);
 }

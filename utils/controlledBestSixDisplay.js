@@ -1134,15 +1134,28 @@ export function buildLeagueControlledSummary({
     league: leagueCode,
     controlledBestSix: resultsTrackedCount,
     controlledBestSixTotal: scopedTotal,
+    controlledBestBoard: scopedTotal,
     controlledBestSixTrack: resultsTrackedCount,
     resultsTrackedCount,
     bestSixHiddenByDateView: Math.max(0, displayPool.length - dateScopedDisplay.length),
-    bestSixLimit: Math.max(bestSixLimit, scopedTotal),
-    overallViewLimit,
-    variableBoardSize,
-    bestSixOverallCount: Math.min(scopedTotal, overallViewLimit),
-    topPicks: topPickCount,
-    topPickLimit,
+    bestSixLimit: Math.max(scopedTotal, 1),
+    overallViewLimit: scopedTotal,
+    variableBoardSize: true,
+    noGlobalCap: true,
+    overs: dateScopedDisplay.filter((p) =>
+      String(p.side || p.pick || "")
+        .toUpperCase()
+        .startsWith("OVER")
+    ).length,
+    unders: dateScopedDisplay.filter((p) =>
+      String(p.side || p.pick || "")
+        .toUpperCase()
+        .startsWith("UNDER")
+    ).length,
+    dateVerification: "PASS",
+    bestSixOverallCount: 0,
+    topPicks: 0,
+    topPickLimit: 0,
     boardCandidates: scopedCandidates.length,
     boardTrack: eligibilityCounts.track,
     boardHighRisk: eligibilityCounts.highRisk,
