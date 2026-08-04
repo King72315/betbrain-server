@@ -2,9 +2,9 @@ import { Tabs } from "expo-router";
 import React from "react";
 
 /**
- * CourtEdge navigation lock V1:
- * Home → Results → History
- * Top and Lab tabs removed from active product.
+ * CourtEdge navigation V2:
+ * Home → WNBA → Results → Tennis → History
+ * Top and Lab remain hidden from active product chrome.
  */
 export default function TabsLayout() {
   return (
@@ -34,10 +34,9 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="top-props"
+        name="wnba"
         options={{
-          title: "Top",
-          href: null,
+          title: "WNBA",
         }}
       />
 
@@ -49,10 +48,9 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="prop-lab"
+        name="tennis-results"
         options={{
-          title: "Lab",
-          href: null,
+          title: "Tennis",
         }}
       />
 
@@ -60,6 +58,22 @@ export default function TabsLayout() {
         name="history"
         options={{
           title: "History",
+        }}
+      />
+
+      <Tabs.Screen
+        name="top-props"
+        options={{
+          title: "Top",
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="prop-lab"
+        options={{
+          title: "Lab",
+          href: null,
         }}
       />
 
@@ -80,13 +94,6 @@ export default function TabsLayout() {
 
       <Tabs.Screen
         name="nba"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="wnba"
         options={{
           href: null,
         }}

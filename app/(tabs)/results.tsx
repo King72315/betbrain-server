@@ -21,13 +21,15 @@ import {
 } from "../../services/api";
 import { buildResultsReport } from "../../utils/reportBuilders";
 import {
-  RESULTS_FILTERS,
+  RESULTS_LEAGUE_TABS,
+  RESULTS_STATUS_FILTERS,
   AWAITING_STATS_LABEL,
   buildKeyTakeaways,
   computeAccuracySummary,
   computePendingCheckSummary,
   computeVisibleResultsSlates,
-  filterResultsProps,
+  filterCourtEdgeTrackedProps,
+  filterResultsPropsCompound,
   formatResultsAwaitingStatsReason,
   formatResultsSlateLabel,
   getTrackedPropStatus,
@@ -43,7 +45,8 @@ import {
   isPriorSlateStillActive,
   formatPriorSlateStillActiveLabel,
   summarizeActiveResultsSlate,
-  type ResultsFilter,
+  type ResultsLeagueTab,
+  type ResultsStatusFilter,
 } from "../../utils/resultsQueue";
 import { computeSlateRotation, getTodayLocalDate } from "../../utils/slateRotation";
 import { formatPropLabelLine, getPropDisplayLabels } from "../../utils/propLabels";
@@ -115,7 +118,8 @@ function num(value: any) {
 export default function ResultsScreen() {
   const [trackedProps, setTrackedProps] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
-  const [filter, setFilter] = useState<ResultsFilter>("All");
+  const [leagueTab, setLeagueTab] = useState<ResultsLeagueTab>("WNBA");
+  const [statusFilter, setStatusFilter] = useState<ResultsStatusFilter>("All");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -259,14 +263,31 @@ export default function ResultsScreen() {
     }, [])
   );
 
+  const courtEdgeTrackedProps = useMemo(
+    () => filterCourtEdgeTrackedProps(trackedProps),
+    [trackedProps]
+  );
+
   const visibleSlates = useMemo(
-    () => computeVisibleResultsSlates(trackedProps, reports, todayLocalDate, lockedSlates),
-    [trackedProps, reports, todayLocalDate, lockedSlates]
+    () =>
+      computeVisibleResultsSlates(
+        courtEdgeTrackedProps,
+        reports,
+        todayLocalDate,
+        lockedSlates
+      ),
+    [courtEdgeTrackedProps, reports, todayLocalDate, lockedSlates]
   );
 
   const activeResultsSummary = useMemo(
-    () => summarizeActiveResultsSlate(trackedProps, reports, todayLocalDate, lockedSlates),
-    [trackedProps, reports, todayLocalDate, lockedSlates]
+    () =>
+      summarizeActiveResultsSlate(
+        courtEdgeTrackedProps,
+        reports,
+        todayLocalDate,
+        lockedSlates
+      ),
+    [courtEdgeTrackedProps, reports, todayLocalDate, lockedSlates]
   );
 
   const priorSlateStillActive = isPriorSlateStillActive(
@@ -277,9 +298,9 @@ export default function ResultsScreen() {
   const filteredSlates = useMemo(() => {
     return visibleSlates.map((slate) => ({
       ...slate,
-      props: filterResultsProps(slate.props, filter),
+      props: filterResultsPropsCompound(slate.props, leagueTab, statusFilter),
     }));
-  }, [visibleSlates, filter]);
+  }, [visibleSlates, leagueTab, statusFilter]);
 
   const trackingTypeCounts = useMemo(
     () => summarizeTrackingTypeCounts(visibleSlates.flatMap((s) => s.props)),
@@ -378,7 +399,7 @@ export default function ResultsScreen() {
     buildResultsReport({
       visibleSlates,
       filteredSlates,
-      filter,
+      filter: leagueTab === "All" ? statusFilter : `${leagueTab} · ${statusFilter}`,
       loading,
       refreshing,
       lastResolveSummary,
@@ -601,22 +622,56 @@ export default function ResultsScreen() {
           </View>
         ) : null}
 
+        <View style={styles.leagueTabRow}>
+          {RESULTS_LEAGUE_TABS.map((tab) => {
+            const isActive = leagueTab === tab;
+            const accent =
+              tab === "WNBA"
+                ? { border: "#f472b6", bg: "#500724", text: "#fbcfe8" }
+                : tab === "NBA"
+                  ? { border: "#60a5fa", bg: "#1e3a8a", text: "#dbeafe" }
+                  : { border: "#22c55e", bg: "#14532d", text: "#bbf7d0" };
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setLeagueTab(tab)}
+                style={[
+                  styles.leagueTabButton,
+                  isActive && {
+                    borderColor: accent.border,
+                    backgroundColor: accent.bg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.leagueTabText,
+                    isActive && { color: accent.text },
+                  ]}
+                >
+                  {tab === "All" ? "All Leagues" : tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterRow}
           contentContainerStyle={styles.filterContent}
         >
-          {RESULTS_FILTERS.map((item) => (
+          {RESULTS_STATUS_FILTERS.map((item) => (
             <TouchableOpacity
               key={item}
-              style={[styles.filterChip, filter === item && styles.filterChipActive]}
-              onPress={() => setFilter(item)}
+              style={[styles.filterChip, statusFilter === item && styles.filterChipActive]}
+              onPress={() => setStatusFilter(item)}
             >
               <Text
                 style={[
                   styles.filterChipText,
-                  filter === item && styles.filterChipTextActive,
+                  statusFilter === item && styles.filterChipTextActive,
                 ]}
               >
                 {item}
@@ -1158,6 +1213,25 @@ const styles = StyleSheet.create({
   filterContent: {
     gap: 8,
     paddingRight: 8,
+  },
+  leagueTabRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  leagueTabButton: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    backgroundColor: "#0f172a",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  leagueTabText: {
+    color: "#94a3b8",
+    fontSize: 13,
+    fontWeight: "900",
   },
   filterChip: {
     backgroundColor: "#1e293b",

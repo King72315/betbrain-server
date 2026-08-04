@@ -32,16 +32,48 @@ export {
   formatPriorSlateStillActiveLabel,
 };
 
-export const RESULTS_FILTERS = [
+export const RESULTS_LEAGUE_TABS = ["All", "NBA", "WNBA"] as const;
+export const RESULTS_STATUS_FILTERS = [
   "All",
   "Pending",
   "Graded",
   "Awaiting stats",
+] as const;
+
+/** Combined chip list (legacy). Prefer RESULTS_LEAGUE_TABS + RESULTS_STATUS_FILTERS. */
+export const RESULTS_FILTERS = [
+  ...RESULTS_STATUS_FILTERS,
   "NBA",
   "WNBA",
 ] as const;
 
+export type ResultsLeagueTab = (typeof RESULTS_LEAGUE_TABS)[number];
+export type ResultsStatusFilter = (typeof RESULTS_STATUS_FILTERS)[number];
 export type ResultsFilter = (typeof RESULTS_FILTERS)[number];
+
+const TENNIS_LEAGUE_TOKENS = new Set([
+  "TENNIS",
+  "ATP",
+  "WTA",
+  "TENNISEDGE",
+  "TENNIS_EDGE",
+]);
+
+export function isTennisTrackedProp(prop: any): boolean {
+  const league = String(prop?.league || prop?.sport || "").toUpperCase().trim();
+  if (TENNIS_LEAGUE_TOKENS.has(league)) return true;
+  if (league.includes("TENNIS")) return true;
+  const product = String(prop?.product || prop?.edge || "").toUpperCase();
+  return product.includes("TENNIS");
+}
+
+export function filterTennisTrackedProps(props: any[]): any[] {
+  return (Array.isArray(props) ? props : []).filter(isTennisTrackedProp);
+}
+
+export function filterCourtEdgeTrackedProps(props: any[]): any[] {
+  return (Array.isArray(props) ? props : []).filter((prop) => !isTennisTrackedProp(prop));
+}
 
 export type TrackedPropStatus = "Win" | "Loss" | "Push" | "Pending" | "Awaiting stats";
 
@@ -661,23 +693,71 @@ export function summarizeActiveResultsSlate(
   };
 }
 
-export function filterResultsProps(props: any[], filter: ResultsFilter) {
-  if (filter === "All") return props;
-  if (filter === "NBA") return props.filter((prop) => prop.league === "NBA");
-  if (filter === "WNBA") return props.filter((prop) => prop.league === "WNBA");
-  if (filter === "Pending") {
+export function filterResultsPropsByLeague(
+  props: any[],
+  league: ResultsLeagueTab | ResultsFilter
+) {
+  if (league === "NBA") {
+    return props.filter((prop) => String(prop.league || "").toUpperCase() === "NBA");
+  }
+  if (league === "WNBA") {
+    return props.filter((prop) => String(prop.league || "").toUpperCase() === "WNBA");
+  }
+  return props;
+}
+
+export function filterResultsPropsByStatus(
+  props: any[],
+  status: ResultsStatusFilter | ResultsFilter
+) {
+  if (status === "Pending") {
     return props.filter((prop) => getTrackedPropStatus(prop) === "Pending");
   }
-  if (filter === "Graded") {
+  if (status === "Graded") {
     return props.filter((prop) =>
       ["Win", "Loss", "Push"].includes(getTrackedPropStatus(prop))
     );
   }
-  if (filter === "Awaiting stats") {
+  if (status === "Awaiting stats") {
     return props.filter((prop) => getTrackedPropStatus(prop) === "Awaiting stats");
   }
-
   return props;
+}
+
+export function filterResultsProps(
+  props: any[],
+  filter: ResultsFilter,
+  statusFilter: ResultsStatusFilter = "All"
+) {
+  // Legacy single-chip mode: NBA/WNBA/status are mutually exclusive.
+  if (filter === "NBA" || filter === "WNBA") {
+    return filterResultsPropsByStatus(
+      filterResultsPropsByLeague(props, filter),
+      statusFilter
+    );
+  }
+  if (
+    filter === "Pending" ||
+    filter === "Graded" ||
+    filter === "Awaiting stats"
+  ) {
+    return filterResultsPropsByStatus(props, filter);
+  }
+  return filterResultsPropsByStatus(
+    filterResultsPropsByLeague(props, "All"),
+    statusFilter
+  );
+}
+
+export function filterResultsPropsCompound(
+  props: any[],
+  league: ResultsLeagueTab,
+  status: ResultsStatusFilter
+) {
+  return filterResultsPropsByStatus(
+    filterResultsPropsByLeague(props, league),
+    status
+  );
 }
 
 export function formatResultsSlateLabel(slateDate: string) {
