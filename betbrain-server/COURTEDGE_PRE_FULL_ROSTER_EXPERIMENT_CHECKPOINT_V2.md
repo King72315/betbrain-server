@@ -7,7 +7,7 @@
 | Item | Value |
 |------|-------|
 | Parent / previous checkpoint | V1 `bf581a1…` |
-| V2 commit | _(filled after commit)_ |
+| V2 commit | `339f132d585edfd5181919cb957b7aabcacece98` |
 | Annotated tag | `courteedge-pre-full-roster-experiment-v2` |
 | Rollback branch | `rollback/courteedge-pre-full-roster-experiment-v2` |
 | Experiment branch | `experiment/courteedge-full-roster-collection-v1` (repointed to V2) |
