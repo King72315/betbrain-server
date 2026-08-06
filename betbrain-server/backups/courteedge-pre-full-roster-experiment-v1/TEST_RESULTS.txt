@@ -1,0 +1,13 @@
+Clear-side: 17 PASS
+No-LAST_VALID: 16 PASS
+Pair selection: 15 PASS
+Date verification: 15 PASS
+Canonical sealing: 12 PASS
+Home/History lock: PASS
+Integrity: 10 PASS
+Calibration: 12 PASS
+Lifecycle integrity: 6/6 PASS
+Sealed home membership display: 9 PASS
+Line integrity: PASS
+History three-slate groups: 5 PASS
+Official slate lifecycle: FAIL (known Best-6 era mismatch — intentionally unchanged)

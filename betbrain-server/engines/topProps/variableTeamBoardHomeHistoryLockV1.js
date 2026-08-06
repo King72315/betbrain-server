@@ -119,11 +119,20 @@ function trueRiskRank(pick = {}) {
  */
 export function computeCanonicalSafetyScore(pick = {}) {
   const di = pick.decisionIntelligence || {};
+  // Prefer calibrated side score when present (directional calibration V1).
   const score = num(
-    pick.bestPropScore ?? pick.pickScore ?? pick.teamSideScore ?? pick.controlledBestSixScore,
+    pick.calibratedTeamSideScore ??
+      pick.calibratedSafetyScore ??
+      pick.bestPropScore ??
+      pick.pickScore ??
+      pick.teamSideScore ??
+      pick.controlledBestSixScore,
     0
   );
-  const confidence = num(pick.confidence ?? pick.winProbability, 50);
+  const confidence = num(
+    pick.calibratedConfidence ?? pick.confidence ?? pick.winProbability,
+    50
+  );
   const dangerPenalty = num(di.dangerGateCount ?? pick.dangerGateCount, 0) * 6;
   const riskBonus = trueRiskRank(pick) * 15;
   const gateBonus =
@@ -159,6 +168,10 @@ export function computeCanonicalSafetyScore(pick = {}) {
   const promotedPenalty =
     (pick.bestSixQualityFlags?.length || di.promotionReasons?.length || 0) * 8 +
     (di.bestSixPromoted ? 8 : 0);
+  const calibrationConflictPenalty =
+    (Array.isArray(pick.highRiskReasons) ? pick.highRiskReasons.length : 0) * 5 +
+    Math.max(0, -num(pick.calibrationDelta, 0)) * 0.25;
+  const agreementBonus = Math.max(0, num(pick.calibrationDelta, 0)) * 0.15;
 
   return (
     score +
@@ -169,13 +182,15 @@ export function computeCanonicalSafetyScore(pick = {}) {
     stabilityBonus +
     bookBonus +
     marketBonus +
-    marginBonus -
+    marginBonus +
+    agreementBonus -
     dangerPenalty -
     debtPenalty -
     killPenalty -
     conflictPenalty -
     blowoutPenalty -
-    promotedPenalty
+    promotedPenalty -
+    calibrationConflictPenalty
   );
 }
 
@@ -214,11 +229,29 @@ export function applySafetyRanking(props = [], slateDate = "") {
           : Number((line - proj).toFixed(2));
     }
     const score = computeCanonicalSafetyScore(p);
+    const baselineSafety = num(
+      p.baselineSafetyScore,
+      // Reconstruct baseline-ish safety if only baseline side score exists
+      p.baselineTeamSideScore != null
+        ? computeCanonicalSafetyScore({
+            ...p,
+            teamSideScore: p.baselineTeamSideScore,
+            calibratedTeamSideScore: p.baselineTeamSideScore,
+            confidence: p.baselineConfidence ?? p.confidence,
+            calibratedConfidence: p.baselineConfidence ?? p.confidence,
+            trueRisk: p.baselineTrueRisk ?? p.trueRisk,
+            highRiskReasons: [],
+            calibrationDelta: 0,
+          })
+        : score
+    );
     return {
       ...p,
       projectionMargin:
         projectionMargin != null ? projectionMargin : p.projectionMargin ?? null,
       canonicalSafetyScore: Number(score.toFixed(3)),
+      calibratedSafetyScore: Number(score.toFixed(3)),
+      baselineSafetyScore: Number(Number(baselineSafety).toFixed(3)),
       canonicalPropId: canonicalPropIdentity(p, slateDate),
     };
   });

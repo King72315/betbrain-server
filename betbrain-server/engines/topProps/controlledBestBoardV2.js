@@ -1,8 +1,10 @@
 /**
  * CourtEdge Controlled Best Board V2
- * Mandatory Best Over + Best Under per team via distinct-player pair optimization.
- * Model-quality weaknesses → ranking/risk penalties, not empty slots.
- * Hard exclusions: date/event/market validity (+ MARKET_SANITY_HOLD) only.
+ * Best organic Over + Under per team when membership quality passes.
+ * Build: courteedge-clear-side-strong-edge-membership-path-v1
+ * Evidence-based membership; LAST_VALID / soft score / soft sanity are ranking only.
+ * Hard exclusions: date/event/market validity (+ membership quality gates).
+ * Prediction/calibration weights are untouched.
  */
 
 import {
@@ -15,12 +17,12 @@ import {
   SLATE_DATE_VERIFICATION_VERSION,
 } from "../../services/slateDateVerificationV1.js";
 import {
-  resolveFinalSide,
   resolveBestPropScore,
+  auditBestPropScore,
   resolveRoleStability,
   resolveVolatility,
   resolveMatchupShadowDirection,
-  resolveProjectionSanity,
+  resolveProjectionSanityLevel,
   resolveNaturalDecision,
   resolveSideRescueAction,
 } from "./bestSixSelectionIntegrityV1.js";
@@ -29,10 +31,27 @@ import {
   CANONICAL_BOARD_MEMBERSHIP_MODEL,
   CANONICAL_BOARD_SEAL_BUILD,
 } from "./controlledBestBoardCanonicalV3.js";
+import {
+  DIRECTIONAL_CALIBRATION_BUILD,
+  stampCalibratedSideCandidate,
+} from "./directionalCalibrationV1.js";
+import {
+  MEMBERSHIP_QUALITY_BUILD,
+  MEMBERSHIP_EDGE_FLOOR,
+  PREFERRED_GAP_FLOOR,
+  MEMBERSHIP_REJECT,
+  evaluateOfficialMembershipQuality,
+  preferredGapRankingBonus,
+  resolveOfficialTrackLabel,
+  emptySlotReasonForSide,
+  resolveOriginalModelSide,
+  resolveDirectionalEdge,
+} from "./controlledBoardMembershipQualityV1.js";
 
 export const CONTROLLED_BEST_BOARD_VERSION = "controlled-best-board-v2";
-export const CONTROLLED_BEST_BOARD_BUILD =
-  "courteedge-mandatory-team-over-under-pair-selection-v2";
+export const CONTROLLED_BEST_BOARD_BUILD = MEMBERSHIP_QUALITY_BUILD;
+/** Active scoring calibration for future unsealed WNBA boards. */
+export const CONTROLLED_BEST_BOARD_CALIBRATION = DIRECTIONAL_CALIBRATION_BUILD;
 
 export const MAX_PROPS_PER_TEAM = 2;
 export const MAX_OVERS_PER_TEAM = 1;
@@ -56,6 +75,29 @@ export const EMPTY_SLOT_REASONS = {
   ALL_MARKETS_SANITY_HOLD: "ALL_MARKETS_SANITY_HOLD",
   MARKET_COVERAGE_INSUFFICIENT: "MARKET_COVERAGE_INSUFFICIENT",
   NO_VALID_SIDE_CANDIDATES: "NO_VALID_SIDE_CANDIDATES",
+  NO_QUALIFIED_TEAM_OVER: MEMBERSHIP_REJECT.NO_QUALIFIED_TEAM_OVER,
+  NO_QUALIFIED_TEAM_UNDER: MEMBERSHIP_REJECT.NO_QUALIFIED_TEAM_UNDER,
+  EDGE_BELOW_MEMBERSHIP_FLOOR: MEMBERSHIP_REJECT.EDGE_BELOW_MEMBERSHIP_FLOOR,
+  NATURAL_NO_BET: MEMBERSHIP_REJECT.NATURAL_NO_BET,
+  BOTH_SIDES_WEAK: MEMBERSHIP_REJECT.BOTH_SIDES_WEAK,
+  UNCERTAINTY: MEMBERSHIP_REJECT.UNCERTAINTY,
+  BLOWOUT_OVER_HARD_BLOCK: MEMBERSHIP_REJECT.BLOWOUT_OVER_HARD_BLOCK,
+  UNCONFIRMED_AVAILABILITY_OVER_BLOCK:
+    MEMBERSHIP_REJECT.UNCONFIRMED_AVAILABILITY_OVER_BLOCK,
+  SEALED_SIDE_PACKET_MISMATCH: MEMBERSHIP_REJECT.SEALED_SIDE_PACKET_MISMATCH,
+  LOW_VOLUME_WITHOUT_UNDER_EDGE: MEMBERSHIP_REJECT.LOW_VOLUME_WITHOUT_UNDER_EDGE,
+  TEAM_SIDE_LAST_VALID: MEMBERSHIP_REJECT.TEAM_SIDE_LAST_VALID,
+  ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP:
+    MEMBERSHIP_REJECT.ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP,
+};
+
+export {
+  MEMBERSHIP_QUALITY_BUILD,
+  MEMBERSHIP_EDGE_FLOOR,
+  PREFERRED_GAP_FLOOR,
+  MEMBERSHIP_REJECT,
+  evaluateOfficialMembershipQuality,
+  resolveOfficialTrackLabel,
 };
 
 export const HARD_EXCLUDE_REASONS = {
@@ -215,7 +257,9 @@ export function evaluateHardMarketValidity(pick = {}, options = {}) {
 }
 
 /**
- * Soft model-quality penalties — never hard-empty a slot alone.
+ * Soft model-quality penalties — ranking/confidence packaging only.
+ * Never hard-empty a slot alone. Missing bestPropScore ≠ low score.
+ * Projection sanity WEAK only when genuinely inconsistent (not MIXED usage advisory).
  */
 export function collectSoftPenalties(pick = {}, side = "OVER") {
   const penalties = [];
@@ -240,22 +284,29 @@ export function collectSoftPenalties(pick = {}, side = "OVER") {
     penaltyScore += 8;
   }
 
-  const score = resolveBestPropScore(pick);
-  if (score != null && score < 50) {
+  const scoreAudit = auditBestPropScore(pick);
+  // Until score packaging is fully normalized: use for ranking only.
+  // Do not treat MISSING (resolved as 0) as LOW_BEST_PROP_SCORE.
+  if (scoreAudit.belowFiftyFloor) {
     penalties.push("LOW_BEST_PROP_SCORE");
     penaltyScore += 20;
     riskBump += 1;
-  } else if (score != null && score < 60) {
+  } else if (
+    scoreAudit.present &&
+    scoreAudit.scale === "ZERO_TO_HUNDRED" &&
+    scoreAudit.raw < 60
+  ) {
     penalties.push("SUB_60_BEST_PROP_SCORE");
     penaltyScore += 10;
     riskBump += 0.5;
   }
 
   const natural = resolveNaturalDecision(pick);
+  // BOARD_ONLY is soft ranking pressure, not membership hard reject.
   if (natural === "BOARD_ONLY" || natural === "SHADOW_ONLY") {
     penalties.push("BOARD_ONLY_OR_SHADOW");
-    penaltyScore += 12;
-    riskBump += 0.5;
+    penaltyScore += 8;
+    riskBump += 0.25;
   }
   if (natural === "NO_BET") {
     penalties.push("NATURAL_NO_BET");
@@ -290,8 +341,9 @@ export function collectSoftPenalties(pick = {}, side = "OVER") {
     riskBump += 0.5;
   }
 
-  const sanity = resolveProjectionSanity(pick);
-  if (sanity.questionsUsage) {
+  // Side-isolated sanity: Over/Under packets must not share a false universal WEAK.
+  const sanityLevel = resolveProjectionSanityLevel(pick, side);
+  if (sanityLevel.level === "WEAK") {
     penalties.push("PROJECTION_SANITY_WEAK");
     penaltyScore += 8;
     riskBump += 0.5;
@@ -309,7 +361,14 @@ export function collectSoftPenalties(pick = {}, side = "OVER") {
     riskBump += 0.5;
   }
 
-  return { penalties, penaltyScore, riskBump, edge };
+  return {
+    penalties,
+    penaltyScore,
+    riskBump,
+    edge,
+    scoreAudit,
+    projectionSanityLevel: sanityLevel.level,
+  };
 }
 
 function baseSideScore(pick = {}, side = "OVER") {
@@ -345,7 +404,9 @@ function baseSideScore(pick = {}, side = "OVER") {
 export function scoreSideCandidate(pick = {}, side = "OVER") {
   const soft = collectSoftPenalties(pick, side);
   const raw = baseSideScore(pick, side);
-  const sideScore = Math.max(1, raw - soft.penaltyScore);
+  // Preferred gap (≥3.0) is a ranking/safety advantage — not equal to bare 1.5 floor.
+  const gapBonus = preferredGapRankingBonus(soft.edge);
+  const sideScore = Math.max(1, raw - soft.penaltyScore + gapBonus);
   let tier = "TEAM_SIDE_PRIMARY";
   if (soft.penaltyScore >= 28 || soft.riskBump >= 2) tier = "TEAM_SIDE_LAST_VALID";
   else if (soft.penaltyScore >= 12 || soft.riskBump >= 1) tier = "TEAM_SIDE_FALLBACK";
@@ -372,12 +433,16 @@ export function scoreSideCandidate(pick = {}, side = "OVER") {
     softPenalties: soft.penalties,
     penaltyScore: soft.penaltyScore,
     edge: soft.edge,
+    preferredGapAdvantage: soft.edge != null && soft.edge >= PREFERRED_GAP_FLOOR,
+    projectionSanityLevel: soft.projectionSanityLevel || null,
+    scoreAudit: soft.scoreAudit || null,
   };
 }
 
 /**
  * Build Over + Under side candidates from a market row (no side flip of organic winner —
  * both sides are independently scored evaluations of the same line).
+ * Preserves originalModelSide for Gabby-type integrity checks.
  */
 export function buildDualSideCandidates(pick = {}, options = {}) {
   const hard = evaluateHardMarketValidity(pick, options);
@@ -392,39 +457,84 @@ export function buildDualSideCandidates(pick = {}, options = {}) {
   }
 
   const base = hard.datedPick;
+  const originalModelSide =
+    resolveOriginalModelSide(base) ||
+    normalizeSide(base.side || base.pick) ||
+    null;
   const overScore = scoreSideCandidate(base, "OVER");
   const underScore = scoreSideCandidate(base, "UNDER");
 
-  const mk = (side, scored) => ({
-    ...base,
-    side,
-    pick: side === "OVER" ? "Over" : "Under",
-    organicSide: side,
-    evaluatedSide: side,
-    sideChanged: false,
-    forcedSide: false,
-    autoFlip: false,
-    teamSideScore: scored.sideScore,
-    teamSideTier: scored.tier,
-    confidence: scored.confidence,
-    trueRisk: scored.trueRisk,
-    riskLabel:
-      scored.trueRisk === "LOW"
-        ? "Low Risk"
-        : scored.trueRisk === "HIGH"
-          ? "High Risk"
-          : "Medium Risk",
-    softPenalties: scored.softPenalties,
-    sideEdge: scored.edge,
-    earlySameTeamDemotion: false,
+  const mk = (side, scored) => {
+    const raw = {
+      ...base,
+      side,
+      pick: side === "OVER" ? "Over" : "Under",
+      // Evaluated slot side — do not pretend organic == evaluated when model differs.
+      organicSide: side,
+      evaluatedSide: side,
+      originalModelSide: originalModelSide || side,
+      sideChanged: false,
+      forcedSide: false,
+      autoFlip: false,
+      teamSideScore: scored.sideScore,
+      teamSideTier: scored.tier,
+      confidence: scored.confidence,
+      trueRisk: scored.trueRisk,
+      riskLabel:
+        scored.trueRisk === "LOW"
+          ? "Low Risk"
+          : scored.trueRisk === "HIGH"
+            ? "High Risk"
+            : "Medium Risk",
+      softPenalties: scored.softPenalties,
+      sideEdge: scored.edge,
+      preferredGapAdvantage: scored.preferredGapAdvantage === true,
+      earlySameTeamDemotion: false,
+      // Side-isolated packaging diagnostics (not user-facing membership labels).
+      projectionSanityLevel: scored.projectionSanityLevel || null,
+      bestPropScoreAudit: scored.scoreAudit || null,
+      membershipQualificationStatus: null,
+    };
+    return stampCalibratedSideCandidate(raw, scored);
+  };
+
+  const overCand = mk("OVER", overScore);
+  const underCand = mk("UNDER", underScore);
+
+  // Membership quality (Official) — debug candidates keep soft scores even when rejected.
+  const overMembership = evaluateOfficialMembershipQuality(overCand, "OVER", {
+    tier: overCand.teamSideTier,
+    underEdge: underCand.sideEdge,
+  });
+  const underMembership = evaluateOfficialMembershipQuality(underCand, "UNDER", {
+    tier: underCand.teamSideTier,
+    underEdge: underCand.sideEdge,
   });
 
   return {
     valid: true,
     hardReasons: [],
-    over: mk("OVER", overScore),
-    under: mk("UNDER", underScore),
+    over: {
+      ...overCand,
+      membershipQuality: overMembership,
+      officialMembershipEligible: overMembership.ok,
+      membershipRejectReasons: overMembership.reasons,
+      membershipQualificationStatus: overMembership.ok
+        ? "QUALIFIED_TEAM_SIDE"
+        : "NOT_QUALIFIED",
+      validIndependentSideFlip: overMembership.validIndependentSideFlip === true,
+    },
+    under: {
+      ...underCand,
+      membershipQuality: underMembership,
+      officialMembershipEligible: underMembership.ok,
+      membershipRejectReasons: underMembership.reasons,
+      membershipQualificationStatus: underMembership.ok
+        ? "QUALIFIED_TEAM_SIDE"
+        : "NOT_QUALIFIED",
+    },
     datedPick: base,
+    originalModelSide,
   };
 }
 
@@ -440,7 +550,8 @@ function pairConflictPenalties(overCand, underCand) {
 }
 
 /**
- * Distinct-player pair optimization for one team.
+ * Distinct-player team Over/Under selection with Official membership quality.
+ * Empty slots when no candidate meets membership floor — never LAST_VALID force-fill.
  */
 export function selectTeamSidePair(teamPicks = [], options = {}) {
   const team = teamKey(teamPicks[0] || {}) || options.teamKey || "unknown";
@@ -449,6 +560,9 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
     playersWithPointMarkets: 0,
     validOverCandidates: [],
     validUnderCandidates: [],
+    qualifiedOverCandidates: [],
+    qualifiedUnderCandidates: [],
+    membershipRejected: [],
     hardRejected: [],
     pairs: [],
     selectedPair: null,
@@ -457,6 +571,7 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
     autoFlipCount: 0,
     emptyOver: null,
     emptyUnder: null,
+    membershipBuild: MEMBERSHIP_QUALITY_BUILD,
   };
 
   // Deduplicate by player market (keep richest row)
@@ -507,6 +622,8 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
     tier: p.teamSideTier,
     risk: p.trueRisk,
     softPenalties: p.softPenalties,
+    officialMembershipEligible: p.officialMembershipEligible === true,
+    membershipRejectReasons: p.membershipRejectReasons || [],
   }));
   debug.validUnderCandidates = unders.map((p) => ({
     player: p.player,
@@ -515,6 +632,8 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
     tier: p.teamSideTier,
     risk: p.trueRisk,
     softPenalties: p.softPenalties,
+    officialMembershipEligible: p.officialMembershipEligible === true,
+    membershipRejectReasons: p.membershipRejectReasons || [],
   }));
 
   const emptyMeta = {
@@ -545,114 +664,148 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
     };
   }
 
-  const distinctPlayers = new Set([
-    ...overs.map(playerKey),
-    ...unders.map(playerKey),
-  ]);
-
-  // Pair search
-  let bestPair = null;
-  for (const overCand of overs) {
-    for (const underCand of unders) {
-      if (playerKey(overCand) === playerKey(underCand)) continue;
-      const conflict = pairConflictPenalties(overCand, underCand);
-      const teamPairScore =
-        (overCand.teamSideScore || 0) + (underCand.teamSideScore || 0) - conflict;
-      const pair = {
-        over: overCand,
-        under: underCand,
-        teamPairScore,
-        conflictPenalties: conflict,
-        overScore: overCand.teamSideScore,
-        underScore: underCand.teamSideScore,
-      };
-      debug.pairs.push({
-        overPlayer: overCand.player,
-        underPlayer: underCand.player,
-        teamPairScore,
-        conflict,
-        overScore: overCand.teamSideScore,
-        underScore: underCand.teamSideScore,
+  // Official membership filter — LAST_VALID / NO_BET / thin edge cannot seal.
+  const qualifiedOvers = [];
+  const qualifiedUnders = [];
+  for (const cand of overs) {
+    if (cand.officialMembershipEligible === true) {
+      qualifiedOvers.push(cand);
+    } else {
+      debug.membershipRejected.push({
+        player: cand.player,
+        side: "OVER",
+        reasons: cand.membershipRejectReasons || [],
+        edge: cand.sideEdge,
+        tier: cand.teamSideTier,
       });
-      if (!bestPair || teamPairScore > bestPair.teamPairScore) bestPair = pair;
+    }
+  }
+  for (const cand of unders) {
+    if (cand.officialMembershipEligible === true) {
+      qualifiedUnders.push(cand);
+    } else {
+      debug.membershipRejected.push({
+        player: cand.player,
+        side: "UNDER",
+        reasons: cand.membershipRejectReasons || [],
+        edge: cand.sideEdge,
+        tier: cand.teamSideTier,
+      });
     }
   }
 
-  debug.pairs.sort((a, b) => b.teamPairScore - a.teamPairScore);
+  debug.qualifiedOverCandidates = qualifiedOvers.map((p) => ({
+    player: p.player,
+    sideScore: p.teamSideScore,
+    edge: p.sideEdge,
+    tier: p.teamSideTier,
+  }));
+  debug.qualifiedUnderCandidates = qualifiedUnders.map((p) => ({
+    player: p.player,
+    sideScore: p.teamSideScore,
+    edge: p.sideEdge,
+    tier: p.teamSideTier,
+  }));
 
-  let selectedOver = null;
-  let selectedUnder = null;
+  // Rank qualified candidates (preferred gap already baked into sideScore)
+  qualifiedOvers.sort((a, b) => (b.teamSideScore || 0) - (a.teamSideScore || 0));
+  qualifiedUnders.sort((a, b) => (b.teamSideScore || 0) - (a.teamSideScore || 0));
 
-  if (bestPair) {
-    selectedOver = bestPair.over;
-    selectedUnder = bestPair.under;
-    debug.selectedPair = {
-      overPlayer: selectedOver.player,
-      underPlayer: selectedUnder.player,
-      teamPairScore: bestPair.teamPairScore,
-    };
-  } else if (distinctPlayers.size < 2) {
-    // Only one distinct player — keep stronger side only
-    const onlyPlayer = [...distinctPlayers][0];
-    const overCand = overs.find((p) => playerKey(p) === onlyPlayer);
-    const underCand = unders.find((p) => playerKey(p) === onlyPlayer);
-    if (overCand && underCand) {
-      if ((overCand.teamSideScore || 0) >= (underCand.teamSideScore || 0)) {
-        selectedOver = overCand;
-        debug.emptyUnder = {
-          reason: EMPTY_SLOT_REASONS.NO_VALID_DIFFERENT_PLAYER,
-          ...emptyMeta,
-        };
-      } else {
-        selectedUnder = underCand;
-        debug.emptyOver = {
-          reason: EMPTY_SLOT_REASONS.NO_VALID_DIFFERENT_PLAYER,
-          ...emptyMeta,
-        };
-      }
-    } else if (overCand) {
-      selectedOver = overCand;
-      debug.emptyUnder = {
-        reason: EMPTY_SLOT_REASONS.FEWER_THAN_TWO_DISTINCT_PLAYERS,
-        ...emptyMeta,
-      };
-    } else if (underCand) {
-      selectedUnder = underCand;
-      debug.emptyOver = {
-        reason: EMPTY_SLOT_REASONS.FEWER_THAN_TWO_DISTINCT_PLAYERS,
-        ...emptyMeta,
-      };
-    }
-  } else {
-    // Fallback: best sides even if pair empty (shouldn't happen if 2+ players)
-    overs.sort((a, b) => (b.teamSideScore || 0) - (a.teamSideScore || 0));
-    unders.sort((a, b) => (b.teamSideScore || 0) - (a.teamSideScore || 0));
-    selectedOver = overs[0] || null;
+  let selectedOver = qualifiedOvers[0] || null;
+  let selectedUnder = selectedOver
+    ? qualifiedUnders.find((u) => playerKey(u) !== playerKey(selectedOver)) || null
+    : qualifiedUnders[0] || null;
+
+  // If under won first and over collides, try next over
+  if (selectedOver && selectedUnder && playerKey(selectedOver) === playerKey(selectedUnder)) {
     selectedUnder =
-      unders.find((u) => playerKey(u) !== playerKey(selectedOver)) || null;
-    if (!selectedUnder) {
-      debug.emptyUnder = {
-        reason: EMPTY_SLOT_REASONS.NO_VALID_DIFFERENT_PLAYER,
-        ...emptyMeta,
+      qualifiedUnders.find((u) => playerKey(u) !== playerKey(selectedOver)) || null;
+  }
+  if (!selectedOver && qualifiedOvers.length) selectedOver = qualifiedOvers[0];
+  if (!selectedUnder && qualifiedUnders.length) {
+    selectedUnder = selectedOver
+      ? qualifiedUnders.find((u) => playerKey(u) !== playerKey(selectedOver)) || null
+      : qualifiedUnders[0] || null;
+  }
+
+  // Prefer distinct-player pair among qualified when both sides exist
+  if (qualifiedOvers.length && qualifiedUnders.length) {
+    let bestPair = null;
+    for (const overCand of qualifiedOvers) {
+      for (const underCand of qualifiedUnders) {
+        if (playerKey(overCand) === playerKey(underCand)) continue;
+        const conflict = pairConflictPenalties(overCand, underCand);
+        const teamPairScore =
+          (overCand.teamSideScore || 0) + (underCand.teamSideScore || 0) - conflict;
+        const pair = {
+          over: overCand,
+          under: underCand,
+          teamPairScore,
+          conflictPenalties: conflict,
+        };
+        debug.pairs.push({
+          overPlayer: overCand.player,
+          underPlayer: underCand.player,
+          teamPairScore,
+          conflict,
+          overScore: overCand.teamSideScore,
+          underScore: underCand.teamSideScore,
+        });
+        if (!bestPair || teamPairScore > bestPair.teamPairScore) bestPair = pair;
+      }
+    }
+    debug.pairs.sort((a, b) => b.teamPairScore - a.teamPairScore);
+    if (bestPair) {
+      selectedOver = bestPair.over;
+      selectedUnder = bestPair.under;
+      debug.selectedPair = {
+        overPlayer: selectedOver.player,
+        underPlayer: selectedUnder.player,
+        teamPairScore: bestPair.teamPairScore,
+        membershipQualified: true,
       };
+    } else {
+      // No distinct-player pair — keep best single side(s), leave the other empty if collision-only
+      selectedOver = qualifiedOvers[0] || null;
+      selectedUnder =
+        qualifiedUnders.find((u) => playerKey(u) !== playerKey(selectedOver)) ||
+        null;
+      if (!selectedUnder && qualifiedUnders[0] && !selectedOver) {
+        selectedUnder = qualifiedUnders[0];
+      }
     }
   }
 
-  if (!selectedOver && !debug.emptyOver) {
+  if (!selectedOver) {
+    const rejectPool = debug.membershipRejected.filter((r) => r.side === "OVER");
+    const topReasons = rejectPool[0]?.reasons || [];
     debug.emptyOver = {
-      reason: EMPTY_SLOT_REASONS.NO_VALID_SIDE_CANDIDATES,
+      reason: emptySlotReasonForSide("OVER", topReasons),
+      membershipRejectSample: rejectPool.slice(0, 5),
       ...emptyMeta,
     };
   }
-  if (!selectedUnder && !debug.emptyUnder) {
+  if (!selectedUnder) {
+    const rejectPool = debug.membershipRejected.filter((r) => r.side === "UNDER");
+    const topReasons = rejectPool[0]?.reasons || [];
     debug.emptyUnder = {
-      reason: EMPTY_SLOT_REASONS.NO_VALID_SIDE_CANDIDATES,
+      reason: emptySlotReasonForSide("UNDER", topReasons),
+      membershipRejectSample: rejectPool.slice(0, 5),
       ...emptyMeta,
     };
   }
 
   const stamp = (pick, slot) => {
     if (!pick) return null;
+    const side = normalizeSide(pick.side || pick.pick) || (slot.includes("OVER") ? "OVER" : "UNDER");
+    const trackLabel = resolveOfficialTrackLabel(pick);
+    const membership = evaluateOfficialMembershipQuality(pick, side, {
+      tier: pick.teamSideTier,
+    });
+    // Final seal gate — never stamp a failing membership prop
+    if (!membership.ok) {
+      return null;
+    }
     return {
       ...pick,
       teamSlot: slot,
@@ -667,17 +820,41 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
       controlledBestBoardMeta: {
         version: CONTROLLED_BEST_BOARD_VERSION,
         build: CONTROLLED_BEST_BOARD_BUILD,
+        membershipBuild: MEMBERSHIP_QUALITY_BUILD,
+        calibration: CONTROLLED_BEST_BOARD_CALIBRATION,
         team,
         slot,
         tier: pick.teamSideTier,
         sideScore: pick.teamSideScore,
+        baselineSideScore: pick.baselineTeamSideScore ?? null,
+        calibratedSideScore: pick.calibratedTeamSideScore ?? pick.teamSideScore,
+        membershipEdgeFloor: MEMBERSHIP_EDGE_FLOOR,
+        preferredGapFloor: PREFERRED_GAP_FLOOR,
+        preferredGapAdvantage: pick.preferredGapAdvantage === true,
       },
+      // TRACK inherited — never invented by team-slot selection
+      naturalDecision: resolveNaturalDecision(pick) || trackLabel,
+      resultsDecisionLabel: trackLabel,
+      wnbaTrackingDecision: trackLabel,
+      trackingEligibility: trackLabel,
       decisionIntelligence: {
         ...(pick.decisionIntelligence || {}),
         trueRisk: pick.trueRisk,
         finalConfidence: pick.confidence,
         riskAfterDecision: pick.riskLabel,
+        calibrationVersion: pick.calibrationVersion || CONTROLLED_BEST_BOARD_CALIBRATION,
+        naturalDecision: resolveNaturalDecision(pick) || trackLabel,
+        trackEligibility: trackLabel,
       },
+      calibrationVersion: pick.calibrationVersion || CONTROLLED_BEST_BOARD_CALIBRATION,
+      baselineSelectedSide: pick.organicSide || pick.side,
+      calibratedSelectedSide: pick.organicSide || pick.side,
+      organicSide: pick.organicSide || side,
+      evaluatedSide: pick.evaluatedSide || side,
+      originalModelSide: pick.originalModelSide || resolveOriginalModelSide(pick) || side,
+      validIndependentSideFlip: pick.validIndependentSideFlip === true,
+      sideEdge: pick.sideEdge ?? resolveDirectionalEdge(pick, side),
+      membershipQualityBuild: MEMBERSHIP_QUALITY_BUILD,
     };
   };
 
@@ -685,7 +862,25 @@ export function selectTeamSidePair(teamPicks = [], options = {}) {
   const overStamped = stamp(selectedOver, "TEAM_BEST_OVER");
   const underStamped = stamp(selectedUnder, "TEAM_BEST_UNDER");
   if (overStamped) selected.push(overStamped);
+  else if (selectedOver && !debug.emptyOver) {
+    debug.emptyOver = {
+      reason: emptySlotReasonForSide(
+        "OVER",
+        selectedOver.membershipRejectReasons || [MEMBERSHIP_REJECT.NO_QUALIFIED_TEAM_OVER]
+      ),
+      ...emptyMeta,
+    };
+  }
   if (underStamped) selected.push(underStamped);
+  else if (selectedUnder && !debug.emptyUnder) {
+    debug.emptyUnder = {
+      reason: emptySlotReasonForSide(
+        "UNDER",
+        selectedUnder.membershipRejectReasons || [MEMBERSHIP_REJECT.NO_QUALIFIED_TEAM_UNDER]
+      ),
+      ...emptyMeta,
+    };
+  }
 
   return {
     team,
@@ -897,6 +1092,16 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
     audit: {
       version: CONTROLLED_BEST_BOARD_VERSION,
       build: CONTROLLED_BEST_BOARD_BUILD,
+      membershipBuild: MEMBERSHIP_QUALITY_BUILD,
+      membershipEdgeFloor: MEMBERSHIP_EDGE_FLOOR,
+      preferredGapFloor: PREFERRED_GAP_FLOOR,
+      lastValidOfficialFillDisabled: true,
+      allowEmptyOfficialBoard: true,
+      noFixedMinimumBoardCount: true,
+      calibration: CONTROLLED_BEST_BOARD_CALIBRATION,
+      calibrationActive: true,
+      calibrationMode: "ACTIVE_FOR_FUTURE_UNSEALED_WNBA_POINTS_BOARDS",
+      calibrationWeightsUnchanged: true,
       dateVerificationVersion: SLATE_DATE_VERIFICATION_VERSION,
       dateVerificationBuild: SLATE_DATE_VERIFICATION_BUILD,
       requestedSlateDate,

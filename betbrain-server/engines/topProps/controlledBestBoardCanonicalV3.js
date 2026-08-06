@@ -15,7 +15,7 @@ import {
 // Keep version strings inline to avoid circular import with controlledBestBoardV2.
 export const CANONICAL_BOARD_VERSION = "controlled-best-board-v2";
 export const CANONICAL_BOARD_BUILD =
-  "courteedge-mandatory-team-over-under-pair-selection-v2";
+  "courteedge-clear-side-strong-edge-membership-path-v1";
 export const CANONICAL_BOARD_MEMBERSHIP_MODEL = "controlled-best-board-v2";
 /** Structural lock supersedes V3 seal build label for new seals. */
 export const CANONICAL_BOARD_SEAL_BUILD = HOME_HISTORY_LOCK_BUILD;

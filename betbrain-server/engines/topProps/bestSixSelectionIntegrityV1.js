@@ -117,6 +117,136 @@ export function resolveBestPropScore(pick = {}) {
   );
 }
 
+/**
+ * Audit bestPropScore inputs without changing prediction weights.
+ * Distinguishes missing score (not low) from genuinely low 0–100 scores,
+ * and inflated pickScore scales (commonly 200–500 on WNBA boards).
+ */
+export function auditBestPropScore(pick = {}) {
+  const rawCandidates = {
+    bestPropScore: pick.bestPropScore,
+    pickScore: pick.pickScore,
+    wnbaTopPropScore: pick.wnbaTopPropScore,
+    score: pick.score,
+    safetyScore: pick.safetyScore,
+  };
+  const presentKey = Object.keys(rawCandidates).find(
+    (k) => rawCandidates[k] != null && rawCandidates[k] !== ""
+  );
+  const raw = presentKey != null ? num(rawCandidates[presentKey]) : null;
+  const present = raw != null;
+  // Inflated board scales (>>100) are not "below 50" on a 0–100 floor.
+  const scale =
+    !present ? "MISSING" : raw > 100 ? "INFLATED_BOARD_SCALE" : "ZERO_TO_HUNDRED";
+  const normalized =
+    !present ? null : scale === "INFLATED_BOARD_SCALE" ? Math.min(100, raw / 5) : raw;
+  const belowFiftyFloor =
+    present && scale === "ZERO_TO_HUNDRED" && raw < 50;
+  return {
+    present,
+    presentKey: presentKey || null,
+    raw,
+    scale,
+    normalized,
+    belowFiftyFloor,
+    // Membership must not hard-block on missing or inflated-scale scores.
+    membershipHardBlockEligible: false,
+    rankingScore: present ? raw : null,
+  };
+}
+
+/**
+ * Projection sanity packaging for soft ranking — not a membership hard block.
+ * Returns STRONG | MIXED | WEAK based on engine/DDI status and directional alignment.
+ * Does NOT treat MIXED + usage-advisory reasons as automatic WEAK.
+ */
+export function resolveProjectionSanityLevel(pick = {}, side = null) {
+  const eng = engineOf(pick, "projectionSanity", "projectionSanityEngine");
+  const pqStatus = String(
+    eng?.rawValues?.projectionQualityStatus ||
+      pick.decisionDataIntelligence?.projectionQuality?.status ||
+      eng?.status ||
+      ""
+  ).toUpperCase();
+  const pqScore = num(
+    eng?.rawValues?.projectionQualityScore ??
+      eng?.projectionSanityScore ??
+      pick.decisionDataIntelligence?.projectionQuality?.score
+  );
+  const ceiling = eng?.projectionRequiresCeilingOutcome === true;
+  const hurt = eng?.hurt === true;
+  const s =
+    normalizeSide(side || pick.evaluatedSide || pick.side || pick.pick) || null;
+  const line = num(pick.line ?? pick.selectedLine);
+  const projection = num(pick.projection ?? pick.projectedPoints ?? pick.finalProjection);
+  const fair = resolveFairLine(pick);
+
+  let directionalAligned = false;
+  let directionalConflict = false;
+  if (s && line != null && projection != null) {
+    if (s === "OVER") {
+      directionalAligned = projection > line && (fair == null || fair >= line);
+      directionalConflict = projection < line;
+    } else if (s === "UNDER") {
+      directionalAligned = projection < line && (fair == null || fair <= line);
+      directionalConflict = projection > line;
+    }
+  }
+
+  let level = "MIXED";
+  if (pqStatus === "STRONG" || (pqScore != null && pqScore >= 70 && !ceiling && !hurt)) {
+    level = "STRONG";
+  }
+  if (
+    pqStatus === "WEAK" ||
+    ceiling ||
+    hurt ||
+    (pqScore != null && pqScore < 45) ||
+    directionalConflict
+  ) {
+    level = "WEAK";
+  } else if (directionalAligned && pqStatus !== "WEAK") {
+    // Complete aligned packet: usage-advisory MIXED must not force WEAK.
+    level = pqStatus === "STRONG" ? "STRONG" : "MIXED";
+  } else if (pqStatus === "MIXED" || pqStatus === "") {
+    level = "MIXED";
+  }
+
+  return {
+    level,
+    status: level,
+    pqStatus: pqStatus || null,
+    pqScore,
+    ceiling,
+    hurt,
+    directionalAligned,
+    directionalConflict,
+    side: s,
+  };
+}
+
+export function resolveProjectionSanity(pick = {}) {
+  const eng = engineOf(pick, "projectionSanity", "projectionSanityEngine");
+  const hurt = eng?.hurt === true;
+  const helped = eng?.helped === true;
+  const reason = String(eng?.reason || "");
+  const questionsUsage =
+    hurt ||
+    /usage|minutes|not supported/i.test(reason) ||
+    (eng?.confidenceAdjustment != null && Number(eng.confidenceAdjustment) <= -3);
+  const levelInfo = resolveProjectionSanityLevel(pick);
+  return {
+    hurt,
+    helped,
+    questionsUsage,
+    // Soft WEAK packaging — not the same as questionsUsage advisory.
+    isWeak: levelInfo.level === "WEAK",
+    level: levelInfo.level,
+    reason: reason || null,
+    direction: engineDirection(eng),
+  };
+}
+
 export function resolveFairLine(pick = {}) {
   return num(
     pick.fairLine ??
@@ -213,24 +343,6 @@ export function resolveMatchupShadowDirection(pick = {}) {
     sample,
     earlySampleOnly: sample != null && sample > 0 && sample <= 2,
     pass: dir == null || String(shadow?.modelSide || "").toUpperCase() === "PASS",
-  };
-}
-
-export function resolveProjectionSanity(pick = {}) {
-  const eng = engineOf(pick, "projectionSanity", "projectionSanityEngine");
-  const hurt = eng?.hurt === true;
-  const helped = eng?.helped === true;
-  const reason = String(eng?.reason || "");
-  const questionsUsage =
-    hurt ||
-    /usage|minutes|not supported/i.test(reason) ||
-    (eng?.confidenceAdjustment != null && Number(eng.confidenceAdjustment) <= -3);
-  return {
-    hurt,
-    helped,
-    questionsUsage,
-    reason: reason || null,
-    direction: engineDirection(eng),
   };
 }
 

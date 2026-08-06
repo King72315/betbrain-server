@@ -19,7 +19,7 @@
     "test:courtedge-scheduler": "node scripts/testCourtEdgeSchedulerV1.js",
     "test:courtedge-fully-autonomous": "node scripts/testCourtEdgeFullyAutonomousOperationV1.js",
     "test:courtedge-home-restart-durability": "node scripts/testCourtEdgeHomeRestartDurabilityV1.js",
-    "test:courtedge-home-restart-durability": "node scripts/testCourtEdgeHomeRestartDurabilityV1.js"
+    "test:matchup-engine-v2": "node scripts/testMatchupEngineV2.js"
   },
   "engines": {
     "node": ">=18"

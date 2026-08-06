@@ -1,0 +1,368 @@
+{
+  "checkpoint": "courteedge-pre-full-roster-experiment-v1",
+  "createdAt": "2026-08-06T02:59:49.957Z",
+  "timezone": "America/Chicago",
+  "stamp": "2026-08-06T02-59-49-652Z",
+  "backupDir": "backups/courteedge-pre-full-roster-experiment-v1",
+  "fileCount": 39,
+  "skippedSecrets": 0,
+  "files": [
+    {
+      "relativePath": "data/tracked-props.json",
+      "sourcePath": "tracked-props.json",
+      "sizeBytes": 49181421,
+      "sha256": "a0c9b847a91fde787689e8b759c4ab1fd3ee150d77b84105691667e54222cb02",
+      "backupTimestamp": "2026-08-06T02:59:49.713Z",
+      "purpose": "Results membership / tracked props",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/three-slate-blocks-v2.json",
+      "sourcePath": "three-slate-blocks-v2.json",
+      "sizeBytes": 3227,
+      "sha256": "a7ca7ab53acbbdcc48529017f6ebe1cea316f46cc2ab05fe88038fac70e8ee66",
+      "backupTimestamp": "2026-08-06T02:59:49.716Z",
+      "purpose": "Three-slate lifecycle blocks",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/daily-slate-reports.json",
+      "sourcePath": "daily-slate-reports.json",
+      "sizeBytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "backupTimestamp": "2026-08-06T02:59:49.721Z",
+      "purpose": "Daily slate reports metadata",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/pick-history.json",
+      "sourcePath": "pick-history.json",
+      "sizeBytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "backupTimestamp": "2026-08-06T02:59:49.723Z",
+      "purpose": "Pick history metadata",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/pick-analytics.json",
+      "sourcePath": "pick-analytics.json",
+      "sizeBytes": 365,
+      "sha256": "8e75c7b42943ac9ecc35b73c0d5fd5f3c0d570064bb662e21256694f0083ceeb",
+      "backupTimestamp": "2026-08-06T02:59:49.724Z",
+      "purpose": "Pick analytics",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/line-snapshots.json",
+      "sourcePath": "line-snapshots.json",
+      "sizeBytes": 244059,
+      "sha256": "e739ea9e6e93f21532891c4c4ab609025339542bd7644012628729155e0f4617",
+      "backupTimestamp": "2026-08-06T02:59:49.733Z",
+      "purpose": "Line snapshots",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/engines/topProps/courtEdgeFeatureFlagsV1.js",
+      "sourcePath": "engines/topProps/courtEdgeFeatureFlagsV1.js",
+      "sizeBytes": 1907,
+      "sha256": "9c227647358077cd2a9e7f44cff149eacb7eb71ab117dbfb1688529e951956aa",
+      "backupTimestamp": "2026-08-06T02:59:49.740Z",
+      "purpose": "Feature flag defaults source",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/COURTEDGE_CLEAR_SIDE_STRONG_EDGE_MEMBERSHIP_PATH_V1_REPORT.md",
+      "sourcePath": "COURTEDGE_CLEAR_SIDE_STRONG_EDGE_MEMBERSHIP_PATH_V1_REPORT.md",
+      "sizeBytes": 9610,
+      "sha256": "bd04dbb102a7692f6fb2e22b874e758a55eb45ee383eeab8098b6c22f2490ef3",
+      "backupTimestamp": "2026-08-06T02:59:49.743Z",
+      "purpose": "Clear-side membership repair report",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/_dryrun_clear_side_strong_edge_membership_path_v1_aug5.json",
+      "sourcePath": "_dryrun_clear_side_strong_edge_membership_path_v1_aug5.json",
+      "sizeBytes": 150233,
+      "sha256": "aa6beeffa8efdad5ee4a073a5d887aa39ecbb30b49b7227bd1f0b8b3d1d200fe",
+      "backupTimestamp": "2026-08-06T02:59:49.745Z",
+      "purpose": "Aug5 membership dry-run baseline",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-06-21.json",
+      "sourcePath": "slate-snapshots/2026-06-21.json",
+      "sizeBytes": 248015,
+      "sha256": "dbc0052d1f0ebb3d508ccc2a71f4d899895066003f4b80d92bc853ba9f367439",
+      "backupTimestamp": "2026-08-06T02:59:49.747Z",
+      "purpose": "Slate snapshot 2026-06-21.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-06-22.json",
+      "sourcePath": "slate-snapshots/2026-06-22.json",
+      "sizeBytes": 226461,
+      "sha256": "4ba0ecb63a009170b21608aa096e40e0b7d29b03f4f22bf35ae6ce54c22050b3",
+      "backupTimestamp": "2026-08-06T02:59:49.753Z",
+      "purpose": "Slate snapshot 2026-06-22.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-08.json",
+      "sourcePath": "slate-snapshots/2026-07-08.json",
+      "sizeBytes": 183817,
+      "sha256": "1a596219039ae7543ff5fb4dcebe1809a5b18b553db3e87b5e830f788a7d70ab",
+      "backupTimestamp": "2026-08-06T02:59:49.755Z",
+      "purpose": "Slate snapshot 2026-07-08.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-14.json",
+      "sourcePath": "slate-snapshots/2026-07-14.json",
+      "sizeBytes": 178785,
+      "sha256": "3390933a0dc85889a51390861e544f93b957870caef31dc25bd8f1463daf4b69",
+      "backupTimestamp": "2026-08-06T02:59:49.757Z",
+      "purpose": "Slate snapshot 2026-07-14.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-15.json",
+      "sourcePath": "slate-snapshots/2026-07-15.json",
+      "sizeBytes": 322264,
+      "sha256": "ec111df0bc0bea05ff702351e0f48c172f4463d3a694beaf126d4860e268d663",
+      "backupTimestamp": "2026-08-06T02:59:49.758Z",
+      "purpose": "Slate snapshot 2026-07-15.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-16.json",
+      "sourcePath": "slate-snapshots/2026-07-16.json",
+      "sizeBytes": 12283,
+      "sha256": "46aa5d9dcaefc78b9ed359fa894f78167ab29d5ec16d2f0dee65c556146b3ff7",
+      "backupTimestamp": "2026-08-06T02:59:49.759Z",
+      "purpose": "Slate snapshot 2026-07-16.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-17.json",
+      "sourcePath": "slate-snapshots/2026-07-17.json",
+      "sizeBytes": 1025570,
+      "sha256": "a181ab19c576eccc2d5c5b10bbe8ee247b26437375c4afc0f1ccf0f58883c1c6",
+      "backupTimestamp": "2026-08-06T02:59:49.764Z",
+      "purpose": "Slate snapshot 2026-07-17.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-20.json",
+      "sourcePath": "slate-snapshots/2026-07-20.json",
+      "sizeBytes": 505533,
+      "sha256": "92cebc718886a7b837629d248e7f43ba383ed2c8f32ffd9f27cc284e595f991b",
+      "backupTimestamp": "2026-08-06T02:59:49.768Z",
+      "purpose": "Slate snapshot 2026-07-20.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-22.json",
+      "sourcePath": "slate-snapshots/2026-07-22.json",
+      "sizeBytes": 3691820,
+      "sha256": "bec8d8cdf2a36b6f597f69aa0cb4d5478497450c3037624358d4153b90b5167b",
+      "backupTimestamp": "2026-08-06T02:59:49.776Z",
+      "purpose": "Slate snapshot 2026-07-22.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-28.json",
+      "sourcePath": "slate-snapshots/2026-07-28.json",
+      "sizeBytes": 8870771,
+      "sha256": "d807556829f32b6e57f1bb8882b9a9f27e65a5aae53bc2fe77f0994bc052fb3c",
+      "backupTimestamp": "2026-08-06T02:59:49.792Z",
+      "purpose": "Slate snapshot 2026-07-28.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-29.json",
+      "sourcePath": "slate-snapshots/2026-07-29.json",
+      "sizeBytes": 9843919,
+      "sha256": "0faabe06b90ea3e3c0600ff05fd78a06de93c1ba192bea7dc0acfa7a48e0474e",
+      "backupTimestamp": "2026-08-06T02:59:49.810Z",
+      "purpose": "Slate snapshot 2026-07-29.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-30.json",
+      "sourcePath": "slate-snapshots/2026-07-30.json",
+      "sizeBytes": 7817370,
+      "sha256": "4135fdeeab0d6ad973bb7c94ce568a50bd0e7f88891183614e77e272b35c14ae",
+      "backupTimestamp": "2026-08-06T02:59:49.825Z",
+      "purpose": "Slate snapshot 2026-07-30.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-07-31.json",
+      "sourcePath": "slate-snapshots/2026-07-31.json",
+      "sizeBytes": 4204073,
+      "sha256": "380082d74e4e54fb7822ee535917ad52bb58cb06bc22c7f551063a148785e243",
+      "backupTimestamp": "2026-08-06T02:59:49.835Z",
+      "purpose": "Slate snapshot 2026-07-31.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-08-01.json",
+      "sourcePath": "slate-snapshots/2026-08-01.json",
+      "sizeBytes": 4204073,
+      "sha256": "819d8e7d3b62c13804a0e293ab1412c744246636829d42316b49449937907c31",
+      "backupTimestamp": "2026-08-06T02:59:49.843Z",
+      "purpose": "Slate snapshot 2026-08-01.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-08-02.json",
+      "sourcePath": "slate-snapshots/2026-08-02.json",
+      "sizeBytes": 4204339,
+      "sha256": "83b2d5beb1c0870a2ccbe06deee47509c31c11009c6d8b0d5d878dd72014b1c8",
+      "backupTimestamp": "2026-08-06T02:59:49.854Z",
+      "purpose": "Slate snapshot 2026-08-02.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-08-03.json",
+      "sourcePath": "slate-snapshots/2026-08-03.json",
+      "sizeBytes": 4204199,
+      "sha256": "05e527dee0eb03450a6f9a45e525076a5731e46f6f0e05829fa4f43299a84b5a",
+      "backupTimestamp": "2026-08-06T02:59:49.862Z",
+      "purpose": "Slate snapshot 2026-08-03.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/2026-08-04.json",
+      "sourcePath": "slate-snapshots/2026-08-04.json",
+      "sizeBytes": 2411165,
+      "sha256": "2fb469f58aab4ff697ff006df3da06a7bb3be35f1135fa992c4f967ada99cff4",
+      "backupTimestamp": "2026-08-06T02:59:49.868Z",
+      "purpose": "Slate snapshot 2026-08-04.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/evidence-rank-comparison-2026-07-15.json",
+      "sourcePath": "slate-snapshots/evidence-rank-comparison-2026-07-15.json",
+      "sizeBytes": 16096,
+      "sha256": "ee508cf2de364a35a028c8ed098e581ad0b1886da9c2269e7c9c88c8565a8177",
+      "backupTimestamp": "2026-08-06T02:59:49.870Z",
+      "purpose": "Slate snapshot evidence-rank-comparison-2026-07-15.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/freeze-2026-07-15-before-evidence-rank.json",
+      "sourcePath": "slate-snapshots/freeze-2026-07-15-before-evidence-rank.json",
+      "sizeBytes": 9650730,
+      "sha256": "f21ebf654845ea4a84bff2d2309b8e1b346ec693b56c05cd27c04a642fa8573d",
+      "backupTimestamp": "2026-08-06T02:59:49.886Z",
+      "purpose": "Slate snapshot freeze-2026-07-15-before-evidence-rank.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/slate-snapshots/freeze-2026-07-15-candidates-slim.json",
+      "sourcePath": "slate-snapshots/freeze-2026-07-15-candidates-slim.json",
+      "sizeBytes": 1470284,
+      "sha256": "32aa327154bd39fd8d5de931cd336fcc4a5d2dc0a280c6156829e28fc747c58b",
+      "backupTimestamp": "2026-08-06T02:59:49.891Z",
+      "purpose": "Slate snapshot freeze-2026-07-15-candidates-slim.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-06-22/manifest.json",
+      "sourcePath": "active-bundles/2026-06-22/manifest.json",
+      "sizeBytes": 237,
+      "sha256": "33ae9ee9ae1e884a75346041d507bf8dc4fef994d541feee1bdc99a2948474cb",
+      "backupTimestamp": "2026-08-06T02:59:49.893Z",
+      "purpose": "Active bundle metadata 2026-06-22/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-08/manifest.json",
+      "sourcePath": "active-bundles/2026-07-08/manifest.json",
+      "sizeBytes": 268,
+      "sha256": "0605b661cb7ca99eda995e69b1cee51212df9e82516a33ab32736e642e2838db",
+      "backupTimestamp": "2026-08-06T02:59:49.894Z",
+      "purpose": "Active bundle metadata 2026-07-08/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-17/manifest.json",
+      "sourcePath": "active-bundles/2026-07-17/manifest.json",
+      "sizeBytes": 98,
+      "sha256": "d333c75a7a3dbff7b0880cf28d6eb52c7e5b80e22b197c152d76751aac354673",
+      "backupTimestamp": "2026-08-06T02:59:49.896Z",
+      "purpose": "Active bundle metadata 2026-07-17/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-22/manifest.json",
+      "sourcePath": "active-bundles/2026-07-22/manifest.json",
+      "sizeBytes": 149,
+      "sha256": "d06493ebc40fc5c4b647cb788fb73a1e00927c1b3cac1dc3cfec0f8ad23b5120",
+      "backupTimestamp": "2026-08-06T02:59:49.898Z",
+      "purpose": "Active bundle metadata 2026-07-22/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-28/manifest.json",
+      "sourcePath": "active-bundles/2026-07-28/manifest.json",
+      "sizeBytes": 157,
+      "sha256": "d08f3e844550ccf0947c7fa92fd98c37e00575c2eaa08e0271e6164e26c41a06",
+      "backupTimestamp": "2026-08-06T02:59:49.902Z",
+      "purpose": "Active bundle metadata 2026-07-28/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-29/manifest.json",
+      "sourcePath": "active-bundles/2026-07-29/manifest.json",
+      "sizeBytes": 153,
+      "sha256": "3f60aac7f68fc0ebc92c5da50c51a5e2a76ab28c9a3b094c5042be114e7388de",
+      "backupTimestamp": "2026-08-06T02:59:49.904Z",
+      "purpose": "Active bundle metadata 2026-07-29/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-07-30/manifest.json",
+      "sourcePath": "active-bundles/2026-07-30/manifest.json",
+      "sizeBytes": 153,
+      "sha256": "2e48bca249e9c17c4b82d3cb0575bc90bc7e6cffa095cdce3b04c157da40b50c",
+      "backupTimestamp": "2026-08-06T02:59:49.906Z",
+      "purpose": "Active bundle metadata 2026-07-30/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "data/active-bundles/2026-08-04/manifest.json",
+      "sourcePath": "active-bundles/2026-08-04/manifest.json",
+      "sizeBytes": 172,
+      "sha256": "7e13ce0e4b5edeba5138975777b272199e0012cc2bf63be2f4c3cf272831d45a",
+      "backupTimestamp": "2026-08-06T02:59:49.909Z",
+      "purpose": "Active bundle metadata 2026-08-04/manifest.json",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "health-snapshot.json",
+      "sourcePath": "http://127.0.0.1:3000/health",
+      "sizeBytes": 5068,
+      "sha256": "ee9f5215daa2e08f4dac1a7d8fd016557d12f013667b53a9786e4ff2eb9a7f6c",
+      "backupTimestamp": "2026-08-06T02:59:49.956Z",
+      "purpose": "Local /health snapshot at backup time (may be pre-restart)",
+      "verify": "OK"
+    },
+    {
+      "relativePath": "provider-credit-baseline.json",
+      "sourcePath": "derived",
+      "sizeBytes": 978,
+      "sha256": "6b60f8dc7ef1f0c9c16b6ab4478a14d24004fb1c9c1a9137b6a18ba3249d0617",
+      "backupTimestamp": "2026-08-06T02:59:49.957Z",
+      "purpose": "Provider credit baseline (no new paid calls)",
+      "verify": "OK"
+    }
+  ],
+  "secretScan": {
+    "pattern": "/(\\.env$|credentials|secret|token|apikey|api[_-]?key|password|private)/i",
+    "envIncluded": false,
+    "apiKeysIncluded": false
+  },
+  "checksumVerification": "PASS"
+}

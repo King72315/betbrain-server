@@ -1,0 +1,26 @@
+{
+  "note": "No new provider calls made during checkpoint. Baseline from last known health/config only.",
+  "capturedAt": "2026-08-06T02:59:49.956Z",
+  "providerPolicy": {
+    "version": "provider-fallback-policy-v1",
+    "sportsDataWnbaGeneration": {
+      "enabled": false,
+      "reason": "Entitlement probe returned 401 for WNBA scores/Teams and related paths"
+    },
+    "bdlTeamSeasonAverages": {
+      "enabled": false,
+      "reason": "Entitlement probe returned 404 Route not found for team_season_averages"
+    },
+    "evidenceVersion": "courtEdgePlayerEvidenceV1"
+  },
+  "cacheMinutes": 30,
+  "paidCreditsThisCheckpoint": 0,
+  "requestCountThisCheckpoint": 0,
+  "cacheHits": null,
+  "cacheMisses": null,
+  "deduplicatedCalls": null,
+  "retryCalls": null,
+  "failedCalls": null,
+  "refreshDurationMs": null,
+  "warning": "Representative refresh metrics were not re-run to avoid burning credits. Use next scheduled refresh logs for delta comparison after experiment."
+}

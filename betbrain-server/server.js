@@ -69,6 +69,11 @@ import {
   CONTROLLED_BEST_SIX_VERSION,
 } from "./engines/topProps/controlledBestSixSelector.js";
 import {
+  FULL_ROSTER_COLLECTION_MODE,
+  getCourtEdgeFeatureFlagSnapshot,
+  FEATURE_FLAGS_BUILD,
+} from "./engines/topProps/courtEdgeFeatureFlagsV1.js";
+import {
   selectTopProps,
   selectCombinedTopProps,
   TOP_PROP_SELECTOR_VERSION,
@@ -223,6 +228,7 @@ import {
   getHistoryArchive,
   getLastBlockedWrite,
   getLockedSlatesRegistry,
+  getLockedSnapshot,
   getQuarantinedSlatesFromRegistry,
   isSlateLocked,
   lockSlate,
@@ -380,7 +386,7 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-final-variable-team-board-home-history-lock-v1";
+const SERVER_BUILD = "courteedge-clear-side-strong-edge-membership-path-v1";
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v2";
@@ -3081,15 +3087,15 @@ async function refreshAllPicks(options = {}) {
     controlledSelection.bestSixDisplayTomorrowWNBA || [];
   const bestSixDisplayTomorrowNBA =
     controlledSelection.bestSixDisplayTomorrowNBA || [];
-  const topProps = controlledSelection.topProps;
-  const topNBAProps = controlledSelection.topNBAProps;
-  const topWNBAProps = controlledSelection.topWNBAProps;
-  const topOfficialProps = controlledSelection.topOfficialProps;
-  const topTestProps = controlledSelection.topTestProps;
-  const topNBAOfficialProps = controlledSelection.topNBAOfficialProps;
-  const topNBATestProps = controlledSelection.topNBATestProps;
-  const topWNBAOfficialProps = controlledSelection.topWNBAOfficialProps;
-  const topWNBATestProps = controlledSelection.topWNBATestProps;
+  const topProps = controlledSelection.topProps || [];
+  const topNBAProps = controlledSelection.topNBAProps || [];
+  const topWNBAProps = controlledSelection.topWNBAProps || [];
+  const topOfficialProps = controlledSelection.topOfficialProps || [];
+  const topTestProps = controlledSelection.topTestProps || [];
+  const topNBAOfficialProps = controlledSelection.topNBAOfficialProps || [];
+  const topNBATestProps = controlledSelection.topNBATestProps || [];
+  const topWNBAOfficialProps = controlledSelection.topWNBAOfficialProps || [];
+  const topWNBATestProps = controlledSelection.topWNBATestProps || [];
   const topSelectionAudit = controlledSelection.controlledBestSixAudit;
 
   saveTopPicksSnapshot(topProps, {
@@ -3626,6 +3632,10 @@ app.get("/health", (req, res) => {
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
+    checkpointBuild: "courteedge-pre-full-roster-experiment-v1",
+    featureFlagsBuild: FEATURE_FLAGS_BUILD,
+    fullRosterCollectionMode: FULL_ROSTER_COLLECTION_MODE,
+    featureFlags: getCourtEdgeFeatureFlagSnapshot(),
     bootPhase,
     stateIntegrityVersion: STATE_INTEGRITY_VERSION,
     tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
@@ -3681,8 +3691,38 @@ app.get("/picks", async (req, res) => {
         lastUpdated: null,
       });
     }
-    const sanitized = sanitizeHomeBoardForLifecycle(board, {
-      todayLocalDate: getTodayLocalDate(),
+
+    // Overlay Official sealed snapshot membership when board-cache omitted it.
+    // Does not reseal — reads existing slate-snapshots only.
+    const todayDate = getTodayLocalDate();
+    const sealedSnap = getLockedSnapshot(todayDate);
+    const sealedProps = Array.isArray(sealedSnap?.props) ? sealedSnap.props : [];
+    const boardWithSeal =
+      sealedProps.length > 0
+        ? {
+            ...board,
+            officialMembership: sealedProps,
+            selectedPropsTodayWNBA: sealedProps,
+            controlledBestBoard: sealedProps,
+            membershipSource:
+              board.membershipSource ||
+              sealedSnap?.membershipModel ||
+              "controlled-best-board-v2",
+            selectionBuildId:
+              board.selectionBuildId ||
+              sealedSnap?.selectionBuildId ||
+              sealedProps[0]?.selectionBuildId ||
+              null,
+            sealBuildId:
+              board.sealBuildId ||
+              sealedSnap?.selectionBuildId ||
+              null,
+            variableBoardSize: true,
+          }
+        : board;
+
+    const sanitized = sanitizeHomeBoardForLifecycle(boardWithSeal, {
+      todayLocalDate: todayDate,
       trackedProps: getTrackedProps(),
       reports: getRawDailySlateReports(),
       archives: getAllHistoryArchives(),
@@ -3693,6 +3733,11 @@ app.get("/picks", async (req, res) => {
       readOnly: true,
       serverBuild: SERVER_BUILD,
       boardSchemaVersion: BOARD_SCHEMA_VERSION,
+      sealedOfficialTodayCount: sealedProps.length,
+      officialMembership: sanitized.officialMembership || sealedProps,
+      controlledBestBoard: sanitized.controlledBestBoard || sealedProps,
+      selectedPropsTodayWNBA:
+        sanitized.selectedPropsTodayWNBA || sealedProps,
     });
   } catch (error) {
     console.log("GET PICKS ERROR:", error.message);
