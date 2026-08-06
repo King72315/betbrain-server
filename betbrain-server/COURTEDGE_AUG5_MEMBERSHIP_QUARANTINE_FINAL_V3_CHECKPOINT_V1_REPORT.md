@@ -16,8 +16,8 @@
 | 1 | `CHECKPOINT_TAG` | `courteedge-pre-full-roster-experiment-v3` |
 | 2 | `CHECKPOINT_BUILD` | `courteedge-pre-full-roster-experiment-v3` |
 | 3 | `SERVER_BUILD` | `courteedge-aug5-membership-quarantine-final-v3-checkpoint-v1` |
-| 4 | `V3_COMMIT_SHA` | `6726ee88988192e031ad393a65d7721072d025d6` |
-| 5 | `CHECKPOINT_BASE_COMMIT` | `6726ee88988192e031ad393a65d7721072d025d6` (self-peel after amend) |
+| 4 | `V3_COMMIT_SHA` | `8e1a068e8fd14b1e8202dcffc3468155812bcfe7` |
+| 5 | `CHECKPOINT_BASE_COMMIT` | `c71a52e0c42c3f280407f6650dd42fdb7a0ac526` (quarantine body commit; tag peel is tip) |
 | 6 | `ROLLBACK_BRANCH` | `rollback/courteedge-pre-full-roster-experiment-v3` |
 | 7 | `EXPERIMENT_BRANCH` | `experiment/courteedge-full-roster-collection-v1` |
 | 8 | `REMOTE_NAME` | `orgin` |

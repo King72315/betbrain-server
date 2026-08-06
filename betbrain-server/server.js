@@ -400,7 +400,7 @@ const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
   process.env.COURTEDGE_CHECKPOINT_BASE_COMMIT ||
-  "6726ee88988192e031ad393a65d7721072d025d6";
+  "c71a52e0c42c3f280407f6650dd42fdb7a0ac526";
 const CHECKPOINT_TAG =
   process.env.COURTEDGE_CHECKPOINT_TAG ||
   "courteedge-pre-full-roster-experiment-v3";

@@ -161,7 +161,7 @@ test("8 Runtime/checkpoint identity not conflated in constants", () => {
   // runtimeCommit comes from BUILD_COMMIT; checkpointBaseCommit is separate env/default.
   assert.notStrictEqual(
     process.env.COURTEDGE_CHECKPOINT_BASE_COMMIT ||
-      "6726ee88988192e031ad393a65d7721072d025d6",
+      "c71a52e0c42c3f280407f6650dd42fdb7a0ac526",
     "CONFLATED"
   );
 });
