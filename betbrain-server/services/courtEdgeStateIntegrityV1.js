@@ -931,8 +931,11 @@ export function recordPaidApiCall(meta = {}) {
   paidApiCallCount += 1;
   paidApiLog.push({
     at: new Date().toISOString(),
+    n: paidApiCallCount,
     ...meta,
   });
+  // Keep log bounded for long-running processes.
+  if (paidApiLog.length > 500) paidApiLog.splice(0, paidApiLog.length - 500);
   return paidApiCallCount;
 }
 

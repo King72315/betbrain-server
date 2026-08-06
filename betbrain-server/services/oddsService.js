@@ -203,7 +203,7 @@ function getMinutesUntilStart(commenceTime) {
 async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const { data } = await axios.get(url, {
+      const response = await axios.get(url, {
         params,
         timeout: 20000,
         headers: {
@@ -211,6 +211,7 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
           Accept: "application/json",
         },
       });
+      const hdrs = response?.headers || {};
       try {
         recordPaidApiCall({
           provider: "the-odds-api",
@@ -218,12 +219,22 @@ async function oddsGet(url, params = {}, label = "ODDS REQUEST") {
           attempt,
           // Never log apiKey — params may contain it.
           hasApiKeyParam: Boolean(params?.apiKey),
+          usageHeaders: {
+            requestsUsed: hdrs["x-requests-used"] ?? hdrs["x-requests-used".toLowerCase()] ?? null,
+            requestsRemaining:
+              hdrs["x-requests-remaining"] ??
+              hdrs["x-requests-remaining".toLowerCase()] ??
+              null,
+            requestsLast:
+              hdrs["x-requests-last"] ?? hdrs["x-requests-last".toLowerCase()] ?? null,
+          },
+          fromCache: false,
         });
       } catch {
         // Accounting must never break odds fetches.
       }
 
-      return data;
+      return response.data;
     } catch (err) {
       console.log(`${label} ATTEMPT ${attempt} FAILED:`, err.message);
 

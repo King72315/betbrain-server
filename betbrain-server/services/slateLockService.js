@@ -12,6 +12,10 @@ import {
   normalizeQuarantinedSlates,
   QUARANTINE_REASONS,
 } from "./slateScopeService.js";
+import {
+  buildCalibrationSlateSummary,
+  recordCalibrationObservationSlate,
+} from "../engines/topProps/directionalCalibrationObservationV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1099,12 +1103,66 @@ export function promoteCompletedResultsToHistory(slateDate, options = {}) {
         opposing: p.opposingSignals || null,
       },
       postgameAnalysis: p.postgameAnalysis || null,
+      calibrationAnalysis: {
+        calibrationVersion:
+          p.calibrationVersion ||
+          p.decisionIntelligence?.calibrationVersion ||
+          null,
+        baselineSideScore: p.baselineTeamSideScore ?? p.baselineOverScore ?? p.baselineUnderScore ?? null,
+        calibratedSideScore:
+          p.calibratedTeamSideScore ?? p.calibratedOverScore ?? p.calibratedUnderScore ?? null,
+        scoreDifference: p.calibrationDelta ?? null,
+        baselineSafetyScore: p.baselineSafetyScore ?? null,
+        calibratedSafetyScore: p.calibratedSafetyScore ?? p.canonicalSafetyScore ?? null,
+        baselineTeamRank: p.baselineTeamRank ?? null,
+        calibratedTeamRank: p.safetyRank ?? p.sealedSafetyRank ?? null,
+        calibrationChangedSelectedPlayer: p.calibrationChangedSelectedPlayer ?? false,
+        calibrationChangedTeamPairing: p.calibrationChangedTeamPairing ?? false,
+        selectedSide: p.side || p.pick,
+        actual: p.result ?? p.actualPoints ?? null,
+        grade: p.status || p.grade || null,
+        resultMargin: p.resultMargin ?? p.normalizedMargin ?? null,
+        projectionError: p.projectionError ?? null,
+        correctSignals: p.correctSignals ?? null,
+        failedSignals: p.failedSignals ?? null,
+        calibrationFeaturesHelped: Array.isArray(p.calibrationDifferences)
+          ? p.calibrationDifferences.filter((d) => Number(d.delta) > 0)
+          : null,
+        calibrationFeaturesHurt: Array.isArray(p.calibrationDifferences)
+          ? p.calibrationDifferences.filter((d) => Number(d.delta) < 0)
+          : null,
+        processGrade: p.processGrade ?? null,
+        organicSide: p.organicSide ?? null,
+        evaluatedSide: p.evaluatedSide ?? null,
+        forcedSide: p.forcedSide === true,
+        sideChanged: p.sideChanged === true,
+        autoFlip: p.autoFlip === true,
+      },
       labDataAttachedToProp: true,
     },
     homeHistoryLockBuild:
       p.homeHistoryLockBuild ||
       "courteedge-final-variable-team-board-home-history-lock-v1",
+    calibrationVersion:
+      p.calibrationVersion ||
+      "courteedge-small-sample-directional-calibration-v1",
   }));
+
+  const calibrationSlateSummary = buildCalibrationSlateSummary(enrichedProps, date);
+  let observation = null;
+  try {
+    // Only track observation for props that carried calibrationVersion (future boards).
+    const hasCalibration = enrichedProps.some(
+      (p) =>
+        p.calibrationVersion ||
+        p.historyDetail?.calibrationAnalysis?.calibrationVersion
+    );
+    if (hasCalibration) {
+      observation = recordCalibrationObservationSlate(date, enrichedProps);
+    }
+  } catch (err) {
+    observation = { error: String(err?.message || err) };
+  }
 
   const archiveResult = writeSlateHistoryArchive(date, {
     props: enrichedProps,
@@ -1113,6 +1171,8 @@ export function promoteCompletedResultsToHistory(slateDate, options = {}) {
     lifecyclePath: "HOME_RESULTS_HISTORY",
     labStageSkipped: true,
     promotedAt: now,
+    calibrationSlateSummary,
+    directionalCalibrationObservation: observation?.summary || null,
   });
 
   const registry = getRegistry();

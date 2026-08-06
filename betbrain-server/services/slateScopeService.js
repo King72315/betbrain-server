@@ -8,6 +8,10 @@ import {
 import { ensureHomeDetailedAnalysisOnPicks } from "./courtEdgeHomeDetailedAnalysisV1.js";
 import { applyHomeDisplayWhyToPick } from "../engines/topProps/homeReasonTextV1.js";
 import {
+  isOfficialPick,
+  isTestPick,
+} from "../engines/topProps/topPropSelectionAudit.js";
+import {
   LAB_SIX_PROP_LEARNING_TRACK_START_DATE,
   isLabSixPropLearningTrackDate,
 } from "./courtEdgeLabV2Constants.js";
@@ -1414,6 +1418,52 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     .filter(isHomeTomorrowProp)
     .map(stampPropDay);
 
+  // Prefer Official sealed membership for Home Today when present.
+  // Never let lifecycle scrubbing replace sealed selectedProps with a smaller
+  // organic/display rebuild.
+  const asSealedProps = (value) => {
+    if (Array.isArray(value) && value.length) return value;
+    if (value && Array.isArray(value.selectedProps) && value.selectedProps.length) {
+      return value.selectedProps;
+    }
+    if (value && Array.isArray(value.props) && value.props.length) return value.props;
+    return null;
+  };
+  const sealedTodayWNBA =
+    asSealedProps(board.officialMembership) ||
+    asSealedProps(board.selectedPropsTodayWNBA) ||
+    asSealedProps(board.controlledBestBoard?.selectedProps) ||
+    asSealedProps(board.controlledBestBoardV2?.selectedProps) ||
+    asSealedProps(board.controlledBestBoardV2?.today?.selectedProps) ||
+    asSealedProps(board.controlledBestBoard);
+  if (sealedTodayWNBA?.length) {
+    const sealedStamped = sealedTodayWNBA.map((p) =>
+      stampPropDay({
+        ...p,
+        slateDate: p.slateDate || today,
+        dayBucket: "TODAY",
+        dateLabel: "Today",
+      })
+    );
+    // Keep sealed membership exact — do not drop for labDate/calendar quirks
+    // when props are already Official for today's slate.
+    bestSixDisplayTodayWNBA = sealedStamped;
+  }
+
+  const sealedTomorrowWNBA =
+    asSealedProps(board.selectedPropsTomorrowWNBA) ||
+    asSealedProps(board.controlledBestBoardV2?.tomorrow?.selectedProps);
+  if (sealedTomorrowWNBA?.length) {
+    bestSixDisplayTomorrowWNBA = sealedTomorrowWNBA.map((p) =>
+      stampPropDay({
+        ...p,
+        slateDate: p.slateDate || tomorrow,
+        dayBucket: "TOMORROW",
+        dateLabel: "Tomorrow",
+      })
+    );
+  }
+
   let bestSixWNBA = bestSixDisplayTodayWNBA.slice();
   let bestSixNBA = bestSixDisplayTodayNBA.slice();
   const bestSixDisplayWNBA = [
@@ -1467,6 +1517,56 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       .map(stampPropDay)
       .filter((p) => isHomeTodayProp(p) || isHomeTomorrowProp(p));
 
+  // Durable day-record recovery restores Best 6 independently from the
+  // composite board. If that composite was empty/stale, its TOP arrays can
+  // remain empty even though a valid Tomorrow Best 6 was restored. Rebuild
+  // TOP from the already safety-ranked Best 6 while preserving team diversity.
+  // This is read-path recovery only and does not alter official selections.
+  const recoverTopFromBestSix = (bestSix = [], limit = 2) => {
+    const selected = [];
+    const teamKeys = new Set();
+    for (const pick of Array.isArray(bestSix) ? bestSix : []) {
+      if (selected.length >= limit) break;
+      if (
+        pick?.sameTeamOpportunityV2Demoted === true ||
+        pick?.topPickBlockedBySameTeamOpportunityV2 === true ||
+        pick?.sameTeamOpportunityV2?.role === "SECONDARY_DEMOTED"
+      ) {
+        continue;
+      }
+      const teamKey = String(
+        pick?.teamId || pick?.team || pick?.teamName || ""
+      )
+        .trim()
+        .toUpperCase();
+      if (teamKey && teamKeys.has(teamKey)) continue;
+      selected.push(pick);
+      if (teamKey) teamKeys.add(teamKey);
+    }
+    return selected;
+  };
+  const existingTopWNBA = scrubTop(board.topWNBAProps);
+  const existingTopNBA = scrubTop(board.topNBAProps);
+  const topWNBAProps = existingTopWNBA.length
+    ? existingTopWNBA
+    : recoverTopFromBestSix(
+        bestSixDisplayTomorrowWNBA,
+        CONFIG.WNBA_TOP_PROP_LIMIT
+      );
+  const topNBAProps = existingTopNBA.length
+    ? existingTopNBA
+    : recoverTopFromBestSix(
+        bestSixDisplayTomorrowNBA,
+        CONFIG.NBA_TOP_PROP_LIMIT
+      );
+  const existingTopProps = scrubTop(board.topProps);
+  const topProps = existingTopProps.length
+    ? existingTopProps
+    : [...topNBAProps, ...topWNBAProps].slice(
+        0,
+        CONFIG.TOP_PROP_COMBINED_LIMIT
+      );
+
   const withAnalysis = (list) =>
     ensureHomeDetailedAnalysisOnPicks(
       (Array.isArray(list) ? list : []).map((p) => applyHomeDisplayWhyToPick(p))
@@ -1490,12 +1590,42 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     bestSixDisplayTodayNBA: withAnalysis(bestSixDisplayTodayNBA),
     bestSixDisplayTomorrowWNBA: withAnalysis(bestSixDisplayTomorrowWNBA),
     bestSixDisplayTomorrowNBA: withAnalysis(bestSixDisplayTomorrowNBA),
-    topProps: withAnalysis(scrubTop(board.topProps)),
-    topWNBAProps: withAnalysis(scrubTop(board.topWNBAProps)),
-    topNBAProps: withAnalysis(scrubTop(board.topNBAProps)),
-    topOfficialProps: withAnalysis(scrubTop(board.topOfficialProps)),
-    topWNBAOfficialProps: withAnalysis(scrubTop(board.topWNBAOfficialProps)),
-    topNBAOfficialProps: withAnalysis(scrubTop(board.topNBAOfficialProps)),
+    // Preserve / restore Official sealed membership for Home equality.
+    controlledBestBoard: sealedTodayWNBA?.length
+      ? sealedTodayWNBA
+      : board.controlledBestBoard || null,
+    controlledBestBoardV2: board.controlledBestBoardV2 || null,
+    selectedPropsTodayWNBA: sealedTodayWNBA?.length
+      ? sealedTodayWNBA
+      : board.selectedPropsTodayWNBA || bestSixDisplayTodayWNBA,
+    selectedPropsTomorrowWNBA: sealedTomorrowWNBA?.length
+      ? sealedTomorrowWNBA
+      : board.selectedPropsTomorrowWNBA || bestSixDisplayTomorrowWNBA,
+    officialMembership: sealedTodayWNBA?.length
+      ? sealedTodayWNBA
+      : board.officialMembership || bestSixDisplayTodayWNBA,
+    membershipSource:
+      board.membershipSource ||
+      board.membershipModel ||
+      (sealedTodayWNBA?.length ? "controlled-best-board-v2" : null),
+    membershipModel: board.membershipModel || null,
+    boardVersion: board.boardVersion || board.membershipModel || null,
+    selectionBuildId:
+      board.selectionBuildId ||
+      board.sealBuildId ||
+      sealedTodayWNBA?.[0]?.selectionBuildId ||
+      null,
+    sealBuildId: board.sealBuildId || null,
+    variableBoardSize: true,
+    topProps: withAnalysis(topProps),
+    topWNBAProps: withAnalysis(topWNBAProps),
+    topNBAProps: withAnalysis(topNBAProps),
+    topOfficialProps: withAnalysis(topProps.filter(isOfficialPick)),
+    topTestProps: withAnalysis(topProps.filter(isTestPick)),
+    topWNBAOfficialProps: withAnalysis(topWNBAProps.filter(isOfficialPick)),
+    topWNBATestProps: withAnalysis(topWNBAProps.filter(isTestPick)),
+    topNBAOfficialProps: withAnalysis(topNBAProps.filter(isOfficialPick)),
+    topNBATestProps: withAnalysis(topNBAProps.filter(isTestPick)),
     todayCandidateCount: games.filter((g) => g.dayBucket === "TODAY").length,
     tomorrowCandidateCount: games.filter((g) => g.dayBucket === "TOMORROW")
       .length,
@@ -1510,6 +1640,7 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
         WNBA: bestSixDisplayTomorrowWNBA.length,
         NBA: bestSixDisplayTomorrowNBA.length,
       },
+      sealedOfficialTodayCount: sealedTodayWNBA?.length || 0,
     },
     lifecycleHomeSanitize: {
       today,
@@ -1519,7 +1650,8 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
       scrubbedLabOrPastCohort: true,
       homeDetailedAnalysisAttached: true,
       slateDateReclassified: true,
-      build: "courteedge-lab-learning-track-floor-v1",
+      sealedMembershipPreferred: Boolean(sealedTodayWNBA?.length),
+      build: "courteedge-sealed-home-membership-display-v1",
     },
   };
 }

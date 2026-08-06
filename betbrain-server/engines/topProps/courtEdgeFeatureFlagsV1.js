@@ -5,7 +5,7 @@
  * FULL_ROSTER_COLLECTION_MODE must remain false until the experiment is
  * explicitly activated on a future unsealed slate.
  */
-export const FEATURE_FLAGS_BUILD = "courteedge-pre-full-roster-experiment-v1";
+export const FEATURE_FLAGS_BUILD = "courteedge-pre-full-roster-experiment-v2";
 
 /** Credit-safe full-roster floodgate. Default OFF. */
 export const FULL_ROSTER_COLLECTION_MODE =

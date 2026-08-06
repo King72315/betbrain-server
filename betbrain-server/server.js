@@ -387,6 +387,57 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD = "courteedge-clear-side-strong-edge-membership-path-v1";
+const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v2";
+
+function resolveGitCommitSha() {
+  const fromEnv = [
+    process.env.RENDER_GIT_COMMIT,
+    process.env.GIT_COMMIT,
+    process.env.SOURCE_VERSION,
+    process.env.COMMIT_SHA,
+  ]
+    .map((v) => String(v || "").trim())
+    .find((v) => /^[0-9a-f]{7,40}$/i.test(v));
+  if (fromEnv) return fromEnv.toLowerCase();
+  try {
+    const gitDir = path.resolve(__dirname, "..", ".git");
+    const headPath = path.join(gitDir, "HEAD");
+    if (!fs.existsSync(headPath)) return null;
+    const head = fs.readFileSync(headPath, "utf8").trim();
+    if (head.startsWith("ref:")) {
+      const ref = head.slice(4).trim();
+      const refPath = path.join(gitDir, ref);
+      if (fs.existsSync(refPath)) {
+        return fs.readFileSync(refPath, "utf8").trim().toLowerCase();
+      }
+      const packed = path.join(gitDir, "packed-refs");
+      if (fs.existsSync(packed)) {
+        const line = fs
+          .readFileSync(packed, "utf8")
+          .split(/\r?\n/)
+          .find((l) => l.endsWith(` ${ref}`));
+        if (line) return line.split(/\s+/)[0].toLowerCase();
+      }
+      return null;
+    }
+    return /^[0-9a-f]{7,40}$/i.test(head) ? head.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+const BUILD_COMMIT = resolveGitCommitSha();
+const BUILD_BRANCH = (() => {
+  try {
+    const gitDir = path.resolve(__dirname, "..", ".git");
+    const head = fs.readFileSync(path.join(gitDir, "HEAD"), "utf8").trim();
+    if (head.startsWith("ref: refs/heads/")) return head.replace("ref: refs/heads/", "");
+    return process.env.RENDER_GIT_BRANCH || process.env.GIT_BRANCH || null;
+  } catch {
+    return process.env.RENDER_GIT_BRANCH || process.env.GIT_BRANCH || null;
+  }
+})();
+const SERVER_STARTED_AT = new Date().toISOString();
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
 const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v2";
@@ -3632,7 +3683,11 @@ app.get("/health", (req, res) => {
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
-    checkpointBuild: "courteedge-pre-full-roster-experiment-v1",
+    checkpointBuild: CHECKPOINT_BUILD,
+    buildCommit: BUILD_COMMIT,
+    buildBranch: BUILD_BRANCH,
+    serverStartedAt: SERVER_STARTED_AT,
+    processId: process.pid,
     featureFlagsBuild: FEATURE_FLAGS_BUILD,
     fullRosterCollectionMode: FULL_ROSTER_COLLECTION_MODE,
     featureFlags: getCourtEdgeFeatureFlagSnapshot(),

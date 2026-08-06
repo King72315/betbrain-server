@@ -14,7 +14,7 @@
 | Main working branch | `betbrain-v2-rebuild` |
 | Remote name | `orgin` |
 | Previous HEAD (before checkpoint commit) | `3fa90ba182bc981711fef8b649add6372e8e6a1d` |
-| Checkpoint commit | _(filled by verification)_ |
+| Checkpoint commit | `bf581a1bcbf65aba508e01cd46ce73e414a445c9` |
 | Annotated tag | `courteedge-pre-full-roster-experiment-v1` |
 | Rollback branch | `rollback/courteedge-pre-full-roster-experiment-v1` |
 | Experiment branch | `experiment/courteedge-full-roster-collection-v1` |
@@ -239,6 +239,24 @@ Stable checkpoint
 
 ## Confirmation
 
-- Full-roster mode remains **disabled**.  
-- Experiment may begin **only after** git tag/branch remote verification completes and this document’s identifiers are filled.  
-- Do not implement floodgate membership on the rollback branch.
+- Full-roster mode remains **disabled**.
+- Remote verification complete: local commit, annotated tag peel, rollback branch, and experiment branch all resolve to `bf581a1bcbf65aba508e01cd46ce73e414a445c9` on remote `orgin`.
+- Rollback rehearsal (key suites on checkpoint HEAD): clear-side 17/17 PASS; home/history lock 16/16 PASS; `FULL_ROSTER_COLLECTION_MODE=false`.
+- Aug 4 sealed snapshot unchanged (`propCount: 4`, `lockedAt: 2026-08-04T03:03:13.952Z`).
+- Working branch for future experiment work: `experiment/courteedge-full-roster-collection-v1`.
+- Rollback branch left untouched at the checkpoint commit.
+- Experiment may now begin safely on a **future unsealed** slate only — do not enable full-roster on an active/partial slate.
+
+## Post-push verification log
+
+| Check | Result |
+|-------|--------|
+| Annotated tag | PASS (`tag` object + peel `bf581a1…`) |
+| Remote tag peel | PASS |
+| Remote rollback branch | PASS |
+| Remote experiment branch | PASS |
+| Four-way hash match | PASS |
+| Secret scan of commit | PASS (no `.env` / keys) |
+| Backup checksums | PASS |
+| Unrelated dirty files excluded | PASS (left unstaged) |
+
