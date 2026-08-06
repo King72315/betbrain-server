@@ -32,6 +32,12 @@ import {
   resolveOfficialSlateMembership,
   validateMembershipIntegrity,
 } from "./officialSlateMembershipService.js";
+import {
+  buildSlateIntegrityPacket,
+  isCalibrationEligible,
+  isOfficialRecordEligible,
+  MEMBERSHIP_INTEGRITY_BUILD,
+} from "./slateMembershipIntegrityV1.js";
 import { logLifecycleIntegrityFailure } from "./lifecyclePointerStateService.js";
 import {
   validateOfficialSlateLifecycle,
@@ -1086,7 +1092,14 @@ function getLedgerForLearning(prop = {}) {
   return prop.scoreLedger || [];
 }
 
-function buildTrackingCalibrationSplit(slateProps = []) {
+function buildTrackingCalibrationSplit(slateProps = [], options = {}) {
+  const slateDate = String(options.slateDate || "");
+  const integrity = buildSlateIntegrityPacket(slateDate, {
+    recordedProps: slateProps,
+  });
+  const officialEligible = isOfficialRecordEligible(slateDate, integrity);
+  const calibrationEligible = isCalibrationEligible(slateDate, integrity);
+
   const officialProps = slateProps.filter(
     (prop) => String(prop.trackingType || prop.recordType || "").toUpperCase() === "OFFICIAL"
   );
@@ -1100,13 +1113,22 @@ function buildTrackingCalibrationSplit(slateProps = []) {
     (prop) => prop.readerOfficialDemoted !== true
   );
 
+  const emptyRecord = buildRecord([]);
+  const diagnosticOfficialRecord = buildRecord(officialProps);
+
   return {
     totalTracked: slateProps.length,
     officialCount: officialProps.length,
     testCount: testProps.length,
     readerOfficialDemotedCount: readerOfficialDemotedProps.length,
     readerUncertainTestCount: readerUncertainTestProps.length,
-    officialRecord: buildRecord(officialProps),
+    // Clean Official W-L excludes invalidated memberships.
+    officialRecord: officialEligible ? diagnosticOfficialRecord : emptyRecord,
+    officialRecordDiagnostic: diagnosticOfficialRecord,
+    officialRecordEligible: officialEligible,
+    calibrationEligible,
+    membershipIntegrity: integrity,
+    membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
     testRecord: buildRecord(testProps),
     readerOfficialDemotedRecord: buildRecord(readerOfficialDemotedProps),
     readerUncertainTestRecord: buildRecord(readerUncertainTestProps),
@@ -1121,16 +1143,25 @@ function buildSlateReport(slateDate, props = [], options = {}) {
   );
   // Persist postgame lessons + module attribution onto Lab-bound props.
   const slateProps = enrichGradedPropsForLab(rawSlateProps);
-  const record = buildRecord(slateProps);
+  const gradingRecord = buildRecord(slateProps);
   const allGraded =
-    record.pending === 0 &&
+    gradingRecord.pending === 0 &&
     slateProps.length > 0 &&
     !hasUnresolvedGradingProps(slateProps);
   const now = new Date().toISOString();
   const reportStatus = allGraded ? "final" : "in-progress";
 
-  const trackingCalibration = buildTrackingCalibrationSplit(slateProps);
+  const trackingCalibration = buildTrackingCalibrationSplit(slateProps, {
+    slateDate,
+  });
   const qualityGatePerformance = buildQualityGatePerformanceFromProps(slateProps);
+  const officialEligible = isOfficialRecordEligible(
+    slateDate,
+    trackingCalibration.membershipIntegrity
+  );
+  // Top-level Official W-L: empty when membership integrity invalidated.
+  const record = officialEligible ? gradingRecord : buildRecord([]);
+  const diagnosticRecord = gradingRecord;
   qualityGatePerformance.trackedRecord = buildRecord(
     slateProps.filter(
       (p) =>
@@ -1178,16 +1209,27 @@ function buildSlateReport(slateDate, props = [], options = {}) {
     sideRescueRetroSimulation,
     decisionIntelligenceVersion: DECISION_INTELLIGENCE_VERSION,
     sideRescueVersion: SIDE_RESCUE_VERSION,
-    graded: record.graded,
-    pending: record.pending,
+    graded: diagnosticRecord.graded,
+    pending: diagnosticRecord.pending,
     wins: record.wins,
     losses: record.losses,
     pushes: record.pushes,
     overallWinRate: record.winRate,
+    diagnosticWins: diagnosticRecord.wins,
+    diagnosticLosses: diagnosticRecord.losses,
+    diagnosticPushes: diagnosticRecord.pushes,
+    officialRecordEligible: officialEligible,
+    calibrationEligible: trackingCalibration.calibrationEligible,
+    membershipIntegrity: trackingCalibration.membershipIntegrity,
+    integrityWarning:
+      trackingCalibration.membershipIntegrity?.integrityWarning || null,
     leagues: [...new Set(slateProps.map((p) => p.league).filter(Boolean))],
     generatedAt: now,
     updatedAt: now,
   };
+
+  // Calibration recommendations only for Official-record-eligible slates.
+  const sectionFSkip = !trackingCalibration.calibrationEligible;
 
   const sectionB = {
     title: "Risk Bucket Breakdown",
@@ -1214,11 +1256,18 @@ function buildSlateReport(slateDate, props = [], options = {}) {
 
   const sectionF = {
     title: "Calibration Recommendations",
-    ...buildCalibrationRecommendations(slateProps, {
-      B: sectionB.buckets,
-      C: sectionC,
-      D: sectionD.groups,
-    }),
+    ...(sectionFSkip
+      ? {
+          skipped: true,
+          reason: "membership_integrity_invalidated",
+          integrityWarning:
+            trackingCalibration.membershipIntegrity?.integrityWarning || null,
+        }
+      : buildCalibrationRecommendations(slateProps, {
+          B: sectionB.buckets,
+          C: sectionC,
+          D: sectionD.groups,
+        })),
   };
 
   const reportCard = buildEngineReportCardBundle(slateProps, {

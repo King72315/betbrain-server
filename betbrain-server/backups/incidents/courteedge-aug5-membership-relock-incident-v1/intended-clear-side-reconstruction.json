@@ -1,0 +1,4623 @@
+{
+  "build": "courteedge-clear-side-strong-edge-membership-path-v1",
+  "slateDate": "2026-08-05",
+  "candidateCount": 33,
+  "dualSideEvaluations": 46,
+  "before": {
+    "lowBestPropScore": 66,
+    "projectionSanityWeak": 66,
+    "note": "Legacy: missing score→0 and questionsUsage→WEAK"
+  },
+  "after": {
+    "lowBestPropScore": 0,
+    "projectionSanityWeak": 55,
+    "lastValidTierSoft": 59
+  },
+  "rejectedOnlyByOldLastValid": 0,
+  "rejectedByRealEvidence": 40,
+  "newlyQualifiedCount": 6,
+  "newlyQualified": [
+    {
+      "player": "Kelsey Plum",
+      "team": "phoenixmercury",
+      "side": "OVER",
+      "line": 16.5,
+      "edge": 5.100000000000001,
+      "tier": "TEAM_SIDE_FALLBACK"
+    },
+    {
+      "player": "Rhyne Howard",
+      "team": "atlantadream",
+      "side": "UNDER",
+      "line": 17.5,
+      "edge": 4.6,
+      "tier": "TEAM_SIDE_PRIMARY"
+    },
+    {
+      "player": "Flau'jae Johnson",
+      "team": "seattlestorm",
+      "side": "OVER",
+      "line": 15.5,
+      "edge": 1.6000000000000014,
+      "tier": "TEAM_SIDE_FALLBACK"
+    },
+    {
+      "player": "Natisha Hiedeman",
+      "team": "seattlestorm",
+      "side": "OVER",
+      "line": 16.5,
+      "edge": 2.1999999999999993,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Rae Burrell",
+      "team": "losangelessparks",
+      "side": "UNDER",
+      "line": 16.5,
+      "edge": 2.4000000000000004,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Nneka Ogwumike",
+      "team": "losangelessparks",
+      "side": "UNDER",
+      "line": 18.5,
+      "edge": 2.3999999999999986,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    }
+  ],
+  "selected": [
+    {
+      "player": "Rhyne Howard",
+      "team": "atlantadream",
+      "side": "Under",
+      "line": 17.5,
+      "edge": 4.6,
+      "membershipQualificationStatus": "QUALIFIED_TEAM_SIDE"
+    },
+    {
+      "player": "Kelsey Plum",
+      "team": "phoenixmercury",
+      "side": "Over",
+      "line": 16.5,
+      "edge": 5.100000000000001,
+      "membershipQualificationStatus": "QUALIFIED_TEAM_SIDE"
+    },
+    {
+      "player": "Nneka Ogwumike",
+      "team": "losangelessparks",
+      "side": "Under",
+      "line": 18.5,
+      "edge": 2.3999999999999986,
+      "membershipQualificationStatus": "QUALIFIED_TEAM_SIDE"
+    },
+    {
+      "player": "Flau'jae Johnson",
+      "team": "seattlestorm",
+      "side": "Over",
+      "line": 15.5,
+      "edge": 1.6000000000000014,
+      "membershipQualificationStatus": "QUALIFIED_TEAM_SIDE"
+    }
+  ],
+  "finalOfficialCount": 4,
+  "overCount": 2,
+  "underCount": 2,
+  "gamesRepresented": 3,
+  "homeCount": 4,
+  "resultsCount": 4,
+  "focusCandidates": [
+    {
+      "player": "Kelsey Plum",
+      "team": "phoenixmercury",
+      "side": "OVER",
+      "line": 16.5,
+      "projection": 21.6,
+      "fairLine": 21.7,
+      "edge": 5.100000000000001,
+      "fairSupports": true,
+      "naturalDecision": "TRACK",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_FALLBACK"
+    },
+    {
+      "player": "Kelsey Plum",
+      "team": "phoenixmercury",
+      "side": "UNDER",
+      "line": 16.5,
+      "projection": 21.6,
+      "fairLine": 21.7,
+      "edge": -5.100000000000001,
+      "fairSupports": false,
+      "naturalDecision": "TRACK",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "UNDER_PROJECTION_ABOVE_LINE",
+        "UNDER_FAIR_LINE_ABOVE_LINE"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Rhyne Howard",
+      "team": "atlantadream",
+      "side": "OVER",
+      "line": 17.5,
+      "projection": 12.9,
+      "fairLine": 12.3,
+      "edge": -4.6,
+      "fairSupports": false,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Rhyne Howard",
+      "team": "atlantadream",
+      "side": "UNDER",
+      "line": 17.5,
+      "projection": 12.9,
+      "fairLine": 12.3,
+      "edge": 4.6,
+      "fairSupports": true,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_PRIMARY"
+    },
+    {
+      "player": "Flau'jae Johnson",
+      "team": "seattlestorm",
+      "side": "OVER",
+      "line": 15.5,
+      "projection": 17.1,
+      "fairLine": 17.7,
+      "edge": 1.6000000000000014,
+      "fairSupports": true,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_FALLBACK"
+    },
+    {
+      "player": "Flau'jae Johnson",
+      "team": "seattlestorm",
+      "side": "UNDER",
+      "line": 15.5,
+      "projection": 17.1,
+      "fairLine": 17.7,
+      "edge": -1.6000000000000014,
+      "fairSupports": false,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "UNDER_PROJECTION_ABOVE_LINE",
+        "UNDER_FAIR_LINE_ABOVE_LINE"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Natisha Hiedeman",
+      "team": "seattlestorm",
+      "side": "OVER",
+      "line": 16.5,
+      "projection": 18.7,
+      "fairLine": 19.3,
+      "edge": 2.1999999999999993,
+      "fairSupports": true,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Natisha Hiedeman",
+      "team": "seattlestorm",
+      "side": "UNDER",
+      "line": 16.5,
+      "projection": 18.7,
+      "fairLine": 19.3,
+      "edge": -2.1999999999999993,
+      "fairSupports": false,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "UNDER_PROJECTION_ABOVE_LINE",
+        "UNDER_FAIR_LINE_ABOVE_LINE"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Rae Burrell",
+      "team": "losangelessparks",
+      "side": "OVER",
+      "line": 16.5,
+      "projection": 14.1,
+      "fairLine": 14.3,
+      "edge": -2.4000000000000004,
+      "fairSupports": false,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Rae Burrell",
+      "team": "losangelessparks",
+      "side": "UNDER",
+      "line": 16.5,
+      "projection": 14.1,
+      "fairLine": 14.3,
+      "edge": 2.4000000000000004,
+      "fairSupports": true,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Nneka Ogwumike",
+      "team": "losangelessparks",
+      "side": "OVER",
+      "line": 18.5,
+      "projection": 16.1,
+      "fairLine": 16.3,
+      "edge": -2.3999999999999986,
+      "fairSupports": false,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "WEAK",
+      "hardBlocks": [
+        "EDGE_BELOW_MEMBERSHIP_FLOOR",
+        "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+      ],
+      "qualified": false,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    },
+    {
+      "player": "Nneka Ogwumike",
+      "team": "losangelessparks",
+      "side": "UNDER",
+      "line": 18.5,
+      "projection": 16.1,
+      "fairLine": 16.3,
+      "edge": 2.3999999999999986,
+      "fairSupports": true,
+      "naturalDecision": "BOARD_ONLY",
+      "scoreBefore": null,
+      "scoreAfterPresent": false,
+      "scoreAudit": {
+        "present": false,
+        "presentKey": null,
+        "raw": null,
+        "scale": "MISSING",
+        "normalized": null,
+        "belowFiftyFloor": false,
+        "membershipHardBlockEligible": false,
+        "rankingScore": null
+      },
+      "sanityBefore": "WEAK_FLAGGED",
+      "sanityAfter": "MIXED",
+      "hardBlocks": [],
+      "qualified": true,
+      "tier": "TEAM_SIDE_LAST_VALID"
+    }
+  ],
+  "teams": [
+    {
+      "team": "atlantadream",
+      "rawPointMarkets": 8,
+      "overPackets": [
+        {
+          "player": "Allisha Gray",
+          "team": "atlantadream",
+          "side": "OVER",
+          "line": 18.5,
+          "projection": 18.1,
+          "fairLine": 18.4,
+          "edge": -0.3999999999999986,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Jordin Canada",
+          "team": "atlantadream",
+          "side": "OVER",
+          "line": 10.5,
+          "projection": 10.3,
+          "fairLine": 10.2,
+          "edge": -0.1999999999999993,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Angel Reese",
+          "team": "atlantadream",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 14.5,
+          "fairLine": 14.6,
+          "edge": -1,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Rhyne Howard",
+          "team": "atlantadream",
+          "side": "OVER",
+          "line": 17.5,
+          "projection": 12.9,
+          "fairLine": 12.3,
+          "edge": -4.6,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Allisha Gray",
+          "team": "atlantadream",
+          "side": "UNDER",
+          "line": 18.5,
+          "projection": 18.1,
+          "fairLine": 18.4,
+          "edge": 0.3999999999999986,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Jordin Canada",
+          "team": "atlantadream",
+          "side": "UNDER",
+          "line": 10.5,
+          "projection": 10.3,
+          "fairLine": 10.2,
+          "edge": 0.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Angel Reese",
+          "team": "atlantadream",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 14.5,
+          "fairLine": 14.6,
+          "edge": 1,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Rhyne Howard",
+          "team": "atlantadream",
+          "side": "UNDER",
+          "line": 17.5,
+          "projection": 12.9,
+          "fairLine": 12.3,
+          "edge": 4.6,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_PRIMARY"
+        }
+      ],
+      "qualified": [
+        {
+          "player": "Rhyne Howard",
+          "team": "atlantadream",
+          "side": "UNDER",
+          "line": 17.5,
+          "projection": 12.9,
+          "fairLine": 12.3,
+          "edge": 4.6,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_PRIMARY"
+        }
+      ],
+      "selected": [
+        {
+          "player": "Rhyne Howard",
+          "side": "Under",
+          "line": 17.5,
+          "edge": 4.6
+        }
+      ],
+      "emptySlots": []
+    },
+    {
+      "team": "phoenixmercury",
+      "rawPointMarkets": 4,
+      "overPackets": [
+        {
+          "player": "Kelsey Plum",
+          "team": "phoenixmercury",
+          "side": "OVER",
+          "line": 16.5,
+          "projection": 21.6,
+          "fairLine": 21.7,
+          "edge": 5.100000000000001,
+          "fairSupports": true,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_FALLBACK"
+        },
+        {
+          "player": "Alyssa Thomas",
+          "team": "phoenixmercury",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 16.7,
+          "fairLine": 17,
+          "edge": 1.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_FALLBACK"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Kelsey Plum",
+          "team": "phoenixmercury",
+          "side": "UNDER",
+          "line": 16.5,
+          "projection": 21.6,
+          "fairLine": 21.7,
+          "edge": -5.100000000000001,
+          "fairSupports": false,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Alyssa Thomas",
+          "team": "phoenixmercury",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 16.7,
+          "fairLine": 17,
+          "edge": -1.1999999999999993,
+          "fairSupports": false,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_FALLBACK"
+        }
+      ],
+      "qualified": [
+        {
+          "player": "Kelsey Plum",
+          "team": "phoenixmercury",
+          "side": "OVER",
+          "line": 16.5,
+          "projection": 21.6,
+          "fairLine": 21.7,
+          "edge": 5.100000000000001,
+          "fairSupports": true,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_FALLBACK"
+        }
+      ],
+      "selected": [
+        {
+          "player": "Kelsey Plum",
+          "side": "Over",
+          "line": 16.5,
+          "edge": 5.100000000000001
+        }
+      ],
+      "emptySlots": []
+    },
+    {
+      "team": "seattlestorm",
+      "rawPointMarkets": 6,
+      "overPackets": [
+        {
+          "player": "Ezi Magbegor",
+          "team": "seattlestorm",
+          "side": "OVER",
+          "line": 6.5,
+          "projection": 4.6,
+          "fairLine": 4.7,
+          "edge": -1.9000000000000004,
+          "fairSupports": false,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "NATURAL_NO_BET",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Flau'jae Johnson",
+          "team": "seattlestorm",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 17.1,
+          "fairLine": 17.7,
+          "edge": 1.6000000000000014,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_FALLBACK"
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "team": "seattlestorm",
+          "side": "OVER",
+          "line": 16.5,
+          "projection": 18.7,
+          "fairLine": 19.3,
+          "edge": 2.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Ezi Magbegor",
+          "team": "seattlestorm",
+          "side": "UNDER",
+          "line": 6.5,
+          "projection": 4.6,
+          "fairLine": 4.7,
+          "edge": 1.9000000000000004,
+          "fairSupports": true,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [
+            "NATURAL_NO_BET",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Flau'jae Johnson",
+          "team": "seattlestorm",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 17.1,
+          "fairLine": 17.7,
+          "edge": -1.6000000000000014,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "team": "seattlestorm",
+          "side": "UNDER",
+          "line": 16.5,
+          "projection": 18.7,
+          "fairLine": 19.3,
+          "edge": -2.1999999999999993,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [
+        {
+          "player": "Flau'jae Johnson",
+          "team": "seattlestorm",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 17.1,
+          "fairLine": 17.7,
+          "edge": 1.6000000000000014,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_FALLBACK"
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "team": "seattlestorm",
+          "side": "OVER",
+          "line": 16.5,
+          "projection": 18.7,
+          "fairLine": 19.3,
+          "edge": 2.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "selected": [
+        {
+          "player": "Flau'jae Johnson",
+          "side": "Over",
+          "line": 15.5,
+          "edge": 1.6000000000000014
+        }
+      ],
+      "emptySlots": []
+    },
+    {
+      "team": "newyorkliberty",
+      "rawPointMarkets": 4,
+      "overPackets": [
+        {
+          "player": "Pauline Astier",
+          "team": "newyorkliberty",
+          "side": "OVER",
+          "line": 8.5,
+          "projection": 10,
+          "fairLine": 9.8,
+          "edge": 1.5,
+          "fairSupports": true,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "NATURAL_NO_BET"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Breanna Stewart",
+          "team": "newyorkliberty",
+          "side": "OVER",
+          "line": 22.5,
+          "projection": 20.7,
+          "fairLine": 20.1,
+          "edge": -1.8000000000000007,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Pauline Astier",
+          "team": "newyorkliberty",
+          "side": "UNDER",
+          "line": 8.5,
+          "projection": 10,
+          "fairLine": 9.8,
+          "edge": -1.5,
+          "fairSupports": false,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "NATURAL_NO_BET",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE",
+            "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Breanna Stewart",
+          "team": "newyorkliberty",
+          "side": "UNDER",
+          "line": 22.5,
+          "projection": 20.7,
+          "fairLine": 20.1,
+          "edge": 1.8000000000000007,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [],
+      "selected": [],
+      "emptySlots": []
+    },
+    {
+      "team": "washingtonmystics",
+      "rawPointMarkets": 8,
+      "overPackets": [
+        {
+          "player": "Lauren Betts",
+          "team": "washingtonmystics",
+          "side": "OVER",
+          "line": 6.5,
+          "projection": 6.7,
+          "fairLine": 6.7,
+          "edge": 0.20000000000000018,
+          "fairSupports": true,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "NATURAL_NO_BET",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Kiki Iriafen",
+          "team": "washingtonmystics",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 15.7,
+          "fairLine": 16.6,
+          "edge": 0.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Michaela Onyenwere",
+          "team": "washingtonmystics",
+          "side": "OVER",
+          "line": 8.5,
+          "projection": 8.9,
+          "fairLine": 8.7,
+          "edge": 0.40000000000000036,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Georgia Amoore",
+          "team": "washingtonmystics",
+          "side": "OVER",
+          "line": 6.5,
+          "projection": 7.2,
+          "fairLine": 7,
+          "edge": 0.7000000000000002,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Lauren Betts",
+          "team": "washingtonmystics",
+          "side": "UNDER",
+          "line": 6.5,
+          "projection": 6.7,
+          "fairLine": 6.7,
+          "edge": -0.20000000000000018,
+          "fairSupports": false,
+          "naturalDecision": "NO_BET",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "NATURAL_NO_BET",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE",
+            "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Kiki Iriafen",
+          "team": "washingtonmystics",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 15.7,
+          "fairLine": 16.6,
+          "edge": -0.1999999999999993,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Michaela Onyenwere",
+          "team": "washingtonmystics",
+          "side": "UNDER",
+          "line": 8.5,
+          "projection": 8.9,
+          "fairLine": 8.7,
+          "edge": -0.40000000000000036,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Georgia Amoore",
+          "team": "washingtonmystics",
+          "side": "UNDER",
+          "line": 6.5,
+          "projection": 7.2,
+          "fairLine": 7,
+          "edge": -0.7000000000000002,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE",
+            "UNDER_AVERAGES_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [],
+      "selected": [],
+      "emptySlots": []
+    },
+    {
+      "team": "dallaswings",
+      "rawPointMarkets": 4,
+      "overPackets": [
+        {
+          "player": "Jessica Shepard",
+          "team": "dallaswings",
+          "side": "OVER",
+          "line": 13.5,
+          "projection": 13,
+          "fairLine": 13,
+          "edge": -0.5,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Azzi Fudd",
+          "team": "dallaswings",
+          "side": "OVER",
+          "line": 13.5,
+          "projection": 12.7,
+          "fairLine": 12.8,
+          "edge": -0.8000000000000007,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Jessica Shepard",
+          "team": "dallaswings",
+          "side": "UNDER",
+          "line": 13.5,
+          "projection": 13,
+          "fairLine": 13,
+          "edge": 0.5,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Azzi Fudd",
+          "team": "dallaswings",
+          "side": "UNDER",
+          "line": 13.5,
+          "projection": 12.7,
+          "fairLine": 12.8,
+          "edge": 0.8000000000000007,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [],
+      "selected": [],
+      "emptySlots": []
+    },
+    {
+      "team": "losangelessparks",
+      "rawPointMarkets": 8,
+      "overPackets": [
+        {
+          "player": "Erica Wheeler",
+          "team": "losangelessparks",
+          "side": "OVER",
+          "line": 9.5,
+          "projection": 10.4,
+          "fairLine": 10.8,
+          "edge": 0.9000000000000004,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Dearica Hamby",
+          "team": "losangelessparks",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 16.7,
+          "fairLine": 16.8,
+          "edge": 1.1999999999999993,
+          "fairSupports": true,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_FALLBACK"
+        },
+        {
+          "player": "Rae Burrell",
+          "team": "losangelessparks",
+          "side": "OVER",
+          "line": 16.5,
+          "projection": 14.1,
+          "fairLine": 14.3,
+          "edge": -2.4000000000000004,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Nneka Ogwumike",
+          "team": "losangelessparks",
+          "side": "OVER",
+          "line": 18.5,
+          "projection": 16.1,
+          "fairLine": 16.3,
+          "edge": -2.3999999999999986,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Erica Wheeler",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 9.5,
+          "projection": 10.4,
+          "fairLine": 10.8,
+          "edge": -0.9000000000000004,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Dearica Hamby",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 16.7,
+          "fairLine": 16.8,
+          "edge": -1.1999999999999993,
+          "fairSupports": false,
+          "naturalDecision": "TRACK",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK",
+            "UNDER_PROJECTION_ABOVE_LINE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_FALLBACK"
+        },
+        {
+          "player": "Rae Burrell",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 16.5,
+          "projection": 14.1,
+          "fairLine": 14.3,
+          "edge": 2.4000000000000004,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Nneka Ogwumike",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 18.5,
+          "projection": 16.1,
+          "fairLine": 16.3,
+          "edge": 2.3999999999999986,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [
+        {
+          "player": "Rae Burrell",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 16.5,
+          "projection": 14.1,
+          "fairLine": 14.3,
+          "edge": 2.4000000000000004,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Nneka Ogwumike",
+          "team": "losangelessparks",
+          "side": "UNDER",
+          "line": 18.5,
+          "projection": 16.1,
+          "fairLine": 16.3,
+          "edge": 2.3999999999999986,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [],
+          "qualified": true,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "selected": [
+        {
+          "player": "Nneka Ogwumike",
+          "side": "Under",
+          "line": 18.5,
+          "edge": 2.3999999999999986
+        }
+      ],
+      "emptySlots": []
+    },
+    {
+      "team": "chicagosky",
+      "rawPointMarkets": 4,
+      "overPackets": [
+        {
+          "player": "Kamilla Cardoso",
+          "team": "chicagosky",
+          "side": "OVER",
+          "line": 15.5,
+          "projection": 15.5,
+          "fairLine": 15.4,
+          "edge": 0,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Sydney Taylor",
+          "team": "chicagosky",
+          "side": "OVER",
+          "line": 18.5,
+          "projection": 16.1,
+          "fairLine": 18.9,
+          "edge": -2.3999999999999986,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "UNCONFIRMED_AVAILABILITY_OVER_BLOCK",
+            "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "underPackets": [
+        {
+          "player": "Kamilla Cardoso",
+          "team": "chicagosky",
+          "side": "UNDER",
+          "line": 15.5,
+          "projection": 15.5,
+          "fairLine": 15.4,
+          "edge": 0,
+          "fairSupports": true,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "WEAK",
+          "hardBlocks": [
+            "EDGE_BELOW_MEMBERSHIP_FLOOR",
+            "BOTH_SIDES_WEAK"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        },
+        {
+          "player": "Sydney Taylor",
+          "team": "chicagosky",
+          "side": "UNDER",
+          "line": 18.5,
+          "projection": 16.1,
+          "fairLine": 18.9,
+          "edge": 2.3999999999999986,
+          "fairSupports": false,
+          "naturalDecision": "BOARD_ONLY",
+          "scoreBefore": null,
+          "scoreAfterPresent": false,
+          "scoreAudit": {
+            "present": false,
+            "presentKey": null,
+            "raw": null,
+            "scale": "MISSING",
+            "normalized": null,
+            "belowFiftyFloor": false,
+            "membershipHardBlockEligible": false,
+            "rankingScore": null
+          },
+          "sanityBefore": "WEAK_FLAGGED",
+          "sanityAfter": "MIXED",
+          "hardBlocks": [
+            "FAIR_LINE_DOES_NOT_SUPPORT_SIDE",
+            "UNDER_FAIR_LINE_ABOVE_LINE"
+          ],
+          "qualified": false,
+          "tier": "TEAM_SIDE_LAST_VALID"
+        }
+      ],
+      "qualified": [],
+      "selected": [],
+      "emptySlots": []
+    }
+  ],
+  "emptySlotAudit": {
+    "version": "controlled-best-board-v2",
+    "build": "courteedge-clear-side-strong-edge-membership-path-v1",
+    "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1",
+    "membershipEdgeFloor": 1.5,
+    "preferredGapFloor": 3,
+    "lastValidOfficialFillDisabled": true,
+    "allowEmptyOfficialBoard": true,
+    "noFixedMinimumBoardCount": true,
+    "calibration": "courteedge-small-sample-directional-calibration-v1",
+    "calibrationActive": true,
+    "calibrationMode": "ACTIVE_FOR_FUTURE_UNSEALED_WNBA_POINTS_BOARDS",
+    "calibrationWeightsUnchanged": true,
+    "dateVerificationVersion": "slate-date-verification-v1",
+    "dateVerificationBuild": "courteedge-team-balanced-variable-board-date-verification-v1",
+    "requestedSlateDate": "2026-08-05",
+    "timezone": "America/Chicago",
+    "dateVerificationStatus": "PARTIAL",
+    "gamesEvaluated": 6,
+    "teamsEvaluated": 4,
+    "selectedCount": 4,
+    "qualifiedOverSlots": 2,
+    "qualifiedUnderSlots": 2,
+    "emptySlots": 20,
+    "topPicksCount": 0,
+    "bestSixOverallCount": 0,
+    "topPicksRemoved": true,
+    "bestSixRemoved": true,
+    "labLifecycleRemoved": true,
+    "maxPropsPerTeam": 2,
+    "maxPropsPerGame": 4,
+    "forcedSides": 0,
+    "sameTeamFlips": 0,
+    "earlySameTeamDemotionCount": 0,
+    "validMarketButEmptySlotCount": 20,
+    "gameAudits": [
+      {
+        "gameKey": "2977c51845a4f2621deca3d4a38a0ac2",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-05T23:00:00Z",
+        "providerEventId": "2977c51845a4f2621deca3d4a38a0ac2",
+        "teams": [
+          {
+            "team": "atlantadream",
+            "playersWithPointMarkets": 4,
+            "validOverCandidates": [
+              {
+                "player": "Allisha Gray",
+                "sideScore": 1,
+                "edge": -0.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Jordin Canada",
+                "sideScore": 1,
+                "edge": -0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Angel Reese",
+                "sideScore": 1,
+                "edge": -1,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Rhyne Howard",
+                "sideScore": 1,
+                "edge": -4.6,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Allisha Gray",
+                "sideScore": 1,
+                "edge": 0.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Jordin Canada",
+                "sideScore": 10.02,
+                "edge": 0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Angel Reese",
+                "sideScore": 1,
+                "edge": 1,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Rhyne Howard",
+                "sideScore": 129.28,
+                "edge": 4.6,
+                "tier": "TEAM_SIDE_PRIMARY",
+                "risk": "MEDIUM",
+                "softPenalties": [
+                  "BOARD_ONLY_OR_SHADOW"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [
+              {
+                "player": "Rhyne Howard",
+                "sideScore": 129.28,
+                "edge": 4.6,
+                "tier": "TEAM_SIDE_PRIMARY"
+              }
+            ],
+            "membershipRejected": [
+              {
+                "player": "Allisha Gray",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -0.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Jordin Canada",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Angel Reese",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -1,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Rhyne Howard",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -4.6,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Allisha Gray",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Jordin Canada",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Angel Reese",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 1,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Allisha Gray",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -0.3999999999999986,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Jordin Canada",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -0.1999999999999993,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Angel Reese",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -1,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Rhyne Howard",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -4.6,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 4,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": null,
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "phoenixmercury",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [
+              {
+                "player": "Kelsey Plum",
+                "sideScore": 117.5,
+                "edge": 5.100000000000001,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "MEDIUM",
+                "softPenalties": [
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              },
+              {
+                "player": "Alyssa Thomas",
+                "sideScore": 60.2,
+                "edge": 1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "MEDIUM",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Kelsey Plum",
+                "sideScore": 1,
+                "edge": -5.100000000000001,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Alyssa Thomas",
+                "sideScore": 1,
+                "edge": -1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [
+              {
+                "player": "Kelsey Plum",
+                "sideScore": 117.5,
+                "edge": 5.100000000000001,
+                "tier": "TEAM_SIDE_FALLBACK"
+              }
+            ],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Alyssa Thomas",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK"
+              },
+              {
+                "player": "Kelsey Plum",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -5.100000000000001,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Alyssa Thomas",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": null,
+            "emptyUnder": {
+              "reason": "UNDER_PROJECTION_ABOVE_LINE",
+              "membershipRejectSample": [
+                {
+                  "player": "Kelsey Plum",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -5.100000000000001,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Alyssa Thomas",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -1.1999999999999993,
+                  "tier": "TEAM_SIDE_FALLBACK"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 2
+      },
+      {
+        "gameKey": "55583b8c075dd483b408ce1ba4c24244",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-05T23:00:00Z",
+        "providerEventId": "55583b8c075dd483b408ce1ba4c24244",
+        "teams": [
+          {
+            "team": "seattlestorm",
+            "playersWithPointMarkets": 3,
+            "validOverCandidates": [
+              {
+                "player": "Ezi Magbegor",
+                "sideScore": 1,
+                "edge": -1.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Flau'jae Johnson",
+                "sideScore": 93.3,
+                "edge": 1.6000000000000014,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "MEDIUM",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              },
+              {
+                "player": "Natisha Hiedeman",
+                "sideScore": 84.55,
+                "edge": 2.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Ezi Magbegor",
+                "sideScore": 46.61,
+                "edge": 1.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Flau'jae Johnson",
+                "sideScore": 1,
+                "edge": -1.6000000000000014,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Natisha Hiedeman",
+                "sideScore": 1,
+                "edge": -2.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [
+              {
+                "player": "Flau'jae Johnson",
+                "sideScore": 93.3,
+                "edge": 1.6000000000000014,
+                "tier": "TEAM_SIDE_FALLBACK"
+              },
+              {
+                "player": "Natisha Hiedeman",
+                "sideScore": 84.55,
+                "edge": 2.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Ezi Magbegor",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -1.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Ezi Magbegor",
+                "side": "UNDER",
+                "reasons": [
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 1.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Flau'jae Johnson",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -1.6000000000000014,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Natisha Hiedeman",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -2.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": null,
+            "emptyUnder": {
+              "reason": "NATURAL_NO_BET",
+              "membershipRejectSample": [
+                {
+                  "player": "Ezi Magbegor",
+                  "side": "UNDER",
+                  "reasons": [
+                    "NATURAL_NO_BET",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 1.9000000000000004,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Flau'jae Johnson",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -1.6000000000000014,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Natisha Hiedeman",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -2.1999999999999993,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 3,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "newyorkliberty",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [
+              {
+                "player": "Pauline Astier",
+                "sideScore": 29.13,
+                "edge": 1.5,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "NATURAL_NO_BET"
+                ]
+              },
+              {
+                "player": "Breanna Stewart",
+                "sideScore": 1,
+                "edge": -1.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Pauline Astier",
+                "sideScore": 1,
+                "edge": -1.5,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                ]
+              },
+              {
+                "player": "Breanna Stewart",
+                "sideScore": 62.01,
+                "edge": 1.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "BOTH_SIDES_WEAK"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Pauline Astier",
+                "side": "OVER",
+                "reasons": [
+                  "NATURAL_NO_BET"
+                ],
+                "edge": 1.5,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Breanna Stewart",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -1.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Pauline Astier",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                ],
+                "edge": -1.5,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Breanna Stewart",
+                "side": "UNDER",
+                "reasons": [
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 1.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NATURAL_NO_BET",
+              "membershipRejectSample": [
+                {
+                  "player": "Pauline Astier",
+                  "side": "OVER",
+                  "reasons": [
+                    "NATURAL_NO_BET"
+                  ],
+                  "edge": 1.5,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Breanna Stewart",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -1.8000000000000007,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NATURAL_NO_BET",
+              "membershipRejectSample": [
+                {
+                  "player": "Pauline Astier",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "NATURAL_NO_BET",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE",
+                    "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                  ],
+                  "edge": -1.5,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Breanna Stewart",
+                  "side": "UNDER",
+                  "reasons": [
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 1.8000000000000007,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 1
+      },
+      {
+        "gameKey": "80bb6c471358f70e96b4571c4470ac0a",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-05T23:30:00Z",
+        "providerEventId": "80bb6c471358f70e96b4571c4470ac0a",
+        "teams": [
+          {
+            "team": "washingtonmystics",
+            "playersWithPointMarkets": 4,
+            "validOverCandidates": [
+              {
+                "player": "Lauren Betts",
+                "sideScore": 18.62,
+                "edge": 0.20000000000000018,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Kiki Iriafen",
+                "sideScore": 23,
+                "edge": 0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Michaela Onyenwere",
+                "sideScore": 1,
+                "edge": 0.40000000000000036,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Georgia Amoore",
+                "sideScore": 3.41,
+                "edge": 0.7000000000000002,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Lauren Betts",
+                "sideScore": 1,
+                "edge": -0.20000000000000018,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "NATURAL_NO_BET",
+                  "NO_DECISIVE_RESCUE",
+                  "ELEVATED_VOLATILITY",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                ]
+              },
+              {
+                "player": "Kiki Iriafen",
+                "sideScore": 1,
+                "edge": -0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Michaela Onyenwere",
+                "sideScore": 1,
+                "edge": -0.40000000000000036,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Georgia Amoore",
+                "sideScore": 1,
+                "edge": -0.7000000000000002,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "UNDER_AVERAGES_ABOVE_LINE"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Lauren Betts",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": 0.20000000000000018,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Kiki Iriafen",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Michaela Onyenwere",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": 0.40000000000000036,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Georgia Amoore",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": 0.7000000000000002,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Lauren Betts",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "NATURAL_NO_BET",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                ],
+                "edge": -0.20000000000000018,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Kiki Iriafen",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -0.1999999999999993,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Michaela Onyenwere",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -0.40000000000000036,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Georgia Amoore",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE",
+                  "UNDER_AVERAGES_ABOVE_LINE"
+                ],
+                "edge": -0.7000000000000002,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NATURAL_NO_BET",
+              "membershipRejectSample": [
+                {
+                  "player": "Lauren Betts",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "NATURAL_NO_BET",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": 0.20000000000000018,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Kiki Iriafen",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 0.1999999999999993,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Michaela Onyenwere",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": 0.40000000000000036,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Georgia Amoore",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": 0.7000000000000002,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 4,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NATURAL_NO_BET",
+              "membershipRejectSample": [
+                {
+                  "player": "Lauren Betts",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "NATURAL_NO_BET",
+                    "BOTH_SIDES_WEAK",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE",
+                    "LOW_VOLUME_WITHOUT_UNDER_EDGE"
+                  ],
+                  "edge": -0.20000000000000018,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Kiki Iriafen",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -0.1999999999999993,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Michaela Onyenwere",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": -0.40000000000000036,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Georgia Amoore",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "UNDER_PROJECTION_ABOVE_LINE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE",
+                    "UNDER_AVERAGES_ABOVE_LINE"
+                  ],
+                  "edge": -0.7000000000000002,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 4,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "dallaswings",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [
+              {
+                "player": "Jessica Shepard",
+                "sideScore": 1,
+                "edge": -0.5,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Azzi Fudd",
+                "sideScore": 1,
+                "edge": -0.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Jessica Shepard",
+                "sideScore": 5.73,
+                "edge": 0.5,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Azzi Fudd",
+                "sideScore": 8.35,
+                "edge": 0.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Jessica Shepard",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -0.5,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Azzi Fudd",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -0.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Jessica Shepard",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0.5,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Azzi Fudd",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0.8000000000000007,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Jessica Shepard",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -0.5,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Azzi Fudd",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -0.8000000000000007,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Jessica Shepard",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 0.5,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Azzi Fudd",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 0.8000000000000007,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 0
+      },
+      {
+        "gameKey": "03dfbda8989e58cb5886ea6e37b348d3",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-06T01:00:00Z",
+        "providerEventId": "03dfbda8989e58cb5886ea6e37b348d3",
+        "teams": [
+          {
+            "team": "losangelessparks",
+            "playersWithPointMarkets": 4,
+            "validOverCandidates": [
+              {
+                "player": "Erica Wheeler",
+                "sideScore": 17.25,
+                "edge": 0.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Dearica Hamby",
+                "sideScore": 59.5,
+                "edge": 1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "MEDIUM",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Rae Burrell",
+                "sideScore": 1,
+                "edge": -2.4000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              },
+              {
+                "player": "Nneka Ogwumike",
+                "sideScore": 1,
+                "edge": -2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Erica Wheeler",
+                "sideScore": 1,
+                "edge": -0.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Dearica Hamby",
+                "sideScore": 1,
+                "edge": -1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "PROJECTION_SANITY_WEAK"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              },
+              {
+                "player": "Rae Burrell",
+                "sideScore": 58.37,
+                "edge": 2.4000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              },
+              {
+                "player": "Nneka Ogwumike",
+                "sideScore": 72.02,
+                "edge": 2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "UNSTABLE_ROLE"
+                ],
+                "officialMembershipEligible": true,
+                "membershipRejectReasons": []
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [
+              {
+                "player": "Rae Burrell",
+                "sideScore": 58.37,
+                "edge": 2.4000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Nneka Ogwumike",
+                "sideScore": 72.02,
+                "edge": 2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "membershipRejected": [
+              {
+                "player": "Erica Wheeler",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": 0.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Dearica Hamby",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK"
+              },
+              {
+                "player": "Rae Burrell",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -2.4000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Nneka Ogwumike",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Erica Wheeler",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -0.9000000000000004,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Dearica Hamby",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK",
+                  "UNDER_PROJECTION_ABOVE_LINE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": -1.1999999999999993,
+                "tier": "TEAM_SIDE_FALLBACK"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Erica Wheeler",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": 0.9000000000000004,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Dearica Hamby",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 1.1999999999999993,
+                  "tier": "TEAM_SIDE_FALLBACK"
+                },
+                {
+                  "player": "Rae Burrell",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -2.4000000000000004,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Nneka Ogwumike",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -2.3999999999999986,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 4,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": null,
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "chicagosky",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [
+              {
+                "player": "Kamilla Cardoso",
+                "sideScore": 1,
+                "edge": 0,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Sydney Taylor",
+                "sideScore": 23,
+                "edge": -2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNCONFIRMED_AVAILABILITY_OVER_BLOCK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ]
+              }
+            ],
+            "validUnderCandidates": [
+              {
+                "player": "Kamilla Cardoso",
+                "sideScore": 2.6,
+                "edge": 0,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "THIN_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "PROJECTION_SANITY_WEAK",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ]
+              },
+              {
+                "player": "Sydney Taylor",
+                "sideScore": 14.09,
+                "edge": 2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID",
+                "risk": "HIGH",
+                "softPenalties": [
+                  "MODERATE_EDGE",
+                  "BOARD_ONLY_OR_SHADOW",
+                  "NO_DECISIVE_RESCUE",
+                  "UNSTABLE_ROLE",
+                  "LOW_CONFIDENCE"
+                ],
+                "officialMembershipEligible": false,
+                "membershipRejectReasons": [
+                  "FAIR_LINE_DOES_NOT_SUPPORT_SIDE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ]
+              }
+            ],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [
+              {
+                "player": "Kamilla Cardoso",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Sydney Taylor",
+                "side": "OVER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "UNCONFIRMED_AVAILABILITY_OVER_BLOCK",
+                  "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                ],
+                "edge": -2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Kamilla Cardoso",
+                "side": "UNDER",
+                "reasons": [
+                  "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                  "BOTH_SIDES_WEAK"
+                ],
+                "edge": 0,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              },
+              {
+                "player": "Sydney Taylor",
+                "side": "UNDER",
+                "reasons": [
+                  "FAIR_LINE_DOES_NOT_SUPPORT_SIDE",
+                  "UNDER_FAIR_LINE_ABOVE_LINE"
+                ],
+                "edge": 2.3999999999999986,
+                "tier": "TEAM_SIDE_LAST_VALID"
+              }
+            ],
+            "hardRejected": [],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Kamilla Cardoso",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 0,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Sydney Taylor",
+                  "side": "OVER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "UNCONFIRMED_AVAILABILITY_OVER_BLOCK",
+                    "ORIGINAL_SIDE_MISMATCH_NO_VALID_FLIP"
+                  ],
+                  "edge": -2.3999999999999986,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "BOTH_SIDES_WEAK",
+              "membershipRejectSample": [
+                {
+                  "player": "Kamilla Cardoso",
+                  "side": "UNDER",
+                  "reasons": [
+                    "EDGE_BELOW_MEMBERSHIP_FLOOR",
+                    "BOTH_SIDES_WEAK"
+                  ],
+                  "edge": 0,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                },
+                {
+                  "player": "Sydney Taylor",
+                  "side": "UNDER",
+                  "reasons": [
+                    "FAIR_LINE_DOES_NOT_SUPPORT_SIDE",
+                    "UNDER_FAIR_LINE_ABOVE_LINE"
+                  ],
+                  "edge": 2.3999999999999986,
+                  "tier": "TEAM_SIDE_LAST_VALID"
+                }
+              ],
+              "marketsInspected": 2,
+              "rejectedDate": 0,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 1
+      },
+      {
+        "gameKey": "58beff9061f15ff3f416542cb51f4751",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-06T23:00:00Z",
+        "providerEventId": "58beff9061f15ff3f416542cb51f4751",
+        "teams": [
+          {
+            "team": "indianafever",
+            "playersWithPointMarkets": 4,
+            "validOverCandidates": [],
+            "validUnderCandidates": [],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [],
+            "hardRejected": [
+              {
+                "player": "Aliyah Boston",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              },
+              {
+                "player": "Kelsey Mitchell",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              },
+              {
+                "player": "Caitlin Clark",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              },
+              {
+                "player": "Monique Billings",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              }
+            ],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 4,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 4,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "lasvegasaces",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [],
+            "validUnderCandidates": [],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [],
+            "hardRejected": [
+              {
+                "player": "Jackie Young",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              },
+              {
+                "player": "A'ja Wilson",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+                ]
+              }
+            ],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 4,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 4,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 0
+      },
+      {
+        "gameKey": "c1e9df8b911a50375b98c0b0dcfa0f7e",
+        "requestedSlateDate": "2026-08-05",
+        "canonicalSlateDate": "2026-08-05",
+        "commenceTimeUtc": "2026-08-05T02:00:00Z",
+        "providerEventId": "c1e9df8b911a50375b98c0b0dcfa0f7e",
+        "teams": [
+          {
+            "team": "torontotempo",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [],
+            "validUnderCandidates": [],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [],
+            "hardRejected": [
+              {
+                "player": "Marina Mabrey",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+                  "STALE_ROW_IDENTITY_DATE",
+                  "BUNDLE_DATE_MISMATCH"
+                ]
+              },
+              {
+                "player": "Julie Allemand",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+                  "STALE_ROW_IDENTITY_DATE",
+                  "BUNDLE_DATE_MISMATCH"
+                ]
+              }
+            ],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          },
+          {
+            "team": "goldenstatevalkyries",
+            "playersWithPointMarkets": 2,
+            "validOverCandidates": [],
+            "validUnderCandidates": [],
+            "qualifiedOverCandidates": [],
+            "qualifiedUnderCandidates": [],
+            "membershipRejected": [],
+            "hardRejected": [
+              {
+                "player": "Veronica Burton",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+                  "STALE_ROW_IDENTITY_DATE",
+                  "BUNDLE_DATE_MISMATCH"
+                ]
+              },
+              {
+                "player": "Gabby Williams",
+                "reasons": [
+                  "DATE_VERIFICATION_FAILED",
+                  "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+                  "STALE_ROW_IDENTITY_DATE",
+                  "BUNDLE_DATE_MISMATCH"
+                ]
+              }
+            ],
+            "pairs": [],
+            "selectedPair": null,
+            "earlySameTeamDemotionCount": 0,
+            "forcedSideCount": 0,
+            "autoFlipCount": 0,
+            "emptyOver": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "emptyUnder": {
+              "reason": "NO_VALID_POINTS_MARKETS",
+              "marketsInspected": 2,
+              "rejectedDate": 8,
+              "rejectedEventMismatch": 0,
+              "rejectedMarketSanity": 0,
+              "rejectedInactive": 0
+            },
+            "membershipBuild": "courteedge-clear-side-strong-edge-membership-path-v1"
+          }
+        ],
+        "selectedCount": 0
+      }
+    ],
+    "quarantine": [
+      {
+        "player": "Aliyah Boston",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "Kelsey Mitchell",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "Caitlin Clark",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "Monique Billings",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "Jackie Young",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "A'ja Wilson",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE"
+        ]
+      },
+      {
+        "player": "Marina Mabrey",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE + STALE_ROW_IDENTITY_DATE + BUNDLE_DATE_MISMATCH",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+          "STALE_ROW_IDENTITY_DATE",
+          "BUNDLE_DATE_MISMATCH"
+        ]
+      },
+      {
+        "player": "Julie Allemand",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE + STALE_ROW_IDENTITY_DATE + BUNDLE_DATE_MISMATCH",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+          "STALE_ROW_IDENTITY_DATE",
+          "BUNDLE_DATE_MISMATCH"
+        ]
+      },
+      {
+        "player": "Veronica Burton",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE + STALE_ROW_IDENTITY_DATE + BUNDLE_DATE_MISMATCH",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+          "STALE_ROW_IDENTITY_DATE",
+          "BUNDLE_DATE_MISMATCH"
+        ]
+      },
+      {
+        "player": "Gabby Williams",
+        "reason": "DATE_VERIFICATION_FAILED + DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE + STALE_ROW_IDENTITY_DATE + BUNDLE_DATE_MISMATCH",
+        "hardExclusions": [
+          "DATE_VERIFICATION_FAILED",
+          "DATE_MISMATCH — GAME_NOT_ON_REQUESTED_CT_DATE",
+          "STALE_ROW_IDENTITY_DATE",
+          "BUNDLE_DATE_MISMATCH"
+        ]
+      }
+    ],
+    "title": "CourtEdge Controlled Best Board — 2026-08-05 CT",
+    "sixRowCapApplied": false,
+    "noGlobalCap": true,
+    "selectionBuildId": "7fba7dedf6baa82006df0685",
+    "membershipModel": "controlled-best-board-v2",
+    "sealBuild": "courteedge-final-variable-team-board-home-history-lock-v1",
+    "membershipValid": true,
+    "invariants": {
+      "ok": true,
+      "status": "PASS",
+      "reasons": [],
+      "officialCount": 4,
+      "teamCounts": {
+        "atlantadream": {
+          "overs": 0,
+          "unders": 1,
+          "total": 1
+        },
+        "phoenixmercury": {
+          "overs": 1,
+          "unders": 0,
+          "total": 1
+        },
+        "losangelessparks": {
+          "overs": 0,
+          "unders": 1,
+          "total": 1
+        },
+        "seattlestorm": {
+          "overs": 1,
+          "unders": 0,
+          "total": 1
+        }
+      }
+    }
+  },
+  "membershipEdgeFloor": 1.5
+}

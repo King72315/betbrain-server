@@ -267,6 +267,16 @@ export async function fetchOddsEvents(league = "NBA", options = {}) {
   const cached = EVENT_CACHE.get(cacheKey);
 
   if (!options.force && cached && Date.now() - cached.time < EVENT_CACHE_MS) {
+    try {
+      recordPaidApiCall({
+        provider: "the-odds-api",
+        label: `FETCH ODDS EVENTS (${league})`,
+        fromCache: true,
+        usageHeaders: null,
+      });
+    } catch {
+      /* accounting must not break cache hits */
+    }
     return cached.data;
   }
 

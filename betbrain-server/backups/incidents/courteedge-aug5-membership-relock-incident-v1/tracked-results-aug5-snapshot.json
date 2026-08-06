@@ -1,0 +1,30 @@
+{
+  "extractedAt": "2026-08-06T04:18:42.115Z",
+  "slateDate": "2026-08-05",
+  "source": "tracked-props.json",
+  "sourceSizeBytes": 37253391,
+  "count": 0,
+  "note": "No props with slateDate===2026-08-05 present in current tracked-props.json at extraction time. Aug 5 Official membership was not sealed into tracked results under that slateDate (gap between 2026-08-04 and 2026-08-06). Empty extract preserved for incident integrity.",
+  "availableSlateDates": [
+    "2026-06-21",
+    "2026-06-22",
+    "2026-07-08",
+    "2026-07-14",
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-20",
+    "2026-07-22",
+    "2026-07-28",
+    "2026-07-29",
+    "2026-07-30",
+    "2026-07-31",
+    "2026-08-01",
+    "2026-08-02",
+    "2026-08-03",
+    "2026-08-04",
+    "2026-08-06"
+  ],
+  "nearbyAug4AndAug6Count": 7,
+  "props": []
+}

@@ -1,0 +1,67 @@
+{
+  "incidentId": "courteedge-aug5-membership-relock-incident-v1",
+  "generatedAt": "2026-08-06T04:19:27.967Z",
+  "directory": "backups/incidents/courteedge-aug5-membership-relock-incident-v1",
+  "algorithm": "SHA-256",
+  "fileCount": 10,
+  "files": [
+    {
+      "name": "INCIDENT.md",
+      "sizeBytes": 4729,
+      "sha256": "1992be73c759718035ed65eb45dbe5b8d21f6f46547a8dce6dc0bafb104b8643"
+    },
+    {
+      "name": "_audit_aug5_lock.json",
+      "sizeBytes": 4456,
+      "sha256": "0fa479d313cf4f0635519023ca2033e189f779bbdfe33e3805d1b4069be24df4"
+    },
+    {
+      "name": "_audit_aug5_membership_conflict.json",
+      "sizeBytes": 3414,
+      "sha256": "a78f286f4eeff8353c5b1756c8c1c908df94571ed88bef2a0462273a41ea9511"
+    },
+    {
+      "name": "_audit_aug5_restore_attempt.json",
+      "sizeBytes": 10688,
+      "sha256": "4f19b8a14714b643d88a6d811fb43c66ec49f0c1ff5e420216e9158e321b2fc5"
+    },
+    {
+      "name": "incorrect-16-prop-membership.json",
+      "sizeBytes": 9580796,
+      "sha256": "2d118c40c4b821792db250a99c1a0847bb0b7bc92cb814fc1f1b0f6cb0ec63cf"
+    },
+    {
+      "name": "intended-clear-side-reconstruction.json",
+      "sizeBytes": 150233,
+      "sha256": "aa6beeffa8efdad5ee4a073a5d887aa39ecbb30b49b7227bd1f0b8b3d1d200fe"
+    },
+    {
+      "name": "lock-metadata.json",
+      "sizeBytes": 375,
+      "sha256": "3a7e16335b7099776b6d4e4e45e4403acf706a653ee96c995670fc0f5280d060"
+    },
+    {
+      "name": "pre-repair-snapshot.json",
+      "sizeBytes": 9580660,
+      "sha256": "3850a05371bb2f18fa173e7e7368112ecb898d26b0636b21e46f9bb8195c552a"
+    },
+    {
+      "name": "side-by-side-identity-comparison.json",
+      "sizeBytes": 3035,
+      "sha256": "1d9df22a19f5419eaa2c9fc203b35a7ad3fb27eee93b904d84159b522862ca8c"
+    },
+    {
+      "name": "tracked-results-aug5-snapshot.json",
+      "sizeBytes": 836,
+      "sha256": "0e136b728f947fd0fa3c3a57a43c65d0516e52568b3786605107795059ef1271"
+    }
+  ],
+  "checksumVerification": "PASS",
+  "verification": {
+    "verifiedAt": "2026-08-06T04:19:28.086Z",
+    "status": "PASS",
+    "failures": [],
+    "filesVerified": 10,
+    "note": "checksumVerification covers all archived content files listed in files[]; MANIFEST.json is excluded from the hashed set"
+  }
+}

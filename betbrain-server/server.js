@@ -1,4 +1,4 @@
-import cors from "cors";
+﻿import cors from "cors";
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -73,6 +73,11 @@ import {
   getCourtEdgeFeatureFlagSnapshot,
   FEATURE_FLAGS_BUILD,
 } from "./engines/topProps/courtEdgeFeatureFlagsV1.js";
+import {
+  buildSlateIntegrityPacket,
+  MEMBERSHIP_INTEGRITY_BUILD,
+  readIncidentManifestExists,
+} from "./services/slateMembershipIntegrityV1.js";
 import {
   selectTopProps,
   selectCombinedTopProps,
@@ -333,6 +338,9 @@ import {
   logStateIntegrityEvent,
   getCanonicalSlateDate,
   getPaidApiCallCount,
+  getPaidApiLog,
+  resetPaidApiCounter,
+  summarizePaidApiUsage,
   withSlateLock,
   ensureBoardContentHashes,
   rolloverSealedTomorrowToToday,
@@ -386,8 +394,16 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-clear-side-strong-edge-membership-path-v1";
-const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v2";
+const SERVER_BUILD =
+  "courteedge-aug5-membership-quarantine-final-v3-checkpoint-v1";
+const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
+/** Verified checkpoint ancestor (updated to V3 peel after tag). */
+const CHECKPOINT_BASE_COMMIT =
+  process.env.COURTEDGE_CHECKPOINT_BASE_COMMIT ||
+  "6726ee88988192e031ad393a65d7721072d025d6";
+const CHECKPOINT_TAG =
+  process.env.COURTEDGE_CHECKPOINT_TAG ||
+  "courteedge-pre-full-roster-experiment-v3";
 
 function resolveGitCommitSha() {
   const fromEnv = [
@@ -2767,6 +2783,12 @@ async function refreshAllPicks(options = {}) {
   const scope = String(options.scope || "all").toLowerCase();
   const sideAudit = createSideAudit();
   const previousBoard = getReadOnlyBoard();
+  const refreshStartedAt = Date.now();
+  try {
+    resetPaidApiCounter();
+  } catch {
+    /* accounting must not break refresh */
+  }
 
   const emptyDay = () => ({ gameCards: [], sideAudit: createSideAudit() });
 
@@ -3157,7 +3179,7 @@ async function refreshAllPicks(options = {}) {
     limit: CONFIG.TOP_PROP_COMBINED_LIMIT,
   });
 
-  // Stage 1 — Upsert Tomorrow Controlled Best Board as DRAFT; seal full V2 membership.
+  // Stage 1 â€” Upsert Tomorrow Controlled Best Board as DRAFT; seal full V2 membership.
   const tomorrowCanonicalWNBA =
     controlledSelection.selectedPropsTomorrowWNBA ||
     controlledSelection.bestSixDisplayTomorrowWNBA ||
@@ -3231,7 +3253,7 @@ async function refreshAllPicks(options = {}) {
     serverBuild: SERVER_BUILD,
   });
 
-  // Home Today Controlled Best Board — canonical membership (variable size).
+  // Home Today Controlled Best Board â€” canonical membership (variable size).
   const todayCanonicalWNBA =
     cohortBundle.controlledBestBoard ||
     controlledSelection.selectedPropsTodayWNBA ||
@@ -3376,7 +3398,7 @@ async function refreshAllPicks(options = {}) {
       (todayCanonicalWNBA[0]?.membershipModel === "controlled-best-board-v2" ||
         controlledSelection.membershipModel === "controlled-best-board-v2");
     if (useVariable) {
-      // Seal exact WNBA canonical membership only — never mix NBA into the V2 assert.
+      // Seal exact WNBA canonical membership only â€” never mix NBA into the V2 assert.
       const wnbaSealProps = todayCanonicalWNBA.map((p) => ({
         ...p,
         slateDate: calendarToday,
@@ -3490,6 +3512,7 @@ async function refreshAllPicks(options = {}) {
     lastUpdated: new Date().toISOString(),
     config: checkConfig(),
     filterAudit,
+    providerUsage: null,
     sideAudit,
     officialSeal: {
       tomorrow: officialSealResult,
@@ -3646,6 +3669,26 @@ async function refreshAllPicks(options = {}) {
     console.log("HOME ANALYSIS HYDRATE ON REFRESH WARNING:", hydrateErr.message);
   }
 
+  try {
+    const usage = summarizePaidApiUsage(getPaidApiLog());
+    result.providerUsage = {
+      ...usage,
+      refreshDurationMs: Date.now() - refreshStartedAt,
+      fullRosterCollectionMode: FULL_ROSTER_COLLECTION_MODE,
+      note: usage.usageHeadersAvailable
+        ? "Odds usage headers captured at oddsGet boundary"
+        : "One or more provider responses lacked x-requests-* headers; reportedCreditCost not invented",
+    };
+    result.NORMAL_FULL_REFRESH_PROVIDER_CALLS = usage.providerCalls;
+    result.NORMAL_FULL_REFRESH_REPORTED_CREDIT_COST = usage.reportedCreditCost;
+  } catch (usageErr) {
+    console.log("PROVIDER USAGE SUMMARY WARNING:", usageErr.message);
+    result.providerUsage = {
+      usageHeadersAvailable: false,
+      error: String(usageErr.message || usageErr),
+    };
+  }
+
   picksCache = result;
   lastRefreshTime = Date.now();
   cachedSelectorVersion = CONTROLLED_BEST_SIX_VERSION;
@@ -3679,18 +3722,33 @@ app.get("/health", (req, res) => {
       error: true,
     };
   }
+  const live = true;
+  const ready = bootPhase === "ready";
   res.json({
     ok: true,
     message: "CourtEdge backend running",
     serverBuild: SERVER_BUILD,
+    runtimeCommit: BUILD_COMMIT,
+    checkpointBaseCommit: CHECKPOINT_BASE_COMMIT,
+    checkpointTag: CHECKPOINT_TAG,
     checkpointBuild: CHECKPOINT_BUILD,
+    // Deprecated aliases â€” do not conflate runtime with checkpoint.
     buildCommit: BUILD_COMMIT,
     buildBranch: BUILD_BRANCH,
+    branch: BUILD_BRANCH,
+    fullRosterCollectionMode: FULL_ROSTER_COLLECTION_MODE,
+    live,
+    ready,
+    rehydrationStatus: bootPhase,
+    startedAt: SERVER_STARTED_AT,
     serverStartedAt: SERVER_STARTED_AT,
     processId: process.pid,
+    port: Number(CONFIG.PORT || process.env.PORT || 3000),
+    environment: process.env.NODE_ENV || checkConfig()?.environment || "development",
     featureFlagsBuild: FEATURE_FLAGS_BUILD,
-    fullRosterCollectionMode: FULL_ROSTER_COLLECTION_MODE,
     featureFlags: getCourtEdgeFeatureFlagSnapshot(),
+    membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
+    aug5IncidentArchivePresent: readIncidentManifestExists(),
     bootPhase,
     stateIntegrityVersion: STATE_INTEGRITY_VERSION,
     tabFlowRepairVersion: TAB_FLOW_REPAIR_VERSION,
@@ -3748,7 +3806,7 @@ app.get("/picks", async (req, res) => {
     }
 
     // Overlay Official sealed snapshot membership when board-cache omitted it.
-    // Does not reseal — reads existing slate-snapshots only.
+    // Does not reseal â€” reads existing slate-snapshots only.
     const todayDate = getTodayLocalDate();
     const sealedSnap = getLockedSnapshot(todayDate);
     const sealedProps = Array.isArray(sealedSnap?.props) ? sealedSnap.props : [];
@@ -4150,7 +4208,7 @@ app.post("/refresh-picks", async (req, res) => {
   }
 });
 
-// Alias: some clients call POST /refresh (was missing → proxy/network failure).
+// Alias: some clients call POST /refresh (was missing â†’ proxy/network failure).
 app.post("/refresh", (req, res) => {
   const wait = String(req.query.wait || req.body?.wait || "").toLowerCase();
   const scope = String(req.query.scope || req.body?.scope || "all").toLowerCase();
@@ -5285,12 +5343,24 @@ app.post("/slates/:slateDate/lock", (req, res) => {
 
 app.get("/slates/locked", (req, res) => {
   const registry = getLockedSlatesRegistry();
+  const slates = (registry.slates || []).map((entry) => {
+    const integrity = buildSlateIntegrityPacket(entry.slateDate, {
+      entry,
+      recordedProps: getLockedSnapshot(entry.slateDate)?.props,
+    });
+    return {
+      ...entry,
+      ...integrity,
+      integrityWarning: integrity.integrityWarning || null,
+    };
+  });
 
   res.json({
     ok: true,
-    slates: registry.slates || [],
-    count: registry.slates?.length || 0,
+    slates,
+    count: slates.length,
     lastBlockedWrite: getLastBlockedWrite(),
+    membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
   });
 });
 
@@ -5303,15 +5373,29 @@ app.get("/history-archives", (req, res) => {
     reports: getRawDailySlateReports(),
     persist: true,
   });
+  const withIntegrity = (archives || []).map((a) => {
+    const date = a.slateDate || a.date;
+    const integrity = buildSlateIntegrityPacket(date, {
+      recordedProps: a.props,
+    });
+    return {
+      ...a,
+      membershipIntegrity: integrity,
+      integrityWarning: integrity.integrityWarning || null,
+      officialRecordEligible: integrity.officialRecordEligible !== false,
+      calibrationEligible: integrity.calibrationEligible !== false,
+    };
+  });
 
   res.json({
     ok: true,
-    archives,
-    count: archives.length,
+    archives: withIntegrity,
+    count: withIntegrity.length,
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
     historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_V2,
     historyThreeSlateGroups,
+    membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
   });
 });
 
@@ -6965,11 +7049,29 @@ if (process.env.RUN_AUDIT === "1") {
 
   async function runDeferredStartup() {
     bootPhase = "hydrating";
+    // Yield + short window so /health can answer after listen before sync I/O.
+    await yieldEventLoop();
+    await new Promise((resolve) =>
+      setTimeout(
+        resolve,
+        Number(process.env.COURTEDGE_STARTUP_HEALTH_WINDOW_MS || 1500)
+      )
+    );
+
     let rehydrateResult = { results: [], startupIntegrity: true };
     try {
-      rehydrateResult = rehydrateLockedSlatesOnStartup();
-      if (!rehydrateResult.startupIntegrity) {
-        runTrackedPropStartupIntegrityCheck();
+      if (
+        String(process.env.COURTEDGE_SKIP_STARTUP_REHYDRATE || "")
+          .toLowerCase() === "true"
+      ) {
+        console.log(
+          "STARTUP REHYDRATE SKIPPED (COURTEDGE_SKIP_STARTUP_REHYDRATE=true)"
+        );
+      } else {
+        rehydrateResult = rehydrateLockedSlatesOnStartup();
+        if (!rehydrateResult.startupIntegrity) {
+          runTrackedPropStartupIntegrityCheck();
+        }
       }
     } catch (error) {
       console.log("STARTUP REHYDRATE ERROR:", error.message);

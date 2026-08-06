@@ -1,0 +1,81 @@
+{
+  "at": "2026-08-06T03:59:04.403Z",
+  "question": "Does the re-locked 16-prop pre-repair Aug 5 Official board match the clear-side 4-prop intended Official board?",
+  "verdict": "NO_MATCH",
+  "matches": false,
+  "sources": {
+    "reLockedSnapshot": "slate-snapshots/2026-08-05.json",
+    "preRepairSnapshot": "slate-snapshots/2026-08-05.pre-repair-2026-08-05T05-14-26-648Z.json",
+    "dryrunIntendedOfficial": "_dryrun_clear_side_strong_edge_membership_path_v1_aug5.json",
+    "backupDryrun": "backups/courteedge-pre-full-roster-experiment-v1/data/_dryrun_clear_side_strong_edge_membership_path_v1_aug5.json",
+    "lockAudit": "_audit_aug5_lock.json"
+  },
+  "counts": {
+    "reLockedOfficialPropCount": 16,
+    "preRepairPropCount": 16,
+    "intendedClearSideOfficialCount": 4,
+    "backupDryrunOfficialCount": 4
+  },
+  "identityChecks": {
+    "reLockedEqualsPreRepairBytesMembership": true,
+    "dryrunEqualsBackupDryrun": true,
+    "reLockedSnapshotPropCountField": 16,
+    "dryrunFinalOfficialCount": 4
+  },
+  "propIds": {
+    "reLocked16": [
+      "Allisha Gray|OVER|18.5|atlantadream",
+      "Alyssa Thomas|UNDER|14.5|phoenixmercury",
+      "Azzi Fudd|UNDER|13.5|dallaswings",
+      "Breanna Stewart|UNDER|22.5|newyorkliberty",
+      "Dearica Hamby|OVER|15.5|losangelessparks",
+      "Ezi Magbegor|UNDER|6.5|seattlestorm",
+      "Flau'jae Johnson|OVER|15.5|seattlestorm",
+      "Jessica Shepard|OVER|13.5|dallaswings",
+      "Kamilla Cardoso|OVER|15.5|chicagosky",
+      "Kelsey Plum|OVER|16.5|phoenixmercury",
+      "Kiki Iriafen|OVER|15.5|washingtonmystics",
+      "Michaela Onyenwere|UNDER|8.5|washingtonmystics",
+      "Natasha Cloud|UNDER|12.5|chicagosky",
+      "Nneka Ogwumike|UNDER|18.5|losangelessparks",
+      "Pauline Astier|OVER|8.5|newyorkliberty",
+      "Rhyne Howard|UNDER|16.5|atlantadream"
+    ],
+    "intendedOfficial4": [
+      "Flau'jae Johnson|OVER|15.5|seattlestorm",
+      "Kelsey Plum|OVER|16.5|phoenixmercury",
+      "Nneka Ogwumike|UNDER|18.5|losangelessparks",
+      "Rhyne Howard|UNDER|17.5|atlantadream"
+    ],
+    "intersectionExact": [
+      "Flau'jae Johnson|OVER|15.5|seattlestorm",
+      "Kelsey Plum|OVER|16.5|phoenixmercury",
+      "Nneka Ogwumike|UNDER|18.5|losangelessparks"
+    ],
+    "onlyInReLocked16": [
+      "Allisha Gray|OVER|18.5|atlantadream",
+      "Alyssa Thomas|UNDER|14.5|phoenixmercury",
+      "Azzi Fudd|UNDER|13.5|dallaswings",
+      "Breanna Stewart|UNDER|22.5|newyorkliberty",
+      "Dearica Hamby|OVER|15.5|losangelessparks",
+      "Ezi Magbegor|UNDER|6.5|seattlestorm",
+      "Jessica Shepard|OVER|13.5|dallaswings",
+      "Kamilla Cardoso|OVER|15.5|chicagosky",
+      "Kiki Iriafen|OVER|15.5|washingtonmystics",
+      "Michaela Onyenwere|UNDER|8.5|washingtonmystics",
+      "Natasha Cloud|UNDER|12.5|chicagosky",
+      "Pauline Astier|OVER|8.5|newyorkliberty",
+      "Rhyne Howard|UNDER|16.5|atlantadream"
+    ],
+    "onlyInIntended4": [
+      "Rhyne Howard|UNDER|17.5|atlantadream"
+    ],
+    "samePlayerSideTeamLineMismatch": [
+      {
+        "reLocked": "Rhyne Howard|UNDER|16.5|atlantadream",
+        "intendedOfficial": "Rhyne Howard|UNDER|17.5|atlantadream"
+      }
+    ]
+  },
+  "summary": "Re-locked Aug 5 board is the pre-repair 16-prop FULL_CONTROLLED_BEST_BOARD seal, not the clear-side dry-run Official set of 4. Exact ID intersection is 3/4 intended props; Rhyne Howard differs by line (re-locked UNDER 16.5 vs intended UNDER 17.5)."
+}

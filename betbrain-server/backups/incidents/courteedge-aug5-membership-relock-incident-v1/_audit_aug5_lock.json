@@ -1,0 +1,120 @@
+{
+  "at": "2026-08-06T03:46:12.962Z",
+  "goal": "Register Aug 5 immutableOfficial from existing sealed snapshot without changing prop membership",
+  "sourceSnapshot": "slate-snapshots/2026-08-05.pre-repair-2026-08-05T05-14-26-648Z.json",
+  "destSnapshot": "slate-snapshots/2026-08-05.json",
+  "dryRun": {
+    "wouldCopyExactBytes": "slate-snapshots/2026-08-05.pre-repair-2026-08-05T05-14-26-648Z.json -> slate-snapshots/2026-08-05.json",
+    "wouldAddRegistryEntryIfMissing": true,
+    "existingAug5RegistryEntries": 0,
+    "note": "Exact file copy preserves sealed props bytes; registry entry marks immutableOfficial. No lockSlate freeze remap. No applySlateLockFreeze (avoids tracked-props rewrite).",
+    "proposedEntry": {
+      "slateDate": "2026-08-05",
+      "phase": "ACTIVE",
+      "lockedAt": "2026-08-05T03:08:09.176Z",
+      "lockReason": "FULL_CONTROLLED_BEST_BOARD",
+      "autoLocked": true,
+      "propCount": 16,
+      "snapshotFile": "slate-snapshots/2026-08-05.json",
+      "backupId": "2026-08-05T03-08-08-401Z-pre-lock-2026-08-05",
+      "immutableOfficial": true,
+      "officialSealedAt": "2026-08-05T03:08:08.171Z"
+    }
+  },
+  "applied": true,
+  "before": {
+    "aug4": {
+      "rel": "slate-snapshots/2026-08-04.json",
+      "exists": true,
+      "sizeBytes": 2410986,
+      "sha256": "e5365c42b9c790f89bd286e507e38a7de5de4816e0099ad2ff2f6e31d088de2e"
+    },
+    "aug5_pre_repair": {
+      "rel": "slate-snapshots/2026-08-05.pre-repair-2026-08-05T05-14-26-648Z.json",
+      "exists": true,
+      "sizeBytes": 9580660,
+      "sha256": "3850a05371bb2f18fa173e7e7368112ecb898d26b0636b21e46f9bb8195c552a"
+    },
+    "aug5_active": {
+      "rel": "slate-snapshots/2026-08-05.json",
+      "exists": false
+    },
+    "lockedSlates": {
+      "rel": "locked-slates.json",
+      "exists": true,
+      "sizeBytes": 57169,
+      "sha256": "e46e6ce57b546d70cfaaf305ff74852936b061b1f97939be197058d1c36b802b"
+    }
+  },
+  "after": {
+    "aug4": {
+      "rel": "slate-snapshots/2026-08-04.json",
+      "exists": true,
+      "sizeBytes": 2410986,
+      "sha256": "e5365c42b9c790f89bd286e507e38a7de5de4816e0099ad2ff2f6e31d088de2e"
+    },
+    "aug5_pre_repair": {
+      "rel": "slate-snapshots/2026-08-05.pre-repair-2026-08-05T05-14-26-648Z.json",
+      "exists": true,
+      "sizeBytes": 9580660,
+      "sha256": "3850a05371bb2f18fa173e7e7368112ecb898d26b0636b21e46f9bb8195c552a"
+    },
+    "aug5_active": {
+      "rel": "slate-snapshots/2026-08-05.json",
+      "exists": true,
+      "sizeBytes": 9580660,
+      "sha256": "3850a05371bb2f18fa173e7e7368112ecb898d26b0636b21e46f9bb8195c552a"
+    },
+    "lockedSlates": {
+      "rel": "locked-slates.json",
+      "exists": true,
+      "sizeBytes": 57594,
+      "sha256": "1d098aa6be4b6d9fbebcb0d1969b16e3aa9e77995dceeb5c7a5b89a1d0ad7def"
+    }
+  },
+  "membership": {
+    "sourcePropCount": 16,
+    "sourceImmutableOfficial": true,
+    "sourceOfficialSealSealed": true,
+    "sourceLockReason": "FULL_CONTROLLED_BEST_BOARD",
+    "sourceOfficialSealedAt": "2026-08-05T03:08:08.171Z",
+    "sourceIds": [
+      "Allisha Gray|OVER|18.5|atlantadream",
+      "Alyssa Thomas|UNDER|14.5|phoenixmercury",
+      "Azzi Fudd|UNDER|13.5|dallaswings",
+      "Breanna Stewart|UNDER|22.5|newyorkliberty",
+      "Dearica Hamby|OVER|15.5|losangelessparks",
+      "Ezi Magbegor|UNDER|6.5|seattlestorm",
+      "Flau'jae Johnson|OVER|15.5|seattlestorm",
+      "Jessica Shepard|OVER|13.5|dallaswings",
+      "Kamilla Cardoso|OVER|15.5|chicagosky",
+      "Kelsey Plum|OVER|16.5|phoenixmercury",
+      "Kiki Iriafen|OVER|15.5|washingtonmystics",
+      "Michaela Onyenwere|UNDER|8.5|washingtonmystics",
+      "Natasha Cloud|UNDER|12.5|chicagosky",
+      "Nneka Ogwumike|UNDER|18.5|losangelessparks",
+      "Pauline Astier|OVER|8.5|newyorkliberty",
+      "Rhyne Howard|UNDER|16.5|atlantadream"
+    ]
+  },
+  "registryEntry": {
+    "slateDate": "2026-08-05",
+    "phase": "ACTIVE",
+    "lockedAt": "2026-08-05T03:08:09.176Z",
+    "lockReason": "FULL_CONTROLLED_BEST_BOARD",
+    "autoLocked": true,
+    "propCount": 16,
+    "snapshotFile": "slate-snapshots/2026-08-05.json",
+    "backupId": "2026-08-05T03-08-08-401Z-pre-lock-2026-08-05",
+    "immutableOfficial": true,
+    "officialSealedAt": "2026-08-05T03:08:08.171Z"
+  },
+  "ok": true,
+  "registryAction": "added",
+  "unchanged": {
+    "aug4SnapshotUnchanged": true,
+    "aug5PreRepairUnchanged": true,
+    "aug5ActiveEqualsPreRepair": true,
+    "lockedSlatesChanged": true
+  }
+}

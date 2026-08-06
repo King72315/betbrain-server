@@ -1,0 +1,91 @@
+{
+  "slateDate": "2026-08-05",
+  "description": "Side-by-side identity comparison: incorrect 16-prop relock membership vs intended clear-side 4-prop Official reconstruction",
+  "sources": {
+    "incorrect16": "_audit_aug5_membership_conflict.json propIds.reLocked16 (from incorrect-16-prop-membership.json)",
+    "intended4": "_audit_aug5_membership_conflict.json propIds.intendedOfficial4 / intended-clear-side-reconstruction.json selected[]"
+  },
+  "dryrunSelectedSummary": [
+    {
+      "player": "Rhyne Howard",
+      "team": "atlantadream",
+      "side": "Under",
+      "line": 17.5,
+      "edge": 4.6
+    },
+    {
+      "player": "Kelsey Plum",
+      "team": "phoenixmercury",
+      "side": "Over",
+      "line": 16.5,
+      "edge": 5.100000000000001
+    },
+    {
+      "player": "Nneka Ogwumike",
+      "team": "losangelessparks",
+      "side": "Under",
+      "line": 18.5,
+      "edge": 2.3999999999999986
+    },
+    {
+      "player": "Flau'jae Johnson",
+      "team": "seattlestorm",
+      "side": "Over",
+      "line": 15.5,
+      "edge": 1.6000000000000014
+    }
+  ],
+  "counts": {
+    "incorrect16": 16,
+    "intended4": 4,
+    "intersectionExact": 3
+  },
+  "incorrect16PropIds": [
+    "Allisha Gray|OVER|18.5|atlantadream",
+    "Alyssa Thomas|UNDER|14.5|phoenixmercury",
+    "Azzi Fudd|UNDER|13.5|dallaswings",
+    "Breanna Stewart|UNDER|22.5|newyorkliberty",
+    "Dearica Hamby|OVER|15.5|losangelessparks",
+    "Ezi Magbegor|UNDER|6.5|seattlestorm",
+    "Flau'jae Johnson|OVER|15.5|seattlestorm",
+    "Jessica Shepard|OVER|13.5|dallaswings",
+    "Kamilla Cardoso|OVER|15.5|chicagosky",
+    "Kelsey Plum|OVER|16.5|phoenixmercury",
+    "Kiki Iriafen|OVER|15.5|washingtonmystics",
+    "Michaela Onyenwere|UNDER|8.5|washingtonmystics",
+    "Natasha Cloud|UNDER|12.5|chicagosky",
+    "Nneka Ogwumike|UNDER|18.5|losangelessparks",
+    "Pauline Astier|OVER|8.5|newyorkliberty",
+    "Rhyne Howard|UNDER|16.5|atlantadream"
+  ],
+  "intended4PropIds": [
+    "Flau'jae Johnson|OVER|15.5|seattlestorm",
+    "Kelsey Plum|OVER|16.5|phoenixmercury",
+    "Nneka Ogwumike|UNDER|18.5|losangelessparks",
+    "Rhyne Howard|UNDER|17.5|atlantadream"
+  ],
+  "intersectionExact": [
+    "Flau'jae Johnson|OVER|15.5|seattlestorm",
+    "Kelsey Plum|OVER|16.5|phoenixmercury",
+    "Nneka Ogwumike|UNDER|18.5|losangelessparks"
+  ],
+  "onlyInIncorrect16": [
+    "Allisha Gray|OVER|18.5|atlantadream",
+    "Alyssa Thomas|UNDER|14.5|phoenixmercury",
+    "Azzi Fudd|UNDER|13.5|dallaswings",
+    "Breanna Stewart|UNDER|22.5|newyorkliberty",
+    "Dearica Hamby|OVER|15.5|losangelessparks",
+    "Ezi Magbegor|UNDER|6.5|seattlestorm",
+    "Jessica Shepard|OVER|13.5|dallaswings",
+    "Kamilla Cardoso|OVER|15.5|chicagosky",
+    "Kiki Iriafen|OVER|15.5|washingtonmystics",
+    "Michaela Onyenwere|UNDER|8.5|washingtonmystics",
+    "Natasha Cloud|UNDER|12.5|chicagosky",
+    "Pauline Astier|OVER|8.5|newyorkliberty",
+    "Rhyne Howard|UNDER|16.5|atlantadream"
+  ],
+  "onlyInIntended4": [
+    "Rhyne Howard|UNDER|17.5|atlantadream"
+  ],
+  "verdict": "NO_MATCH"
+}

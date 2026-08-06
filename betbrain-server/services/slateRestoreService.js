@@ -28,6 +28,11 @@ import {
   BLOCKED_LAB_RESTORE_DATES,
   getTodayLocalDate,
 } from "./slateScopeService.js";
+import {
+  assertSnapshotEligibleForOfficialRelock,
+  STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+  hashMembershipIdentities,
+} from "./slateMembershipIntegrityV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -431,6 +436,60 @@ export function restoreActiveSlateBundle(slateDate, options = {}) {
       liveCount: liveSlateProps.length,
       bundleCount: loaded.props.length,
     };
+  }
+
+  // Never promote an obsolete / mismatched payload as Official membership.
+  if (options.enforceMembershipLineage !== false) {
+    const snap =
+      loaded.snapshot?.props?.length
+        ? loaded.snapshot
+        : { slateDate: date, props: loaded.props, lockReason: loaded.lockReason };
+
+    if (isSlateLocked(date)) {
+      const existingSnap = getLockedSnapshot(date);
+      const existingHash = hashMembershipIdentities(existingSnap?.props || []);
+      const loadedHash = hashMembershipIdentities(loaded.props || []);
+      if (
+        existingSnap?.immutableOfficial === true &&
+        existingHash &&
+        loadedHash &&
+        existingHash !== loadedHash
+      ) {
+        return {
+          ok: false,
+          blocked: true,
+          hardReason: STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+          message: `Stale membership lineage blocked restore for ${date} (hash mismatch)`,
+          failures: ["immutable_official_hash_mismatch"],
+          slateDate: date,
+        };
+      }
+    } else {
+      const lineage = assertSnapshotEligibleForOfficialRelock(snap, {
+        expectedSlateDate: date,
+        membershipSourceType:
+          loaded.registryEntry?.membershipSourceType ||
+          options.membershipSourceType ||
+          "ACTIVE_BUNDLE",
+        rejectPreRepairBestSixExpansion: true,
+      });
+      if (!lineage.ok) {
+        console.log(
+          `ACTIVE BUNDLE RESTORE BLOCKED (${date}):`,
+          lineage.hardReason,
+          lineage.failures
+        );
+        return {
+          ok: false,
+          blocked: true,
+          hardReason:
+            lineage.hardReason || STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+          message: `Stale membership lineage blocked restore for ${date}`,
+          failures: lineage.failures,
+          slateDate: date,
+        };
+      }
+    }
   }
 
   let backupId = null;
@@ -1171,11 +1230,11 @@ export function rehydrateLockedSlatesOnStartup() {
 
 /**
  * When the lock registry is empty/missing dates but tracked-props still has
- * official/slateLocked rows, recreate locks + snapshots from those rows.
+ * official/slateLocked rows — DO NOT recreate locks from Results rows.
+ * Membership must come from canonical board / sealed snapshot lineage only.
  */
 export function rehydrateLocksFromTrackedProps(options = {}) {
   const tracked = getTrackedProps();
-  const today = getTodayLocalDate();
   const byDate = new Map();
 
   for (const prop of tracked) {
@@ -1187,7 +1246,6 @@ export function rehydrateLocksFromTrackedProps(options = {}) {
 
   const results = [];
   const locked = [];
-  const maxAgeDays = Number(options.maxAgeDays) || 21;
 
   for (const [date, props] of byDate.entries()) {
     if (isSlateLocked(date)) {
@@ -1195,70 +1253,36 @@ export function rehydrateLocksFromTrackedProps(options = {}) {
       continue;
     }
 
-    const officialish = props.filter(
-      (p) =>
-        p.immutableOfficial === true ||
-        Boolean(p.officialPropId) ||
-        p.slateLocked === true ||
-        String(p.trackingType || "").toUpperCase() === "OFFICIAL"
-    );
-    if (!officialish.length) continue;
-
-    // Only rebuild recent calendar slates (avoid resurrecting ancient labs as ACTIVE).
-    const ageDays = (() => {
-      const [y, m, d] = today.split("-").map(Number);
-      const [yy, mm, dd] = date.split("-").map(Number);
-      if (!y || !yy) return 999;
-      const a = Date.UTC(y, m - 1, d);
-      const b = Date.UTC(yy, mm - 1, dd);
-      return Math.floor((a - b) / 86400000);
-    })();
-    if (ageDays < 0 || ageDays > maxAgeDays) {
+    // Explicit allow-list escape hatch for emergency ops only.
+    if (options.allowResultsRowRelock === true) {
+      const lineage = assertSnapshotEligibleForOfficialRelock(
+        {
+          slateDate: date,
+          props,
+          membershipSourceType: "TRACKED_RESULTS",
+          selectionMode: "RESULTS_ROWS",
+        },
+        { expectedSlateDate: date, forbidResultsRows: true }
+      );
       results.push({
         slateDate: date,
-        action: "skip_outside_window",
-        ageDays,
+        action: "blocked_results_row_relock",
+        hardReason:
+          lineage.hardReason || STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+        failures: lineage.failures,
+        propCount: props.length,
       });
       continue;
     }
 
-    const sealProps = officialish.map((p) => ({
-      ...p,
-      slateLocked: true,
-      immutableOfficial: true,
-    }));
-    const lockResult = lockSlate(date, {
-      reason: "startup_rehydrate_from_tracked",
-      trackedProps: sealProps,
-      getTrackedProps: () => sealProps,
-      allowFutureOfficialSeal: true,
-      officialSeal: {
-        sealed: true,
-        status: "SEALED",
-        sealedAt: new Date().toISOString(),
-        sealReason: "STARTUP_REHYDRATE_FROM_TRACKED",
-        sourcePool: "TRACKED_PROPS_STORE",
-        lifecycleStage: ageDays >= 1 ? SLATE_PHASE.LAB : SLATE_PHASE.ACTIVE,
-        stage: ageDays >= 1 ? SLATE_PHASE.LAB : SLATE_PHASE.ACTIVE,
-      },
+    results.push({
+      slateDate: date,
+      action: "blocked_results_row_relock",
+      hardReason: STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+      message:
+        "Tracked Results rows cannot become lock source (STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED)",
+      propCount: props.length,
     });
-
-    if (lockResult.ok || lockResult.alreadyLocked) {
-      applySlateLockFreeze(date, lockResult.snapshot?.props || sealProps);
-      locked.push(date);
-      results.push({
-        slateDate: date,
-        action: "rebuilt_lock_from_tracked",
-        propCount: sealProps.length,
-        lockOk: Boolean(lockResult.ok || lockResult.alreadyLocked),
-      });
-    } else {
-      results.push({
-        slateDate: date,
-        action: "rebuild_lock_failed",
-        message: lockResult.message,
-      });
-    }
   }
 
   return { ok: true, locked, results };

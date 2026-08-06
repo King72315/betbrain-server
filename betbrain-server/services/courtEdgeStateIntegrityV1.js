@@ -948,6 +948,120 @@ export function getPaidApiLog() {
 }
 
 /**
+ * Summarize paid-API accounting for refresh responses.
+ * Does not invent credit costs when usage headers are absent.
+ * x-requests-last=0 → provider call counted, reported credit cost 0.
+ */
+export function summarizePaidApiUsage(log = paidApiLog) {
+  const entries = Array.isArray(log) ? log : [];
+  const byProvider = {};
+  const byEndpoint = {};
+  let providerCalls = 0;
+  let cacheHits = 0;
+  let cacheMisses = 0;
+  let retries = 0;
+  let failures = 0;
+  let reportedCreditCost = 0;
+  let creditCostKnown = false;
+  let usageHeadersAvailable = false;
+  let usageHeadersMissingCount = 0;
+
+  for (const e of entries) {
+    const provider = String(e.provider || "unknown");
+    const label = String(e.label || "unknown");
+    if (!byProvider[provider]) {
+      byProvider[provider] = {
+        providerCalls: 0,
+        cacheHits: 0,
+        reportedCreditCost: 0,
+        creditCostKnown: false,
+        usageHeadersAvailable: false,
+      };
+    }
+    if (!byEndpoint[label]) {
+      byEndpoint[label] = {
+        requestCount: 0,
+        cacheHits: 0,
+        retries: 0,
+        failures: 0,
+        usageHeadersAvailable: false,
+        usageHeaders: null,
+        reportedCreditCost: 0,
+        creditCostKnown: false,
+      };
+    }
+    const ep = byEndpoint[label];
+    const pr = byProvider[provider];
+
+    if (e.fromCache === true) {
+      cacheHits += 1;
+      pr.cacheHits += 1;
+      ep.cacheHits += 1;
+      continue;
+    }
+
+    if (e.failed === true) {
+      failures += 1;
+      ep.failures += 1;
+      continue;
+    }
+
+    providerCalls += 1;
+    pr.providerCalls += 1;
+    ep.requestCount += 1;
+    if (Number(e.attempt || 1) > 1) {
+      retries += 1;
+      ep.retries += 1;
+    }
+
+    const uh = e.usageHeaders || null;
+    const lastRaw = uh?.requestsLast;
+    const hasLast =
+      lastRaw !== null && lastRaw !== undefined && String(lastRaw) !== "";
+    if (hasLast) {
+      usageHeadersAvailable = true;
+      pr.usageHeadersAvailable = true;
+      ep.usageHeadersAvailable = true;
+      ep.usageHeaders = {
+        requestsUsed: uh.requestsUsed ?? null,
+        requestsRemaining: uh.requestsRemaining ?? null,
+        requestsLast: uh.requestsLast ?? null,
+      };
+      const lastNum = Number(lastRaw);
+      if (Number.isFinite(lastNum)) {
+        creditCostKnown = true;
+        pr.creditCostKnown = true;
+        ep.creditCostKnown = true;
+        reportedCreditCost += lastNum;
+        pr.reportedCreditCost += lastNum;
+        ep.reportedCreditCost += lastNum;
+      }
+    } else if (e.fromCache !== true) {
+      usageHeadersMissingCount += 1;
+    }
+  }
+
+  cacheMisses = providerCalls;
+
+  return {
+    providerCalls,
+    cacheHits,
+    cacheMisses,
+    inFlightDedups: entries.filter((e) => e.deduped === true).length,
+    retries,
+    failures,
+    reportedCreditCost: creditCostKnown ? reportedCreditCost : null,
+    creditCostKnown,
+    usageHeadersAvailable,
+    usageHeadersMissingCount,
+    usageHeadersAvailableFlag: usageHeadersAvailable,
+    byProvider,
+    byEndpoint,
+    entries: entries.slice(-100),
+  };
+}
+
+/**
  * Preserve sealed Best 6 display lists across board merges.
  * Today refresh must not wipe Tomorrow (and vice versa).
  */

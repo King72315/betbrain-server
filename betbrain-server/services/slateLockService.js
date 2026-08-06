@@ -16,6 +16,13 @@ import {
   buildCalibrationSlateSummary,
   recordCalibrationObservationSlate,
 } from "../engines/topProps/directionalCalibrationObservationV1.js";
+import {
+  assertCanonicalMembershipLineage,
+  attachIntegrityFieldsToLockEntry,
+  getSlateIntegrityInvalidation,
+  hashMembershipIdentities,
+  STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+} from "./slateMembershipIntegrityV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -535,6 +542,25 @@ export function lockSlate(slateDate, options = {}) {
 
   if (isSlateLocked(date)) {
     const existing = getSlateLockEntry(date);
+    // Never silently replace an existing Official lock from a stale payload.
+    if (options.replaceMembershipPayload) {
+      recordBlockedWrite({
+        action: "lockSlate",
+        slateDate: date,
+        reason: STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+      });
+      return {
+        ok: false,
+        blocked: true,
+        hardReason: STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+        message:
+          "Slate already locked — stale membership relock blocked",
+        slateDate: date,
+        entry: existing,
+        snapshot: getLockedSnapshot(date),
+        alreadyLocked: true,
+      };
+    }
     return {
       ok: true,
       message: "Slate already locked",
@@ -556,6 +582,52 @@ export function lockSlate(slateDate, options = {}) {
     return { ok: false, message: `No tracked props found for slate ${date}` };
   }
 
+  // Relock/lock lineage gate — refuse obsolete Best-6 / display / Results sources.
+  if (options.enforceMembershipLineage !== false) {
+    const lineage = assertCanonicalMembershipLineage(
+      {
+        props: slateProps,
+        slateDate: date,
+        membershipSourceType:
+          options.membershipSourceType || "CANONICAL_BOARD",
+        membershipSourceBuild: options.membershipSourceBuild || null,
+        membershipSourceCommit: options.membershipSourceCommit || null,
+        membershipSourceHash:
+          options.membershipSourceHash || hashMembershipIdentities(slateProps),
+        membershipCreatedAt: options.membershipCreatedAt || null,
+        membershipSealedAt:
+          options.membershipSealedAt || options.officialSeal?.sealedAt || null,
+        selectionMode: options.selectionMode || "VARIABLE_TEAM_BOARD",
+        canonicalBoardVersion:
+          options.canonicalBoardVersion || options.boardVersion || null,
+      },
+      {
+        expectedSlateDate: date,
+        forbidHomeDisplay: true,
+        forbidResultsRows: true,
+        rejectPreRepairBestSixExpansion:
+          options.rejectPreRepairBestSixExpansion === true,
+        requireSourceType: options.requireSourceType === true,
+      }
+    );
+    if (!lineage.ok) {
+      recordBlockedWrite({
+        action: "lockSlate",
+        slateDate: date,
+        reason: lineage.hardReason || STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+        failures: lineage.failures,
+      });
+      return {
+        ok: false,
+        blocked: true,
+        hardReason: lineage.hardReason || STALE_MEMBERSHIP_LINEAGE_RELOCK_BLOCKED,
+        message: `Membership lineage blocked for ${date}`,
+        failures: lineage.failures,
+        slateDate: date,
+      };
+    }
+  }
+
   let backupId = null;
   try {
     const backup = createBackup(`pre-lock-${date}`);
@@ -571,6 +643,8 @@ export function lockSlate(slateDate, options = {}) {
     options.autoLocked ?? String(reason).startsWith("auto_")
   );
   const officialSeal = options.officialSeal || null;
+  const membershipSourceHash =
+    options.membershipSourceHash || hashMembershipIdentities(frozenProps);
 
   const snapshot = {
     slateDate: date,
@@ -583,24 +657,56 @@ export function lockSlate(slateDate, options = {}) {
     backupId,
     immutableOfficial: Boolean(officialSeal?.sealed),
     officialSeal: officialSeal || undefined,
+    membershipSourceType:
+      options.membershipSourceType || "CANONICAL_BOARD",
+    membershipSourceBuild: options.membershipSourceBuild || null,
+    membershipSourceCommit: options.membershipSourceCommit || null,
+    membershipSourceHash,
+    membershipCreatedAt: options.membershipCreatedAt || now,
+    membershipSealedAt:
+      options.membershipSealedAt || officialSeal?.sealedAt || now,
+    selectionMode: options.selectionMode || "VARIABLE_TEAM_BOARD",
+    canonicalBoardVersion:
+      options.canonicalBoardVersion || options.boardVersion || null,
   };
+
+  const integrity = getSlateIntegrityInvalidation(date);
+  if (integrity) {
+    Object.assign(snapshot, integrity);
+  }
 
   writeJSON(snapshotPath(date), snapshot);
 
   const registry = getRegistry();
 
-  registry.slates.push({
-    slateDate: date,
-    phase: SLATE_PHASE.ACTIVE,
-    lockedAt: now,
-    lockReason: reason,
-    autoLocked,
-    propCount: frozenProps.length,
-    snapshotFile: `slate-snapshots/${date}.json`,
-    backupId,
-    immutableOfficial: Boolean(officialSeal?.sealed),
-    officialSealedAt: officialSeal?.sealedAt || null,
-  });
+  const lockEntry = attachIntegrityFieldsToLockEntry(
+    {
+      slateDate: date,
+      phase: SLATE_PHASE.ACTIVE,
+      lockedAt: now,
+      lockReason: reason,
+      autoLocked,
+      propCount: frozenProps.length,
+      snapshotFile: `slate-snapshots/${date}.json`,
+      backupId,
+      immutableOfficial: Boolean(officialSeal?.sealed),
+      officialSealedAt: officialSeal?.sealedAt || null,
+      membershipSourceType:
+        options.membershipSourceType || "CANONICAL_BOARD",
+      membershipSourceBuild: options.membershipSourceBuild || null,
+      membershipSourceCommit: options.membershipSourceCommit || null,
+      membershipSourceHash,
+      membershipCreatedAt: options.membershipCreatedAt || now,
+      membershipSealedAt:
+        options.membershipSealedAt || officialSeal?.sealedAt || now,
+      selectionMode: options.selectionMode || "VARIABLE_TEAM_BOARD",
+      canonicalBoardVersion:
+        options.canonicalBoardVersion || options.boardVersion || null,
+    },
+    date
+  );
+
+  registry.slates.push(lockEntry);
 
   saveRegistry(registry);
 
