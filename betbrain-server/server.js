@@ -434,6 +434,18 @@ const CALIBRATION_2_CHAMPION_LOCK = (() => {
   }
 })();
 
+/** Cache once — /health must stay cheap and never double-hash on every probe. */
+const CALIBRATION_HASH_LIVE = (() => {
+  try {
+    return computeCalibrationHashV2();
+  } catch {
+    return null;
+  }
+})();
+const CALIBRATION_HASH_MATCH =
+  !!CALIBRATION_HASH_LIVE &&
+  CALIBRATION_HASH_LIVE === CALIBRATION_2_CHAMPION_LOCK?.calibrationHash;
+
 function resolveGitCommitSha() {
   const fromEnv = [
     process.env.RENDER_GIT_COMMIT,
@@ -3821,23 +3833,8 @@ app.get("/health", (req, res) => {
       freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId || null,
       calibrationHashLocked:
         CALIBRATION_2_CHAMPION_LOCK?.calibrationHash || null,
-      calibrationHashLive: (() => {
-        try {
-          return computeCalibrationHashV2();
-        } catch {
-          return null;
-        }
-      })(),
-      calibrationHashMatch: (() => {
-        try {
-          return (
-            computeCalibrationHashV2() ===
-            CALIBRATION_2_CHAMPION_LOCK?.calibrationHash
-          );
-        } catch {
-          return false;
-        }
-      })(),
+      calibrationHashLive: CALIBRATION_HASH_LIVE,
+      calibrationHashMatch: CALIBRATION_HASH_MATCH,
       highBlockedFromOfficial: true,
       v1ShadowOnly: true,
       lowMediumFromCalibration2: true,
@@ -7160,15 +7157,28 @@ if (process.env.RUN_AUDIT === "1") {
 
     let rehydrateResult = { results: [], startupIntegrity: true };
     try {
-      if (
+      // Render free tier: full slate rehydrate blocks the event loop long enough
+      // for the proxy to 502 even after "service is live". Skip unless forced.
+      const onRender =
+        String(process.env.RENDER || "").toLowerCase() === "true";
+      const skipRehydrate =
         String(process.env.COURTEDGE_SKIP_STARTUP_REHYDRATE || "")
-          .toLowerCase() === "true"
-      ) {
+          .toLowerCase() === "true" ||
+        (onRender &&
+          String(process.env.COURTEDGE_FORCE_STARTUP_REHYDRATE || "")
+            .toLowerCase() !== "true");
+      if (skipRehydrate) {
         console.log(
-          "STARTUP REHYDRATE SKIPPED (COURTEDGE_SKIP_STARTUP_REHYDRATE=true)"
+          "STARTUP REHYDRATE SKIPPED (render-safe boot; set COURTEDGE_FORCE_STARTUP_REHYDRATE=true to enable)"
         );
+        rehydrateResult = {
+          results: [],
+          startupIntegrity: true,
+          skipped: true,
+        };
       } else {
-        rehydrateResult = rehydrateLockedSlatesOnStartup();
+        // Must await: rehydrate yields so /health stays responsive during boot.
+        rehydrateResult = await rehydrateLockedSlatesOnStartup();
         if (!rehydrateResult.startupIntegrity) {
           runTrackedPropStartupIntegrityCheck();
         }

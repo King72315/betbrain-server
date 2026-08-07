@@ -926,11 +926,15 @@ export function restoreOfficialSlate(slateDate, options = {}) {
   }
 
   let backupId = null;
-  try {
-    const backup = createBackup(`pre-restore-${date}`);
-    backupId = backup.backupId;
-  } catch (err) {
-    console.log("RESTORE BACKUP WARNING:", err.message);
+  // Startup rehydrate on small Render instances OOMs when createBackup copies
+  // full tracked-props / archives. Callers may opt out via skipBackup.
+  if (options.skipBackup !== true) {
+    try {
+      const backup = createBackup(`pre-restore-${date}`);
+      backupId = backup.backupId;
+    } catch (err) {
+      console.log("RESTORE BACKUP WARNING:", err.message);
+    }
   }
 
   const existing = readJSON(TRACKED_FILE, []);
@@ -993,15 +997,51 @@ export function restoreOfficialSlate(slateDate, options = {}) {
   };
 }
 
+function yieldStartupEventLoop() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function summarizeRehydrateResults(results = []) {
+  const byAction = {};
+  for (const row of results) {
+    const key = String(row?.action || "unknown");
+    byAction[key] = (byAction[key] || 0) + 1;
+  }
+  const notable = results.filter((row) => {
+    const action = String(row?.action || "");
+    return (
+      action.includes("restored") ||
+      action.endsWith("_failed") ||
+      action.includes("error")
+    );
+  });
+  return {
+    total: results.length,
+    byAction,
+    notable: notable.slice(0, 20).map((row) => ({
+      slateDate: row.slateDate || null,
+      action: row.action,
+      ok: row.ok,
+      message: row.message || null,
+      propCount: row.propCount ?? null,
+      source: row.source || null,
+    })),
+  };
+}
+
 /**
  * On startup: rehydrate locked slates missing props, then official freeze for today if empty.
+ * Async + event-loop yields so Render /health can answer during boot.
  */
-export function rehydrateLockedSlatesOnStartup() {
+export async function rehydrateLockedSlatesOnStartup() {
+  // Yield before any sync disk work so post-listen /health can answer first.
+  await yieldStartupEventLoop();
   const results = [];
   const discovered = registerDiscoveredSlateBundles();
   if (discovered.length) {
-    results.push({ action: "discovered_bundles", discovered });
+    results.push({ action: "discovered_bundles", count: discovered.length });
   }
+  await yieldStartupEventLoop();
 
   const registry = getLockedSlatesRegistry();
 
@@ -1018,8 +1058,11 @@ export function rehydrateLockedSlatesOnStartup() {
     results.push({
       slateDate: date,
       action: restored.ok ? "restored_active_bundle" : "active_restore_failed",
-      ...restored,
+      ok: restored.ok,
+      message: restored.message || null,
+      propCount: restored.propCount ?? null,
     });
+    await yieldStartupEventLoop();
   }
 
   // Also restore any on-disk active-bundles/{date} not yet in the static catalog
@@ -1077,6 +1120,7 @@ export function rehydrateLockedSlatesOnStartup() {
           action: "restored_disk_active_bundle",
           propCount: slateProps.length,
         });
+        await yieldStartupEventLoop();
       }
     }
   } catch (err) {
@@ -1096,13 +1140,20 @@ export function rehydrateLockedSlatesOnStartup() {
     results.push({
       slateDate: date,
       action: restored.ok ? "restored_lab_bundle" : "lab_restore_failed",
-      ...restored,
+      ok: restored.ok,
+      message: restored.message || null,
+      propCount: restored.propCount ?? null,
     });
+    await yieldStartupEventLoop();
   }
 
+  // Deduplicate registry dates — locked-slates.json can accumulate repeats and
+  // previously caused multi-MB startup logs + repeated failed restores.
+  const seenRegistryDates = new Set();
   for (const entry of registry.slates || []) {
     const date = String(entry.slateDate || "");
-    if (!date) continue;
+    if (!date || seenRegistryDates.has(date)) continue;
+    seenRegistryDates.add(date);
 
     if (entry.phase === SLATE_PHASE.LAB) {
       results.push({
@@ -1127,6 +1178,7 @@ export function rehydrateLockedSlatesOnStartup() {
         action: "restore_failed",
         message: loaded.message,
       });
+      await yieldStartupEventLoop();
       continue;
     }
 
@@ -1135,13 +1187,18 @@ export function rehydrateLockedSlatesOnStartup() {
       lock: true,
       reason: entry.lockReason || "startup_rehydrate_locked_registry",
       source: loaded.source,
+      skipBackup: true,
     });
 
     results.push({
       slateDate: date,
       action: restored.ok ? "restored_from_registry" : "restore_failed",
-      ...restored,
+      ok: restored.ok,
+      message: restored.message || null,
+      propCount: restored.propCount ?? null,
+      source: restored.source || loaded.source || null,
     });
+    await yieldStartupEventLoop();
   }
 
   const today = getTodayLocalDate();
@@ -1157,23 +1214,29 @@ export function rehydrateLockedSlatesOnStartup() {
       lock: true,
       reason: OFFICIAL_FREEZE_CATALOG[today].lockReason,
       source: "startup_rehydrate_official_freeze",
+      skipBackup: true,
     });
 
     results.push({
       slateDate: today,
       action: restored.ok ? "restored_official_freeze" : "restore_failed",
-      ...restored,
+      ok: restored.ok,
+      message: restored.message || null,
+      propCount: restored.propCount ?? null,
     });
   } else if (today && todayCount === 0 && isSlateLocked(today)) {
     const restored = restoreOfficialSlate(today, {
       lock: false,
       source: "startup_rehydrate_locked_empty",
+      skipBackup: true,
     });
 
     results.push({
       slateDate: today,
       action: restored.ok ? "restored_locked_empty" : "restore_failed",
-      ...restored,
+      ok: restored.ok,
+      message: restored.message || null,
+      propCount: restored.propCount ?? null,
     });
 
     if (restored.ok) {
@@ -1188,26 +1251,41 @@ export function rehydrateLockedSlatesOnStartup() {
     }
   }
 
-  const attempted = results.filter((r) => r.action?.includes("restored"));
+  const attempted = results.filter((r) => String(r.action || "").includes("restored"));
   if (attempted.length) {
-    console.log("STARTUP SLATE REHYDRATION:", JSON.stringify(results, null, 2));
+    console.log(
+      "STARTUP SLATE REHYDRATION:",
+      JSON.stringify(summarizeRehydrateResults(results))
+    );
   }
+  await yieldStartupEventLoop();
 
   // After Render wipes locked-slates.json, rebuild locks from tracked props that
   // were already admitted as official/locked — never deletes, never invents lines.
   const trackedLockRebuild = rehydrateLocksFromTrackedProps();
   if (trackedLockRebuild.locked?.length) {
-    results.push(...trackedLockRebuild.results);
+    results.push(
+      ...(trackedLockRebuild.results || []).map((row) => ({
+        slateDate: row.slateDate || null,
+        action: row.action,
+      }))
+    );
     console.log(
       "STARTUP TRACKED LOCK REBUILD:",
-      JSON.stringify(trackedLockRebuild, null, 2)
+      JSON.stringify({
+        lockedCount: trackedLockRebuild.locked.length,
+        locked: trackedLockRebuild.locked,
+      })
     );
   }
+  await yieldStartupEventLoop();
 
   // Ensure every locked snapshot membership exists in tracked-props (insert missing).
+  const seenSnapDates = new Set();
   for (const entry of getLockedSlatesRegistry().slates || []) {
     const date = String(entry.slateDate || "");
-    if (!date) continue;
+    if (!date || seenSnapDates.has(date)) continue;
+    seenSnapDates.add(date);
     const snap = getLockedSnapshot(date);
     if (!snap?.props?.length) continue;
     const before = countPropsForSlate(getTrackedProps(), date);
@@ -1221,9 +1299,12 @@ export function rehydrateLockedSlatesOnStartup() {
         after,
       });
     }
+    await yieldStartupEventLoop();
   }
 
+  await yieldStartupEventLoop();
   const integrity = runTrackedPropStartupIntegrityCheck();
+  await yieldStartupEventLoop();
 
   return { ok: true, results, startupIntegrity: integrity };
 }
