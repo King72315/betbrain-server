@@ -47,6 +47,11 @@ import {
   resolveOriginalModelSide,
   resolveDirectionalEdge,
 } from "./controlledBoardMembershipQualityV1.js";
+import {
+  isProbabilitySafetyArchitectureEnabled,
+  selectControlledBestBoardViaProbabilitySafetyV1,
+  PROBABILITY_SAFETY_BOARD_BUILD,
+} from "./probabilitySafetyBoardAdapterV1.js";
 
 export const CONTROLLED_BEST_BOARD_VERSION = "controlled-best-board-v2";
 export const CONTROLLED_BEST_BOARD_BUILD = MEMBERSHIP_QUALITY_BUILD;
@@ -907,6 +912,16 @@ export function selectControlledBestBoard(candidates = [], options = {}) {
     list[0]?.slateDate ||
     toCanonicalSlateDate(list[0]?.commenceTime) ||
     getCurrentCtDate();
+
+  // Probability / Safety / True Low-Risk Architecture V1 (default ON).
+  // Forecast+membership: LOW then MEDIUM only; no team-pair quotas; no fixed six.
+  if (isProbabilitySafetyArchitectureEnabled(options)) {
+    return selectControlledBestBoardViaProbabilitySafetyV1(
+      list,
+      { ...options, requestedSlateDate },
+      requestedSlateDate
+    );
+  }
 
   const gamesMap = new Map();
   for (const pick of list) {

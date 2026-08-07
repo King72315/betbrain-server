@@ -395,7 +395,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-aug5-membership-quarantine-final-v3-checkpoint-v1";
+  "courteedge-probability-safety-true-low-risk-architecture-v1";
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =

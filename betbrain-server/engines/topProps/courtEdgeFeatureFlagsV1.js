@@ -6,16 +6,22 @@
  * explicitly activated on a future unsealed slate.
  */
 export const FEATURE_FLAGS_BUILD =
-  "courteedge-aug5-membership-quarantine-final-v3-checkpoint-v1";
+  "courteedge-probability-safety-true-low-risk-architecture-v1";
 
 /** Credit-safe full-roster floodgate. Default OFF. */
 export const FULL_ROSTER_COLLECTION_MODE =
   String(process.env.FULL_ROSTER_COLLECTION_MODE || "false").toLowerCase() ===
   "true";
 
+/** Probability/Safety architecture — Official = LOW + qualified MEDIUM only. */
+export const PROBABILITY_SAFETY_ARCHITECTURE_V1 =
+  String(process.env.PROBABILITY_SAFETY_ARCHITECTURE_V1 || "true").toLowerCase() !==
+  "false";
+
 export const FEATURE_FLAG_DEFAULTS = Object.freeze({
   FULL_ROSTER_COLLECTION_MODE: false,
-  TEAM_PAIR_MODE: true,
+  PROBABILITY_SAFETY_ARCHITECTURE_V1: true,
+  TEAM_PAIR_MODE: false,
   SELECTION_INTEGRITY: true,
   DIRECTIONAL_CALIBRATION: true,
   DATE_VERIFICATION: true,
@@ -29,15 +35,22 @@ export const FEATURE_FLAG_DEFAULTS = Object.freeze({
   NO_LAB_TAB: true,
   NO_LAST_VALID_HARD_BLOCK: true,
   CLEAR_SIDE_STRONG_EDGE_MEMBERSHIP: true,
+  HIGH_RISK_OFFICIAL_BLOCKED: true,
+  LOW_RISK_FIRST: true,
+  NO_FIXED_SIX: true,
+  NO_MINIMUM_BOARD_COUNT: true,
+  NO_SIDE_QUOTA: true,
 });
 
 export function getCourtEdgeFeatureFlagSnapshot() {
   return {
     build: FEATURE_FLAGS_BUILD,
     FULL_ROSTER_COLLECTION_MODE,
+    PROBABILITY_SAFETY_ARCHITECTURE_V1,
     defaults: { ...FEATURE_FLAG_DEFAULTS },
     runtime: {
       FULL_ROSTER_COLLECTION_MODE,
+      PROBABILITY_SAFETY_ARCHITECTURE_V1,
       TEAM_PAIR_MODE: FEATURE_FLAG_DEFAULTS.TEAM_PAIR_MODE,
       SELECTION_INTEGRITY: FEATURE_FLAG_DEFAULTS.SELECTION_INTEGRITY,
       DIRECTIONAL_CALIBRATION: FEATURE_FLAG_DEFAULTS.DIRECTIONAL_CALIBRATION,
