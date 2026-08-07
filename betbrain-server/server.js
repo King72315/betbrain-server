@@ -428,6 +428,8 @@ const CALIBRATION_2_CHAMPION_LOCK = (() => {
     return {
       freezeId: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
       calibrationHash:
+        "4f563a9218781f7232094a65eb8ac2c56ba396b000d41e1af9fa49cf8f174da2",
+      calibrationHashWindowsRawLegacy:
         "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14",
       prospectiveLockedSlateDates: ["2026-08-07"],
     };
@@ -442,9 +444,14 @@ const CALIBRATION_HASH_LIVE = (() => {
     return null;
   }
 })();
-const CALIBRATION_HASH_MATCH =
-  !!CALIBRATION_HASH_LIVE &&
-  CALIBRATION_HASH_LIVE === CALIBRATION_2_CHAMPION_LOCK?.calibrationHash;
+const CALIBRATION_HASH_MATCH = (() => {
+  const live = String(CALIBRATION_HASH_LIVE || "");
+  const locked = String(CALIBRATION_2_CHAMPION_LOCK?.calibrationHash || "");
+  const legacy = String(
+    CALIBRATION_2_CHAMPION_LOCK?.calibrationHashWindowsRawLegacy || ""
+  );
+  return !!live && (live === locked || (!!legacy && live === legacy));
+})();
 
 function resolveGitCommitSha() {
   const fromEnv = [

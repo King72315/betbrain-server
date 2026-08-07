@@ -36,16 +36,39 @@ const LOCKED_HASH_FILES = [
   "engines/topProps/courtEdgeFeatureFlagsV1.js",
 ];
 
+/**
+ * Platform-stable hash: normalize CRLF→LF before digest.
+ * Windows freeze originally produced 11fe26e8… from CRLF bytes; Linux/Render
+ * checkouts are LF and digest to 4f563a92…. Canonical is LF.
+ */
 export function computeCalibrationHashV2() {
   const h = crypto.createHash("sha256");
   for (const rel of LOCKED_HASH_FILES) {
-    const buf = fs.readFileSync(path.join(SERVER, rel));
+    const raw = fs.readFileSync(path.join(SERVER, rel));
+    const text = raw.toString("utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const buf = Buffer.from(text, "utf8");
     h.update(rel);
     h.update("\0");
     h.update(buf);
     h.update("\0");
   }
   return h.digest("hex");
+}
+
+/** Legacy Windows-raw digest from the original Calibration 2 freeze ceremony. */
+export const CALIBRATION_HASH_V2_WINDOWS_RAW_LEGACY =
+  "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
+
+/** Canonical LF digest (matches Render / Linux). */
+export const CALIBRATION_HASH_V2_CANONICAL_LF =
+  "4f563a9218781f7232094a65eb8ac2c56ba396b000d41e1af9fa49cf8f174da2";
+
+export function isCalibrationHashV2Accepted(hash) {
+  const h = String(hash || "").trim().toLowerCase();
+  return (
+    h === CALIBRATION_HASH_V2_CANONICAL_LF ||
+    h === CALIBRATION_HASH_V2_WINDOWS_RAW_LEGACY
+  );
 }
 
 export function loadFrozenCalibrationManifest() {
