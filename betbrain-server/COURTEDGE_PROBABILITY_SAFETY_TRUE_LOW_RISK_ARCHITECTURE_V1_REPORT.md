@@ -13,7 +13,7 @@
 | 1 | Verified pre-upgrade checkpoint | `courteedge-pre-full-roster-experiment-v3` @ `2db183ccb63fe6d07a51f35f2d99686a7b7bc35d` |
 | 2 | Upgrade branch | `upgrade/courteedge-probability-safety-low-risk-v1` |
 | 3 | Starting commit | `2db183ccb63fe6d07a51f35f2d99686a7b7bc35d` |
-| 4 | Ending commit | *(set after commit)* |
+| 4 | Ending commit | 481509654731ef41d3fef1440eda9455a6e3f2e7 |
 
 V1 (`bf581a1…`) and V2 (`339f132…`) tags **untouched**.
 
