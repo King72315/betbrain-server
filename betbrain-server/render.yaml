@@ -1,3 +1,7 @@
+# IMPORTANT: Live production service is currently named betbrain-server-1 in the
+# Render dashboard. Blueprint service name below is betbrain-api. If Blueprint
+# sync does not attach DATABASE_URL to betbrain-server-1, link courtedge-durable-db
+# manually on that service. Without DATABASE_URL, durableStoreReady stays false.
 services:
   - type: web
     name: betbrain-api
@@ -38,6 +42,8 @@ services:
       - key: EMPIRICAL_SAFE_PROP_V2
         value: "true"
       - key: COURTEDGE_ALLOW_LOCKED_SLATE_REFRESH
+        value: "false"
+      - key: COURTEDGE_ALLOW_FS_PROD
         value: "false"
 
   # Dispatcher only — server decides which jobs are due.

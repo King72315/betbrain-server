@@ -395,12 +395,24 @@ import {
   runIntegrityWatchdog,
   loadLastWatchdogReport,
 } from "./services/courtEdgeIntegrityWatchdogV1.js";
+import {
+  applyCanonicalMigrations,
+  getCanonicalDurableHealth,
+  restoreCanonicalSlateV1,
+  sealCanonicalSlateV1,
+  persistResearchFreezeV1,
+  isAcceptedCalibrationHash,
+  isProductionEnvironment,
+  C2_CALIBRATION_HASH_CEREMONY,
+  C2_CALIBRATION_HASH_LF,
+  CANONICAL_STORE_BUILD,
+} from "./services/courtEdgePostgres/canonicalStoreV1.js";
 
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-empirical-safe-prop-v2-calibration-2-production";
+  "courteedge-render-postgres-production-durability-v1";
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
@@ -3780,6 +3792,84 @@ async function refreshAllPicks(options = {}) {
   lastRefreshTime = Date.now();
   cachedSelectorVersion = CONTROLLED_BEST_SIX_VERSION;
   persistBoardAfterRefresh(result);
+
+  // Postgres authority: Official seal + research persist (no Aug 7 Official).
+  try {
+    const sealDay = getTodayLocalDate();
+    const officialRows = [
+      ...(result.bestSixDisplayTodayWNBA || result.bestSixWNBA || []),
+    ].filter((p) => {
+      const risk = String(p.trueRisk || p.riskLabel || p.risk || "").toUpperCase();
+      return risk === "LOW" || risk === "MEDIUM";
+    });
+    const researchRows = Array.isArray(result.allGeneratedCandidates)
+      ? result.allGeneratedCandidates
+      : officialRows;
+    if (sealDay === "2026-08-07") {
+      result.refreshSuccess = false;
+      result.persistence = {
+        ok: false,
+        reason: "PROSPECTIVE_SLATE_LOCKED",
+        note: "Aug 7 regenerate/seal blocked; research freeze only",
+      };
+    } else if (officialRows.length) {
+      const sealed = await sealCanonicalSlateV1({
+        slateDate: sealDay,
+        league: "WNBA",
+        dayBucket: "TODAY",
+        officialProps: officialRows,
+        researchProps: researchRows,
+        calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
+        sourceBuild: SERVER_BUILD,
+        sourceCommit: BUILD_COMMIT,
+        lockReason: "OFFICIAL_SEALED",
+      });
+      result.persistence = sealed;
+      result.refreshSuccess = sealed.refreshSuccess === true;
+      if (!sealed.ok && isProductionEnvironment()) {
+        result.persistenceDegraded = true;
+        result.persistenceReason = sealed.reason || "PERSISTENCE_FAILED";
+        console.log(
+          "REFRESH PERSISTENCE:",
+          JSON.stringify({
+            ok: false,
+            reason: sealed.reason,
+            detail: sealed.detail || null,
+          })
+        );
+      } else if (sealed.ok) {
+        console.log(
+          "REFRESH PERSISTENCE:",
+          JSON.stringify({
+            ok: true,
+            slateId: sealed.slateId,
+            officialCount: sealed.officialCount,
+            researchCount: sealed.researchCount,
+            membershipHash: sealed.membershipHash,
+          })
+        );
+      }
+    } else if (isProductionEnvironment()) {
+      const snap = canonicalDurableSnapshot;
+      if (!snap.durableStoreReady) {
+        result.refreshSuccess = false;
+        result.persistence = {
+          ok: false,
+          reason: "PERSISTENCE_FAILED",
+          detail: "production durableStoreReady=false",
+        };
+      }
+    }
+  } catch (persistErr) {
+    result.refreshSuccess = false;
+    result.persistence = {
+      ok: false,
+      reason: "PERSISTENCE_FAILED",
+      detail: String(persistErr?.message || persistErr),
+    };
+    console.log("REFRESH PERSISTENCE ERROR:", persistErr.message);
+  }
+
   const refreshDay = getTodayLocalDate();
   if (refreshesTodayDate !== refreshDay) {
     refreshesTodayDate = refreshDay;
@@ -3795,6 +3885,32 @@ async function refreshAllPicks(options = {}) {
 // Boot phase for ops diagnosis. /health stays sync and answers as soon as
  // the port is bound ? even while deferred hydrate is still running.
 let bootPhase = "starting";
+/** Async-refreshed snapshot — /health never awaits Postgres. */
+let canonicalDurableSnapshot = {
+  build: CANONICAL_STORE_BUILD,
+  databaseUrlConfigured: false,
+  postgresHealthy: false,
+  durableBackend: "filesystem",
+  durableStoreReady: false,
+  lastError: "not_initialized",
+};
+
+function refreshCanonicalDurableSnapshot() {
+  return getCanonicalDurableHealth()
+    .then((h) => {
+      canonicalDurableSnapshot = h;
+      return h;
+    })
+    .catch((error) => {
+      canonicalDurableSnapshot = {
+        ...canonicalDurableSnapshot,
+        postgresHealthy: false,
+        durableStoreReady: false,
+        lastError: String(error?.message || error),
+      };
+      return canonicalDurableSnapshot;
+    });
+}
 
 app.get("/health", (req, res) => {
   // Sync-only: never await Postgres here. A stuck DATABASE_URL / pool.end
@@ -3810,7 +3926,15 @@ app.get("/health", (req, res) => {
     };
   }
   const live = true;
-  const ready = bootPhase === "ready";
+  const durableReady = canonicalDurableSnapshot.durableStoreReady === true;
+  const ready =
+    bootPhase === "ready" &&
+    (!isProductionEnvironment() || durableReady ||
+      String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
+        "true");
+  const calibMatch =
+    isAcceptedCalibrationHash(CALIBRATION_HASH_LIVE) ||
+    CALIBRATION_HASH_MATCH === true;
   res.json({
     ok: true,
     message: "CourtEdge backend running",
@@ -3834,14 +3958,18 @@ app.get("/health", (req, res) => {
     environment: process.env.NODE_ENV || checkConfig()?.environment || "development",
     featureFlagsBuild: FEATURE_FLAGS_BUILD,
     featureFlags: getCourtEdgeFeatureFlagSnapshot(),
+    championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+    calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
     empiricalSafePropV2: {
       enabled: EMPIRICAL_SAFE_PROP_V2 === true,
       productionChampion: EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
       freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId || null,
-      calibrationHashLocked:
-        CALIBRATION_2_CHAMPION_LOCK?.calibrationHash || null,
+      championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+      calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
+      calibrationHashLocked: C2_CALIBRATION_HASH_CEREMONY,
       calibrationHashLive: CALIBRATION_HASH_LIVE,
-      calibrationHashMatch: CALIBRATION_HASH_MATCH,
+      calibrationHashCanonicalLf: C2_CALIBRATION_HASH_LF,
+      calibrationHashMatch: calibMatch,
       highBlockedFromOfficial: true,
       v1ShadowOnly: true,
       lowMediumFromCalibration2: true,
@@ -3861,6 +3989,16 @@ app.get("/health", (req, res) => {
     homeRestartDurabilityVersion: HOME_RESTART_DURABILITY_VERSION,
     homeDurable,
     durableStore: getDurableStoreHealthSync(),
+    durableBackend: canonicalDurableSnapshot.durableBackend,
+    durableStoreReady: durableReady,
+    databaseUrlConfigured: canonicalDurableSnapshot.databaseUrlConfigured === true,
+    postgresHealthy: canonicalDurableSnapshot.postgresHealthy === true,
+    canonicalStore: {
+      build: CANONICAL_STORE_BUILD,
+      schemaVersion: canonicalDurableSnapshot.schemaVersion || null,
+      schemaChecksum: canonicalDurableSnapshot.schemaChecksum || null,
+      lastError: canonicalDurableSnapshot.lastError || null,
+    },
     recoveryEndpoints: true,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
@@ -3872,6 +4010,33 @@ app.get("/health", (req, res) => {
       evidenceVersion: COURTEDGE_PLAYER_EVIDENCE_VERSION,
     },
     time: new Date().toISOString(),
+  });
+});
+
+app.get("/ready", async (req, res) => {
+  const snap = await refreshCanonicalDurableSnapshot();
+  const production = isProductionEnvironment();
+  const ready =
+    bootPhase === "ready" &&
+    (!production ||
+      snap.durableStoreReady === true ||
+      String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
+        "true");
+  res.status(ready ? 200 : 503).json({
+    ok: ready,
+    ready,
+    live: true,
+    bootPhase,
+    serverBuild: SERVER_BUILD,
+    durableStoreReady: snap.durableStoreReady === true,
+    postgresHealthy: snap.postgresHealthy === true,
+    databaseUrlConfigured: snap.databaseUrlConfigured === true,
+    durableBackend: snap.durableBackend,
+    productionRequiresPostgres: production,
+    championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+    calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
+    empiricalSafePropV2: EMPIRICAL_SAFE_PROP_V2 === true,
+    lastError: snap.lastError || null,
   });
 });
 
@@ -7263,6 +7428,87 @@ if (process.env.RUN_AUDIT === "1") {
           databaseUrlConfigured: durableHealth.databaseUrlConfigured,
         })
       );
+    });
+    await yieldEventLoop();
+
+    // Canonical Postgres authority: migrate + restore sealed slates (no provider).
+    await withStartupBudget("CANONICAL_POSTGRES", async () => {
+      const mig = await applyCanonicalMigrations();
+      const snap = await refreshCanonicalDurableSnapshot();
+      console.log(
+        "STARTUP CANONICAL POSTGRES:",
+        JSON.stringify({
+          migrationOk: mig.ok === true,
+          migrationReason: mig.reason || null,
+          databaseUrlConfigured: snap.databaseUrlConfigured,
+          postgresHealthy: snap.postgresHealthy,
+          durableStoreReady: snap.durableStoreReady,
+          durableBackend: snap.durableBackend,
+          schemaVersion: snap.schemaVersion || null,
+        })
+      );
+      if (isProductionEnvironment() && !snap.durableStoreReady) {
+        console.error(
+          "STARTUP PERSISTENCE WARNING: production without durable Postgres — Official seal blocked until DATABASE_URL is healthy"
+        );
+      }
+      if (snap.durableStoreReady) {
+        const todayCT = getTodayLocalDate();
+        const restored = await restoreCanonicalSlateV1({
+          slateDate: todayCT,
+          league: "WNBA",
+          dayBucket: "TODAY",
+        });
+        console.log(
+          "STARTUP CANONICAL RESTORE TODAY:",
+          JSON.stringify({
+            slateDate: todayCT,
+            ok: restored.ok === true,
+            reason: restored.reason || null,
+            officialCount: restored.officialProps?.length || 0,
+            researchCount: restored.researchProps?.length || 0,
+            regenerateBlocked: restored.regenerateBlocked === true,
+            membershipHash: restored.membershipHash || null,
+          })
+        );
+
+        // Persist Aug 7 prospective research freeze as RESEARCH only (never Official).
+        try {
+          const freezePath = path.join(
+            __dirname,
+            "research",
+            "empirical-safe-prop-v2",
+            "prospective-slate-freezes",
+            "2026-08-07__LATEST_PROSPECTIVE.json"
+          );
+          if (fs.existsSync(freezePath)) {
+            const freezeJson = JSON.parse(fs.readFileSync(freezePath, "utf8"));
+            const savedFreeze = await persistResearchFreezeV1({
+              slateDate: "2026-08-07",
+              freezeTimestamp:
+                freezeJson.frozenAt || freezeJson.freezeTimestamp,
+              freezeJson,
+              classificationCounts: freezeJson.classificationCounts || null,
+              calibrationHash:
+                freezeJson.calibrationHash || C2_CALIBRATION_HASH_CEREMONY,
+              officialRecordEligible: false,
+            });
+            console.log(
+              "STARTUP AUG7 RESEARCH FREEZE:",
+              JSON.stringify({
+                ok: savedFreeze.ok === true,
+                officialRecordEligible: savedFreeze.officialRecordEligible,
+                id: savedFreeze.id || null,
+              })
+            );
+          }
+        } catch (freezeErr) {
+          console.log(
+            "STARTUP AUG7 RESEARCH FREEZE WARNING:",
+            freezeErr.message
+          );
+        }
+      }
     });
     await yieldEventLoop();
 
