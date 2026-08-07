@@ -35,6 +35,10 @@ services:
         value: "false"
       - key: COURTEDGE_ENGINE_EXPANSION_V1_ENABLED
         value: "true"
+      - key: EMPIRICAL_SAFE_PROP_V2
+        value: "true"
+      - key: COURTEDGE_ALLOW_LOCKED_SLATE_REFRESH
+        value: "false"
 
   # Dispatcher only — server decides which jobs are due.
   # Render Cron Job must be created in dashboard if Blueprint cron is unavailable on plan.

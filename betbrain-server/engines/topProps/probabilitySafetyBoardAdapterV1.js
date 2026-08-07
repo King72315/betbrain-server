@@ -68,6 +68,8 @@ export function selectControlledBestBoardViaProbabilitySafetyV1(
   const membership = selectOfficialBoardFromProbabilitySafetyV1(dateOk, {
     simulationCount: options.simulationCount,
     seed: options.simulationSeed,
+    empiricalSafePropV2: options.empiricalSafePropV2,
+    requestedSlateDate: slateDate,
   });
 
   const verifiedBoard = (membership.selectedProps || []).map((p, i) => {

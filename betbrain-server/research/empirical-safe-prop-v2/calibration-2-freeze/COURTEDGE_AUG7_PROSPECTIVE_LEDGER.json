@@ -1,0 +1,217 @@
+{
+  "freezeId": "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+  "slateDate": "2026-08-07",
+  "note": "Prospective collection — do not retune on these results until sample accumulates.",
+  "official": [
+    {
+      "player": "DeWanna Bonner",
+      "side": "OVER",
+      "line": 10.5,
+      "risk": "LOW",
+      "reliability": 0.9305,
+      "trust": 93,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Paige Bueckers",
+      "side": "UNDER",
+      "line": 19.5,
+      "risk": "LOW",
+      "reliability": 0.9296,
+      "trust": 93,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Arike Ogunbowale",
+      "side": "OVER",
+      "line": 14.5,
+      "risk": "LOW",
+      "reliability": 0.9096,
+      "trust": 91,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Alyssa Thomas",
+      "side": "OVER",
+      "line": 15.5,
+      "risk": "LOW",
+      "reliability": 0.8782,
+      "trust": 84,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Shakira Austin",
+      "side": "OVER",
+      "line": 17.5,
+      "risk": "LOW",
+      "reliability": 0.8585,
+      "trust": 82,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Aliyah Boston",
+      "side": "UNDER",
+      "line": 16.5,
+      "risk": "LOW",
+      "reliability": 0.8448,
+      "trust": 84,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Kelsey Plum",
+      "side": "OVER",
+      "line": 18.5,
+      "risk": "LOW",
+      "reliability": 0.8444,
+      "trust": 81,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Leïla Lacan",
+      "side": "UNDER",
+      "line": 12.5,
+      "risk": "MEDIUM",
+      "reliability": 0.9234,
+      "trust": 93,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Bridget Carleton",
+      "side": "OVER",
+      "line": 15.5,
+      "risk": "MEDIUM",
+      "reliability": 0.8492,
+      "trust": 81,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Marina Mabrey",
+      "side": "UNDER",
+      "line": 20.5,
+      "risk": "MEDIUM",
+      "reliability": 0.8465,
+      "trust": 81,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Maria Conde",
+      "side": "OVER",
+      "line": 10.5,
+      "risk": "MEDIUM",
+      "reliability": 0.8099,
+      "trust": 78,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Olivia Nelson-Ododa",
+      "side": "UNDER",
+      "line": 13.5,
+      "risk": "MEDIUM",
+      "reliability": 0.8031,
+      "trust": 78,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Veronica Burton",
+      "side": "OVER",
+      "line": 11.5,
+      "risk": "MEDIUM",
+      "reliability": 0.7871,
+      "trust": 73,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Emily Engstler",
+      "side": "UNDER",
+      "line": 9.5,
+      "risk": "MEDIUM",
+      "reliability": 0.6907,
+      "trust": 66,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    },
+    {
+      "player": "Sonia Citron",
+      "side": "UNDER",
+      "line": 16.5,
+      "risk": "MEDIUM",
+      "reliability": 0.6804,
+      "trust": 65,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "result": "PENDING",
+      "margin": null
+    }
+  ],
+  "emptyTemplate": {
+    "riskTable": {
+      "LOW": {
+        "count": null,
+        "W-L": null,
+        "Win %": null,
+        "Avg margin": null
+      },
+      "MEDIUM": {
+        "count": null,
+        "W-L": null,
+        "Win %": null,
+        "Avg margin": null
+      },
+      "HIGH": {
+        "count": null,
+        "W-L": null,
+        "Win %": null,
+        "Avg margin": null
+      }
+    },
+    "v1HighTransitions": {
+      "V1 HIGH → V2 LOW": {
+        "count": null,
+        "wins": null,
+        "losses": null,
+        "winRate": null,
+        "avgMargin": null
+      },
+      "V1 HIGH → V2 MEDIUM": {
+        "count": null,
+        "wins": null,
+        "losses": null,
+        "winRate": null,
+        "avgMargin": null
+      },
+      "V1 HIGH → V2 HIGH": {
+        "count": null,
+        "wins": null,
+        "losses": null,
+        "winRate": null,
+        "avgMargin": null
+      }
+    }
+  }
+}

@@ -18,6 +18,17 @@ import {
   classifyRiskV1,
   resolveAvailabilityCertainty,
 } from "./propSafetyEngineV1.js";
+import { classifyRiskEmpiricalV2 } from "../empiricalSafePropV2/reliabilityModelV2.js";
+import {
+  EMPIRICAL_SAFE_PROP_V2_BUILD,
+  EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
+  MEMBERSHIP_VERSION_V2,
+} from "../empiricalSafePropV2/versions.js";
+import { persistResearchUniversePacketsV2 } from "../empiricalSafePropV2/researchPacketPersistenceV2.js";
+import { annotateSlateRelativeStrengthV1 } from "../empiricalSafePropV2/slateRelativeStrengthV1.js";
+import { buildEmpiricalRiskExplanationV2 } from "../empiricalSafePropV2/explanationsV2.js";
+import { computeCalibrationHashV2 } from "../empiricalSafePropV2/prospectiveSlateFreezeV2.js";
+import { isEmpiricalSafePropV2Enabled } from "../topProps/courtEdgeFeatureFlagsV1.js";
 
 function num(v, fb = null) {
   if (v == null || v === "") return fb;
@@ -101,7 +112,7 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
     availability,
   });
 
-  const risk = classifyRiskV1({
+  const riskV1 = classifyRiskV1({
     pick: stamped,
     rawWinProbability: rawWinProbability ?? 0.5,
     safety,
@@ -114,6 +125,22 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
     blowout,
     volume,
   });
+
+  const risk = isEmpiricalSafePropV2Enabled(options)
+    ? classifyRiskEmpiricalV2({
+        pick: stamped,
+        rawWinProbability: rawWinProbability ?? 0.5,
+        safety,
+        minutes,
+        role,
+        market,
+        conflict,
+        failure,
+        availability,
+        blowout,
+        volume,
+      })
+    : riskV1;
 
   const line = num(stamped.line ?? stamped.selectedLine);
   const projection =
@@ -143,11 +170,17 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
     availability,
     safety,
     risk,
+    riskV1Legacy: riskV1,
+    reliabilityProbability: risk.reliabilityProbability ?? null,
+    safePathway: risk.safePathway ?? null,
     rawWinProbability,
     calibratedWinProbability: null,
     probabilityCalibrationStatus: "INSUFFICIENT_SAMPLE",
     forcedSide: false,
     sourcePick: stamped,
+    architectureBuild: isEmpiricalSafePropV2Enabled(options)
+      ? EMPIRICAL_SAFE_PROP_V2_BUILD
+      : ARCHITECTURE_BUILD,
   };
 }
 
@@ -232,14 +265,28 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     },
     safety: selected.safety,
     risk: selected.risk,
+    riskV1Legacy: selected.riskV1Legacy,
+    reliabilityProbability:
+      selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
+    trustScore: selected.risk?.trustScore ?? null,
+    trustComponents: selected.risk?.trustComponents ?? null,
+    safePathway: selected.safePathway ?? selected.risk?.safePathway,
+    pathwayMatched: selected.risk?.pathwayMatched ?? false,
+    pathwayScore: selected.risk?.pathwayScore ?? 0,
+    pathwayEvidence: selected.risk?.pathwayEvidence ?? [],
     membership: {
       officialEligible: selected.risk.officialEligible,
       risk: selected.risk.risk,
       wouldPassLowGate: selected.risk.wouldPassLowGate,
       wouldPassMediumGate: selected.risk.wouldPassMediumGate,
+      safePathway: selected.risk?.safePathway ?? null,
+      reliabilityProbability: selected.risk?.reliabilityProbability ?? null,
+      trustScore: selected.risk?.trustScore ?? null,
     },
     forecastModelVersion: FORECAST_MODEL_VERSION,
-    architectureBuild: ARCHITECTURE_BUILD,
+    architectureBuild: isEmpiricalSafePropV2Enabled(options)
+      ? EMPIRICAL_SAFE_PROP_V2_BUILD
+      : ARCHITECTURE_BUILD,
     predictionCreatedAt: new Date().toISOString(),
     forcedSide: false,
   };
@@ -291,8 +338,16 @@ export function buildResearchUniverseV1(candidates = [], options = {}) {
 }
 
 function safetyRankKey(packet) {
+  // Prefer reliability, then TrustScore, then SafetyScore, then rawP
+  const rel =
+    packet.reliabilityProbability ?? packet.risk?.reliabilityProbability ?? 0;
+  const trust = packet.trustScore ?? packet.risk?.trustScore ?? 0;
   const s = packet.safety?.finalSafetyScore ?? 0;
-  const p = packet.probability?.rawWinProbability ?? packet.selectedSideProbability ?? 0;
+  const p =
+    packet.probability?.rawWinProbability ?? packet.selectedSideProbability ?? 0;
+  if (packet.reliabilityProbability != null || packet.risk?.reliabilityProbability != null) {
+    return rel * 1e6 + trust * 1e3 + p * 100 + s;
+  }
   return s * 1000 + p * 100;
 }
 
@@ -305,7 +360,56 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
   options = {}
 ) {
   const research = buildResearchUniverseV1(candidates, options);
-  const officialPackets = research.packets
+
+  // Persist every research packet (including HIGH) — never counts-only
+  try {
+    const slateDateCT =
+      options.requestedSlateDate ||
+      candidates[0]?.slateDate ||
+      candidates[0]?.canonicalSlateDateCT ||
+      null;
+    if (slateDateCT && research.packets?.length) {
+      persistResearchUniversePacketsV2({
+        slateDateCT,
+        packets: research.packets,
+        researchUniverse: research.counts,
+        meta: { source: "selectOfficialBoardFromProbabilitySafetyV1" },
+      });
+    }
+  } catch {
+    // persistence must never break Official selection
+  }
+
+  const v2On = isEmpiricalSafePropV2Enabled(options);
+  let calibrationHash = null;
+  if (v2On) {
+    try {
+      calibrationHash = computeCalibrationHashV2();
+    } catch {
+      calibrationHash = null;
+    }
+  }
+
+  // Annotate full research universe with slate-relative ranks (not just Official)
+  const rankedResearch = annotateSlateRelativeStrengthV1(
+    (research.packets || []).map((p) => ({
+      ...p,
+      reliabilityProbability:
+        p.reliabilityProbability ?? p.risk?.reliabilityProbability,
+      trustScore: p.trustScore ?? p.risk?.trustScore,
+      SafetyScore: p.safety?.finalSafetyScore,
+      rawWinProbability:
+        p.probability?.rawWinProbability ?? p.selectedSideProbability,
+    }))
+  );
+  const rankByKey = new Map(
+    rankedResearch.map((p) => [
+      p.playerKey || p.marketKey || `${p.playerName}|${p.selectedSide}|${p.line}`,
+      p.slateRelativeStrength,
+    ])
+  );
+
+  const officialPackets = rankedResearch
     .filter((p) => p.membership?.officialEligible === true)
     .sort((a, b) => {
       const riskOrder = { LOW: 0, MEDIUM: 1, HIGH: 2 };
@@ -321,47 +425,95 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
       : packet.underPacket?.sourcePick;
     const sidePacket =
       packet.selectedSide === "OVER" ? packet.overPacket : packet.underPacket;
+    const slateRel =
+      packet.slateRelativeStrength ||
+      rankByKey.get(
+        packet.playerKey ||
+          packet.marketKey ||
+          `${packet.playerName}|${packet.selectedSide}|${packet.line}`
+      );
     return {
       ...src,
-      ...decorateOfficialProp(packet, sidePacket, index),
+      ...decorateOfficialProp(packet, sidePacket, index, {
+        v2On,
+        slateRelativeStrength: slateRel,
+        calibrationHash,
+      }),
     };
   });
 
+  const highCandidates = rankedResearch
+    .filter((p) => p.risk?.risk === "HIGH" || p.membership?.officialEligible !== true)
+    .sort((a, b) => safetyRankKey(b) - safetyRankKey(a))
+    .slice(0, 10);
+
   return {
-    version: MEMBERSHIP_VERSION,
-    architectureBuild: ARCHITECTURE_BUILD,
-    membershipModel: MEMBERSHIP_VERSION,
+    version: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,
+    architectureBuild: v2On ? EMPIRICAL_SAFE_PROP_V2_BUILD : ARCHITECTURE_BUILD,
+    membershipModel: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,
+    productionFreeze: v2On ? EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE : null,
+    calibrationHash,
     selectedProps,
     officialCount: selectedProps.length,
     lowCount: selectedProps.filter((p) => p.trueRisk === "LOW").length,
     mediumCount: selectedProps.filter((p) => p.trueRisk === "MEDIUM").length,
     highBlocked: research.HIGH,
-    research,
+    topHighCandidates: highCandidates,
+    research: { ...research, packets: rankedResearch },
     boardSizePolicy: "UNBOUNDED_QUALITY_FIRST",
     forcedSide: false,
     noFixedSix: true,
     noMinimumCount: true,
     noSideQuota: true,
+    v1ShadowEnabled: true,
   };
 }
 
-function decorateOfficialProp(packet, sidePacket, index) {
+function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
+  const v2On = opts.v2On === true;
+  const risk = packet.risk || {};
+  const riskV1 = packet.riskV1Legacy || sidePacket?.riskV1Legacy || null;
+  const slateRel = opts.slateRelativeStrength || packet.slateRelativeStrength || null;
+  const v2Risk = risk.risk;
+  const v1Risk = riskV1?.risk ?? null;
   return {
     side: packet.selectedSide,
     pick: packet.selectedSide,
-    trueRisk: packet.risk?.risk,
-    riskLabel: packet.risk?.risk,
+    trueRisk: v2On ? v2Risk : v1Risk || v2Risk,
+    riskLabel: v2On ? v2Risk : v1Risk || v2Risk,
+    /** Production risk under Calibration 2 (champion). */
+    v2Risk,
+    /** Shadow V1 giant-AND classification — comparison only, not Official authority. */
+    v1Risk,
+    riskV1Legacy: riskV1,
     safetyScore: packet.safety?.finalSafetyScore,
+    SafetyScore: packet.safety?.finalSafetyScore,
     rawWinProbability: packet.probability?.rawWinProbability,
+    reliabilityProbability:
+      risk.reliabilityProbability ?? packet.reliabilityProbability ?? null,
+    reliabilityBand: risk.reliabilityBand ?? null,
+    trustScore: risk.trustScore ?? null,
+    trustComponents: risk.trustComponents ?? null,
+    trustBonuses: risk.trustBonuses ?? null,
+    trustPenalties: risk.trustPenalties ?? null,
+    safePathway: risk.safePathway ?? null,
+    pathwayMatched: risk.pathwayMatched ?? false,
+    pathwayScore: risk.pathwayScore ?? 0,
+    pathwayEvidence: risk.pathwayEvidence ?? [],
+    pathwayWarnings: risk.pathwayWarnings ?? [],
     calibratedWinProbability: null,
     probabilityCalibrationStatus: "INSUFFICIENT_SAMPLE",
     conflictIndex: packet.uncertainty?.conflictIndex,
     minutesStabilityScore: packet.minutesModel?.minutesStabilityScore,
     roleStabilityScore: packet.roleModel?.roleStabilityScore,
     marketQualityScore: packet.market?.marketQualityScore,
+    bookCount: packet.market?.bookCount,
     expectedMinutes: packet.minutesModel?.expectedMinutes,
+    projection: sidePacket?.projection ?? packet.projection,
     projectionEdge: sidePacket?.projectionEdge,
     fairLineEdge: sidePacket?.fairLineEdge,
+    fairLine: sidePacket?.fairLine ?? packet.fairLine,
+    edge: sidePacket?.projectionEdge,
     projectionFairAgreement: sidePacket?.projectionFairAgreement,
     supportingEvidenceFamilies:
       sidePacket?.conflict?.supportingEvidenceFamilies || [],
@@ -378,13 +530,28 @@ function decorateOfficialProp(packet, sidePacket, index) {
     marketModelVersion: packet.market?.version,
     conflictModelVersion: sidePacket?.conflict?.version,
     safetyModelVersion: packet.safety?.version,
-    membershipVersion: MEMBERSHIP_VERSION,
-    architectureBuild: ARCHITECTURE_BUILD,
+    membershipVersion: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,
+    architectureBuild: v2On ? EMPIRICAL_SAFE_PROP_V2_BUILD : ARCHITECTURE_BUILD,
+    productionFreeze: v2On ? EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE : null,
+    modelVersion: v2On
+      ? EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE
+      : MEMBERSHIP_VERSION,
+    calibrationHash: opts.calibrationHash || null,
+    pregameTimestamp: packet.predictionCreatedAt || new Date().toISOString(),
     safetyRank: index + 1,
+    slateReliabilityRank: slateRel?.slateReliabilityRank ?? null,
+    slateTrustRank: slateRel?.slateTrustRank ?? null,
+    slatePercentile: slateRel?.slatePercentile ?? null,
+    slateRelativeStrength: slateRel,
     officialEligible: true,
     forcedSide: false,
+    noFixedSix: true,
+    noMinimumBoard: true,
+    noTeamQuota: true,
+    whyNotLow: risk.whyNotLow || [],
+    riskExplanation: risk.explanation || null,
     membershipQualificationStatus:
-      packet.risk?.risk === "LOW"
+      (v2On ? v2Risk : v1Risk) === "LOW"
         ? "QUALIFIED_LOW_RISK"
         : "QUALIFIED_MEDIUM_RISK",
   };
@@ -418,6 +585,17 @@ export function buildPropCorrelationAuditV1(officialProps = []) {
 }
 
 export function buildRiskExplanationV1(prop = {}) {
+  // Prefer V2 empirical explanation when reliability/trust/pathway present
+  if (
+    prop.reliabilityProbability != null ||
+    prop.trustScore != null ||
+    (prop.safePathway && prop.safePathway !== "NONE") ||
+    prop.riskExplanation?.whyCourtEdgeTrustsIt
+  ) {
+    if (prop.riskExplanation?.plainLanguage) return prop.riskExplanation;
+    return buildEmpiricalRiskExplanationV2(prop, prop.risk || null);
+  }
+
   const risk = prop.trueRisk || prop.riskLabel || "HIGH";
   const whyLike = [];
   const whyNotLow = [];
@@ -452,8 +630,9 @@ export function buildRiskExplanationV1(prop = {}) {
     if ((prop.minutesStabilityScore ?? 100) < 75) {
       whyNotLow.push(`Minutes stability ${prop.minutesStabilityScore}`);
     }
-    if ((prop.roleStabilityScore ?? 100) < 75) {
-      whyNotLow.push(`Role stability ${prop.roleStabilityScore}`);
+    // Role missing/unknown is not treated as "below threshold"
+    if (prop.roleStabilityScore != null && prop.roleStabilityScore < 55) {
+      whyNotLow.push(`Severe role instability ${prop.roleStabilityScore}`);
     }
     if ((prop.conflictIndex ?? 0) > 20) {
       whyNotLow.push(`Conflict index ${prop.conflictIndex}`);
@@ -461,20 +640,19 @@ export function buildRiskExplanationV1(prop = {}) {
     if ((prop.majorFailurePathCount ?? 0) > 1) {
       whyNotLow.push(`${prop.majorFailurePathCount} meaningful failure paths`);
     }
-    if ((prop.marketQualityScore ?? 100) < 65) {
-      whyNotLow.push("Market quality below LOW threshold");
-    }
+    // Do not treat thin market quality as a LOW veto badge
   }
 
   return {
     risk,
     title: `${risk} RISK`,
     whyCourtEdgeLikesIt: whyLike,
+    whyCourtEdgeTrustsIt: whyLike,
     whyItIsNotLow: whyNotLow,
     mainWayItLoses: mainLose,
     plainLanguage:
       risk === "LOW"
-        ? `LOW RISK\n\nWhy CourtEdge likes it:\n${whyLike.map((x) => `• ${x}`).join("\n")}\n\nMain way it loses:\n• ${mainLose}`
+        ? `LOW RISK\n\nWhy CourtEdge trusts it:\n${whyLike.map((x) => `• ${x}`).join("\n")}\n\nMain way it loses:\n• ${mainLose}`
         : risk === "MEDIUM"
           ? `MEDIUM RISK\n\nWhy it qualifies:\n${whyLike.map((x) => `• ${x}`).join("\n")}\n\nWhy it isn't LOW:\n${whyNotLow.map((x) => `• ${x}`).join("\n")}`
           : `HIGH RISK — research only`,

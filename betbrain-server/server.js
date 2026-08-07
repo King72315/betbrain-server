@@ -70,9 +70,14 @@ import {
 } from "./engines/topProps/controlledBestSixSelector.js";
 import {
   FULL_ROSTER_COLLECTION_MODE,
+  EMPIRICAL_SAFE_PROP_V2,
   getCourtEdgeFeatureFlagSnapshot,
   FEATURE_FLAGS_BUILD,
 } from "./engines/topProps/courtEdgeFeatureFlagsV1.js";
+import {
+  EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
+  computeCalibrationHashV2,
+} from "./engines/empiricalSafePropV2/index.js";
 import {
   buildSlateIntegrityPacket,
   MEMBERSHIP_INTEGRITY_BUILD,
@@ -395,7 +400,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-probability-safety-true-low-risk-architecture-v1";
+  "courteedge-empirical-safe-prop-v2-calibration-2-production";
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
@@ -404,6 +409,30 @@ const CHECKPOINT_BASE_COMMIT =
 const CHECKPOINT_TAG =
   process.env.COURTEDGE_CHECKPOINT_TAG ||
   "courteedge-pre-full-roster-experiment-v3";
+
+/** Frozen Calibration 2 champion lock (outside hashed engine set). */
+const CALIBRATION_2_CHAMPION_LOCK = (() => {
+  try {
+    return JSON.parse(
+      fs.readFileSync(
+        path.join(
+          __dirname,
+          "engines",
+          "empiricalSafePropV2",
+          "calibration2ChampionLock.json"
+        ),
+        "utf8"
+      )
+    );
+  } catch {
+    return {
+      freezeId: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+      calibrationHash:
+        "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14",
+      prospectiveLockedSlateDates: ["2026-08-07"],
+    };
+  }
+})();
 
 function resolveGitCommitSha() {
   const fromEnv = [
@@ -2784,6 +2813,45 @@ async function refreshAllPicks(options = {}) {
   const sideAudit = createSideAudit();
   const previousBoard = getReadOnlyBoard();
   const refreshStartedAt = Date.now();
+
+  // Prospective experiment lock: do not regenerate Aug 7 (mixed in-progress)
+  // under Calibration 2. Next clean unsealed slate is the first native C2 slate.
+  const todayLocal = getTodayLocalDate();
+  const lockedSlates = new Set(
+    CALIBRATION_2_CHAMPION_LOCK?.prospectiveLockedSlateDates || ["2026-08-07"]
+  );
+  const allowLockedRefresh =
+    String(process.env.COURTEDGE_ALLOW_LOCKED_SLATE_REFRESH || "").toLowerCase() ===
+    "true";
+  const touchesLockedToday =
+    lockedSlates.has(todayLocal) &&
+    (scope === "today" || scope === "all" || !scope);
+  if (touchesLockedToday && !allowLockedRefresh && options.forceLockedSlateRefresh !== true) {
+    console.log(
+      "REFRESH BLOCKED: prospective freeze slate locked",
+      JSON.stringify({
+        slateDate: todayLocal,
+        scope,
+        freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId,
+        calibrationHash: CALIBRATION_2_CHAMPION_LOCK?.calibrationHash,
+      })
+    );
+    return {
+      ok: false,
+      blocked: true,
+      reason: "PROSPECTIVE_SLATE_LOCKED",
+      slateDate: todayLocal,
+      scope,
+      freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId || null,
+      calibrationHash: CALIBRATION_2_CHAMPION_LOCK?.calibrationHash || null,
+      message:
+        "Aug 7 prospective freeze is immutable — no Odds refresh / membership rebuild",
+      games: previousBoard?.games || [],
+      bestSixDisplayTodayWNBA: previousBoard?.bestSixDisplayTodayWNBA || [],
+      bestSixDisplayTomorrowWNBA: previousBoard?.bestSixDisplayTomorrowWNBA || [],
+    };
+  }
+
   try {
     resetPaidApiCounter();
   } catch {
@@ -3747,6 +3815,38 @@ app.get("/health", (req, res) => {
     environment: process.env.NODE_ENV || checkConfig()?.environment || "development",
     featureFlagsBuild: FEATURE_FLAGS_BUILD,
     featureFlags: getCourtEdgeFeatureFlagSnapshot(),
+    empiricalSafePropV2: {
+      enabled: EMPIRICAL_SAFE_PROP_V2 === true,
+      productionChampion: EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
+      freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId || null,
+      calibrationHashLocked:
+        CALIBRATION_2_CHAMPION_LOCK?.calibrationHash || null,
+      calibrationHashLive: (() => {
+        try {
+          return computeCalibrationHashV2();
+        } catch {
+          return null;
+        }
+      })(),
+      calibrationHashMatch: (() => {
+        try {
+          return (
+            computeCalibrationHashV2() ===
+            CALIBRATION_2_CHAMPION_LOCK?.calibrationHash
+          );
+        } catch {
+          return false;
+        }
+      })(),
+      highBlockedFromOfficial: true,
+      v1ShadowOnly: true,
+      lowMediumFromCalibration2: true,
+      prospectiveLockedSlateDates:
+        CALIBRATION_2_CHAMPION_LOCK?.prospectiveLockedSlateDates || [
+          "2026-08-07",
+        ],
+      noTuning: true,
+    },
     membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
     aug5IncidentArchivePresent: readIncidentManifestExists(),
     bootPhase,

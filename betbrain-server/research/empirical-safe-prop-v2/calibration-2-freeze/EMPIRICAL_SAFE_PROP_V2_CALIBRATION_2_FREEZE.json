@@ -1,0 +1,158 @@
+{
+  "freezeId": "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+  "build": "courteedge-empirical-low-medium-prop-finder-v2",
+  "frozenAt": "2026-08-07T19:57:16.064Z",
+  "status": "PRODUCTION_CHAMPION_FROZEN",
+  "noCalibration3": true,
+  "noMondayMorningQuarterbacking": true,
+  "locked": {
+    "reliabilityCoefficients": {
+      "version": "reliability-lab-logistic-v2-calibration-2",
+      "intercept": 1.15,
+      "means": {
+        "rawWinProbability": 0.78,
+        "SafetyScore": 74,
+        "projectionEdge": 3.2,
+        "minutesStability": 92,
+        "roleStability": 72,
+        "marketQuality": 58,
+        "conflictIndex": 12,
+        "bookCount": 2.2
+      },
+      "sds": {
+        "rawWinProbability": 0.12,
+        "SafetyScore": 10,
+        "projectionEdge": 2.4,
+        "minutesStability": 12,
+        "roleStability": 8,
+        "marketQuality": 22,
+        "conflictIndex": 14,
+        "bookCount": 1.5
+      },
+      "weights": {
+        "rawWinProbability": 0.55,
+        "SafetyScore": 0.35,
+        "projectionEdge": 0.95,
+        "minutesStability": 0.45,
+        "roleStability": 0.25,
+        "marketQuality": -0.15,
+        "conflictIndex": -0.35,
+        "bookCount": 0.05
+      }
+    },
+    "reliabilityModelVersion": "reliability-lab-logistic-v2-calibration-2",
+    "trustFormulaWeights": {
+      "reliability": 0.4,
+      "rawWinProbability": 0.2,
+      "SafetyScore": 0.15,
+      "pathwayStrength": 0.15,
+      "projectionEdgeSupport": 0.1
+    },
+    "trustModelVersion": "trust-score-v2-calibration-2",
+    "riskThresholds": {
+      "mediumReliability": 0.68,
+      "mediumRawProbabilityFloor": 0.55,
+      "mediumEdgeFloor": 1.5,
+      "mediumMinutesFloor": 55,
+      "maxConflictForMedium": 40,
+      "maxMajorFailsForMedium": 2,
+      "mediumTrustFloor": 58,
+      "lowReliability": 0.84,
+      "exceptionalReliability": 0.9,
+      "lowRawProbabilityFloor": 0.62,
+      "lowEdgeFloor": 3,
+      "lowMinutesFloor": 75,
+      "maxConflictForLow": 15,
+      "maxMajorFailsForLow": 0,
+      "lowTrustFloor": 80,
+      "exceptionalTrustFloor": 88,
+      "lowSafetyFloor": 70,
+      "lowMaxMissingReliabilityFeatures": 2,
+      "lowRequiresPathwayOrExceptional": true
+    },
+    "pathwayModelVersion": "safe-pathway-engine-v2-calibration-2",
+    "membershipVersion": "official-membership-empirical-low-medium-finder-v2-calibration-2",
+    "notes": {
+      "LOW": "selective second stage among recognized candidates",
+      "MEDIUM": "recognition / serious consideration",
+      "HIGH": "pass / protect",
+      "missingness": "missing features skipped in logistic; not imputed as 0",
+      "marketTreatment": "soft — bookCount/marketQuality alone cannot force HIGH",
+      "conflictTreatment": "caps in LOW/MEDIUM stages; not sole hard veto"
+    }
+  },
+  "fileHashesSha256": {
+    "engines/empiricalSafePropV2/versions.js": "ae760992ed058a42c960810854bd77a9e2875cff195706fac4324948fe710ac5",
+    "engines/empiricalSafePropV2/reliabilityModelV2.js": "c08053031438bf53990bdd39acb05ffcf982929369b3025eb4e6c5afd41ff62c",
+    "engines/empiricalSafePropV2/trustScoreV2.js": "57e4c3f10fcc67efa8adbe6cc36ba7150e843b7e1ab93919dc60c6b84de79c8b",
+    "engines/empiricalSafePropV2/safePathwayEngineV2.js": "46ba6095b7d1ff09881c6ed428e51fae7fd44cb402aee5fc81e3521f10ff3213",
+    "engines/empiricalSafePropV2/explanationsV2.js": "27f8473faf76cf69d67bf6bfff117747b917ca10ebbc3478c11e2b45c9752da9",
+    "engines/empiricalSafePropV2/slateRelativeStrengthV1.js": "9d70b72e41459a5cd242ed389808c66dd856ca4fa326d6b95ebb6f737edf570f",
+    "engines/empiricalSafePropV2/researchPacketPersistenceV2.js": "3792fc3fc82fa5674171c3cf3b42f99208a607aefec6f4e33550921f477b78bb",
+    "engines/empiricalSafePropV2/index.js": "458351cee927b136261633a7605ba604ec3f1dfe141b9207c63c7fac881ce014",
+    "engines/topProps/courtEdgeFeatureFlagsV1.js": "7d5061fe78a18209391985236aac7a5c887e8d368b07e277f6d52670bc8e314c"
+  },
+  "productionDefault": "OFF until prospective separation confirmed",
+  "nextScientificFocus": "MEDIUM recognition recall (do not weaken LOW)",
+  "activatedAt": "2026-08-07T20:08:44.956Z",
+  "productionChampion": true,
+  "empiricalSafePropV2Default": true,
+  "calibrationHashAtActivation": "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14",
+  "noTuningAfterActivation": true,
+  "prospectiveExperimentRules": {
+    "ifLowLoses": "do nothing",
+    "ifAllLowsWin": "do nothing",
+    "ifMediumGoesBad": "do nothing",
+    "reconsiderOnlyAfterMeaningfulProspectiveSample": true
+  },
+  "activationPregameGate": {
+    "checkedAt": "2026-08-07T20:08:44.858Z",
+    "allPregame": false,
+    "allowOddsRefresh": false,
+    "events": [
+      {
+        "game": "ATLANTADREAM vs WASHINGTONMYSTICS",
+        "commence": "2026-08-07T23:30:00Z",
+        "status": "PREGAME",
+        "minutesToStart": 201
+      },
+      {
+        "game": "PHOENIXMERCURY vs CONNECTICUTSUN",
+        "commence": "2026-08-07T23:30:00Z",
+        "status": "PREGAME",
+        "minutesToStart": 201
+      },
+      {
+        "game": "GOLDENSTATEVALKYRIES vs DALLASWINGS",
+        "commence": "2026-08-08T01:30:00Z",
+        "status": "PREGAME",
+        "minutesToStart": 321
+      },
+      {
+        "game": "LASVEGASACES vs INDIANAFEVER",
+        "commence": "2026-08-06T23:00:00Z",
+        "status": "STARTED_OR_FINAL",
+        "minutesToStart": -1269
+      },
+      {
+        "game": "LOSANGELESSPARKS vs MINNESOTALYNX",
+        "commence": "2026-08-07T01:00:00Z",
+        "status": "STARTED_OR_FINAL",
+        "minutesToStart": -1149
+      },
+      {
+        "game": "TORONTOTEMPO vs PORTLANDFIRE",
+        "commence": "2026-08-07T02:00:00Z",
+        "status": "STARTED_OR_FINAL",
+        "minutesToStart": -1089
+      }
+    ],
+    "reason": "Not every Aug 7 event is still pregame — Odds refresh BLOCKED to protect prospective integrity"
+  },
+  "activationRefresh": {
+    "attempted": false,
+    "skipped": true,
+    "reason": "COURTEDGE_SKIP_PROD_REFRESH=true"
+  },
+  "prospectiveFreezeFile": "C:\\Users\\nicho\\BetBrain\\betbrain-server\\research\\empirical-safe-prop-v2\\prospective-slate-freezes\\2026-08-07__2026-08-07T20-08-44-951Z__PROSPECTIVE_FREEZE.json"
+}

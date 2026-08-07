@@ -1,0 +1,647 @@
+{
+  "freezeId": "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+  "build": "courteedge-empirical-low-medium-prop-finder-v2",
+  "historicalProviderCalls": 0,
+  "sampleN": 171,
+  "dates": [
+    "2026-07-15",
+    "2026-07-16",
+    "2026-07-17",
+    "2026-07-19",
+    "2026-07-20",
+    "2026-07-22",
+    "2026-07-28",
+    "2026-07-29",
+    "2026-07-30",
+    "2026-07-31",
+    "2026-08-01",
+    "2026-08-02",
+    "2026-08-03",
+    "2026-08-06"
+  ],
+  "riskTableExpanded171": {
+    "LOW": {
+      "count": 41,
+      "W": 34,
+      "L": 7,
+      "P": 0,
+      "wl": "34-7",
+      "winPct": 0.8292682926829268,
+      "avgMargin": 1.9390243902439024
+    },
+    "MEDIUM": {
+      "count": 50,
+      "W": 27,
+      "L": 23,
+      "P": 0,
+      "wl": "27-23",
+      "winPct": 0.54,
+      "avgMargin": 0.38
+    },
+    "HIGH": {
+      "count": 80,
+      "W": 36,
+      "L": 44,
+      "P": 0,
+      "wl": "36-44",
+      "winPct": 0.45,
+      "avgMargin": -0.625
+    }
+  },
+  "v1HighTransitions": {
+    "V1_HIGH→V2_LOW": {
+      "count": 17,
+      "W": 16,
+      "L": 1,
+      "P": 0,
+      "wl": "16-1",
+      "winPct": 0.9411764705882353,
+      "avgMargin": 2.323529411764706
+    },
+    "V1_HIGH→V2_MEDIUM": {
+      "count": 38,
+      "W": 23,
+      "L": 15,
+      "P": 0,
+      "wl": "23-15",
+      "winPct": 0.6052631578947368,
+      "avgMargin": 0.9473684210526315
+    },
+    "V1_HIGH→V2_HIGH": {
+      "count": 80,
+      "W": 36,
+      "L": 44,
+      "P": 0,
+      "wl": "36-44",
+      "winPct": 0.45,
+      "avgMargin": -0.625
+    }
+  },
+  "chronologicalOos": {
+    "trainDates": [
+      "2026-07-15",
+      "2026-07-16",
+      "2026-07-17",
+      "2026-07-19",
+      "2026-07-20",
+      "2026-07-22",
+      "2026-07-28",
+      "2026-07-29"
+    ],
+    "testDates": [
+      "2026-07-30",
+      "2026-07-31",
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
+      "2026-08-06"
+    ],
+    "train": {
+      "LOW": {
+        "count": 28,
+        "W": 22,
+        "L": 6,
+        "P": 0,
+        "wl": "22-6",
+        "winPct": 0.7857142857142857,
+        "avgMargin": 2.8214285714285716
+      },
+      "MEDIUM": {
+        "count": 38,
+        "W": 17,
+        "L": 21,
+        "P": 0,
+        "wl": "17-21",
+        "winPct": 0.4473684210526316,
+        "avgMargin": 0.47368421052631576
+      },
+      "HIGH": {
+        "count": 66,
+        "W": 30,
+        "L": 36,
+        "P": 0,
+        "wl": "30-36",
+        "winPct": 0.45454545454545453,
+        "avgMargin": -0.25757575757575757
+      },
+      "n": 132
+    },
+    "test": {
+      "LOW": {
+        "count": 13,
+        "W": 12,
+        "L": 1,
+        "P": 0,
+        "wl": "12-1",
+        "winPct": 0.9230769230769231,
+        "avgMargin": 0.038461538461538464
+      },
+      "MEDIUM": {
+        "count": 12,
+        "W": 10,
+        "L": 2,
+        "P": 0,
+        "wl": "10-2",
+        "winPct": 0.8333333333333334,
+        "avgMargin": 0.08333333333333333
+      },
+      "HIGH": {
+        "count": 14,
+        "W": 6,
+        "L": 8,
+        "P": 0,
+        "wl": "6-8",
+        "winPct": 0.42857142857142855,
+        "avgMargin": -2.357142857142857
+      },
+      "n": 39
+    },
+    "trainSeparation": {
+      "lowStrongest": true,
+      "mediumAboveHigh": false,
+      "mediumPositiveVsCoin": false,
+      "highWeakest": false,
+      "ordering": {
+        "LOW": 0.7857142857142857,
+        "MEDIUM": 0.4473684210526316,
+        "HIGH": 0.45454545454545453
+      }
+    },
+    "testSeparation": {
+      "lowStrongest": true,
+      "mediumAboveHigh": true,
+      "mediumPositiveVsCoin": true,
+      "highWeakest": true,
+      "ordering": {
+        "LOW": 0.9230769230769231,
+        "MEDIUM": 0.8333333333333334,
+        "HIGH": 0.42857142857142855
+      }
+    }
+  },
+  "fullSampleSeparation": {
+    "lowStrongest": true,
+    "mediumAboveHigh": true,
+    "mediumPositiveVsCoin": true,
+    "highWeakest": true,
+    "ordering": {
+      "LOW": 0.8292682926829268,
+      "MEDIUM": 0.54,
+      "HIGH": 0.45
+    }
+  },
+  "byDate": {
+    "2026-07-15": {
+      "LOW": {
+        "count": 4,
+        "W": 2,
+        "L": 2,
+        "P": 0,
+        "wl": "2-2",
+        "winPct": 0.5,
+        "avgMargin": 1.25
+      },
+      "MEDIUM": {
+        "count": 13,
+        "W": 4,
+        "L": 9,
+        "P": 0,
+        "wl": "4-9",
+        "winPct": 0.3076923076923077,
+        "avgMargin": -1.5769230769230769
+      },
+      "HIGH": {
+        "count": 1,
+        "W": 1,
+        "L": 0,
+        "P": 0,
+        "wl": "1-0",
+        "winPct": 1,
+        "avgMargin": 5.5
+      },
+      "n": 18
+    },
+    "2026-07-16": {
+      "LOW": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "MEDIUM": {
+        "count": 3,
+        "W": 0,
+        "L": 3,
+        "P": 0,
+        "wl": "0-3",
+        "winPct": 0,
+        "avgMargin": -2.8333333333333335
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 3
+    },
+    "2026-07-17": {
+      "LOW": {
+        "count": 1,
+        "W": 1,
+        "L": 0,
+        "P": 0,
+        "wl": "1-0",
+        "winPct": 1,
+        "avgMargin": 1.5
+      },
+      "MEDIUM": {
+        "count": 5,
+        "W": 2,
+        "L": 3,
+        "P": 0,
+        "wl": "2-3",
+        "winPct": 0.4,
+        "avgMargin": -2.1
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 6
+    },
+    "2026-07-19": {
+      "LOW": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "MEDIUM": {
+        "count": 1,
+        "W": 1,
+        "L": 0,
+        "P": 0,
+        "wl": "1-0",
+        "winPct": 1,
+        "avgMargin": 6.5
+      },
+      "HIGH": {
+        "count": 10,
+        "W": 5,
+        "L": 5,
+        "P": 0,
+        "wl": "5-5",
+        "winPct": 0.5,
+        "avgMargin": 0.6
+      },
+      "n": 11
+    },
+    "2026-07-20": {
+      "LOW": {
+        "count": 7,
+        "W": 6,
+        "L": 1,
+        "P": 0,
+        "wl": "6-1",
+        "winPct": 0.8571428571428571,
+        "avgMargin": 6.071428571428571
+      },
+      "MEDIUM": {
+        "count": 11,
+        "W": 7,
+        "L": 4,
+        "P": 0,
+        "wl": "7-4",
+        "winPct": 0.6363636363636364,
+        "avgMargin": 3.5
+      },
+      "HIGH": {
+        "count": 35,
+        "W": 17,
+        "L": 18,
+        "P": 0,
+        "wl": "17-18",
+        "winPct": 0.4857142857142857,
+        "avgMargin": 0.15714285714285714
+      },
+      "n": 53
+    },
+    "2026-07-22": {
+      "LOW": {
+        "count": 3,
+        "W": 2,
+        "L": 1,
+        "P": 0,
+        "wl": "2-1",
+        "winPct": 0.6666666666666666,
+        "avgMargin": 0.16666666666666666
+      },
+      "MEDIUM": {
+        "count": 3,
+        "W": 2,
+        "L": 1,
+        "P": 0,
+        "wl": "2-1",
+        "winPct": 0.6666666666666666,
+        "avgMargin": 5.833333333333333
+      },
+      "HIGH": {
+        "count": 15,
+        "W": 5,
+        "L": 10,
+        "P": 0,
+        "wl": "5-10",
+        "winPct": 0.3333333333333333,
+        "avgMargin": -1.2333333333333334
+      },
+      "n": 21
+    },
+    "2026-07-28": {
+      "LOW": {
+        "count": 10,
+        "W": 9,
+        "L": 1,
+        "P": 0,
+        "wl": "9-1",
+        "winPct": 0.9,
+        "avgMargin": 1.3
+      },
+      "MEDIUM": {
+        "count": 2,
+        "W": 1,
+        "L": 1,
+        "P": 0,
+        "wl": "1-1",
+        "winPct": 0.5,
+        "avgMargin": -2.5
+      },
+      "HIGH": {
+        "count": 2,
+        "W": 1,
+        "L": 1,
+        "P": 0,
+        "wl": "1-1",
+        "winPct": 0.5,
+        "avgMargin": 0
+      },
+      "n": 14
+    },
+    "2026-07-29": {
+      "LOW": {
+        "count": 3,
+        "W": 2,
+        "L": 1,
+        "P": 0,
+        "wl": "2-1",
+        "winPct": 0.6666666666666666,
+        "avgMargin": 5.5
+      },
+      "MEDIUM": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "HIGH": {
+        "count": 3,
+        "W": 1,
+        "L": 2,
+        "P": 0,
+        "wl": "1-2",
+        "winPct": 0.3333333333333333,
+        "avgMargin": -5.166666666666667
+      },
+      "n": 6
+    },
+    "2026-07-30": {
+      "LOW": {
+        "count": 1,
+        "W": 0,
+        "L": 1,
+        "P": 0,
+        "wl": "0-1",
+        "winPct": 0,
+        "avgMargin": -8.5
+      },
+      "MEDIUM": {
+        "count": 1,
+        "W": 1,
+        "L": 0,
+        "P": 0,
+        "wl": "1-0",
+        "winPct": 1,
+        "avgMargin": 3.5
+      },
+      "HIGH": {
+        "count": 1,
+        "W": 1,
+        "L": 0,
+        "P": 0,
+        "wl": "1-0",
+        "winPct": 1,
+        "avgMargin": 0.5
+      },
+      "n": 3
+    },
+    "2026-07-31": {
+      "LOW": {
+        "count": 4,
+        "W": 4,
+        "L": 0,
+        "P": 0,
+        "wl": "4-0",
+        "winPct": 1,
+        "avgMargin": 0.75
+      },
+      "MEDIUM": {
+        "count": 2,
+        "W": 2,
+        "L": 0,
+        "P": 0,
+        "wl": "2-0",
+        "winPct": 1,
+        "avgMargin": 0.5
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 6
+    },
+    "2026-08-01": {
+      "LOW": {
+        "count": 4,
+        "W": 4,
+        "L": 0,
+        "P": 0,
+        "wl": "4-0",
+        "winPct": 1,
+        "avgMargin": 0.75
+      },
+      "MEDIUM": {
+        "count": 2,
+        "W": 2,
+        "L": 0,
+        "P": 0,
+        "wl": "2-0",
+        "winPct": 1,
+        "avgMargin": 0.5
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 6
+    },
+    "2026-08-02": {
+      "LOW": {
+        "count": 4,
+        "W": 4,
+        "L": 0,
+        "P": 0,
+        "wl": "4-0",
+        "winPct": 1,
+        "avgMargin": 0.75
+      },
+      "MEDIUM": {
+        "count": 2,
+        "W": 2,
+        "L": 0,
+        "P": 0,
+        "wl": "2-0",
+        "winPct": 1,
+        "avgMargin": 0.5
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 6
+    },
+    "2026-08-03": {
+      "LOW": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "MEDIUM": {
+        "count": 4,
+        "W": 3,
+        "L": 1,
+        "P": 0,
+        "wl": "3-1",
+        "winPct": 0.75,
+        "avgMargin": -0.25
+      },
+      "HIGH": {
+        "count": 13,
+        "W": 5,
+        "L": 8,
+        "P": 0,
+        "wl": "5-8",
+        "winPct": 0.38461538461538464,
+        "avgMargin": -2.576923076923077
+      },
+      "n": 17
+    },
+    "2026-08-06": {
+      "LOW": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "MEDIUM": {
+        "count": 1,
+        "W": 0,
+        "L": 1,
+        "P": 0,
+        "wl": "0-1",
+        "winPct": 0,
+        "avgMargin": -4.5
+      },
+      "HIGH": {
+        "count": 0,
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "wl": "0-0",
+        "winPct": null,
+        "avgMargin": null
+      },
+      "n": 1
+    }
+  },
+  "philosophy": {
+    "prediction": "finds the side",
+    "reliability": "recognizes good predictions",
+    "LOW": "elite subset",
+    "MEDIUM": "worthwhile, not elite — next scientific focus AFTER freeze collection",
+    "HIGH": "protects from the rest"
+  },
+  "productionReadyGate": {
+    "requires": "LOW clearly strongest; MEDIUM positive but below LOW; HIGH clearly weakest — preferably on chronological OOS",
+    "fullSample": {
+      "lowStrongest": true,
+      "mediumAboveHigh": true,
+      "mediumPositiveVsCoin": true,
+      "highWeakest": true,
+      "ordering": {
+        "LOW": 0.8292682926829268,
+        "MEDIUM": 0.54,
+        "HIGH": 0.45
+      }
+    },
+    "chronologicalTest": {
+      "lowStrongest": true,
+      "mediumAboveHigh": true,
+      "mediumPositiveVsCoin": true,
+      "highWeakest": true,
+      "ordering": {
+        "LOW": 0.9230769230769231,
+        "MEDIUM": 0.8333333333333334,
+        "HIGH": 0.42857142857142855
+      }
+    }
+  }
+}
