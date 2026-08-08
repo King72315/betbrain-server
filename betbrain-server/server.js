@@ -395,25 +395,22 @@ import {
   runIntegrityWatchdog,
   loadLastWatchdogReport,
 } from "./services/courtEdgeIntegrityWatchdogV1.js";
-import {
-  applyCanonicalMigrations,
-  getCanonicalDurableHealth,
-  restoreCanonicalSlateV1,
-  sealCanonicalSlateV1,
-  persistResearchFreezeV1,
-  isAcceptedCalibrationHash,
-  isProductionEnvironment,
-  C2_CALIBRATION_HASH_CEREMONY,
-  C2_CALIBRATION_HASH_LF,
-  CANONICAL_STORE_BUILD,
-} from "./services/courtEdgePostgres/canonicalStoreV1.js";
-
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD =
-  "courteedge-render-postgres-durability-v1-link-verify";
-const DURABILITY_PROBE_SLATE_DATE = "2099-01-15";
+const SERVER_BUILD = "courteedge-filesystem-production-restored-v1";
+/** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
+const C2_CALIBRATION_HASH_CEREMONY =
+  "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
+/** LF-canonical digest of the same locked engine files on Linux/Render. */
+const C2_CALIBRATION_HASH_LF =
+  "4f563a9218781f7232094a65eb8ac2c56ba396b000d41e1af9fa49cf8f174da2";
+function isAcceptedCalibrationHash(hash) {
+  const h = String(hash || "")
+    .trim()
+    .toLowerCase();
+  return h === C2_CALIBRATION_HASH_CEREMONY || h === C2_CALIBRATION_HASH_LF;
+}
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
@@ -3794,103 +3791,6 @@ async function refreshAllPicks(options = {}) {
   cachedSelectorVersion = CONTROLLED_BEST_SIX_VERSION;
   persistBoardAfterRefresh(result);
 
-  // Postgres authority: Official seal + research persist (no Aug 7 Official).
-  try {
-    const sealDay = getTodayLocalDate();
-    const officialRows = [
-      ...(result.bestSixDisplayTodayWNBA || result.bestSixWNBA || []),
-    ].filter((p) => {
-      const risk = String(p.trueRisk || p.riskLabel || p.risk || "").toUpperCase();
-      return risk === "LOW" || risk === "MEDIUM";
-    });
-    const researchRows = Array.isArray(result.allGeneratedCandidates)
-      ? result.allGeneratedCandidates
-      : officialRows;
-    if (sealDay === "2026-08-07") {
-      result.refreshSuccess = false;
-      result.persistence = {
-        ok: false,
-        reason: "PROSPECTIVE_SLATE_LOCKED",
-        note: "Aug 7 regenerate/seal blocked; research freeze only",
-      };
-    } else if (officialRows.length) {
-      const sealed = await sealCanonicalSlateV1({
-        slateDate: sealDay,
-        league: "WNBA",
-        dayBucket: "TODAY",
-        officialProps: officialRows,
-        researchProps: researchRows,
-        calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
-        sourceBuild: SERVER_BUILD,
-        sourceCommit: BUILD_COMMIT,
-        lockReason: "OFFICIAL_SEALED",
-      });
-      result.persistence = sealed;
-      // Do not flip a successful board refresh to failure when Postgres is
-      // simply not configured on this service (filesystem mode).
-      if (sealed.ok) {
-        result.refreshSuccess = sealed.refreshSuccess === true;
-        console.log(
-          "REFRESH PERSISTENCE:",
-          JSON.stringify({
-            ok: true,
-            slateId: sealed.slateId,
-            officialCount: sealed.officialCount,
-            researchCount: sealed.researchCount,
-            membershipHash: sealed.membershipHash,
-          })
-        );
-      } else if (
-        isProductionEnvironment() &&
-        canonicalDurableSnapshot.databaseUrlConfigured === true
-      ) {
-        result.refreshSuccess = false;
-        result.persistenceDegraded = true;
-        result.persistenceReason = sealed.reason || "PERSISTENCE_FAILED";
-        console.log(
-          "REFRESH PERSISTENCE:",
-          JSON.stringify({
-            ok: false,
-            reason: sealed.reason,
-            detail: sealed.detail || null,
-          })
-        );
-      } else {
-        result.persistenceDegraded = true;
-        result.persistenceReason =
-          sealed.reason || "POSTGRES_NOT_CONFIGURED_FS_FALLBACK";
-        console.log(
-          "REFRESH PERSISTENCE:",
-          JSON.stringify({
-            ok: false,
-            skipped: true,
-            reason: sealed.reason,
-            detail: sealed.detail || "DATABASE_URL not configured",
-          })
-        );
-      }
-    } else if (
-      isProductionEnvironment() &&
-      canonicalDurableSnapshot.databaseUrlConfigured === true &&
-      !canonicalDurableSnapshot.durableStoreReady
-    ) {
-      result.refreshSuccess = false;
-      result.persistence = {
-        ok: false,
-        reason: "PERSISTENCE_FAILED",
-        detail: "production DATABASE_URL set but durableStoreReady=false",
-      };
-    }
-  } catch (persistErr) {
-    result.refreshSuccess = false;
-    result.persistence = {
-      ok: false,
-      reason: "PERSISTENCE_FAILED",
-      detail: String(persistErr?.message || persistErr),
-    };
-    console.log("REFRESH PERSISTENCE ERROR:", persistErr.message);
-  }
-
   const refreshDay = getTodayLocalDate();
   if (refreshesTodayDate !== refreshDay) {
     refreshesTodayDate = refreshDay;
@@ -3906,36 +3806,9 @@ async function refreshAllPicks(options = {}) {
 // Boot phase for ops diagnosis. /health stays sync and answers as soon as
  // the port is bound ? even while deferred hydrate is still running.
 let bootPhase = "starting";
-/** Async-refreshed snapshot — /health never awaits Postgres. */
-let canonicalDurableSnapshot = {
-  build: CANONICAL_STORE_BUILD,
-  databaseUrlConfigured: false,
-  postgresHealthy: false,
-  durableBackend: "filesystem",
-  durableStoreReady: false,
-  lastError: "not_initialized",
-};
-
-function refreshCanonicalDurableSnapshot() {
-  return getCanonicalDurableHealth()
-    .then((h) => {
-      canonicalDurableSnapshot = h;
-      return h;
-    })
-    .catch((error) => {
-      canonicalDurableSnapshot = {
-        ...canonicalDurableSnapshot,
-        postgresHealthy: false,
-        durableStoreReady: false,
-        lastError: String(error?.message || error),
-      };
-      return canonicalDurableSnapshot;
-    });
-}
 
 app.get("/health", (req, res) => {
-  // Sync-only: never await Postgres here. A stuck DATABASE_URL / pool.end
-  // must not make Render health checks hang or flap 502.
+  // Sync-only: never await external stores here. Keep Render health cheap.
   let homeDurable = null;
   try {
     homeDurable = getHomeDurableStatus();
@@ -3947,22 +3820,7 @@ app.get("/health", (req, res) => {
     };
   }
   const live = true;
-  const durableReady = canonicalDurableSnapshot.durableStoreReady === true;
-  const dbConfigured =
-    canonicalDurableSnapshot.databaseUrlConfigured === true;
-  // Only gate ready on Postgres when DATABASE_URL is actually wired.
-  // Live betbrain-server-1 has never had DATABASE_URL; requiring Postgres
-  // unconditionally made ready=false after the durability deploy even though
-  // the process was healthy on filesystem (pre-mission behavior).
-  const allowFsProd =
-    String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
-    "true";
-  const ready =
-    bootPhase === "ready" &&
-    (!isProductionEnvironment() ||
-      !dbConfigured ||
-      durableReady ||
-      allowFsProd);
+  const ready = bootPhase === "ready";
   const calibMatch =
     isAcceptedCalibrationHash(CALIBRATION_HASH_LIVE) ||
     CALIBRATION_HASH_MATCH === true;
@@ -4020,19 +3878,8 @@ app.get("/health", (req, res) => {
     homeRestartDurabilityVersion: HOME_RESTART_DURABILITY_VERSION,
     homeDurable,
     durableStore: getDurableStoreHealthSync(),
-    durableBackend: canonicalDurableSnapshot.durableBackend,
-    persistenceMode:
-      canonicalDurableSnapshot.persistenceMode ||
-      (durableReady ? "POSTGRES_PRIMARY" : "FILESYSTEM_FALLBACK"),
-    durableStoreReady: durableReady,
-    databaseUrlConfigured: canonicalDurableSnapshot.databaseUrlConfigured === true,
-    postgresHealthy: canonicalDurableSnapshot.postgresHealthy === true,
-    canonicalStore: {
-      build: CANONICAL_STORE_BUILD,
-      schemaVersion: canonicalDurableSnapshot.schemaVersion || null,
-      schemaChecksum: canonicalDurableSnapshot.schemaChecksum || null,
-      lastError: canonicalDurableSnapshot.lastError || null,
-    },
+    durableBackend: "filesystem",
+    persistenceMode: "FILESYSTEM_PRIMARY",
     recoveryEndpoints: true,
     engines: ENGINE_LOAD_FLAGS,
     config: checkConfig(),
@@ -4047,213 +3894,21 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.get("/ready", async (req, res) => {
-  const snap = await refreshCanonicalDurableSnapshot();
-  const production = isProductionEnvironment();
-  const dbConfigured = snap.databaseUrlConfigured === true;
-  const allowFsProd =
-    String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
-    "true";
-  const ready =
-    bootPhase === "ready" &&
-    (!production ||
-      !dbConfigured ||
-      snap.durableStoreReady === true ||
-      allowFsProd);
+app.get("/ready", (req, res) => {
+  const ready = bootPhase === "ready";
   res.status(ready ? 200 : 503).json({
     ok: ready,
     ready,
     live: true,
     bootPhase,
     serverBuild: SERVER_BUILD,
-    durableStoreReady: snap.durableStoreReady === true,
-    postgresHealthy: snap.postgresHealthy === true,
-    databaseUrlConfigured: dbConfigured,
-    durableBackend: snap.durableBackend,
-    persistenceMode:
-      snap.persistenceMode ||
-      (snap.durableStoreReady ? "POSTGRES_PRIMARY" : "FILESYSTEM_FALLBACK"),
-    // Postgres is required only after DATABASE_URL is attached to this service.
-    productionRequiresPostgres: production && dbConfigured,
+    durableBackend: "filesystem",
+    persistenceMode: "FILESYSTEM_PRIMARY",
     championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
     calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
     empiricalSafePropV2: EMPIRICAL_SAFE_PROP_V2 === true,
-    lastError: snap.lastError || null,
   });
 });
-
-/**
- * Postgres durability probe — fixture slate 2099-01-15 only.
- * Never touches C2 coefficients or Aug 7 Official membership.
- * POST seals a synthetic record; GET restores and returns IDs/hashes.
- */
-function durabilityProbeSampleProp(i, risk = "LOW") {
-  return {
-    eventId: `durability-probe-evt-${i}`,
-    playerId: `durability-probe-p-${i}`,
-    player: `Durability Probe ${i}`,
-    team: "AAA",
-    opponent: "BBB",
-    side: i % 2 ? "OVER" : "UNDER",
-    line: 10 + i,
-    trueRisk: risk,
-    reliabilityProbability: 0.7,
-    trustScore: 0.8,
-    safetyScore: 70,
-    projection: 12 + i,
-  };
-}
-
-app.post(
-  "/admin/postgres-durability-probe",
-  requireAdminSecret,
-  async (req, res) => {
-    try {
-      const mig = await applyCanonicalMigrations();
-      const health = await refreshCanonicalDurableSnapshot();
-      if (!health.durableStoreReady) {
-        return res.status(503).json({
-          ok: false,
-          reason: "POSTGRES_NOT_READY",
-          health,
-          note: "Link courtedge-durable-db as DATABASE_URL on betbrain-server-1",
-        });
-      }
-      const official = [
-        durabilityProbeSampleProp(1, "LOW"),
-        durabilityProbeSampleProp(2, "MEDIUM"),
-      ];
-      const research = [
-        ...official,
-        durabilityProbeSampleProp(3, "HIGH"),
-        durabilityProbeSampleProp(4, "HIGH"),
-      ];
-      const sealed = await sealCanonicalSlateV1({
-        slateDate: DURABILITY_PROBE_SLATE_DATE,
-        league: "WNBA",
-        dayBucket: "TODAY",
-        officialProps: official,
-        researchProps: research,
-        calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
-        sourceBuild: SERVER_BUILD,
-        sourceCommit: BUILD_COMMIT,
-        lockReason: "DURABILITY_PROBE",
-        classification: "DURABILITY_PROBE",
-      });
-      const restored = sealed.ok
-        ? await restoreCanonicalSlateV1({
-            slateDate: DURABILITY_PROBE_SLATE_DATE,
-            league: "WNBA",
-            dayBucket: "TODAY",
-          })
-        : null;
-      res.status(sealed.ok ? 200 : 500).json({
-        ok: sealed.ok === true,
-        action: "seal",
-        slateDate: DURABILITY_PROBE_SLATE_DATE,
-        persistenceMode: health.persistenceMode,
-        migrationOk: mig.ok === true,
-        sealed: {
-          ok: sealed.ok === true,
-          reason: sealed.reason || null,
-          slateId: sealed.slateId || null,
-          membershipHash: sealed.membershipHash || null,
-          officialCount: sealed.officialCount ?? null,
-          researchCount: sealed.researchCount ?? null,
-          officialIdentities: sealed.officialIdentities || null,
-        },
-        restored: restored
-          ? {
-              ok: restored.ok === true,
-              slateId: restored.slate?.id || restored.slateId || null,
-              membershipHash: restored.membershipHash || null,
-              officialCount: restored.officialProps?.length || 0,
-              researchCount: restored.researchProps?.length || 0,
-              officialIdentities: restored.officialIdentities || null,
-              regenerateBlocked: restored.regenerateBlocked === true,
-            }
-          : null,
-        identityMatch:
-          sealed.ok &&
-          restored?.ok &&
-          sealed.membershipHash === restored.membershipHash &&
-          String(sealed.slateId) ===
-            String(restored.slate?.id || restored.slateId || ""),
-        providerRefresh: false,
-        aug7Untouched: true,
-        c2Untouched: true,
-      });
-    } catch (error) {
-      res.status(500).json({
-        ok: false,
-        reason: "PROBE_ERROR",
-        detail: String(error?.message || error),
-      });
-    }
-  }
-);
-
-app.get(
-  "/admin/postgres-durability-probe",
-  requireAdminSecret,
-  async (req, res) => {
-    try {
-      const health = await refreshCanonicalDurableSnapshot();
-      const restored = await restoreCanonicalSlateV1({
-        slateDate: DURABILITY_PROBE_SLATE_DATE,
-        league: "WNBA",
-        dayBucket: "TODAY",
-      });
-      const expectedHash = String(req.query.membershipHash || "").trim();
-      const expectedSlateId = String(req.query.slateId || "").trim();
-      const hashMatch = expectedHash
-        ? restored.membershipHash === expectedHash
-        : null;
-      const restoredSlateId = restored.slate?.id || restored.slateId || null;
-      const idMatch = expectedSlateId
-        ? String(restoredSlateId || "") === expectedSlateId
-        : null;
-      res.status(restored.ok ? 200 : 404).json({
-        ok: restored.ok === true,
-        action: "restore",
-        slateDate: DURABILITY_PROBE_SLATE_DATE,
-        persistenceMode: health.persistenceMode,
-        databaseUrlConfigured: health.databaseUrlConfigured === true,
-        postgresHealthy: health.postgresHealthy === true,
-        durableStoreReady: health.durableStoreReady === true,
-        restored: {
-          ok: restored.ok === true,
-          reason: restored.reason || null,
-          slateId: restoredSlateId,
-          membershipHash: restored.membershipHash || null,
-          officialCount: restored.officialProps?.length || 0,
-          researchCount: restored.researchProps?.length || 0,
-          officialIdentities: restored.officialIdentities || null,
-          regenerateBlocked: restored.regenerateBlocked === true,
-        },
-        survival: {
-          expectedMembershipHash: expectedHash || null,
-          expectedSlateId: expectedSlateId || null,
-          membershipHashMatch: hashMatch,
-          slateIdMatch: idMatch,
-          passed:
-            restored.ok === true &&
-            (expectedHash ? hashMatch === true : true) &&
-            (expectedSlateId ? idMatch === true : true),
-        },
-        providerRefresh: false,
-        aug7Untouched: true,
-        c2Untouched: true,
-      });
-    } catch (error) {
-      res.status(500).json({
-        ok: false,
-        reason: "PROBE_ERROR",
-        detail: String(error?.message || error),
-      });
-    }
-  }
-);
 
 app.get("/test-ball-teams", async (req, res) => {
   const league = req.query.league || "NBA";
@@ -7643,87 +7298,6 @@ if (process.env.RUN_AUDIT === "1") {
           databaseUrlConfigured: durableHealth.databaseUrlConfigured,
         })
       );
-    });
-    await yieldEventLoop();
-
-    // Canonical Postgres authority: migrate + restore sealed slates (no provider).
-    await withStartupBudget("CANONICAL_POSTGRES", async () => {
-      const mig = await applyCanonicalMigrations();
-      const snap = await refreshCanonicalDurableSnapshot();
-      console.log(
-        "STARTUP CANONICAL POSTGRES:",
-        JSON.stringify({
-          migrationOk: mig.ok === true,
-          migrationReason: mig.reason || null,
-          databaseUrlConfigured: snap.databaseUrlConfigured,
-          postgresHealthy: snap.postgresHealthy,
-          durableStoreReady: snap.durableStoreReady,
-          durableBackend: snap.durableBackend,
-          schemaVersion: snap.schemaVersion || null,
-        })
-      );
-      if (isProductionEnvironment() && !snap.durableStoreReady) {
-        console.error(
-          "STARTUP PERSISTENCE WARNING: production without durable Postgres — Official seal blocked until DATABASE_URL is healthy"
-        );
-      }
-      if (snap.durableStoreReady) {
-        const todayCT = getTodayLocalDate();
-        const restored = await restoreCanonicalSlateV1({
-          slateDate: todayCT,
-          league: "WNBA",
-          dayBucket: "TODAY",
-        });
-        console.log(
-          "STARTUP CANONICAL RESTORE TODAY:",
-          JSON.stringify({
-            slateDate: todayCT,
-            ok: restored.ok === true,
-            reason: restored.reason || null,
-            officialCount: restored.officialProps?.length || 0,
-            researchCount: restored.researchProps?.length || 0,
-            regenerateBlocked: restored.regenerateBlocked === true,
-            membershipHash: restored.membershipHash || null,
-          })
-        );
-
-        // Persist Aug 7 prospective research freeze as RESEARCH only (never Official).
-        try {
-          const freezePath = path.join(
-            __dirname,
-            "research",
-            "empirical-safe-prop-v2",
-            "prospective-slate-freezes",
-            "2026-08-07__LATEST_PROSPECTIVE.json"
-          );
-          if (fs.existsSync(freezePath)) {
-            const freezeJson = JSON.parse(fs.readFileSync(freezePath, "utf8"));
-            const savedFreeze = await persistResearchFreezeV1({
-              slateDate: "2026-08-07",
-              freezeTimestamp:
-                freezeJson.frozenAt || freezeJson.freezeTimestamp,
-              freezeJson,
-              classificationCounts: freezeJson.classificationCounts || null,
-              calibrationHash:
-                freezeJson.calibrationHash || C2_CALIBRATION_HASH_CEREMONY,
-              officialRecordEligible: false,
-            });
-            console.log(
-              "STARTUP AUG7 RESEARCH FREEZE:",
-              JSON.stringify({
-                ok: savedFreeze.ok === true,
-                officialRecordEligible: savedFreeze.officialRecordEligible,
-                id: savedFreeze.id || null,
-              })
-            );
-          }
-        } catch (freezeErr) {
-          console.log(
-            "STARTUP AUG7 RESEARCH FREEZE WARNING:",
-            freezeErr.message
-          );
-        }
-      }
     });
     await yieldEventLoop();
 

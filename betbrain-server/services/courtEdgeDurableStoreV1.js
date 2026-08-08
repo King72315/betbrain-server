@@ -54,6 +54,15 @@ let lastStartupRecovery = null;
 let backendType = null;
 
 function resolveDatabaseUrl() {
+  // Filesystem-primary restore: ignore DATABASE_URL unless explicitly opted in.
+  // Prevents accidental Postgres activation on betbrain-server-1.
+  if (
+    String(process.env.COURTEDGE_ALLOW_POSTGRES_DURABLE || "")
+      .trim()
+      .toLowerCase() !== "true"
+  ) {
+    return "";
+  }
   return String(
     process.env.COURTEDGE_DATABASE_URL ||
       process.env.DATABASE_URL ||

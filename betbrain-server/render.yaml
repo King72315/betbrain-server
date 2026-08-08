@@ -1,8 +1,7 @@
-# IMPORTANT: Live production web service is betbrain-server-1 (dashboard name).
-# Blueprint still uses name betbrain-api below — do NOT rename via Blueprint sync
-# (that can create a second web service). Attach durability manually:
-#   Render → betbrain-server-1 → Environment → Link Database → courtedge-durable-db
-# That injects DATABASE_URL. Without it, persistenceMode stays FILESYSTEM_FALLBACK.
+# Live production web service in the Render dashboard is betbrain-server-1.
+# Blueprint name below remains betbrain-api — do NOT rename via Blueprint sync
+# (that can create a second web service). Filesystem is production primary;
+# no CourtEdge Postgres database dependency in this restore build.
 services:
   - type: web
     name: betbrain-api
@@ -30,10 +29,6 @@ services:
         value: America/Chicago
       - key: COURTEDGE_SCHEDULER_ENABLED
         value: "true"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: courtedge-durable-db
-          property: connectionString
       - key: COURTEDGE_LAB_WIPE_V1
         value: "false"
       - key: COURTEDGE_HISTORY_REBUILD_V1
@@ -43,8 +38,6 @@ services:
       - key: EMPIRICAL_SAFE_PROP_V2
         value: "true"
       - key: COURTEDGE_ALLOW_LOCKED_SLATE_REFRESH
-        value: "false"
-      - key: COURTEDGE_ALLOW_FS_PROD
         value: "false"
 
   # Dispatcher only — server decides which jobs are due.
@@ -70,7 +63,3 @@ services:
         value: America/Chicago
       - key: COURTEDGE_SCHEDULER_TIMEOUT_MS
         value: "120000"
-
-databases:
-  - name: courtedge-durable-db
-    plan: basic-256mb

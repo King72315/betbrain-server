@@ -1,3 +1,6 @@
+# Live production web service in the Render dashboard is betbrain-server-1.
+# Blueprint name below remains betbrain-api — do NOT rename via Blueprint sync.
+# Filesystem is production primary; no CourtEdge Postgres database dependency.
 services:
   - type: web
     name: betbrain-api
@@ -27,10 +30,10 @@ services:
         value: America/Chicago
       - key: COURTEDGE_SCHEDULER_ENABLED
         value: "true"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: courtedge-durable-db
-          property: connectionString
+      - key: EMPIRICAL_SAFE_PROP_V2
+        value: "true"
+      - key: COURTEDGE_ALLOW_LOCKED_SLATE_REFRESH
+        value: "false"
 
   - type: cron
     name: courtedge-scheduler-cron
@@ -53,7 +56,3 @@ services:
         value: America/Chicago
       - key: COURTEDGE_SCHEDULER_TIMEOUT_MS
         value: "120000"
-
-databases:
-  - name: courtedge-durable-db
-    plan: basic-256mb
