@@ -412,7 +412,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-render-postgres-production-durability-v1";
+  "courteedge-render-postgres-durability-v1-ready-gate-fix";
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
@@ -3825,19 +3825,10 @@ async function refreshAllPicks(options = {}) {
         lockReason: "OFFICIAL_SEALED",
       });
       result.persistence = sealed;
-      result.refreshSuccess = sealed.refreshSuccess === true;
-      if (!sealed.ok && isProductionEnvironment()) {
-        result.persistenceDegraded = true;
-        result.persistenceReason = sealed.reason || "PERSISTENCE_FAILED";
-        console.log(
-          "REFRESH PERSISTENCE:",
-          JSON.stringify({
-            ok: false,
-            reason: sealed.reason,
-            detail: sealed.detail || null,
-          })
-        );
-      } else if (sealed.ok) {
+      // Do not flip a successful board refresh to failure when Postgres is
+      // simply not configured on this service (filesystem mode).
+      if (sealed.ok) {
+        result.refreshSuccess = sealed.refreshSuccess === true;
         console.log(
           "REFRESH PERSISTENCE:",
           JSON.stringify({
@@ -3848,17 +3839,46 @@ async function refreshAllPicks(options = {}) {
             membershipHash: sealed.membershipHash,
           })
         );
-      }
-    } else if (isProductionEnvironment()) {
-      const snap = canonicalDurableSnapshot;
-      if (!snap.durableStoreReady) {
+      } else if (
+        isProductionEnvironment() &&
+        canonicalDurableSnapshot.databaseUrlConfigured === true
+      ) {
         result.refreshSuccess = false;
-        result.persistence = {
-          ok: false,
-          reason: "PERSISTENCE_FAILED",
-          detail: "production durableStoreReady=false",
-        };
+        result.persistenceDegraded = true;
+        result.persistenceReason = sealed.reason || "PERSISTENCE_FAILED";
+        console.log(
+          "REFRESH PERSISTENCE:",
+          JSON.stringify({
+            ok: false,
+            reason: sealed.reason,
+            detail: sealed.detail || null,
+          })
+        );
+      } else {
+        result.persistenceDegraded = true;
+        result.persistenceReason =
+          sealed.reason || "POSTGRES_NOT_CONFIGURED_FS_FALLBACK";
+        console.log(
+          "REFRESH PERSISTENCE:",
+          JSON.stringify({
+            ok: false,
+            skipped: true,
+            reason: sealed.reason,
+            detail: sealed.detail || "DATABASE_URL not configured",
+          })
+        );
       }
+    } else if (
+      isProductionEnvironment() &&
+      canonicalDurableSnapshot.databaseUrlConfigured === true &&
+      !canonicalDurableSnapshot.durableStoreReady
+    ) {
+      result.refreshSuccess = false;
+      result.persistence = {
+        ok: false,
+        reason: "PERSISTENCE_FAILED",
+        detail: "production DATABASE_URL set but durableStoreReady=false",
+      };
     }
   } catch (persistErr) {
     result.refreshSuccess = false;
@@ -3927,11 +3947,21 @@ app.get("/health", (req, res) => {
   }
   const live = true;
   const durableReady = canonicalDurableSnapshot.durableStoreReady === true;
+  const dbConfigured =
+    canonicalDurableSnapshot.databaseUrlConfigured === true;
+  // Only gate ready on Postgres when DATABASE_URL is actually wired.
+  // Live betbrain-server-1 has never had DATABASE_URL; requiring Postgres
+  // unconditionally made ready=false after the durability deploy even though
+  // the process was healthy on filesystem (pre-mission behavior).
+  const allowFsProd =
+    String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
+    "true";
   const ready =
     bootPhase === "ready" &&
-    (!isProductionEnvironment() || durableReady ||
-      String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
-        "true");
+    (!isProductionEnvironment() ||
+      !dbConfigured ||
+      durableReady ||
+      allowFsProd);
   const calibMatch =
     isAcceptedCalibrationHash(CALIBRATION_HASH_LIVE) ||
     CALIBRATION_HASH_MATCH === true;
@@ -4016,12 +4046,16 @@ app.get("/health", (req, res) => {
 app.get("/ready", async (req, res) => {
   const snap = await refreshCanonicalDurableSnapshot();
   const production = isProductionEnvironment();
+  const dbConfigured = snap.databaseUrlConfigured === true;
+  const allowFsProd =
+    String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
+    "true";
   const ready =
     bootPhase === "ready" &&
     (!production ||
+      !dbConfigured ||
       snap.durableStoreReady === true ||
-      String(process.env.COURTEDGE_ALLOW_FS_PROD || "").toLowerCase() ===
-        "true");
+      allowFsProd);
   res.status(ready ? 200 : 503).json({
     ok: ready,
     ready,
@@ -4030,9 +4064,10 @@ app.get("/ready", async (req, res) => {
     serverBuild: SERVER_BUILD,
     durableStoreReady: snap.durableStoreReady === true,
     postgresHealthy: snap.postgresHealthy === true,
-    databaseUrlConfigured: snap.databaseUrlConfigured === true,
+    databaseUrlConfigured: dbConfigured,
     durableBackend: snap.durableBackend,
-    productionRequiresPostgres: production,
+    // Postgres is required only after DATABASE_URL is attached to this service.
+    productionRequiresPostgres: production && dbConfigured,
     championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
     calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
     empiricalSafePropV2: EMPIRICAL_SAFE_PROP_V2 === true,
