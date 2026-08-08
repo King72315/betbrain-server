@@ -398,7 +398,8 @@ import {
 // Empty-board guard: never swap LKG playable boards for empty/zombie refreshes;
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
-const SERVER_BUILD = "courteedge-filesystem-production-restored-v1";
+const SERVER_BUILD =
+  "courteedge-filesystem-production-restored-v1-pregame-unlock";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -4301,7 +4302,30 @@ app.post("/refresh-picks", async (req, res) => {
       chainRaw === undefined || chainRaw === null || chainRaw === ""
         ? scope === "all"
         : String(chainRaw).toLowerCase() === "true" || String(chainRaw) === "1";
-    const refreshOpts = { scope, includeNba, chainTomorrow };
+    // Explicit unlock for a locked prospective slate (e.g. Aug 7 remaining
+    // pregame game). Does not edit the freeze file; only allows Odds rebuild.
+    const forceLockedSlateRefresh =
+      String(
+        req.query.forceLockedSlateRefresh ||
+          req.body?.forceLockedSlateRefresh ||
+          ""
+      ).toLowerCase() === "true";
+    const refreshOpts = {
+      scope,
+      includeNba,
+      chainTomorrow,
+      forceLockedSlateRefresh,
+    };
+    if (forceLockedSlateRefresh) {
+      console.log(
+        "REFRESH FORCE UNLOCK:",
+        JSON.stringify({
+          scope,
+          slateDate: getTodayLocalDate(),
+          note: "prospective lock bypassed by forceLockedSlateRefresh=true",
+        })
+      );
+    }
     if (!wantsSync) {
       const kick = startRefreshAllPicksBackground("http-refresh-picks", refreshOpts);
       return res.json({
