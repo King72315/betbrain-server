@@ -4165,7 +4165,7 @@ app.post(
         restored: restored
           ? {
               ok: restored.ok === true,
-              slateId: restored.slateId || null,
+              slateId: restored.slate?.id || restored.slateId || null,
               membershipHash: restored.membershipHash || null,
               officialCount: restored.officialProps?.length || 0,
               researchCount: restored.researchProps?.length || 0,
@@ -4177,7 +4177,8 @@ app.post(
           sealed.ok &&
           restored?.ok &&
           sealed.membershipHash === restored.membershipHash &&
-          sealed.slateId === restored.slateId,
+          String(sealed.slateId) ===
+            String(restored.slate?.id || restored.slateId || ""),
         providerRefresh: false,
         aug7Untouched: true,
         c2Untouched: true,
@@ -4208,8 +4209,9 @@ app.get(
       const hashMatch = expectedHash
         ? restored.membershipHash === expectedHash
         : null;
+      const restoredSlateId = restored.slate?.id || restored.slateId || null;
       const idMatch = expectedSlateId
-        ? String(restored.slateId || "") === expectedSlateId
+        ? String(restoredSlateId || "") === expectedSlateId
         : null;
       res.status(restored.ok ? 200 : 404).json({
         ok: restored.ok === true,
@@ -4222,7 +4224,7 @@ app.get(
         restored: {
           ok: restored.ok === true,
           reason: restored.reason || null,
-          slateId: restored.slateId || null,
+          slateId: restoredSlateId,
           membershipHash: restored.membershipHash || null,
           officialCount: restored.officialProps?.length || 0,
           researchCount: restored.researchProps?.length || 0,
