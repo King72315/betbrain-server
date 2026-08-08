@@ -412,7 +412,8 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-render-postgres-durability-v1-ready-gate-fix";
+  "courteedge-render-postgres-durability-v1-link-verify";
+const DURABILITY_PROBE_SLATE_DATE = "2099-01-15";
 const CHECKPOINT_BUILD = "courteedge-pre-full-roster-experiment-v3";
 /** Verified checkpoint ancestor (updated to V3 peel after tag). */
 const CHECKPOINT_BASE_COMMIT =
@@ -4020,6 +4021,9 @@ app.get("/health", (req, res) => {
     homeDurable,
     durableStore: getDurableStoreHealthSync(),
     durableBackend: canonicalDurableSnapshot.durableBackend,
+    persistenceMode:
+      canonicalDurableSnapshot.persistenceMode ||
+      (durableReady ? "POSTGRES_PRIMARY" : "FILESYSTEM_FALLBACK"),
     durableStoreReady: durableReady,
     databaseUrlConfigured: canonicalDurableSnapshot.databaseUrlConfigured === true,
     postgresHealthy: canonicalDurableSnapshot.postgresHealthy === true,
@@ -4066,6 +4070,9 @@ app.get("/ready", async (req, res) => {
     postgresHealthy: snap.postgresHealthy === true,
     databaseUrlConfigured: dbConfigured,
     durableBackend: snap.durableBackend,
+    persistenceMode:
+      snap.persistenceMode ||
+      (snap.durableStoreReady ? "POSTGRES_PRIMARY" : "FILESYSTEM_FALLBACK"),
     // Postgres is required only after DATABASE_URL is attached to this service.
     productionRequiresPostgres: production && dbConfigured,
     championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
@@ -4074,6 +4081,177 @@ app.get("/ready", async (req, res) => {
     lastError: snap.lastError || null,
   });
 });
+
+/**
+ * Postgres durability probe — fixture slate 2099-01-15 only.
+ * Never touches C2 coefficients or Aug 7 Official membership.
+ * POST seals a synthetic record; GET restores and returns IDs/hashes.
+ */
+function durabilityProbeSampleProp(i, risk = "LOW") {
+  return {
+    eventId: `durability-probe-evt-${i}`,
+    playerId: `durability-probe-p-${i}`,
+    player: `Durability Probe ${i}`,
+    team: "AAA",
+    opponent: "BBB",
+    side: i % 2 ? "OVER" : "UNDER",
+    line: 10 + i,
+    trueRisk: risk,
+    reliabilityProbability: 0.7,
+    trustScore: 0.8,
+    safetyScore: 70,
+    projection: 12 + i,
+  };
+}
+
+app.post(
+  "/admin/postgres-durability-probe",
+  requireAdminSecret,
+  async (req, res) => {
+    try {
+      const mig = await applyCanonicalMigrations();
+      const health = await refreshCanonicalDurableSnapshot();
+      if (!health.durableStoreReady) {
+        return res.status(503).json({
+          ok: false,
+          reason: "POSTGRES_NOT_READY",
+          health,
+          note: "Link courtedge-durable-db as DATABASE_URL on betbrain-server-1",
+        });
+      }
+      const official = [
+        durabilityProbeSampleProp(1, "LOW"),
+        durabilityProbeSampleProp(2, "MEDIUM"),
+      ];
+      const research = [
+        ...official,
+        durabilityProbeSampleProp(3, "HIGH"),
+        durabilityProbeSampleProp(4, "HIGH"),
+      ];
+      const sealed = await sealCanonicalSlateV1({
+        slateDate: DURABILITY_PROBE_SLATE_DATE,
+        league: "WNBA",
+        dayBucket: "TODAY",
+        officialProps: official,
+        researchProps: research,
+        calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
+        sourceBuild: SERVER_BUILD,
+        sourceCommit: BUILD_COMMIT,
+        lockReason: "DURABILITY_PROBE",
+        classification: "DURABILITY_PROBE",
+      });
+      const restored = sealed.ok
+        ? await restoreCanonicalSlateV1({
+            slateDate: DURABILITY_PROBE_SLATE_DATE,
+            league: "WNBA",
+            dayBucket: "TODAY",
+          })
+        : null;
+      res.status(sealed.ok ? 200 : 500).json({
+        ok: sealed.ok === true,
+        action: "seal",
+        slateDate: DURABILITY_PROBE_SLATE_DATE,
+        persistenceMode: health.persistenceMode,
+        migrationOk: mig.ok === true,
+        sealed: {
+          ok: sealed.ok === true,
+          reason: sealed.reason || null,
+          slateId: sealed.slateId || null,
+          membershipHash: sealed.membershipHash || null,
+          officialCount: sealed.officialCount ?? null,
+          researchCount: sealed.researchCount ?? null,
+          officialIdentities: sealed.officialIdentities || null,
+        },
+        restored: restored
+          ? {
+              ok: restored.ok === true,
+              slateId: restored.slateId || null,
+              membershipHash: restored.membershipHash || null,
+              officialCount: restored.officialProps?.length || 0,
+              researchCount: restored.researchProps?.length || 0,
+              officialIdentities: restored.officialIdentities || null,
+              regenerateBlocked: restored.regenerateBlocked === true,
+            }
+          : null,
+        identityMatch:
+          sealed.ok &&
+          restored?.ok &&
+          sealed.membershipHash === restored.membershipHash &&
+          sealed.slateId === restored.slateId,
+        providerRefresh: false,
+        aug7Untouched: true,
+        c2Untouched: true,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        reason: "PROBE_ERROR",
+        detail: String(error?.message || error),
+      });
+    }
+  }
+);
+
+app.get(
+  "/admin/postgres-durability-probe",
+  requireAdminSecret,
+  async (req, res) => {
+    try {
+      const health = await refreshCanonicalDurableSnapshot();
+      const restored = await restoreCanonicalSlateV1({
+        slateDate: DURABILITY_PROBE_SLATE_DATE,
+        league: "WNBA",
+        dayBucket: "TODAY",
+      });
+      const expectedHash = String(req.query.membershipHash || "").trim();
+      const expectedSlateId = String(req.query.slateId || "").trim();
+      const hashMatch = expectedHash
+        ? restored.membershipHash === expectedHash
+        : null;
+      const idMatch = expectedSlateId
+        ? String(restored.slateId || "") === expectedSlateId
+        : null;
+      res.status(restored.ok ? 200 : 404).json({
+        ok: restored.ok === true,
+        action: "restore",
+        slateDate: DURABILITY_PROBE_SLATE_DATE,
+        persistenceMode: health.persistenceMode,
+        databaseUrlConfigured: health.databaseUrlConfigured === true,
+        postgresHealthy: health.postgresHealthy === true,
+        durableStoreReady: health.durableStoreReady === true,
+        restored: {
+          ok: restored.ok === true,
+          reason: restored.reason || null,
+          slateId: restored.slateId || null,
+          membershipHash: restored.membershipHash || null,
+          officialCount: restored.officialProps?.length || 0,
+          researchCount: restored.researchProps?.length || 0,
+          officialIdentities: restored.officialIdentities || null,
+          regenerateBlocked: restored.regenerateBlocked === true,
+        },
+        survival: {
+          expectedMembershipHash: expectedHash || null,
+          expectedSlateId: expectedSlateId || null,
+          membershipHashMatch: hashMatch,
+          slateIdMatch: idMatch,
+          passed:
+            restored.ok === true &&
+            (expectedHash ? hashMatch === true : true) &&
+            (expectedSlateId ? idMatch === true : true),
+        },
+        providerRefresh: false,
+        aug7Untouched: true,
+        c2Untouched: true,
+      });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        reason: "PROBE_ERROR",
+        detail: String(error?.message || error),
+      });
+    }
+  }
+);
 
 app.get("/test-ball-teams", async (req, res) => {
   const league = req.query.league || "NBA";

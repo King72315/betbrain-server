@@ -1,7 +1,8 @@
-# IMPORTANT: Live production service is currently named betbrain-server-1 in the
-# Render dashboard. Blueprint service name below is betbrain-api. If Blueprint
-# sync does not attach DATABASE_URL to betbrain-server-1, link courtedge-durable-db
-# manually on that service. Without DATABASE_URL, durableStoreReady stays false.
+# IMPORTANT: Live production web service is betbrain-server-1 (dashboard name).
+# Blueprint still uses name betbrain-api below — do NOT rename via Blueprint sync
+# (that can create a second web service). Attach durability manually:
+#   Render → betbrain-server-1 → Environment → Link Database → courtedge-durable-db
+# That injects DATABASE_URL. Without it, persistenceMode stays FILESYSTEM_FALLBACK.
 services:
   - type: web
     name: betbrain-api

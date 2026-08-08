@@ -190,19 +190,23 @@ export async function getCanonicalDurableHealth() {
 
   const ready =
     postgresHealthy && (migrationsApplied || migration?.ok === true);
+  const persistenceMode = ready
+    ? "POSTGRES_PRIMARY"
+    : "FILESYSTEM_FALLBACK";
 
   return {
     build: CANONICAL_STORE_BUILD,
     databaseUrlConfigured: configured,
     postgresHealthy,
     durableBackend: postgresHealthy ? "postgres" : "filesystem",
+    persistenceMode,
     durableStoreReady: ready,
     schemaVersion: CANONICAL_SCHEMA_VERSION,
     schemaChecksum: schemaChecksum || migration?.checksum || null,
     migrationsApplied: migrationsApplied || migration?.ok === true,
     lastError: configured ? lastError : "DATABASE_URL_not_configured",
     connectMs: Date.now() - started,
-    productionRequiresPostgres: isProductionEnvironment(),
+    productionRequiresPostgres: isProductionEnvironment() && configured,
   };
 }
 
