@@ -1761,13 +1761,27 @@ function trackSideAuditRejection(audit, side, reasons = []) {
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   const gamesRaw = await fetchOddsGameCards(league, daysAhead);
   const isSlimRefresh = process.env.COURTEDGE_REFRESH_SLIM !== "false";
+  // Prefer unstarted/pregame cards so a late-slate pull (one game left) does not
+  // burn free-tier RAM on already-started games.
+  const pregameOnly =
+    String(process.env.COURTEDGE_REFRESH_PREGAME_ONLY || "true").toLowerCase() !==
+    "false";
+  const pregame = (Array.isArray(gamesRaw) ? gamesRaw : []).filter(
+    (g) => g && g.isStarted !== true
+  );
+  const candidateGames =
+    pregameOnly && pregame.length ? pregame : Array.isArray(gamesRaw) ? gamesRaw : [];
+  const defaultMax =
+    pregameOnly && pregame.length && pregame.length <= 2
+      ? pregame.length
+      : isSlimRefresh
+        ? 4
+        : 8;
   const maxGames = Math.max(
     1,
-    Number(
-      process.env.COURTEDGE_REFRESH_MAX_GAMES || (isSlimRefresh ? 4 : 8)
-    )
+    Number(process.env.COURTEDGE_REFRESH_MAX_GAMES || defaultMax)
   );
-  const games = Array.isArray(gamesRaw) ? gamesRaw.slice(0, maxGames) : [];
+  const games = candidateGames.slice(0, maxGames);
   const sideAudit = createSideAudit();
   const yieldBetweenGames = () =>
     new Promise((resolve) => setImmediate(resolve));
@@ -1810,8 +1824,10 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     league,
     daysAhead,
     gamesFetched: gamesRaw?.length || 0,
+    pregameFetched: pregame.length,
     gamesAnalyzed: games.length,
     maxGames,
+    pregameOnly,
     slimRefresh: isSlimRefresh,
   });
 
