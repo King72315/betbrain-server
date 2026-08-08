@@ -4223,13 +4223,20 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
         String(chainTomorrowRaw) === "1";
 
   // Free-tier OOM guard: never build Today+Tomorrow in one heap. Sequential slim legs.
+  const forceLockedSlateRefresh = options.forceLockedSlateRefresh === true;
   refreshInFlight = (async () => {
     if (scope === "all") {
-      const todayResult = await refreshAllPicks({ scope: "today", includeNba });
+      const todayResult = await refreshAllPicks({
+        scope: "today",
+        includeNba,
+        forceLockedSlateRefresh,
+      });
       console.log("ASYNC REFRESH LEG COMPLETE:", {
         reason,
         leg: "today",
         serverBuild: SERVER_BUILD,
+        blocked: todayResult?.blocked === true,
+        reasonCode: todayResult?.reason || null,
         games: todayResult?.games?.length || 0,
         todayCandidates: todayResult?.todayCandidateCount,
       });
@@ -4247,6 +4254,7 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
       const tomorrowResult = await refreshAllPicks({
         scope: "tomorrow",
         includeNba,
+        forceLockedSlateRefresh,
       });
       console.log("ASYNC REFRESH LEG COMPLETE:", {
         reason,
@@ -4261,11 +4269,16 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   })()
     .then((result) => {
       lastRefreshFinishedAt = new Date().toISOString();
-      lastRefreshError = null;
+      lastRefreshError =
+        result?.blocked === true
+          ? String(result.reason || "BLOCKED")
+          : null;
       console.log("ASYNC REFRESH COMPLETE:", {
         reason,
         scope,
         serverBuild: SERVER_BUILD,
+        blocked: result?.blocked === true,
+        reasonCode: result?.reason || null,
         games: result?.games?.length || 0,
         tomorrowCandidates: result?.tomorrowCandidateCount,
         todayCandidates: result?.todayCandidateCount,
@@ -4345,12 +4358,17 @@ app.post("/refresh-picks", async (req, res) => {
       });
     }
     if (scope === "all") {
-      const todayResult = await refreshAllPicks({ scope: "today", includeNba });
+      const todayResult = await refreshAllPicks({
+        scope: "today",
+        includeNba,
+        forceLockedSlateRefresh,
+      });
       if (!chainTomorrow) return res.json(todayResult);
       await new Promise((resolve) => setTimeout(resolve, 4000));
       const tomorrowResult = await refreshAllPicks({
         scope: "tomorrow",
         includeNba,
+        forceLockedSlateRefresh,
       });
       return res.json(tomorrowResult || todayResult);
     }
