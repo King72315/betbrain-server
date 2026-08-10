@@ -1014,6 +1014,9 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     slatePercentile: slateRel?.slatePercentile ?? null,
     slateRelativeStrength: slateRel,
     officialEligible: true,
+    trackingType: "OFFICIAL",
+    finalDecision: "OFFICIAL",
+    recordType: "OFFICIAL",
     // Direction × C2 owned display fields (override legacy src spread).
     confidence: display.confidence,
     finalConfidence: display.finalConfidence,

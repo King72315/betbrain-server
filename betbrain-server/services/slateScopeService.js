@@ -1554,16 +1554,18 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
   };
   const existingTopWNBA = scrubTop(board.topWNBAProps);
   const existingTopNBA = scrubTop(board.topNBAProps);
+  // Prefer Today Official board, then Tomorrow — never leave TOP empty when
+  // Home Today Best 6 already has educated-guess Official membership.
   const topWNBAProps = existingTopWNBA.length
     ? existingTopWNBA
     : recoverTopFromBestSix(
-        bestSixDisplayTomorrowWNBA,
+        [...bestSixDisplayTodayWNBA, ...bestSixDisplayTomorrowWNBA],
         CONFIG.WNBA_TOP_PROP_LIMIT
       );
   const topNBAProps = existingTopNBA.length
     ? existingTopNBA
     : recoverTopFromBestSix(
-        bestSixDisplayTomorrowNBA,
+        [...bestSixDisplayTodayNBA, ...bestSixDisplayTomorrowNBA],
         CONFIG.NBA_TOP_PROP_LIMIT
       );
   const existingTopProps = scrubTop(board.topProps);
