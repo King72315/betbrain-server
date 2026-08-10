@@ -136,6 +136,15 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
     )
   );
 
+  // C2 / Probability Safety membership risk outranks stale DDI flood-gate risk.
+  const membershipRiskOwner = Boolean(
+    pick.v2Risk ||
+      pick.riskOwner ||
+      pick.productionFreeze ||
+      pick.membershipVersion ||
+      (pick.architectureBuild &&
+        String(pick.architectureBuild).includes("empirical"))
+  );
   const risk = String(
     first(
       sealedAnalysis?.canonical?.risk,
@@ -143,9 +152,13 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
       freeze.risk,
       freeze.trueRisk,
       packet.trueRisk,
+      membershipRiskOwner ? pick.v2Risk : null,
+      membershipRiskOwner ? pick.displayTrueRisk : null,
+      membershipRiskOwner ? pick.trueRisk : null,
+      membershipRiskOwner ? null : pick.decisionIntelligence?.trueRisk,
       pick.displayTrueRisk,
-      pick.decisionIntelligence?.trueRisk,
       pick.trueRisk,
+      pick.decisionIntelligence?.trueRisk,
       "MEDIUM"
     )
   ).toUpperCase();

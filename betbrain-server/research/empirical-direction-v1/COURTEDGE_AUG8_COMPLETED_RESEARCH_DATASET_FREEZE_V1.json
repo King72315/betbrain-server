@@ -1,0 +1,20 @@
+{
+  "version": "aug8-completed-research-dataset-freeze-v1",
+  "frozenAt": "2026-08-09T16:41:36.119Z",
+  "source": "research/empirical-safe-prop-v2/aug8-graded/COURTEDGE_AUG8_FROZEN_RESEARCH_GRADED_V1.json",
+  "record": {
+    "win": 8,
+    "loss": 10,
+    "push": 0,
+    "failed": 0
+  },
+  "packetCount": 18,
+  "official": {
+    "youngBoston": "2-0",
+    "note": "Included in research 18; Official subset MEDIUM 2"
+  },
+  "researchRecord": "8-10",
+  "holdouts": [
+    "2026-08-09"
+  ]
+}

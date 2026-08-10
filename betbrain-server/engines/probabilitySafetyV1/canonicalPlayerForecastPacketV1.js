@@ -18,7 +18,10 @@ import {
   classifyRiskV1,
   resolveAvailabilityCertainty,
 } from "./propSafetyEngineV1.js";
-import { classifyRiskEmpiricalV2 } from "../empiricalSafePropV2/reliabilityModelV2.js";
+import {
+  classifyRiskEmpiricalV2,
+  computeReliabilityProbabilityV2,
+} from "../empiricalSafePropV2/reliabilityModelV2.js";
 import {
   EMPIRICAL_SAFE_PROP_V2_BUILD,
   EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
@@ -29,6 +32,21 @@ import { annotateSlateRelativeStrengthV1 } from "../empiricalSafePropV2/slateRel
 import { buildEmpiricalRiskExplanationV2 } from "../empiricalSafePropV2/explanationsV2.js";
 import { computeCalibrationHashV2 } from "../empiricalSafePropV2/prospectiveSlateFreezeV2.js";
 import { isEmpiricalSafePropV2Enabled } from "../topProps/courtEdgeFeatureFlagsV1.js";
+import {
+  decideDirectionalSideV1,
+  EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
+  EMPIRICAL_DIRECTION_V1_BUILD,
+} from "../empiricalDirectionV1/index.js";
+import { isEmpiricalDirectionV1Enabled } from "../empiricalDirectionV1/featureFlag.js";
+import { decideDirectionalSideV2 } from "../empiricalDirectionV2/index.js";
+
+function isDirectionV2ShadowEnabled(options = {}) {
+  if (options.directionV2Shadow === false) return false;
+  if (options.directionV2Shadow === true) return true;
+  return (
+    String(process.env.DIRECTION_V2_SHADOW || "").toLowerCase() === "true"
+  );
+}
 
 function num(v, fb = null) {
   if (v == null || v === "") return fb;
@@ -54,8 +72,119 @@ function playerKey(pick = {}) {
   ].join("|");
 }
 
+function computeSideEdges(side, line, projection, fairLine) {
+  const projectionEdge =
+    side === "OVER" && line != null && projection != null
+      ? projection - line
+      : side === "UNDER" && line != null && projection != null
+        ? line - projection
+        : null;
+  const fairLineEdge =
+    side === "OVER" && line != null && fairLine != null
+      ? fairLine - line
+      : side === "UNDER" && line != null && fairLine != null
+        ? line - fairLine
+        : null;
+  let projectionFairAgreement = null;
+  if (projectionEdge != null && fairLineEdge != null) {
+    projectionFairAgreement =
+      Math.sign(projectionEdge) === Math.sign(fairLineEdge) ||
+      Math.abs(projectionEdge) < 0.5 ||
+      Math.abs(fairLineEdge) < 0.5;
+  }
+  return { projectionEdge, fairLineEdge, projectionFairAgreement };
+}
+
+function buildReliabilityFeatureV2(sidePacket) {
+  return computeReliabilityProbabilityV2({
+    rawWinProbability: num(sidePacket.rawWinProbability),
+    SafetyScore: num(sidePacket.safety?.finalSafetyScore),
+    projectionEdge: num(sidePacket.projectionEdge),
+    minutesStability: num(sidePacket.minutes?.minutesStabilityScore),
+    roleStability: num(sidePacket.role?.roleStabilityScore),
+    marketQuality: num(sidePacket.market?.marketQualityScore),
+    conflictIndex: num(sidePacket.conflict?.conflictIndex),
+    bookCount: num(sidePacket.market?.bookCount),
+  });
+}
+
+/**
+ * Apply C2 (or V1) membership risk classification to one already-built side packet.
+ * Used after Direction selects the canonical side.
+ */
+export function applyMembershipRiskToSidePacketV1(sidePacket = {}, options = {}) {
+  const stamped = sidePacket.sourcePick || {
+    side: sidePacket.side,
+    pick: sidePacket.side,
+    line: sidePacket.line,
+    projection: sidePacket.projection,
+    fairLine: sidePacket.fairLine,
+  };
+  const riskCtx = {
+    pick: stamped,
+    rawWinProbability: sidePacket.rawWinProbability ?? 0.5,
+    safety: sidePacket.safety,
+    minutes: sidePacket.minutes,
+    role: sidePacket.role,
+    market: sidePacket.market,
+    conflict: sidePacket.conflict,
+    failure: sidePacket.failure,
+    availability: sidePacket.availability,
+    blowout: sidePacket.blowout,
+    volume: sidePacket.volume,
+    distribution: sidePacket.distribution,
+  };
+  const riskV1 = classifyRiskV1(riskCtx);
+  const risk = isEmpiricalSafePropV2Enabled(options)
+    ? classifyRiskEmpiricalV2(riskCtx)
+    : riskV1;
+
+  return {
+    ...sidePacket,
+    projectionEdge: risk.projectionEdge ?? sidePacket.projectionEdge,
+    fairLineEdge: risk.fairEdge ?? sidePacket.fairLineEdge,
+    projectionFairAgreement:
+      risk.projectionFairAgreement ?? sidePacket.projectionFairAgreement,
+    risk: {
+      ...risk,
+      membershipStageApplied: true,
+      membershipStage: options.membershipStage || "STANDALONE",
+    },
+    riskV1Legacy: riskV1,
+    reliabilityProbability:
+      risk.reliabilityProbability ?? sidePacket.reliabilityProbability ?? null,
+    safePathway: risk.safePathway ?? null,
+    architectureBuild: isEmpiricalSafePropV2Enabled(options)
+      ? EMPIRICAL_SAFE_PROP_V2_BUILD
+      : ARCHITECTURE_BUILD,
+  };
+}
+
+function markOppositeSideNotSelected(sidePacket = {}) {
+  return {
+    ...sidePacket,
+    risk: {
+      risk: "NOT_SELECTED",
+      officialEligible: false,
+      deferred: false,
+      membershipStageApplied: false,
+      membershipStage: "SKIPPED_OPPOSITE_SIDE",
+      reliabilityProbability: sidePacket.reliabilityProbability ?? null,
+      projectionEdge: sidePacket.projectionEdge ?? null,
+      fairEdge: sidePacket.fairLineEdge ?? null,
+      projectionFairAgreement: sidePacket.projectionFairAgreement ?? null,
+      reasons: ["OPPOSITE_SIDE_NOT_SELECTED_AFTER_DIRECTION"],
+    },
+    safePathway: null,
+  };
+}
+
 /**
  * Evaluate one side packet (Over or Under) without board context.
+ *
+ * options.applyRiskClassification:
+ *   true (default)  — full C2/V1 risk (standalone / legacy dual-side path)
+ *   false           — forecast features + reliability feature only (Direction prep)
  */
 export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
   const side = normalizeSide(pick.side || pick.pick);
@@ -112,53 +241,94 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
     availability,
   });
 
-  const riskV1 = classifyRiskV1({
-    pick: stamped,
-    rawWinProbability: rawWinProbability ?? 0.5,
-    safety,
-    minutes,
-    role,
-    market,
-    conflict,
-    failure,
-    availability,
-    blowout,
-    volume,
-  });
-
-  const risk = isEmpiricalSafePropV2Enabled(options)
-    ? classifyRiskEmpiricalV2({
-        pick: stamped,
-        rawWinProbability: rawWinProbability ?? 0.5,
-        safety,
-        minutes,
-        role,
-        market,
-        conflict,
-        failure,
-        availability,
-        blowout,
-        volume,
-      })
-    : riskV1;
-
   const line = num(stamped.line ?? stamped.selectedLine);
   const projection =
     num(stamped.projection) ??
     num(stamped.projectedPoints) ??
     num(stamped.finalProjection);
   const fairLine = num(stamped.fairLine) ?? num(stamped.fair_line);
+  const edges = computeSideEdges(side, line, projection, fairLine);
+
+  const v2On = isEmpiricalSafePropV2Enabled(options);
+  let reliabilityProbability = null;
+  let reliabilityBand = null;
+  if (v2On) {
+    const rel = buildReliabilityFeatureV2({
+      rawWinProbability,
+      safety,
+      projectionEdge: edges.projectionEdge,
+      minutes,
+      role,
+      market,
+      conflict,
+    });
+    reliabilityProbability = rel.reliabilityProbability;
+    reliabilityBand = rel.reliabilityBand;
+  }
+
+  const applyRisk = options.applyRiskClassification !== false;
+  let risk;
+  let riskV1 = null;
+  let safePathway = null;
+
+  if (applyRisk) {
+    const applied = applyMembershipRiskToSidePacketV1(
+      {
+        side,
+        line,
+        projection,
+        fairLine,
+        projectionEdge: edges.projectionEdge,
+        fairLineEdge: edges.fairLineEdge,
+        projectionFairAgreement: edges.projectionFairAgreement,
+        minutes,
+        role,
+        volume,
+        distribution,
+        market,
+        blowout,
+        conflict,
+        failure,
+        availability,
+        safety,
+        rawWinProbability,
+        reliabilityProbability,
+        sourcePick: stamped,
+      },
+      options
+    );
+    risk = applied.risk;
+    riskV1 = applied.riskV1Legacy;
+    safePathway = applied.safePathway;
+    reliabilityProbability =
+      applied.reliabilityProbability ?? reliabilityProbability;
+  } else {
+    // Direction-prep only: reliability is an evidence feature, not membership.
+    risk = {
+      risk: null,
+      officialEligible: false,
+      deferred: true,
+      membershipStageApplied: false,
+      membershipStage: "AWAITING_DIRECTION",
+      reliabilityProbability,
+      reliabilityBand,
+      projectionEdge: edges.projectionEdge,
+      fairEdge: edges.fairLineEdge,
+      projectionFairAgreement: edges.projectionFairAgreement,
+      reasons: ["RISK_DEFERRED_UNTIL_DIRECTION"],
+    };
+  }
 
   return {
     forecastModelVersion: FORECAST_MODEL_VERSION,
-    architectureBuild: ARCHITECTURE_BUILD,
+    architectureBuild: v2On ? EMPIRICAL_SAFE_PROP_V2_BUILD : ARCHITECTURE_BUILD,
     side,
     line,
     projection,
     fairLine,
-    projectionEdge: risk.projectionEdge,
-    fairLineEdge: risk.fairEdge,
-    projectionFairAgreement: risk.projectionFairAgreement,
+    projectionEdge: edges.projectionEdge,
+    fairLineEdge: edges.fairLineEdge,
+    projectionFairAgreement: edges.projectionFairAgreement,
     minutes,
     role,
     volume,
@@ -171,16 +341,13 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
     safety,
     risk,
     riskV1Legacy: riskV1,
-    reliabilityProbability: risk.reliabilityProbability ?? null,
-    safePathway: risk.safePathway ?? null,
+    reliabilityProbability,
+    safePathway,
     rawWinProbability,
     calibratedWinProbability: null,
     probabilityCalibrationStatus: "INSUFFICIENT_SAMPLE",
     forcedSide: false,
     sourcePick: stamped,
-    architectureBuild: isEmpiricalSafePropV2Enabled(options)
-      ? EMPIRICAL_SAFE_PROP_V2_BUILD
-      : ARCHITECTURE_BUILD,
   };
 }
 
@@ -196,6 +363,11 @@ function hashSeed(str) {
 /**
  * Build dual-side research packet for one player-market.
  * Does not know board size.
+ *
+ * Production order when EMPIRICAL_DIRECTION_V1 is on:
+ *   features (+ reliability feature) → Direction → selected side → C2 membership
+ *
+ * C2 LOW/MEDIUM/HIGH is never assigned to a side before Direction selects it.
  */
 export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}) {
   const line = num(basePick.line ?? basePick.selectedLine ?? basePick.officialLine);
@@ -212,8 +384,15 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     line,
   };
 
-  const overPacket = evaluateSideForecastPacketV1(overBase, options);
-  const underPacket = evaluateSideForecastPacketV1(underBase, options);
+  const directionOn = isEmpiricalDirectionV1Enabled(options);
+  // Direction-first: defer membership risk until a side is chosen.
+  // Reliability logistic still runs as a Direction evidence feature.
+  const sideEvalOpts = directionOn
+    ? { ...options, applyRiskClassification: false }
+    : { ...options, applyRiskClassification: true };
+
+  let overPacket = evaluateSideForecastPacketV1(overBase, sideEvalOpts);
+  let underPacket = evaluateSideForecastPacketV1(underBase, sideEvalOpts);
 
   const overScore =
     (overPacket.rawWinProbability ?? 0) * 0.55 +
@@ -222,11 +401,53 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     (underPacket.rawWinProbability ?? 0) * 0.55 +
     (underPacket.safety.finalSafetyScore ?? 0) / 100 * 0.45;
 
-  const selectedSide = overScore >= underScore ? "OVER" : "UNDER";
+  let direction = null;
+  let selectedSide;
+  let forcedNoBet = false;
+
+  if (directionOn) {
+    direction = decideDirectionalSideV1({
+      overPacket,
+      underPacket,
+      basePick,
+    });
+    if (direction.decision === "OVER" || direction.decision === "UNDER") {
+      selectedSide = direction.decision;
+    } else {
+      // NO BET: research still keeps a preferred side; Official path closed.
+      forcedNoBet = true;
+      selectedSide = overScore >= underScore ? "OVER" : "UNDER";
+    }
+
+    // C2 (or V1) membership only on the Direction-selected / research-preferred side.
+    const postDirOpts = { ...options, membershipStage: "POST_DIRECTION" };
+    if (selectedSide === "OVER") {
+      overPacket = applyMembershipRiskToSidePacketV1(overPacket, postDirOpts);
+      underPacket = markOppositeSideNotSelected(underPacket);
+    } else {
+      underPacket = applyMembershipRiskToSidePacketV1(underPacket, postDirOpts);
+      overPacket = markOppositeSideNotSelected(overPacket);
+    }
+  } else {
+    selectedSide = overScore >= underScore ? "OVER" : "UNDER";
+  }
+
   const selected =
     selectedSide === "OVER" ? overPacket : underPacket;
   const opposite =
     selectedSide === "OVER" ? underPacket : overPacket;
+
+  const directionApproved =
+    !directionOn ||
+    (direction?.decision === "OVER" || direction?.decision === "UNDER");
+
+  const officialEligible =
+    forcedNoBet ||
+    direction?.decision === "NO_BET" ||
+    !directionApproved ||
+    (directionOn && direction?.officialDirectionEligible === false)
+      ? false
+      : Boolean(selected.risk?.officialEligible);
 
   return {
     playerId: basePick.playerId || basePick.player_id || null,
@@ -254,6 +475,57 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     oppositeSideProbability: opposite.rawWinProbability,
     selectedSideScore: selectedSide === "OVER" ? overScore : underScore,
     oppositeSideScore: selectedSide === "OVER" ? underScore : overScore,
+    pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
+    c2MembershipAppliedTo: directionOn ? selectedSide : "BOTH",
+    direction: direction
+      ? {
+          decision: direction.decision,
+          reason: direction.reason,
+          confidence: direction.confidence,
+          marketConflict: direction.marketConflict,
+          officialDirectionEligible: direction.officialDirectionEligible,
+          admission:
+            direction.decision === "OVER" || direction.decision === "UNDER"
+              ? "PRIMARY"
+              : null,
+          directionAdmission:
+            direction.decision === "OVER" || direction.decision === "UNDER"
+              ? "PRIMARY"
+              : null,
+          rescuePathway: null,
+          freezeId: direction.freezeId,
+          engineVersion: direction.engineVersion,
+          over: direction.over,
+          under: direction.under,
+        }
+      : null,
+    // STUDY/SHADOW only — never Official authority.
+    directionV2Shadow: (() => {
+      if (!directionOn || !isDirectionV2ShadowEnabled(options)) return null;
+      try {
+        const shadow = decideDirectionalSideV2({
+          overPacket,
+          underPacket,
+          basePick,
+          options,
+        });
+        return {
+          decision: shadow.decision,
+          reason: shadow.reason,
+          confidence: shadow.confidence,
+          admission: shadow.admission,
+          directionAdmission: shadow.directionAdmission,
+          rescuePathway: shadow.directionRescuePathway,
+          marketConflict: shadow.marketConflict,
+          stage: shadow.stage,
+          studyId: shadow.studyId,
+          build: shadow.build,
+          productionAuthority: false,
+        };
+      } catch {
+        return null;
+      }
+    })(),
     probability: {
       rawWinProbability: selected.rawWinProbability,
       calibratedWinProbability: null,
@@ -264,7 +536,12 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       conflictIndex: selected.conflict.conflictIndex,
     },
     safety: selected.safety,
-    risk: selected.risk,
+    risk: {
+      ...selected.risk,
+      officialEligible,
+      directionDecision: direction?.decision || null,
+      blockedByDirectionNoBet: forcedNoBet,
+    },
     riskV1Legacy: selected.riskV1Legacy,
     reliabilityProbability:
       selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
@@ -275,18 +552,24 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     pathwayScore: selected.risk?.pathwayScore ?? 0,
     pathwayEvidence: selected.risk?.pathwayEvidence ?? [],
     membership: {
-      officialEligible: selected.risk.officialEligible,
-      risk: selected.risk.risk,
-      wouldPassLowGate: selected.risk.wouldPassLowGate,
-      wouldPassMediumGate: selected.risk.wouldPassMediumGate,
+      officialEligible,
+      risk: selected.risk?.risk,
+      wouldPassLowGate: selected.risk?.wouldPassLowGate,
+      wouldPassMediumGate: selected.risk?.wouldPassMediumGate,
       safePathway: selected.risk?.safePathway ?? null,
       reliabilityProbability: selected.risk?.reliabilityProbability ?? null,
       trustScore: selected.risk?.trustScore ?? null,
+      directionDecision: direction?.decision || null,
+      blockedByDirectionNoBet: forcedNoBet,
+      requiresDirectionApproval: directionOn,
+      pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
     },
     forecastModelVersion: FORECAST_MODEL_VERSION,
     architectureBuild: isEmpiricalSafePropV2Enabled(options)
       ? EMPIRICAL_SAFE_PROP_V2_BUILD
       : ARCHITECTURE_BUILD,
+    directionBuild: directionOn ? EMPIRICAL_DIRECTION_V1_BUILD : null,
+    directionFreeze: directionOn ? EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE : null,
     predictionCreatedAt: new Date().toISOString(),
     forcedSide: false,
   };
@@ -316,6 +599,16 @@ export function buildResearchUniverseV1(candidates = [], options = {}) {
   const high = packets.filter(
     (p) => p.risk?.risk === "HIGH" || !p.risk?.risk
   );
+  const noBet = packets.filter(
+    (p) => p.direction?.decision === "NO_BET" || p.membership?.blockedByDirectionNoBet
+  );
+  const directed = packets.filter(
+    (p) =>
+      p.direction?.decision === "OVER" || p.direction?.decision === "UNDER"
+  );
+  const officialEligible = packets.filter(
+    (p) => p.membership?.officialEligible === true
+  );
 
   return {
     version: RESEARCH_UNIVERSE_VERSION,
@@ -331,8 +624,11 @@ export function buildResearchUniverseV1(candidates = [], options = {}) {
       LOW: low.length,
       MEDIUM: medium.length,
       HIGH: high.length,
-      Official: low.length + medium.length,
-      researchOnly: high.length,
+      Official: officialEligible.length,
+      researchOnly: packets.length - officialEligible.length,
+      DIRECTION_OVER: directed.filter((p) => p.direction?.decision === "OVER").length,
+      DIRECTION_UNDER: directed.filter((p) => p.direction?.decision === "UNDER").length,
+      NO_BET: noBet.length,
     },
   };
 }
@@ -410,7 +706,16 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
   );
 
   const officialPackets = rankedResearch
-    .filter((p) => p.membership?.officialEligible === true)
+    .filter((p) => {
+      if (p.membership?.officialEligible !== true) return false;
+      // Harden: never admit Official without Direction approval when Direction is required.
+      if (p.membership?.requiresDirectionApproval === true) {
+        const d = p.direction?.decision || p.membership?.directionDecision;
+        if (d !== "OVER" && d !== "UNDER") return false;
+        if (p.membership?.blockedByDirectionNoBet === true) return false;
+      }
+      return true;
+    })
     .sort((a, b) => {
       const riskOrder = { LOW: 0, MEDIUM: 1, HIGH: 2 };
       const ra = riskOrder[a.risk?.risk] ?? 9;
@@ -432,13 +737,38 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
           packet.marketKey ||
           `${packet.playerName}|${packet.selectedSide}|${packet.line}`
       );
+    const decorated = decorateOfficialProp(packet, sidePacket, index, {
+      v2On,
+      slateRelativeStrength: slateRel,
+      calibrationHash,
+    });
+    // Sync DI so Home/PropCard cannot prefer stale flood-gate trueRisk/confidence.
+    const decisionIntelligence = {
+      ...(src?.decisionIntelligence || {}),
+      trueRisk: decorated.trueRisk,
+      riskAfterDecision: decorated.riskLabel,
+      finalConfidence: decorated.finalConfidence,
+      signalStrength: decorated.signalStrength,
+      confidenceOwner: decorated.confidenceOwner,
+      riskOwner: decorated.riskOwner,
+      signalOwner: decorated.signalOwner,
+      directionDecision: decorated.directionDecision,
+      directionConfidence: decorated.directionConfidence,
+      directionAdmission: decorated.directionAdmission,
+    };
     return {
       ...src,
-      ...decorateOfficialProp(packet, sidePacket, index, {
-        v2On,
-        slateRelativeStrength: slateRel,
-        calibrationHash,
-      }),
+      ...decorated,
+      decisionIntelligence,
+      confidence: decorated.confidence,
+      finalConfidence: decorated.finalConfidence,
+      winProbability: decorated.finalConfidence,
+      signalStrength: decorated.signalStrength,
+      signalLevel: decorated.signalLevel,
+      trueRisk: decorated.trueRisk,
+      displayTrueRisk: decorated.displayTrueRisk,
+      riskLabel: decorated.riskLabel,
+      riskAfterCeiling: decorated.riskAfterCeiling,
     };
   });
 
@@ -469,6 +799,76 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
   };
 }
 
+function riskCodeToLabel(code) {
+  const c = String(code || "").toUpperCase();
+  if (c === "LOW") return "Low Risk";
+  if (c === "MEDIUM") return "Medium Risk";
+  if (c === "HIGH") return "High Risk";
+  return null;
+}
+
+/**
+ * Official display meta owned by Direction × C2 — replaces legacy DDI/netEdge
+ * confidence % and signalStrength for Probability Safety Official props.
+ */
+export function resolveOfficialDisplayMetaV1({
+  directionDecision = null,
+  directionConfidence = null,
+  c2Risk = null,
+  reliabilityProbability = null,
+  trustScore = null,
+  rawWinProbability = null,
+} = {}) {
+  const dir = String(directionDecision || "").toUpperCase();
+  const directed = dir === "OVER" || dir === "UNDER";
+  const riskCode = String(c2Risk || "HIGH").toUpperCase();
+  const dirConf = String(directionConfidence || "NONE").toUpperCase();
+  const rel = num(reliabilityProbability);
+  const trust = num(trustScore);
+  const rawP = num(rawWinProbability);
+
+  let signalStrength = "WEAK";
+  if (directed && riskCode === "LOW" && (dirConf === "STRONG" || dirConf === "STANDARD")) {
+    signalStrength = "STRONG";
+  } else if (directed && riskCode === "LOW") {
+    signalStrength = "MODERATE";
+  } else if (directed && riskCode === "MEDIUM" && dirConf === "STRONG") {
+    signalStrength = "MODERATE";
+  } else if (directed && riskCode === "MEDIUM" && dirConf === "STANDARD") {
+    signalStrength = "MODERATE";
+  } else if (directed && riskCode === "MEDIUM") {
+    signalStrength = "WEAK";
+  }
+
+  // Direction categorical → base %, then soft C2/reliability lifts. Not legacy netEdge.
+  let confidence =
+    dirConf === "STRONG" ? 74 : dirConf === "STANDARD" ? 64 : dirConf === "WEAK" ? 54 : 50;
+  if (riskCode === "LOW") confidence += 4;
+  if (rel != null && rel >= 0.9) confidence += 4;
+  else if (rel != null && rel >= 0.84) confidence += 2;
+  if (trust != null && trust >= 80) confidence += 2;
+  if (rawP != null) {
+    confidence = Math.round(confidence * 0.65 + rawP * 100 * 0.35);
+  }
+  confidence = Math.max(48, Math.min(86, Math.round(confidence)));
+  if (!directed || riskCode === "HIGH") {
+    confidence = Math.min(confidence, 52);
+    signalStrength = "WEAK";
+  }
+
+  return {
+    trueRisk: riskCode,
+    riskLabel: riskCodeToLabel(riskCode) || riskCode,
+    riskAfterCeiling: riskCodeToLabel(riskCode) || riskCode,
+    displayTrueRisk: riskCode,
+    signalStrength,
+    signalLevel: signalStrength,
+    confidence,
+    finalConfidence: confidence,
+    directionAdmission: directed ? "PRIMARY" : null,
+  };
+}
+
 function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
   const v2On = opts.v2On === true;
   const risk = packet.risk || {};
@@ -476,13 +876,30 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
   const slateRel = opts.slateRelativeStrength || packet.slateRelativeStrength || null;
   const v2Risk = risk.risk;
   const v1Risk = riskV1?.risk ?? null;
+  const riskCode = String((v2On ? v2Risk : v1Risk || v2Risk) || "HIGH").toUpperCase();
+  const directionDecision = packet.direction?.decision ?? null;
+  const directionConfidence = packet.direction?.confidence ?? null;
+  const display = resolveOfficialDisplayMetaV1({
+    directionDecision,
+    directionConfidence,
+    c2Risk: riskCode,
+    reliabilityProbability:
+      risk.reliabilityProbability ?? packet.reliabilityProbability ?? null,
+    trustScore: risk.trustScore ?? packet.trustScore ?? null,
+    rawWinProbability: packet.probability?.rawWinProbability ?? null,
+  });
+  const directed =
+    directionDecision === "OVER" || directionDecision === "UNDER";
+
   return {
     side: packet.selectedSide,
     pick: packet.selectedSide,
-    trueRisk: v2On ? v2Risk : v1Risk || v2Risk,
-    riskLabel: v2On ? v2Risk : v1Risk || v2Risk,
+    trueRisk: display.trueRisk,
+    riskLabel: display.riskLabel,
+    riskAfterCeiling: display.riskAfterCeiling,
+    displayTrueRisk: display.displayTrueRisk,
     /** Production risk under Calibration 2 (champion). */
-    v2Risk,
+    v2Risk: v2On ? v2Risk : null,
     /** Shadow V1 giant-AND classification — comparison only, not Official authority. */
     v1Risk,
     riskV1Legacy: riskV1,
@@ -544,6 +961,25 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     slatePercentile: slateRel?.slatePercentile ?? null,
     slateRelativeStrength: slateRel,
     officialEligible: true,
+    // Direction × C2 owned display fields (override legacy src spread).
+    confidence: display.confidence,
+    finalConfidence: display.finalConfidence,
+    winProbability: display.finalConfidence,
+    signalStrength: display.signalStrength,
+    signalLevel: display.signalLevel,
+    directionDecision,
+    directionReason: packet.direction?.reason ?? null,
+    directionConfidence,
+    directionAdmission: directed ? "PRIMARY" : null,
+    admission: directed ? "PRIMARY" : null,
+    rescuePathway: null,
+    blockedByDirectionNoBet: Boolean(packet.membership?.blockedByDirectionNoBet),
+    pipelineOrder: packet.pipelineOrder || packet.membership?.pipelineOrder || null,
+    confidenceOwner: "probabilitySafetyV1.direction_x_c2",
+    signalOwner: "probabilitySafetyV1.direction_x_c2",
+    riskOwner: v2On
+      ? "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2"
+      : "probabilitySafetyV1",
     forcedSide: false,
     noFixedSix: true,
     noMinimumBoard: true,
@@ -551,9 +987,7 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     whyNotLow: risk.whyNotLow || [],
     riskExplanation: risk.explanation || null,
     membershipQualificationStatus:
-      (v2On ? v2Risk : v1Risk) === "LOW"
-        ? "QUALIFIED_LOW_RISK"
-        : "QUALIFIED_MEDIUM_RISK",
+      riskCode === "LOW" ? "QUALIFIED_LOW_RISK" : "QUALIFIED_MEDIUM_RISK",
   };
 }
 

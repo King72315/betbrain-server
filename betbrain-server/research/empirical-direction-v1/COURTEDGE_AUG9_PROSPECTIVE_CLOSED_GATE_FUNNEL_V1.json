@@ -1,0 +1,372 @@
+{
+  "reportId": "COURTEDGE_AUG9_PROSPECTIVE_CLOSED_GATE_FUNNEL_V1",
+  "slateDateCT": "2026-08-09",
+  "generatedAt": "2026-08-09T17:18:57.449Z",
+  "prospective": true,
+  "closedGate": {
+    "EMPIRICAL_DIRECTION_V1": true,
+    "championModel": "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+    "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+    "highBlockedFromOfficial": true,
+    "note": "No threshold/C2 changes. No second Odds refresh. No Aug 9 outcomes used for training."
+  },
+  "refresh": {
+    "endpoint": "POST /refresh-picks?wait=1&scope=today&includeNba=false&chainTomorrow=false",
+    "rawResponseFile": "_aug9_refresh_raw.json",
+    "ok": true,
+    "lastUpdated": "2026-08-09T17:16:52.645Z",
+    "credits": {
+      "reportedCreditCost": 12,
+      "providerCalls": 12,
+      "cacheHits": 1,
+      "cacheMisses": 12,
+      "byProvider": {
+        "the-odds-api": {
+          "providerCalls": 12,
+          "cacheHits": 1,
+          "reportedCreditCost": 12,
+          "creditCostKnown": true,
+          "usageHeadersAvailable": true
+        }
+      },
+      "byEndpointSummary": {
+        "FETCH ODDS EVENTS (WNBA)": {
+          "requestCount": 0,
+          "reportedCreditCost": 0,
+          "cacheHits": 1,
+          "usageHeaders": null
+        },
+        "FETCH POINT PROPS (WNBA)": {
+          "requestCount": 3,
+          "reportedCreditCost": 3,
+          "cacheHits": 0,
+          "usageHeaders": {
+            "requestsUsed": "5120",
+            "requestsRemaining": "14880",
+            "requestsLast": "1"
+          }
+        },
+        "FETCH GAME SPREADS (WNBA)": {
+          "requestCount": 6,
+          "reportedCreditCost": 6,
+          "cacheHits": 0,
+          "usageHeaders": {
+            "requestsUsed": "5122",
+            "requestsRemaining": "14878",
+            "requestsLast": "1"
+          }
+        },
+        "FETCH GAME TOTALS (WNBA)": {
+          "requestCount": 3,
+          "reportedCreditCost": 3,
+          "cacheHits": 0,
+          "usageHeaders": {
+            "requestsUsed": "5123",
+            "requestsRemaining": "14877",
+            "requestsLast": "1"
+          }
+        }
+      },
+      "NORMAL_FULL_REFRESH_REPORTED_CREDIT_COST": 12
+    }
+  },
+  "frozenPacket": {
+    "path": "research/empirical-safe-prop-v2/frozen-research-packets/2026-08-09__LATEST.json",
+    "siblingTimestamped": "research/empirical-safe-prop-v2/frozen-research-packets/2026-08-09__2026-08-09T17-16-38-803Z__research-packets.json",
+    "version": "research-packet-persist-v2",
+    "build": "courteedge-empirical-low-medium-prop-finder-v2",
+    "slateDateCT": "2026-08-09",
+    "frozenAt": "2026-08-09T17:16:38.803Z",
+    "packetCount": 18,
+    "officialCountField": 0,
+    "researchUniverse": {
+      "LOW": 0,
+      "MEDIUM": 3,
+      "HIGH": 15,
+      "Official": 3,
+      "researchOnly": 15,
+      "DIRECTION_OVER": 5,
+      "DIRECTION_UNDER": 0,
+      "NO_BET": 13
+    },
+    "meta": {
+      "source": "selectOfficialBoardFromProbabilitySafetyV1"
+    }
+  },
+  "funnel": {
+    "marketsScanned": 35,
+    "rawLines": 322,
+    "packetCount": 18,
+    "directionDecision": {
+      "NO_BET": 13,
+      "OVER": 5,
+      "UNDER": 0
+    },
+    "c2Risk": {
+      "LOW": 0,
+      "MEDIUM": 3,
+      "HIGH": 15
+    },
+    "officialEligible": 3,
+    "directedLowMedium": 3,
+    "directedHighResearchOnly": 2,
+    "noBetReasonsHistogram": {
+      "WEAK_EDGE": 7,
+      "UNDER_EDGE_BELOW_MIN": 3,
+      "LOW_RELIABILITY": 1,
+      "OVER_EDGE_BELOW_MIN": 2
+    },
+    "stages": [
+      {
+        "stage": "markets_scanned",
+        "count": 35
+      },
+      {
+        "stage": "raw_lines",
+        "count": 322
+      },
+      {
+        "stage": "research_packets",
+        "count": 18
+      },
+      {
+        "stage": "direction_NO_BET",
+        "count": 13
+      },
+      {
+        "stage": "direction_OVER",
+        "count": 5
+      },
+      {
+        "stage": "direction_UNDER",
+        "count": 0
+      },
+      {
+        "stage": "c2_LOW",
+        "count": 0
+      },
+      {
+        "stage": "c2_MEDIUM",
+        "count": 3
+      },
+      {
+        "stage": "c2_HIGH",
+        "count": 15
+      },
+      {
+        "stage": "officialEligible_true",
+        "count": 3,
+        "definition": "LOW+MEDIUM that passed direction (officialEligible)"
+      },
+      {
+        "stage": "directed_HIGH_research_only",
+        "count": 2
+      }
+    ]
+  },
+  "officialProps": [
+    {
+      "player": "DeWanna Bonner",
+      "team": "phoenixmercury",
+      "opponent": "washingtonmystics",
+      "game": "phoenixmercury vs washingtonmystics",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 9.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 13,
+      "edge": 3.5,
+      "rawP": 0.9064,
+      "reliability": 0.8578,
+      "safety": 74,
+      "pathway": "NONE",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    },
+    {
+      "player": "Shakira Austin",
+      "team": "washingtonmystics",
+      "opponent": "phoenixmercury",
+      "game": "washingtonmystics vs phoenixmercury",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 17.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 21,
+      "edge": 3.5,
+      "rawP": 0.7772,
+      "reliability": 0.7369,
+      "safety": 69,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    },
+    {
+      "player": "Dearica Hamby",
+      "team": "losangelessparks",
+      "opponent": "goldenstatevalkyries",
+      "game": "losangelessparks vs goldenstatevalkyries",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 12.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 17.3,
+      "edge": 4.8,
+      "rawP": 0.9202,
+      "reliability": 0.8984,
+      "safety": 72,
+      "pathway": "NONE",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    }
+  ],
+  "directedHighResearchOnly": [
+    {
+      "player": "Courtney Williams",
+      "team": "minnesotalynx",
+      "opponent": "dallaswings",
+      "game": "minnesotalynx vs dallaswings",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 12.5,
+      "risk": "HIGH",
+      "directionConfidence": "WEAK",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 15.2,
+      "edge": 2.7,
+      "rawP": 0.8112,
+      "reliability": 0.6339,
+      "safety": 67,
+      "pathway": "NONE",
+      "officialEligible": false,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "HIGH",
+      "bookCount": 5,
+      "marketQuality": 92
+    },
+    {
+      "player": "Olivia Miles",
+      "team": "minnesotalynx",
+      "opponent": "dallaswings",
+      "game": "minnesotalynx vs dallaswings",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 19.5,
+      "risk": "HIGH",
+      "directionConfidence": "WEAK",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 22,
+      "edge": 2.5,
+      "rawP": 0.7004,
+      "reliability": 0.5043,
+      "safety": 65,
+      "pathway": "NONE",
+      "officialEligible": false,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "HIGH",
+      "bookCount": 5,
+      "marketQuality": 92
+    }
+  ],
+  "directedLowMedium": [
+    {
+      "player": "DeWanna Bonner",
+      "team": "phoenixmercury",
+      "opponent": "washingtonmystics",
+      "game": "phoenixmercury vs washingtonmystics",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 9.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 13,
+      "edge": 3.5,
+      "rawP": 0.9064,
+      "reliability": 0.8578,
+      "safety": 74,
+      "pathway": "NONE",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    },
+    {
+      "player": "Shakira Austin",
+      "team": "washingtonmystics",
+      "opponent": "phoenixmercury",
+      "game": "washingtonmystics vs phoenixmercury",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 17.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 21,
+      "edge": 3.5,
+      "rawP": 0.7772,
+      "reliability": 0.7369,
+      "safety": 69,
+      "pathway": "GENERAL_HIGH_RELIABILITY",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    },
+    {
+      "player": "Dearica Hamby",
+      "team": "losangelessparks",
+      "opponent": "goldenstatevalkyries",
+      "game": "losangelessparks vs goldenstatevalkyries",
+      "side": "OVER",
+      "directionDecision": "OVER",
+      "line": 12.5,
+      "risk": "MEDIUM",
+      "directionConfidence": "STANDARD",
+      "directionReason": "OVER_PASS_MARKET_CONFLICT_SOFT",
+      "projection": 17.3,
+      "edge": 4.8,
+      "rawP": 0.9202,
+      "reliability": 0.8984,
+      "safety": 72,
+      "pathway": "NONE",
+      "officialEligible": true,
+      "blockedByDirectionNoBet": false,
+      "directionFreeze": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+      "v2Risk": "MEDIUM",
+      "bookCount": 5,
+      "marketQuality": 92
+    }
+  ],
+  "boardNote": {
+    "topWNBAOfficialPropsLength": 0,
+    "selectedPropsTodayWNBALength": 3,
+    "packetOfficialCountField": 0,
+    "packetResearchUniverseOfficial": 3,
+    "interpretation": "Official funnel uses packet officialEligible=true. Display board topWNBAOfficialProps may be empty / legacy selectedProps may differ; prospective closed-gate admission is packet-based."
+  }
+}

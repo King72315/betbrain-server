@@ -1,0 +1,1112 @@
+{
+  "studyId": "EMPIRICAL_DIRECTION_V2_RESCUE_STUDY_1",
+  "generatedAt": "2026-08-10T10:18:59.502Z",
+  "n": 189,
+  "note": "Study only — V1 remains production Direction authority. Rescue has kill-switch.",
+  "strictMissingFailurePaths": {
+    "v1": {
+      "overall": {
+        "n": 189,
+        "directed": 53,
+        "wins": 45,
+        "losses": 8,
+        "noBet": 136,
+        "winRate": 0.8490566037735849,
+        "coverage": 0.2804232804232804,
+        "record": "45-8"
+      },
+      "bySide": {
+        "OVER": {
+          "n": 85,
+          "directed": 32,
+          "wins": 25,
+          "losses": 7,
+          "noBet": 53,
+          "winRate": 0.78125,
+          "coverage": 0.3764705882352941,
+          "record": "25-7"
+        },
+        "UNDER": {
+          "n": 104,
+          "directed": 21,
+          "wins": 20,
+          "losses": 1,
+          "noBet": 83,
+          "winRate": 0.9523809523809523,
+          "coverage": 0.20192307692307693,
+          "record": "20-1"
+        }
+      }
+    },
+    "v2": {
+      "overall": {
+        "n": 189,
+        "directed": 20,
+        "wins": 17,
+        "losses": 3,
+        "noBet": 169,
+        "winRate": 0.85,
+        "coverage": 0.10582010582010581,
+        "record": "17-3"
+      },
+      "bySide": {
+        "OVER": {
+          "n": 85,
+          "directed": 10,
+          "wins": 7,
+          "losses": 3,
+          "noBet": 75,
+          "winRate": 0.7,
+          "coverage": 0.11764705882352941,
+          "record": "7-3"
+        },
+        "UNDER": {
+          "n": 104,
+          "directed": 10,
+          "wins": 10,
+          "losses": 0,
+          "noBet": 94,
+          "winRate": 1,
+          "coverage": 0.09615384615384616,
+          "record": "10-0"
+        }
+      },
+      "byAdmission": {
+        "PRIMARY": {
+          "n": 20,
+          "directed": 20,
+          "wins": 17,
+          "losses": 3,
+          "noBet": 0,
+          "winRate": 0.85,
+          "coverage": 1,
+          "record": "17-3"
+        },
+        "RESCUE": {
+          "n": 0,
+          "directed": 0,
+          "wins": 0,
+          "losses": 0,
+          "noBet": 0,
+          "winRate": null,
+          "coverage": null,
+          "record": "0-0"
+        },
+        "OVER_PRIMARY": {
+          "n": 10,
+          "directed": 10,
+          "wins": 7,
+          "losses": 3,
+          "noBet": 0,
+          "winRate": 0.7,
+          "coverage": 1,
+          "record": "7-3"
+        },
+        "UNDER_PRIMARY": {
+          "n": 10,
+          "directed": 10,
+          "wins": 10,
+          "losses": 0,
+          "noBet": 0,
+          "winRate": 1,
+          "coverage": 1,
+          "record": "10-0"
+        },
+        "OVER_RESCUE": {
+          "n": 0,
+          "directed": 0,
+          "wins": 0,
+          "losses": 0,
+          "noBet": 0,
+          "winRate": null,
+          "coverage": null,
+          "record": "0-0"
+        },
+        "UNDER_RESCUE": {
+          "n": 0,
+          "directed": 0,
+          "wins": 0,
+          "losses": 0,
+          "noBet": 0,
+          "winRate": null,
+          "coverage": null,
+          "record": "0-0"
+        }
+      }
+    },
+    "rescueCohort": {
+      "count": 0,
+      "record": {
+        "n": 0,
+        "directed": 0,
+        "wins": 0,
+        "losses": 0,
+        "noBet": 0,
+        "winRate": null,
+        "coverage": null,
+        "record": "0-0"
+      },
+      "rows": []
+    },
+    "missingDataPrimaryBlocked": {
+      "count": 11,
+      "rows": [
+        {
+          "player": "Veronica Burton",
+          "slateDateCT": "2026-08-03",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_ROLE_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": 0.9569,
+          "safety": 72
+        },
+        {
+          "player": "Kaila Charles",
+          "slateDateCT": "2026-08-03",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_ROLE_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": 0.9691,
+          "safety": 73
+        },
+        {
+          "player": "Caitlin Clark",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Breanna Stewart",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Ariel Atkins",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Chelsea Gray",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "A'ja Wilson",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Megan DiLeo",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Jackie Young",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "LOSS",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Brittney Griner",
+          "slateDateCT": "2026-07-20",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        }
+      ]
+    },
+    "nearMissPools": {
+      "underEdgeBand_2_5_to_4": {
+        "n": 13,
+        "record": {
+          "n": 13,
+          "wins": 4,
+          "losses": 9,
+          "winRate": 0.3076923076923077,
+          "record": "4-9"
+        },
+        "rescued": 0
+      },
+      "overEdgeBand_1_75_to_2_5": {
+        "n": 7,
+        "record": {
+          "n": 7,
+          "wins": 2,
+          "losses": 5,
+          "winRate": 0.2857142857142857,
+          "record": "2-5"
+        },
+        "rescued": 0
+      },
+      "overMarketConflictDemand": {
+        "n": 8,
+        "record": {
+          "n": 8,
+          "wins": 7,
+          "losses": 1,
+          "winRate": 0.875,
+          "record": "7-1"
+        },
+        "rescued": 0
+      }
+    }
+  },
+  "sensitivityNullFailurePathsAsZero": {
+    "v1": {
+      "overall": {
+        "n": 189,
+        "directed": 53,
+        "wins": 45,
+        "losses": 8,
+        "noBet": 136,
+        "winRate": 0.8490566037735849,
+        "coverage": 0.2804232804232804,
+        "record": "45-8"
+      },
+      "bySide": {
+        "OVER": {
+          "n": 85,
+          "directed": 32,
+          "wins": 25,
+          "losses": 7,
+          "noBet": 53,
+          "winRate": 0.78125,
+          "coverage": 0.3764705882352941,
+          "record": "25-7"
+        },
+        "UNDER": {
+          "n": 104,
+          "directed": 21,
+          "wins": 20,
+          "losses": 1,
+          "noBet": 83,
+          "winRate": 0.9523809523809523,
+          "coverage": 0.20192307692307693,
+          "record": "20-1"
+        }
+      }
+    },
+    "v2": {
+      "overall": {
+        "n": 189,
+        "directed": 32,
+        "wins": 24,
+        "losses": 8,
+        "noBet": 157,
+        "winRate": 0.75,
+        "coverage": 0.1693121693121693,
+        "record": "24-8"
+      },
+      "bySide": {
+        "OVER": {
+          "n": 85,
+          "directed": 19,
+          "wins": 13,
+          "losses": 6,
+          "noBet": 66,
+          "winRate": 0.6842105263157895,
+          "coverage": 0.2235294117647059,
+          "record": "13-6"
+        },
+        "UNDER": {
+          "n": 104,
+          "directed": 13,
+          "wins": 11,
+          "losses": 2,
+          "noBet": 91,
+          "winRate": 0.8461538461538461,
+          "coverage": 0.125,
+          "record": "11-2"
+        }
+      },
+      "byAdmission": {
+        "PRIMARY": {
+          "n": 20,
+          "directed": 20,
+          "wins": 17,
+          "losses": 3,
+          "noBet": 0,
+          "winRate": 0.85,
+          "coverage": 1,
+          "record": "17-3"
+        },
+        "RESCUE": {
+          "n": 12,
+          "directed": 12,
+          "wins": 7,
+          "losses": 5,
+          "noBet": 0,
+          "winRate": 0.5833333333333334,
+          "coverage": 1,
+          "record": "7-5"
+        },
+        "OVER_PRIMARY": {
+          "n": 10,
+          "directed": 10,
+          "wins": 7,
+          "losses": 3,
+          "noBet": 0,
+          "winRate": 0.7,
+          "coverage": 1,
+          "record": "7-3"
+        },
+        "UNDER_PRIMARY": {
+          "n": 10,
+          "directed": 10,
+          "wins": 10,
+          "losses": 0,
+          "noBet": 0,
+          "winRate": 1,
+          "coverage": 1,
+          "record": "10-0"
+        },
+        "OVER_RESCUE": {
+          "n": 9,
+          "directed": 9,
+          "wins": 6,
+          "losses": 3,
+          "noBet": 0,
+          "winRate": 0.6666666666666666,
+          "coverage": 1,
+          "record": "6-3"
+        },
+        "UNDER_RESCUE": {
+          "n": 3,
+          "directed": 3,
+          "wins": 1,
+          "losses": 2,
+          "noBet": 0,
+          "winRate": 0.3333333333333333,
+          "coverage": 1,
+          "record": "1-2"
+        }
+      }
+    },
+    "rescueCohort": {
+      "count": 12,
+      "record": {
+        "n": 12,
+        "directed": 0,
+        "wins": 0,
+        "losses": 0,
+        "noBet": 12,
+        "winRate": null,
+        "coverage": 0,
+        "record": "0-0"
+      },
+      "rows": [
+        {
+          "player": "Dominique Malonga",
+          "slateDateCT": "2026-07-17",
+          "side": "UNDER",
+          "result": "LOSS",
+          "directionalEdge": 2.5,
+          "fairDirectionalEdge": 2.5,
+          "reliability": 0.8683,
+          "roleStability": 72,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "UNDER_STRUCTURAL_RESCUE",
+          "reason": "UNDER_STRUCTURAL_RESCUE_PASS"
+        },
+        {
+          "player": "Isabelle Harrison",
+          "slateDateCT": "2026-07-17",
+          "side": "OVER",
+          "result": "LOSS",
+          "directionalEdge": 2.3000000000000007,
+          "fairDirectionalEdge": 2.5999999999999996,
+          "reliability": 0.8561,
+          "roleStability": 72,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_EDGE_RESCUE",
+          "reason": "OVER_EDGE_RESCUE_PASS"
+        },
+        {
+          "player": "Kelsey Mitchell",
+          "slateDateCT": "2026-07-22",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 4.800000000000001,
+          "fairDirectionalEdge": 6.5,
+          "reliability": 0.9515,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Kayla McBride",
+          "slateDateCT": "2026-07-22",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 6.800000000000001,
+          "fairDirectionalEdge": 9.8,
+          "reliability": 0.9879,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "A'ja Wilson",
+          "slateDateCT": "2026-07-22",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 2.5,
+          "fairDirectionalEdge": 2.1000000000000014,
+          "reliability": 0.8006,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Azura Stevens",
+          "slateDateCT": "2026-07-22",
+          "side": "OVER",
+          "result": "LOSS",
+          "directionalEdge": 2.9000000000000004,
+          "fairDirectionalEdge": 3.6999999999999993,
+          "reliability": 0.9263,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Kayla McBride",
+          "slateDateCT": "2026-07-28",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 6.399999999999999,
+          "fairDirectionalEdge": 9,
+          "reliability": 0.985,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Kelsey Mitchell",
+          "slateDateCT": "2026-07-28",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 3.8999999999999986,
+          "fairDirectionalEdge": 4.699999999999999,
+          "reliability": 0.9162,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Isabelle Harrison",
+          "slateDateCT": "2026-07-28",
+          "side": "OVER",
+          "result": "LOSS",
+          "directionalEdge": 2,
+          "fairDirectionalEdge": 2,
+          "reliability": 0.8212,
+          "roleStability": 72,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_EDGE_RESCUE",
+          "reason": "OVER_EDGE_RESCUE_PASS"
+        },
+        {
+          "player": "Arike Ogunbowale",
+          "slateDateCT": "2026-07-29",
+          "side": "OVER",
+          "result": "WIN",
+          "directionalEdge": 5,
+          "fairDirectionalEdge": 7.5,
+          "reliability": 0.9761,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "OVER_MARKET_CONFLICT_RESCUE",
+          "reason": "OVER_MARKET_CONFLICT_RESCUE_PASS"
+        },
+        {
+          "player": "Rhyne Howard",
+          "slateDateCT": "2026-07-29",
+          "side": "UNDER",
+          "result": "WIN",
+          "directionalEdge": 3.6999999999999993,
+          "fairDirectionalEdge": 6.6,
+          "reliability": 0.9605,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "UNDER_STRUCTURAL_RESCUE",
+          "reason": "UNDER_STRUCTURAL_RESCUE_PASS"
+        },
+        {
+          "player": "Veronica Burton",
+          "slateDateCT": "2026-07-29",
+          "side": "UNDER",
+          "result": "LOSS",
+          "directionalEdge": 2.5999999999999996,
+          "fairDirectionalEdge": 4,
+          "reliability": 0.938,
+          "roleStability": 80,
+          "expectedMinutes": 100,
+          "conflictIndex": 0,
+          "majorFailurePathCount": null,
+          "pathway": "UNDER_STRUCTURAL_RESCUE",
+          "reason": "UNDER_STRUCTURAL_RESCUE_PASS"
+        }
+      ]
+    },
+    "missingDataPrimaryBlocked": {
+      "count": 11,
+      "rows": [
+        {
+          "player": "Veronica Burton",
+          "slateDateCT": "2026-08-03",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_ROLE_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": 0.9569,
+          "safety": 72
+        },
+        {
+          "player": "Kaila Charles",
+          "slateDateCT": "2026-08-03",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_ROLE_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": 0.9691,
+          "safety": 73
+        },
+        {
+          "player": "Caitlin Clark",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Breanna Stewart",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Ariel Atkins",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Chelsea Gray",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "A'ja Wilson",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Megan DiLeo",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Jackie Young",
+          "slateDateCT": "2026-07-28",
+          "side": "UNDER",
+          "result": "LOSS",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        },
+        {
+          "player": "Brittney Griner",
+          "slateDateCT": "2026-07-20",
+          "side": "UNDER",
+          "result": "WIN",
+          "v1Reason": "UNDER_PASS",
+          "v2Reason": "UNDER_RELIABILITY_MISSING",
+          "roleStability": null,
+          "expectedMinutes": null,
+          "reliability": null,
+          "safety": null
+        }
+      ]
+    },
+    "nearMissPools": {
+      "underEdgeBand_2_5_to_4": {
+        "n": 13,
+        "record": {
+          "n": 13,
+          "wins": 4,
+          "losses": 9,
+          "winRate": 0.3076923076923077,
+          "record": "4-9"
+        },
+        "rescued": 3
+      },
+      "overEdgeBand_1_75_to_2_5": {
+        "n": 7,
+        "record": {
+          "n": 7,
+          "wins": 2,
+          "losses": 5,
+          "winRate": 0.2857142857142857,
+          "record": "2-5"
+        },
+        "rescued": 2
+      },
+      "overMarketConflictDemand": {
+        "n": 8,
+        "record": {
+          "n": 8,
+          "wins": 7,
+          "losses": 1,
+          "winRate": 0.875,
+          "record": "7-1"
+        },
+        "rescued": 7
+      }
+    }
+  },
+  "v1": {
+    "overall": {
+      "n": 189,
+      "directed": 53,
+      "wins": 45,
+      "losses": 8,
+      "noBet": 136,
+      "winRate": 0.8490566037735849,
+      "coverage": 0.2804232804232804,
+      "record": "45-8"
+    },
+    "bySide": {
+      "OVER": {
+        "n": 85,
+        "directed": 32,
+        "wins": 25,
+        "losses": 7,
+        "noBet": 53,
+        "winRate": 0.78125,
+        "coverage": 0.3764705882352941,
+        "record": "25-7"
+      },
+      "UNDER": {
+        "n": 104,
+        "directed": 21,
+        "wins": 20,
+        "losses": 1,
+        "noBet": 83,
+        "winRate": 0.9523809523809523,
+        "coverage": 0.20192307692307693,
+        "record": "20-1"
+      }
+    }
+  },
+  "v2": {
+    "overall": {
+      "n": 189,
+      "directed": 20,
+      "wins": 17,
+      "losses": 3,
+      "noBet": 169,
+      "winRate": 0.85,
+      "coverage": 0.10582010582010581,
+      "record": "17-3"
+    },
+    "bySide": {
+      "OVER": {
+        "n": 85,
+        "directed": 10,
+        "wins": 7,
+        "losses": 3,
+        "noBet": 75,
+        "winRate": 0.7,
+        "coverage": 0.11764705882352941,
+        "record": "7-3"
+      },
+      "UNDER": {
+        "n": 104,
+        "directed": 10,
+        "wins": 10,
+        "losses": 0,
+        "noBet": 94,
+        "winRate": 1,
+        "coverage": 0.09615384615384616,
+        "record": "10-0"
+      }
+    },
+    "byAdmission": {
+      "PRIMARY": {
+        "n": 20,
+        "directed": 20,
+        "wins": 17,
+        "losses": 3,
+        "noBet": 0,
+        "winRate": 0.85,
+        "coverage": 1,
+        "record": "17-3"
+      },
+      "RESCUE": {
+        "n": 0,
+        "directed": 0,
+        "wins": 0,
+        "losses": 0,
+        "noBet": 0,
+        "winRate": null,
+        "coverage": null,
+        "record": "0-0"
+      },
+      "OVER_PRIMARY": {
+        "n": 10,
+        "directed": 10,
+        "wins": 7,
+        "losses": 3,
+        "noBet": 0,
+        "winRate": 0.7,
+        "coverage": 1,
+        "record": "7-3"
+      },
+      "UNDER_PRIMARY": {
+        "n": 10,
+        "directed": 10,
+        "wins": 10,
+        "losses": 0,
+        "noBet": 0,
+        "winRate": 1,
+        "coverage": 1,
+        "record": "10-0"
+      },
+      "OVER_RESCUE": {
+        "n": 0,
+        "directed": 0,
+        "wins": 0,
+        "losses": 0,
+        "noBet": 0,
+        "winRate": null,
+        "coverage": null,
+        "record": "0-0"
+      },
+      "UNDER_RESCUE": {
+        "n": 0,
+        "directed": 0,
+        "wins": 0,
+        "losses": 0,
+        "noBet": 0,
+        "winRate": null,
+        "coverage": null,
+        "record": "0-0"
+      }
+    }
+  },
+  "rescueCohort": {
+    "count": 0,
+    "record": {
+      "n": 0,
+      "directed": 0,
+      "wins": 0,
+      "losses": 0,
+      "noBet": 0,
+      "winRate": null,
+      "coverage": null,
+      "record": "0-0"
+    },
+    "rows": []
+  },
+  "missingDataPrimaryBlocked": {
+    "count": 11,
+    "rows": [
+      {
+        "player": "Veronica Burton",
+        "slateDateCT": "2026-08-03",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_ROLE_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": 0.9569,
+        "safety": 72
+      },
+      {
+        "player": "Kaila Charles",
+        "slateDateCT": "2026-08-03",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_ROLE_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": 0.9691,
+        "safety": 73
+      },
+      {
+        "player": "Caitlin Clark",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Natisha Hiedeman",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Breanna Stewart",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Ariel Atkins",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Chelsea Gray",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "A'ja Wilson",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Megan DiLeo",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Jackie Young",
+        "slateDateCT": "2026-07-28",
+        "side": "UNDER",
+        "result": "LOSS",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      },
+      {
+        "player": "Brittney Griner",
+        "slateDateCT": "2026-07-20",
+        "side": "UNDER",
+        "result": "WIN",
+        "v1Reason": "UNDER_PASS",
+        "v2Reason": "UNDER_RELIABILITY_MISSING",
+        "roleStability": null,
+        "expectedMinutes": null,
+        "reliability": null,
+        "safety": null
+      }
+    ]
+  },
+  "interpretation": {
+    "primaryUntouchedIntent": "Primary OVER>=2.5 / UNDER>=4 preserved; rescue is separate measurable class",
+    "underRescueCaution": "UNDER 2.5–4.0 band in this sample is weak (~4-9). Rescue correctly refuses weak profiles; do not lower U4.",
+    "missingFailurePaths": "Strict mode treats null majorFailurePathCount as missing (blocks rescue). Sensitivity mode treats null as 0 for sparse historical rows only.",
+    "marketConflict": "V2 routes high marketQuality conflict Overs into corroboration demand instead of soft confidence labels",
+    "killSwitch": "If RESCUE W-L is poor, set DIRECTION_V2_RESCUE_ENABLED=false without touching primary gates",
+    "production": "Do not activate V2 Official until prospective shadow confirms rescue quality"
+  }
+}

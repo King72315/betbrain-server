@@ -47,10 +47,8 @@ async function run() {
   try {
     const src = readServerSource();
     assert.ok(
-      src.includes('SERVER_BUILD = "courteedge-filesystem-production-restored-v1"') ||
-        src.includes(
-          'const SERVER_BUILD = "courteedge-filesystem-production-restored-v1"'
-        )
+      /SERVER_BUILD\s*=\s*"courteedge-filesystem-production-restored-v1/.test(src),
+      "SERVER_BUILD must remain filesystem-production-restored family"
     );
     assert.ok(src.includes('persistenceMode: "FILESYSTEM_PRIMARY"'));
     assert.ok(src.includes('durableBackend: "filesystem"'));

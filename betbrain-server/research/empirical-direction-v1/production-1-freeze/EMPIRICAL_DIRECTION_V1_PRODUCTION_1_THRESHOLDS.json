@@ -1,0 +1,131 @@
+{
+  "freezeId": "EMPIRICAL_DIRECTION_V1_PRODUCTION_1",
+  "build": "courteedge-empirical-direction-v1-production-1",
+  "selectedCandidateId": "O2.5_U4_orna_ur0.45_EDGE_OR_REL_MISSING_EDGE",
+  "selectionScore": 0.9354607103636283,
+  "oos": {
+    "n": 168,
+    "directed": 47,
+    "wins": 43,
+    "losses": 4,
+    "noBet": 121,
+    "winRate": 0.9148936170212766,
+    "coverage": 0.27976190476190477,
+    "noBetRate": 0.7202380952380952,
+    "record": "43-4",
+    "avgUtility": 0.8024359838274933,
+    "foldCount": 13
+  },
+  "fullSample": {
+    "all": {
+      "n": 189,
+      "directed": 53,
+      "wins": 45,
+      "losses": 8,
+      "noBet": 136,
+      "winRate": 0.8490566037735849,
+      "coverage": 0.2804232804232804,
+      "noBetRate": 0.7195767195767195,
+      "falseDirectional": 8,
+      "avgAbsMargin": 2.8,
+      "byDecision": {
+        "OVER": {
+          "w": 25,
+          "l": 7
+        },
+        "UNDER": {
+          "w": 20,
+          "l": 1
+        }
+      },
+      "utility": 0.9169811320754718,
+      "record": "45-8"
+    },
+    "over": {
+      "n": 85,
+      "directed": 32,
+      "wins": 25,
+      "losses": 7,
+      "noBet": 53,
+      "winRate": 0.78125,
+      "coverage": 0.3764705882352941,
+      "noBetRate": 0.6235294117647059,
+      "falseDirectional": 7,
+      "avgAbsMargin": 4.277777777777778,
+      "byDecision": {
+        "OVER": {
+          "w": 25,
+          "l": 7
+        },
+        "UNDER": {
+          "w": 0,
+          "l": 0
+        }
+      },
+      "utility": 0.8496875,
+      "record": "25-7"
+    },
+    "under": {
+      "n": 104,
+      "directed": 21,
+      "wins": 20,
+      "losses": 1,
+      "noBet": 83,
+      "winRate": 0.9523809523809523,
+      "coverage": 0.20192307692307693,
+      "noBetRate": 0.7980769230769231,
+      "falseDirectional": 1,
+      "avgAbsMargin": 0.5833333333333334,
+      "byDecision": {
+        "OVER": {
+          "w": 0,
+          "l": 0
+        },
+        "UNDER": {
+          "w": 20,
+          "l": 1
+        }
+      },
+      "utility": 0.8189056776556777,
+      "record": "20-1"
+    }
+  },
+  "thresholds": {
+    "noBet": {
+      "mode": "EDGE_OR_REL_MISSING_EDGE",
+      "edgeFloor": 1,
+      "reliabilityFloor": 0.45
+    },
+    "over": {
+      "minEdge": 2.5,
+      "strongEdge": 3.5,
+      "minFairEdge": 2,
+      "requireFairConfirm": false,
+      "minReliability": null,
+      "strongReliability": 0.7,
+      "minSafety": 65,
+      "marketConflict": {
+        "enabled": true,
+        "minEdge": 2,
+        "marketQualityFloor": 85,
+        "minBooks": 4
+      }
+    },
+    "under": {
+      "minEdge": 4,
+      "strongEdge": 4,
+      "minReliability": 0.45,
+      "minSafety": 65,
+      "minRoleStability": 60,
+      "minMinutes": 20
+    }
+  },
+  "philosophy": {
+    "directionAnswers": "Which side, if any, should CourtEdge predict?",
+    "c2Answers": "Is this safe enough for Official?",
+    "maximize": "NOT raw win rate alone — balance accuracy + useful coverage",
+    "overVsUnder": "Under requires stricter structural evidence",
+    "marketQuality": "Interaction soft penalty on Overs, not hard veto",
+    "aug9": "HOLD — do not tune after Aug 9 outcomes"
+  }
+}

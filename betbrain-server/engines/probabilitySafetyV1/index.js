@@ -22,9 +22,11 @@ export {
 } from "./propSafetyEngineV1.js";
 export {
   evaluateSideForecastPacketV1,
+  applyMembershipRiskToSidePacketV1,
   buildCanonicalPlayerForecastPacketV1,
-  buildResearchUniverseV1,
   selectOfficialBoardFromProbabilitySafetyV1,
+  buildResearchUniverseV1,
   buildPropCorrelationAuditV1,
   buildRiskExplanationV1,
+  resolveOfficialDisplayMetaV1,
 } from "./canonicalPlayerForecastPacketV1.js";

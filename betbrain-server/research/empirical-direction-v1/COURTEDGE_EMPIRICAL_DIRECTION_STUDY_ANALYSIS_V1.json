@@ -1,0 +1,1167 @@
+{
+  "study": "courteedge-empirical-direction-calibration-study-v1",
+  "generatedAt": "2026-08-09T16:41:36.114Z",
+  "exclusions": [
+    "2026-08-05",
+    "2026-08-07",
+    "2026-08-09"
+  ],
+  "policy": {
+    "aug9": "HOLD_PROSPECTIVE_DO_NOT_TRAIN",
+    "aug5": "EXCLUDED_CONTAMINATED",
+    "aug7": "EXCLUDED_PROSPECTIVE_HOLDOUT",
+    "c2": "UNCHANGED",
+    "productionDirectionEngine": "NOT_BUILT_YET"
+  },
+  "inputs": {
+    "aug8Path": "research/empirical-safe-prop-v2/aug8-graded/COURTEDGE_AUG8_FROZEN_RESEARCH_GRADED_V1.json",
+    "aug8Count": 18,
+    "aug8Record": {
+      "win": 8,
+      "loss": 10,
+      "push": 0,
+      "failed": 0
+    },
+    "expandedCount": 171,
+    "rejectedCount": 126
+  },
+  "universe": {
+    "normalizedRaw": 315,
+    "studyEligibleDeduped": 189,
+    "over": {
+      "side": "OVER",
+      "n": 85,
+      "wins": 51,
+      "losses": 34,
+      "winRate": 0.6
+    },
+    "under": {
+      "side": "UNDER",
+      "n": 104,
+      "wins": 54,
+      "losses": 50,
+      "winRate": 0.5192
+    },
+    "overallWinRate": 0.5556,
+    "bySource": {
+      "AUG8_FROZEN_RESEARCH_GRADED": 18,
+      "V2_EXPANDED_MODEL_READY": 57,
+      "V2_REJECTED_GRADED": 114
+    },
+    "bySlate": {
+      "2026-07-15": {
+        "n": 18,
+        "w": 7,
+        "l": 11
+      },
+      "2026-07-16": {
+        "n": 3,
+        "w": 0,
+        "l": 3
+      },
+      "2026-07-17": {
+        "n": 6,
+        "w": 3,
+        "l": 3
+      },
+      "2026-07-19": {
+        "n": 11,
+        "w": 6,
+        "l": 5
+      },
+      "2026-07-20": {
+        "n": 53,
+        "w": 30,
+        "l": 23
+      },
+      "2026-07-22": {
+        "n": 21,
+        "w": 9,
+        "l": 12
+      },
+      "2026-07-28": {
+        "n": 14,
+        "w": 11,
+        "l": 3
+      },
+      "2026-07-29": {
+        "n": 6,
+        "w": 3,
+        "l": 3
+      },
+      "2026-07-30": {
+        "n": 3,
+        "w": 2,
+        "l": 1
+      },
+      "2026-07-31": {
+        "n": 6,
+        "w": 6,
+        "l": 0
+      },
+      "2026-08-01": {
+        "n": 6,
+        "w": 6,
+        "l": 0
+      },
+      "2026-08-02": {
+        "n": 6,
+        "w": 6,
+        "l": 0
+      },
+      "2026-08-03": {
+        "n": 17,
+        "w": 8,
+        "l": 9
+      },
+      "2026-08-06": {
+        "n": 1,
+        "w": 0,
+        "l": 1
+      },
+      "2026-08-08": {
+        "n": 18,
+        "w": 8,
+        "l": 10
+      }
+    },
+    "signalRichness": {
+      "FULL_V2_PACKET": 18,
+      "REPLAY_V2": 57,
+      "PARTIAL": 114
+    }
+  },
+  "cohorts": {
+    "OVER_WIN": 51,
+    "OVER_LOSS": 34,
+    "UNDER_WIN": 54,
+    "UNDER_LOSS": 50
+  },
+  "separation": {
+    "overWinVsOverLoss": {
+      "directionalEdge": {
+        "win": {
+          "n": 51,
+          "mean": 2.649,
+          "median": 1.8
+        },
+        "loss": {
+          "n": 34,
+          "mean": 1.5088,
+          "median": 1.1
+        },
+        "deltaWinMinusLoss": 1.1402,
+        "separates": "DIRECTIONAL"
+      },
+      "fairDirectionalEdge": {
+        "win": {
+          "n": 37,
+          "mean": 3.8649,
+          "median": 2.8
+        },
+        "loss": {
+          "n": 21,
+          "mean": 1.7571,
+          "median": 1.8
+        },
+        "deltaWinMinusLoss": 2.1078,
+        "separates": "DIRECTIONAL"
+      },
+      "edge": {
+        "win": {
+          "n": 19,
+          "mean": 4.0632,
+          "median": 3.6
+        },
+        "loss": {
+          "n": 9,
+          "mean": 2.5111,
+          "median": 2.3
+        },
+        "deltaWinMinusLoss": 1.5521,
+        "separates": "DIRECTIONAL"
+      },
+      "rawP": {
+        "win": {
+          "n": 19,
+          "mean": 0.8022,
+          "median": 0.789
+        },
+        "loss": {
+          "n": 9,
+          "mean": 0.754,
+          "median": 0.805
+        },
+        "deltaWinMinusLoss": 0.0482,
+        "separates": "WEAK"
+      },
+      "reliability": {
+        "win": {
+          "n": 19,
+          "mean": 0.7766,
+          "median": 0.9162
+        },
+        "loss": {
+          "n": 9,
+          "mean": 0.6987,
+          "median": 0.8561
+        },
+        "deltaWinMinusLoss": 0.0779,
+        "separates": "DIRECTIONAL"
+      },
+      "safety": {
+        "win": {
+          "n": 19,
+          "mean": 78.8947,
+          "median": 84
+        },
+        "loss": {
+          "n": 9,
+          "mean": 73.1111,
+          "median": 82
+        },
+        "deltaWinMinusLoss": 5.7836,
+        "separates": "DIRECTIONAL"
+      },
+      "trust": {
+        "win": {
+          "n": 5,
+          "mean": 41.4,
+          "median": 36
+        },
+        "loss": {
+          "n": 2,
+          "mean": 22,
+          "median": 22
+        },
+        "deltaWinMinusLoss": 19.4,
+        "separates": "INSUFFICIENT_N"
+      },
+      "expectedMinutes": {
+        "win": {
+          "n": 18,
+          "mean": 80.6444,
+          "median": 100
+        },
+        "loss": {
+          "n": 7,
+          "mean": 80.3143,
+          "median": 100
+        },
+        "deltaWinMinusLoss": 0.3301,
+        "separates": "MODEST"
+      },
+      "avgMinutesL5": {
+        "win": {
+          "n": 34,
+          "mean": 29.5765,
+          "median": 30.9
+        },
+        "loss": {
+          "n": 24,
+          "mean": 29.5917,
+          "median": 30.5
+        },
+        "deltaWinMinusLoss": -0.0152,
+        "separates": "WEAK"
+      },
+      "roleStability": {
+        "win": {
+          "n": 18,
+          "mean": 72.7778,
+          "median": 80
+        },
+        "loss": {
+          "n": 7,
+          "mean": 72.5714,
+          "median": 72
+        },
+        "deltaWinMinusLoss": 0.2064,
+        "separates": "MODEST"
+      },
+      "marketQuality": {
+        "win": {
+          "n": 18,
+          "mean": 79.8889,
+          "median": 92
+        },
+        "loss": {
+          "n": 7,
+          "mean": 86,
+          "median": 92
+        },
+        "deltaWinMinusLoss": -6.1111,
+        "separates": "DIRECTIONAL"
+      },
+      "bookCount": {
+        "win": {
+          "n": 44,
+          "mean": 2.9318,
+          "median": 3
+        },
+        "loss": {
+          "n": 29,
+          "mean": 3.5862,
+          "median": 4
+        },
+        "deltaWinMinusLoss": -0.6544,
+        "separates": "DIRECTIONAL"
+      },
+      "conflictIndex": {
+        "win": {
+          "n": 19,
+          "mean": 4.9474,
+          "median": 0
+        },
+        "loss": {
+          "n": 9,
+          "mean": 6.7778,
+          "median": 0
+        },
+        "deltaWinMinusLoss": -1.8304,
+        "separates": "DIRECTIONAL"
+      },
+      "majorFailurePathCount": {
+        "win": {
+          "n": 5,
+          "mean": 1,
+          "median": 1
+        },
+        "loss": {
+          "n": 2,
+          "mean": 1,
+          "median": 1
+        },
+        "deltaWinMinusLoss": 0,
+        "separates": "INSUFFICIENT_N"
+      },
+      "expectedFGA": {
+        "win": {
+          "n": 34,
+          "mean": 13.4088,
+          "median": 13.5
+        },
+        "loss": {
+          "n": 24,
+          "mean": 12.6333,
+          "median": 12.65
+        },
+        "deltaWinMinusLoss": 0.7755,
+        "separates": "DIRECTIONAL"
+      },
+      "avgPointsL5": {
+        "win": {
+          "n": 31,
+          "mean": 19.1548,
+          "median": 17.6
+        },
+        "loss": {
+          "n": 19,
+          "mean": 14.8421,
+          "median": 14.4
+        },
+        "deltaWinMinusLoss": 4.3127,
+        "separates": "DIRECTIONAL"
+      }
+    },
+    "underWinVsUnderLoss": {
+      "directionalEdge": {
+        "win": {
+          "n": 54,
+          "mean": 3.5889,
+          "median": 2.3
+        },
+        "loss": {
+          "n": 50,
+          "mean": 1.19,
+          "median": 1.2
+        },
+        "deltaWinMinusLoss": 2.3989,
+        "separates": "DIRECTIONAL"
+      },
+      "fairDirectionalEdge": {
+        "win": {
+          "n": 47,
+          "mean": 3.9532,
+          "median": 3.2
+        },
+        "loss": {
+          "n": 34,
+          "mean": 1.3176,
+          "median": 1
+        },
+        "deltaWinMinusLoss": 2.6356,
+        "separates": "DIRECTIONAL"
+      },
+      "edge": {
+        "win": {
+          "n": 28,
+          "mean": 3.6286,
+          "median": 2.7
+        },
+        "loss": {
+          "n": 19,
+          "mean": 1.4263,
+          "median": 1.4
+        },
+        "deltaWinMinusLoss": 2.2023,
+        "separates": "DIRECTIONAL"
+      },
+      "rawP": {
+        "win": {
+          "n": 28,
+          "mean": 0.8292,
+          "median": 0.8534
+        },
+        "loss": {
+          "n": 19,
+          "mean": 0.7268,
+          "median": 0.7985
+        },
+        "deltaWinMinusLoss": 0.1024,
+        "separates": "DIRECTIONAL"
+      },
+      "reliability": {
+        "win": {
+          "n": 28,
+          "mean": 0.7722,
+          "median": 0.892
+        },
+        "loss": {
+          "n": 19,
+          "mean": 0.5097,
+          "median": 0.4985
+        },
+        "deltaWinMinusLoss": 0.2625,
+        "separates": "DIRECTIONAL"
+      },
+      "safety": {
+        "win": {
+          "n": 28,
+          "mean": 75.9643,
+          "median": 83
+        },
+        "loss": {
+          "n": 19,
+          "mean": 68.6842,
+          "median": 69
+        },
+        "deltaWinMinusLoss": 7.2801,
+        "separates": "DIRECTIONAL"
+      },
+      "trust": {
+        "win": {
+          "n": 3,
+          "mean": 36,
+          "median": 37
+        },
+        "loss": {
+          "n": 8,
+          "mean": 34.75,
+          "median": 36.5
+        },
+        "deltaWinMinusLoss": 1.25,
+        "separates": "INSUFFICIENT_N"
+      },
+      "expectedMinutes": {
+        "win": {
+          "n": 25,
+          "mean": 90.928,
+          "median": 100
+        },
+        "loss": {
+          "n": 18,
+          "mean": 66.0889,
+          "median": 92.5
+        },
+        "deltaWinMinusLoss": 24.8391,
+        "separates": "DIRECTIONAL"
+      },
+      "avgMinutesL5": {
+        "win": {
+          "n": 45,
+          "mean": 28.0622,
+          "median": 28.6
+        },
+        "loss": {
+          "n": 32,
+          "mean": 27.075,
+          "median": 27.8
+        },
+        "deltaWinMinusLoss": 0.9872,
+        "separates": "DIRECTIONAL"
+      },
+      "roleStability": {
+        "win": {
+          "n": 25,
+          "mean": 74.64,
+          "median": 80
+        },
+        "loss": {
+          "n": 18,
+          "mean": 65.2222,
+          "median": 62
+        },
+        "deltaWinMinusLoss": 9.4178,
+        "separates": "DIRECTIONAL"
+      },
+      "marketQuality": {
+        "win": {
+          "n": 25,
+          "mean": 59.76,
+          "median": 58
+        },
+        "loss": {
+          "n": 18,
+          "mean": 88.8889,
+          "median": 92
+        },
+        "deltaWinMinusLoss": -29.1289,
+        "separates": "DIRECTIONAL"
+      },
+      "bookCount": {
+        "win": {
+          "n": 49,
+          "mean": 2.2245,
+          "median": 2
+        },
+        "loss": {
+          "n": 41,
+          "mean": 3.6585,
+          "median": 4
+        },
+        "deltaWinMinusLoss": -1.434,
+        "separates": "DIRECTIONAL"
+      },
+      "conflictIndex": {
+        "win": {
+          "n": 28,
+          "mean": 10.1786,
+          "median": 8
+        },
+        "loss": {
+          "n": 19,
+          "mean": 14.3158,
+          "median": 13
+        },
+        "deltaWinMinusLoss": -4.1372,
+        "separates": "DIRECTIONAL"
+      },
+      "majorFailurePathCount": {
+        "win": {
+          "n": 3,
+          "mean": 1.3333,
+          "median": 1
+        },
+        "loss": {
+          "n": 8,
+          "mean": 1.125,
+          "median": 1
+        },
+        "deltaWinMinusLoss": 0.2083,
+        "separates": "INSUFFICIENT_N"
+      },
+      "expectedFGA": {
+        "win": {
+          "n": 45,
+          "mean": 9.6867,
+          "median": 9.9
+        },
+        "loss": {
+          "n": 32,
+          "mean": 9.3625,
+          "median": 10.1
+        },
+        "deltaWinMinusLoss": 0.3242,
+        "separates": "MODEST"
+      },
+      "avgPointsL5": {
+        "win": {
+          "n": 41,
+          "mean": 12.4,
+          "median": 12.2
+        },
+        "loss": {
+          "n": 26,
+          "mean": 12,
+          "median": 12.7
+        },
+        "deltaWinMinusLoss": 0.4,
+        "separates": "MODEST"
+      }
+    }
+  },
+  "buckets": {
+    "overDirectionalEdge": [
+      {
+        "range": "[-99, 0)",
+        "n": 5,
+        "winRate": 0.4,
+        "wins": 2,
+        "losses": 3
+      },
+      {
+        "range": "[0, 1)",
+        "n": 22,
+        "winRate": 0.4091,
+        "wins": 9,
+        "losses": 13
+      },
+      {
+        "range": "[1, 1.5)",
+        "n": 8,
+        "winRate": 0.625,
+        "wins": 5,
+        "losses": 3
+      },
+      {
+        "range": "[1.5, 2.5)",
+        "n": 18,
+        "winRate": 0.5556,
+        "wins": 10,
+        "losses": 8
+      },
+      {
+        "range": "[2.5, 4)",
+        "n": 18,
+        "winRate": 0.7778,
+        "wins": 14,
+        "losses": 4
+      },
+      {
+        "range": "[4, 99)",
+        "n": 14,
+        "winRate": 0.7857,
+        "wins": 11,
+        "losses": 3
+      }
+    ],
+    "underDirectionalEdge": [
+      {
+        "range": "[-99, 0)",
+        "n": 14,
+        "winRate": 0.2143,
+        "wins": 3,
+        "losses": 11
+      },
+      {
+        "range": "[0, 1)",
+        "n": 19,
+        "winRate": 0.4211,
+        "wins": 8,
+        "losses": 11
+      },
+      {
+        "range": "[1, 1.5)",
+        "n": 18,
+        "winRate": 0.5,
+        "wins": 9,
+        "losses": 9
+      },
+      {
+        "range": "[1.5, 2.5)",
+        "n": 19,
+        "winRate": 0.5263,
+        "wins": 10,
+        "losses": 9
+      },
+      {
+        "range": "[2.5, 4)",
+        "n": 13,
+        "winRate": 0.3077,
+        "wins": 4,
+        "losses": 9
+      },
+      {
+        "range": "[4, 99)",
+        "n": 21,
+        "winRate": 0.9524,
+        "wins": 20,
+        "losses": 1
+      }
+    ],
+    "overReliability": [
+      {
+        "range": "[0, 0.35)",
+        "n": 6,
+        "winRate": 0.6667,
+        "wins": 4,
+        "losses": 2
+      },
+      {
+        "range": "[0.35, 0.45)",
+        "n": 0,
+        "winRate": null,
+        "wins": 0,
+        "losses": 0
+      },
+      {
+        "range": "[0.45, 0.55)",
+        "n": 0,
+        "winRate": null,
+        "wins": 0,
+        "losses": 0
+      },
+      {
+        "range": "[0.55, 0.65)",
+        "n": 0,
+        "winRate": null,
+        "wins": 0,
+        "losses": 0
+      },
+      {
+        "range": "[0.65, 0.75)",
+        "n": 3,
+        "winRate": 0.6667,
+        "wins": 2,
+        "losses": 1
+      },
+      {
+        "range": "[0.75, 1.01)",
+        "n": 19,
+        "winRate": 0.6842,
+        "wins": 13,
+        "losses": 6
+      }
+    ],
+    "underReliability": [
+      {
+        "range": "[0, 0.35)",
+        "n": 11,
+        "winRate": 0.2727,
+        "wins": 3,
+        "losses": 8
+      },
+      {
+        "range": "[0.35, 0.45)",
+        "n": 2,
+        "winRate": 0.5,
+        "wins": 1,
+        "losses": 1
+      },
+      {
+        "range": "[0.45, 0.55)",
+        "n": 1,
+        "winRate": 0,
+        "wins": 0,
+        "losses": 1
+      },
+      {
+        "range": "[0.55, 0.65)",
+        "n": 4,
+        "winRate": 0.5,
+        "wins": 2,
+        "losses": 2
+      },
+      {
+        "range": "[0.65, 0.75)",
+        "n": 1,
+        "winRate": 1,
+        "wins": 1,
+        "losses": 0
+      },
+      {
+        "range": "[0.75, 1.01)",
+        "n": 28,
+        "winRate": 0.75,
+        "wins": 21,
+        "losses": 7
+      }
+    ],
+    "allConflict": [
+      {
+        "range": "[0, 15)",
+        "n": 58,
+        "winRate": 0.6897,
+        "wins": 40,
+        "losses": 18
+      },
+      {
+        "range": "[15, 25)",
+        "n": 10,
+        "winRate": 0.4,
+        "wins": 4,
+        "losses": 6
+      },
+      {
+        "range": "[25, 40)",
+        "n": 2,
+        "winRate": 0,
+        "wins": 0,
+        "losses": 2
+      },
+      {
+        "range": "[40, 60)",
+        "n": 5,
+        "winRate": 0.6,
+        "wins": 3,
+        "losses": 2
+      },
+      {
+        "range": "[60, 999)",
+        "n": 0,
+        "winRate": null,
+        "wins": 0,
+        "losses": 0
+      }
+    ]
+  },
+  "noBetRuleCandidates": [
+    {
+      "id": "NO_BET_WEAK_DIRECTIONAL_EDGE",
+      "evidence": {
+        "overWinRateEdgeLt1": 0.4074,
+        "overWinRateEdgeGe2": 0.6757,
+        "nLow": 27,
+        "nHigh": 37
+      },
+      "recommendation": "When |directionalEdge| < 1.0, prefer NO BET unless other strong side evidence agrees."
+    },
+    {
+      "id": "NO_BET_LOW_RELIABILITY",
+      "evidence": {
+        "lowRelWinRate": 0.4211,
+        "highRelWinRate": 0.7255,
+        "nLow": 19,
+        "nHigh": 51
+      },
+      "recommendation": "reliability < 0.45 → NO BET candidate; C2 should not see forced weak directions."
+    }
+  ],
+  "topSeparatingSignals": {
+    "over": [
+      {
+        "feature": "marketQuality",
+        "win": {
+          "n": 18,
+          "mean": 79.8889,
+          "median": 92
+        },
+        "loss": {
+          "n": 7,
+          "mean": 86,
+          "median": 92
+        },
+        "deltaWinMinusLoss": -6.1111,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "safety",
+        "win": {
+          "n": 19,
+          "mean": 78.8947,
+          "median": 84
+        },
+        "loss": {
+          "n": 9,
+          "mean": 73.1111,
+          "median": 82
+        },
+        "deltaWinMinusLoss": 5.7836,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "avgPointsL5",
+        "win": {
+          "n": 31,
+          "mean": 19.1548,
+          "median": 17.6
+        },
+        "loss": {
+          "n": 19,
+          "mean": 14.8421,
+          "median": 14.4
+        },
+        "deltaWinMinusLoss": 4.3127,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "fairDirectionalEdge",
+        "win": {
+          "n": 37,
+          "mean": 3.8649,
+          "median": 2.8
+        },
+        "loss": {
+          "n": 21,
+          "mean": 1.7571,
+          "median": 1.8
+        },
+        "deltaWinMinusLoss": 2.1078,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "conflictIndex",
+        "win": {
+          "n": 19,
+          "mean": 4.9474,
+          "median": 0
+        },
+        "loss": {
+          "n": 9,
+          "mean": 6.7778,
+          "median": 0
+        },
+        "deltaWinMinusLoss": -1.8304,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "edge",
+        "win": {
+          "n": 19,
+          "mean": 4.0632,
+          "median": 3.6
+        },
+        "loss": {
+          "n": 9,
+          "mean": 2.5111,
+          "median": 2.3
+        },
+        "deltaWinMinusLoss": 1.5521,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "directionalEdge",
+        "win": {
+          "n": 51,
+          "mean": 2.649,
+          "median": 1.8
+        },
+        "loss": {
+          "n": 34,
+          "mean": 1.5088,
+          "median": 1.1
+        },
+        "deltaWinMinusLoss": 1.1402,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "expectedFGA",
+        "win": {
+          "n": 34,
+          "mean": 13.4088,
+          "median": 13.5
+        },
+        "loss": {
+          "n": 24,
+          "mean": 12.6333,
+          "median": 12.65
+        },
+        "deltaWinMinusLoss": 0.7755,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "bookCount",
+        "win": {
+          "n": 44,
+          "mean": 2.9318,
+          "median": 3
+        },
+        "loss": {
+          "n": 29,
+          "mean": 3.5862,
+          "median": 4
+        },
+        "deltaWinMinusLoss": -0.6544,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "reliability",
+        "win": {
+          "n": 19,
+          "mean": 0.7766,
+          "median": 0.9162
+        },
+        "loss": {
+          "n": 9,
+          "mean": 0.6987,
+          "median": 0.8561
+        },
+        "deltaWinMinusLoss": 0.0779,
+        "separates": "DIRECTIONAL"
+      }
+    ],
+    "under": [
+      {
+        "feature": "marketQuality",
+        "win": {
+          "n": 25,
+          "mean": 59.76,
+          "median": 58
+        },
+        "loss": {
+          "n": 18,
+          "mean": 88.8889,
+          "median": 92
+        },
+        "deltaWinMinusLoss": -29.1289,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "expectedMinutes",
+        "win": {
+          "n": 25,
+          "mean": 90.928,
+          "median": 100
+        },
+        "loss": {
+          "n": 18,
+          "mean": 66.0889,
+          "median": 92.5
+        },
+        "deltaWinMinusLoss": 24.8391,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "roleStability",
+        "win": {
+          "n": 25,
+          "mean": 74.64,
+          "median": 80
+        },
+        "loss": {
+          "n": 18,
+          "mean": 65.2222,
+          "median": 62
+        },
+        "deltaWinMinusLoss": 9.4178,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "safety",
+        "win": {
+          "n": 28,
+          "mean": 75.9643,
+          "median": 83
+        },
+        "loss": {
+          "n": 19,
+          "mean": 68.6842,
+          "median": 69
+        },
+        "deltaWinMinusLoss": 7.2801,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "conflictIndex",
+        "win": {
+          "n": 28,
+          "mean": 10.1786,
+          "median": 8
+        },
+        "loss": {
+          "n": 19,
+          "mean": 14.3158,
+          "median": 13
+        },
+        "deltaWinMinusLoss": -4.1372,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "fairDirectionalEdge",
+        "win": {
+          "n": 47,
+          "mean": 3.9532,
+          "median": 3.2
+        },
+        "loss": {
+          "n": 34,
+          "mean": 1.3176,
+          "median": 1
+        },
+        "deltaWinMinusLoss": 2.6356,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "directionalEdge",
+        "win": {
+          "n": 54,
+          "mean": 3.5889,
+          "median": 2.3
+        },
+        "loss": {
+          "n": 50,
+          "mean": 1.19,
+          "median": 1.2
+        },
+        "deltaWinMinusLoss": 2.3989,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "edge",
+        "win": {
+          "n": 28,
+          "mean": 3.6286,
+          "median": 2.7
+        },
+        "loss": {
+          "n": 19,
+          "mean": 1.4263,
+          "median": 1.4
+        },
+        "deltaWinMinusLoss": 2.2023,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "bookCount",
+        "win": {
+          "n": 49,
+          "mean": 2.2245,
+          "median": 2
+        },
+        "loss": {
+          "n": 41,
+          "mean": 3.6585,
+          "median": 4
+        },
+        "deltaWinMinusLoss": -1.434,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "avgMinutesL5",
+        "win": {
+          "n": 45,
+          "mean": 28.0622,
+          "median": 28.6
+        },
+        "loss": {
+          "n": 32,
+          "mean": 27.075,
+          "median": 27.8
+        },
+        "deltaWinMinusLoss": 0.9872,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "reliability",
+        "win": {
+          "n": 28,
+          "mean": 0.7722,
+          "median": 0.892
+        },
+        "loss": {
+          "n": 19,
+          "mean": 0.5097,
+          "median": 0.4985
+        },
+        "deltaWinMinusLoss": 0.2625,
+        "separates": "DIRECTIONAL"
+      },
+      {
+        "feature": "rawP",
+        "win": {
+          "n": 28,
+          "mean": 0.8292,
+          "median": 0.8534
+        },
+        "loss": {
+          "n": 19,
+          "mean": 0.7268,
+          "median": 0.7985
+        },
+        "deltaWinMinusLoss": 0.1024,
+        "separates": "DIRECTIONAL"
+      }
+    ]
+  }
+}

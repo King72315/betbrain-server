@@ -163,10 +163,12 @@ test("11 Multi-book scores above single-book", () => {
   assert.ok(multi.marketQualityScore > single.marketQualityScore);
 });
 
-test("12 Single-book prevents LOW", () => {
+test("12 Single-book prevents LOW (V1 membership)", () => {
+  // C2 deliberately allows thin-market strong-edge recognition; this assertion
+  // is the V1 giant-AND behavior only.
   const pkt = buildCanonicalPlayerForecastPacketV1(
     { ...basePick, bookCount: 1 },
-    { seed: 11 }
+    { seed: 11, empiricalSafePropV2: false, empiricalDirectionV1: false }
   );
   assert.notStrictEqual(pkt.risk.risk, "LOW");
 });

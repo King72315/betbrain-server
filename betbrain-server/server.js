@@ -79,6 +79,10 @@ import {
   computeCalibrationHashV2,
 } from "./engines/empiricalSafePropV2/index.js";
 import {
+  EMPIRICAL_DIRECTION_V1,
+  EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
+} from "./engines/empiricalDirectionV1/index.js";
+import {
   buildSlateIntegrityPacket,
   MEMBERSHIP_INTEGRITY_BUILD,
   readIncidentManifestExists,
@@ -399,7 +403,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-filesystem-production-restored-v1-pregame-unlock";
+  "courteedge-direction-c2-display-meta-v1";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -3863,7 +3867,10 @@ app.get("/health", (req, res) => {
     port: Number(CONFIG.PORT || process.env.PORT || 3000),
     environment: process.env.NODE_ENV || checkConfig()?.environment || "development",
     featureFlagsBuild: FEATURE_FLAGS_BUILD,
-    featureFlags: getCourtEdgeFeatureFlagSnapshot(),
+    featureFlags: {
+      ...getCourtEdgeFeatureFlagSnapshot(),
+      EMPIRICAL_DIRECTION_V1,
+    },
     championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
     calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
     empiricalSafePropV2: {
@@ -3883,6 +3890,12 @@ app.get("/health", (req, res) => {
         CALIBRATION_2_CHAMPION_LOCK?.prospectiveLockedSlateDates || [
           "2026-08-07",
         ],
+      noTuning: true,
+    },
+    empiricalDirectionV1: {
+      enabled: EMPIRICAL_DIRECTION_V1 === true,
+      productionFreeze: EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
+      pipelineOrder: "DIRECTION_THEN_C2",
       noTuning: true,
     },
     membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,

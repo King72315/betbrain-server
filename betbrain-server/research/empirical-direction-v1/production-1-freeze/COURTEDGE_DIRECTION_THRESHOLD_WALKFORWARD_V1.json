@@ -1,0 +1,481 @@
+{
+  "generatedAt": "2026-08-09T16:50:57.262Z",
+  "rowCount": 189,
+  "foldCount": 13,
+  "candidateCount": 306,
+  "top25": [
+    {
+      "id": "O2.5_U4_orna_ur0.45_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.45_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.45_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.55_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.55_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.55_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.65_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.65_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_orna_ur0.65_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.55_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.55_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.55_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.65_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.65_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.55_ur0.65_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.65_ur0.65_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.65_ur0.65_EITHER",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U4_or0.65_ur0.65_BOTH",
+      "selectionScore": 0.9355,
+      "oos": {
+        "n": 168,
+        "directed": 47,
+        "wins": 43,
+        "losses": 4,
+        "noBet": 121,
+        "winRate": 0.9148936170212766,
+        "coverage": 0.27976190476190477,
+        "noBetRate": 0.7202380952380952,
+        "record": "43-4",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.45_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.45_EITHER",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.45_BOTH",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.55_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.55_EITHER",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.55_BOTH",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    },
+    {
+      "id": "O2.5_U3_orna_ur0.65_EDGE_OR_REL_MISSING_EDGE",
+      "selectionScore": 0.9273,
+      "oos": {
+        "n": 168,
+        "directed": 49,
+        "wins": 44,
+        "losses": 5,
+        "noBet": 119,
+        "winRate": 0.8979591836734694,
+        "coverage": 0.2916666666666667,
+        "noBetRate": 0.7083333333333334,
+        "record": "44-5",
+        "avgUtility": 0.8024359838274933,
+        "foldCount": 13
+      }
+    }
+  ],
+  "winner": {
+    "id": "O2.5_U4_orna_ur0.45_EDGE_OR_REL_MISSING_EDGE",
+    "selectionScore": 0.9354607103636283,
+    "oos": {
+      "n": 168,
+      "directed": 47,
+      "wins": 43,
+      "losses": 4,
+      "noBet": 121,
+      "winRate": 0.9148936170212766,
+      "coverage": 0.27976190476190477,
+      "noBetRate": 0.7202380952380952,
+      "record": "43-4",
+      "avgUtility": 0.8024359838274933,
+      "foldCount": 13
+    },
+    "thresholds": {
+      "id": "O2.5_U4_orna_ur0.45_EDGE_OR_REL_MISSING_EDGE",
+      "noBet": {
+        "mode": "EDGE_OR_REL_MISSING_EDGE",
+        "edgeFloor": 1,
+        "reliabilityFloor": 0.45
+      },
+      "over": {
+        "minEdge": 2.5,
+        "strongEdge": 3.5,
+        "minFairEdge": 2,
+        "requireFairConfirm": false,
+        "minReliability": null,
+        "strongReliability": 0.7,
+        "minSafety": 65,
+        "marketConflict": {
+          "enabled": true,
+          "minEdge": 2,
+          "marketQualityFloor": 85,
+          "minBooks": 4
+        }
+      },
+      "under": {
+        "minEdge": 4,
+        "strongEdge": 4,
+        "minReliability": 0.45,
+        "minSafety": 65,
+        "minRoleStability": 60,
+        "minMinutes": 20
+      }
+    }
+  }
+}

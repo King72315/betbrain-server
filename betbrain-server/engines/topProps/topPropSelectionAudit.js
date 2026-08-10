@@ -66,6 +66,21 @@ export function finalizeTopPropSelectionAudit(audit = {}, selected = [], scored 
 }
 
 export function isOfficialPick(pick = {}) {
+  // Direction NO_BET / closed gate can never be treated as Official, even if a
+  // stale seal or display path left officialEligible=true.
+  const directionDecision = String(
+    pick.directionDecision ||
+      pick.direction?.decision ||
+      pick.membership?.directionDecision ||
+      ""
+  ).toUpperCase();
+  if (
+    directionDecision === "NO_BET" ||
+    pick.blockedByDirectionNoBet === true ||
+    pick.membership?.blockedByDirectionNoBet === true
+  ) {
+    return false;
+  }
   if (pick.officialEligible === true) return true;
   if (String(pick.finalDecision || "").toUpperCase() === "OFFICIAL") return true;
   if (String(pick.trackingType || "").toUpperCase() === "OFFICIAL") return true;

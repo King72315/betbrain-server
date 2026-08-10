@@ -48,7 +48,18 @@ export default function PropCard({
     pick.decisionIntelligence?.gateReason || pick.wnbaTrackingReason;
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
   const wnbaV2 = String(pick.engineHandled || "") === "WNBA_V2";
-  const trueRisk = pick.decisionIntelligence?.trueRisk || pick.trueRisk;
+  // C2 / Probability Safety Official props: membership trueRisk outranks stale DDI.
+  const membershipRiskOwner = Boolean(
+    pick.v2Risk ||
+      pick.riskOwner ||
+      pick.productionFreeze ||
+      pick.membershipVersion ||
+      (pick.architectureBuild &&
+        String(pick.architectureBuild).includes("empirical"))
+  );
+  const trueRisk = membershipRiskOwner
+    ? pick.v2Risk || pick.displayTrueRisk || pick.trueRisk || pick.decisionIntelligence?.trueRisk
+    : pick.decisionIntelligence?.trueRisk || pick.trueRisk;
   const decisionExplanation = pick.decisionIntelligence?.simpleExplanation;
   const readerDecision = pick.readerDecision || pick.wnbaReader?.decision;
   const readerConfidence =
@@ -83,11 +94,16 @@ export default function PropCard({
     : null;
   // Single owner: sealed canonical → analysis canonical → pick final fields.
   const canonical = pick.homeDetailedAnalysisV1?.canonical || {};
-  const confidenceRaw =
-    canonical.confidence ??
-    pick.finalConfidence ??
-    pick.confidence ??
-    pick.winProbability;
+  const confidenceRaw = membershipRiskOwner
+    ? canonical.confidence ??
+      pick.finalConfidence ??
+      pick.confidence ??
+      pick.decisionIntelligence?.finalConfidence ??
+      pick.winProbability
+    : canonical.confidence ??
+      pick.finalConfidence ??
+      pick.confidence ??
+      pick.winProbability;
   const confidence =
     confidenceRaw === null || confidenceRaw === undefined || confidenceRaw === ""
       ? null
@@ -142,12 +158,19 @@ export default function PropCard({
     const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
     const trackDecision = "TRACK";
     const displayTrueRisk = String(
-      canonical.risk ||
-        pick.displayTrueRisk ||
-        pick.decisionIntelligence?.trueRisk ||
-        trueRisk ||
-        pick.trueRisk ||
-        "—"
+      membershipRiskOwner
+        ? canonical.risk ||
+            pick.v2Risk ||
+            pick.displayTrueRisk ||
+            pick.trueRisk ||
+            trueRisk ||
+            "—"
+        : canonical.risk ||
+            pick.displayTrueRisk ||
+            pick.decisionIntelligence?.trueRisk ||
+            trueRisk ||
+            pick.trueRisk ||
+            "—"
     ).toUpperCase();
     const sameTeamFlip = Boolean(
       pick.sameTeamArbitrationFlip ||
