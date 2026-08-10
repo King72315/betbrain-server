@@ -223,7 +223,11 @@ export function attachCanonicalSealedProp(pick = {}, options = {}) {
     ...withAnalysis,
     canonicalSealedProp: canonical,
     canonicalSealedPropVersion: CANONICAL_SEALED_PROP_VERSION,
-    finalDecision: "TRACK",
+    finalDecision:
+      withAnalysis.officialSelected === true ||
+      withAnalysis.trackingType === "OFFICIAL"
+        ? "OFFICIAL"
+        : "RESEARCH",
     league: canonical.league,
   };
 }
