@@ -403,7 +403,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-direction-c2-display-meta-v1";
+  "courteedge-direction-c2-display-meta-v1-today-seal-fix";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -3380,23 +3380,38 @@ async function refreshAllPicks(options = {}) {
   const todayDisplayBestSix = [
     ...todayCanonicalWNBA,
     ...(cohortBundle.bestSixDisplayTodayNBA || []),
-  ].map((p) => ({
-    ...p,
-    slateDate: calendarToday,
-    dayBucket: "TODAY",
-    dateLabel: p.dateLabel || "Today",
-    trackingAdmissionSource:
-      p.trackingAdmissionSource ||
-      (p.membershipModel === "controlled-best-board-v2"
-        ? "CONTROLLED_BEST_BOARD"
-        : "CONTROLLED_BEST_SIX_DISPLAY"),
-    sourcePool:
-      p.sourcePool ||
-      (p.membershipModel === "controlled-best-board-v2"
-        ? "CONTROLLED_BEST_BOARD"
-        : "CONTROLLED_BEST_SIX_DISPLAY"),
-    controlledBestSixDisplay: true,
-  }));
+  ]
+    .filter((p) => {
+      if (!p || typeof p !== "object") return false;
+      // Do not restamp foreign slates onto calendar today (Aug 5 PAST leak).
+      const sd = String(
+        p.canonicalSlateDateCT ||
+          p.canonicalSlateDate ||
+          p.slateDate ||
+          ""
+      ).slice(0, 10);
+      if (sd && sd !== calendarToday) return false;
+      if (p.officialEligible === false) return false;
+      if (p.blockedByDirectionNoBet === true) return false;
+      return true;
+    })
+    .map((p) => ({
+      ...p,
+      slateDate: p.slateDate || calendarToday,
+      dayBucket: "TODAY",
+      dateLabel: p.dateLabel || "Today",
+      trackingAdmissionSource:
+        p.trackingAdmissionSource ||
+        (p.membershipModel === "controlled-best-board-v2"
+          ? "CONTROLLED_BEST_BOARD"
+          : "CONTROLLED_BEST_SIX_DISPLAY"),
+      sourcePool:
+        p.sourcePool ||
+        (p.membershipModel === "controlled-best-board-v2"
+          ? "CONTROLLED_BEST_BOARD"
+          : "CONTROLLED_BEST_SIX_DISPLAY"),
+      controlledBestSixDisplay: true,
+    }));
 
   const todaySelectionBuildId =
     cohortBundle.selectionBuildId ||

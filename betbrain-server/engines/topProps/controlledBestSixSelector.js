@@ -1565,7 +1565,11 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
       bestSixDisplayTodayWNBA: wnbaCombined.today?.board || [],
       bestSixDisplayTomorrowWNBA: wnbaCombined.tomorrow?.board || [],
       bestSixOverallWNBA: wnbaCombined.bestSixOverall || [],
-      selectedPropsWNBA: wnbaCombined.selectedProps || wnbaCombined.board || [],
+      selectedPropsWNBA:
+        wnbaCombined.officialMembership ||
+        wnbaCombined.selectedProps ||
+        wnbaCombined.board ||
+        [],
       selectedPropsTodayWNBA:
         wnbaCombined.today?.selectedProps || wnbaCombined.today?.board || [],
       selectedPropsTomorrowWNBA:

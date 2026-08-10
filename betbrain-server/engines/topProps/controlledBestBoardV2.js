@@ -1246,6 +1246,32 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
     })),
   ];
 
+  // Official membership is only Direction+C2 eligible props — never the raw merge
+  // of display leftovers / LKG contamination.
+  const officialOnly = (board = {}) =>
+    (board.board || board.selectedProps || []).filter(
+      (p) =>
+        p?.officialEligible === true &&
+        (p?.blockedByDirectionNoBet !== true) &&
+        (p?.directionDecision == null ||
+          p.directionDecision === "OVER" ||
+          p.directionDecision === "UNDER")
+    );
+  const todayOfficial = officialOnly(todayBoard);
+  const tomorrowOfficial = officialOnly(tomorrowBoard);
+  const officialMembership = [
+    ...todayOfficial.map((p) => ({
+      ...p,
+      bestSixDayBucket: "TODAY",
+      dayBucket: "TODAY",
+    })),
+    ...tomorrowOfficial.map((p) => ({
+      ...p,
+      bestSixDayBucket: "TOMORROW",
+      dayBucket: "TOMORROW",
+    })),
+  ];
+
   // Prefer tomorrow's build id when tomorrow has membership (seal target), else today.
   const primaryPacket =
     tomorrowBoard.controlledBestBoardV2?.selectedProps?.length
@@ -1253,24 +1279,34 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
       : todayBoard.controlledBestBoardV2;
 
   return {
-    board: merged,
-    bestSix: merged,
-    selectedProps: merged,
-    officialMembership: merged,
+    board: officialMembership,
+    bestSix: officialMembership,
+    selectedProps: officialMembership,
+    officialMembership,
     selectionBuildId: primaryPacket?.selectionBuildId || null,
     membershipModel: CANONICAL_BOARD_MEMBERSHIP_MODEL,
     controlledBestBoardV2: {
       membershipModel: CANONICAL_BOARD_MEMBERSHIP_MODEL,
       selectionBuildId: primaryPacket?.selectionBuildId || null,
-      selectedProps: merged,
-      officialMembership: merged,
+      selectedProps: officialMembership,
+      officialMembership,
       today: todayBoard.controlledBestBoardV2 || null,
       tomorrow: tomorrowBoard.controlledBestBoardV2 || null,
       variableBoardSize: true,
       boardVersion: CONTROLLED_BEST_BOARD_VERSION,
     },
-    today: todayBoard,
-    tomorrow: tomorrowBoard,
+    today: {
+      ...todayBoard,
+      board: todayOfficial,
+      bestSix: todayOfficial,
+      selectedProps: todayOfficial,
+    },
+    tomorrow: {
+      ...tomorrowBoard,
+      board: tomorrowOfficial,
+      bestSix: tomorrowOfficial,
+      selectedProps: tomorrowOfficial,
+    },
     topPicks: tomorrowBoard.topPicks.length
       ? tomorrowBoard.topPicks
       : todayBoard.topPicks,

@@ -1437,17 +1437,26 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     asSealedProps(board.controlledBestBoardV2?.today?.selectedProps) ||
     asSealedProps(board.controlledBestBoard);
   if (sealedTodayWNBA?.length) {
-    const sealedStamped = sealedTodayWNBA.map((p) =>
-      stampPropDay({
+    // Never force wrong-date / non-Official rows onto Home Today by restamping.
+    const sealedStamped = sealedTodayWNBA
+      .map((p) => stampPropDay(p))
+      .filter((p) => {
+        const d = p._homeSlateDate || resolveHomeBoardSlateDate(p);
+        if (d !== today) return false;
+        if (p.officialEligible === false) return false;
+        if (p.blockedByDirectionNoBet === true) return false;
+        const dir = String(p.directionDecision || "").toUpperCase();
+        if (dir === "NO_BET") return false;
+        return true;
+      })
+      .map((p) => ({
         ...p,
-        slateDate: p.slateDate || today,
         dayBucket: "TODAY",
         dateLabel: "Today",
-      })
-    );
-    // Keep sealed membership exact — do not drop for labDate/calendar quirks
-    // when props are already Official for today's slate.
-    bestSixDisplayTodayWNBA = sealedStamped;
+      }));
+    if (sealedStamped.length) {
+      bestSixDisplayTodayWNBA = sealedStamped;
+    }
   }
 
   const sealedTomorrowWNBA =
