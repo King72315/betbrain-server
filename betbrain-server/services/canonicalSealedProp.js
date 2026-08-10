@@ -80,8 +80,11 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
       pick.originalModelConfidence ??
         pick.sameTeamArbitration?.originalModelConfidence
     ),
-    risk: first(di.trueRisk, pick.trueRisk, pick.riskLabel, "MEDIUM"),
-    finalDecision: "TRACK",
+    risk: first(pick.c2Risk, pick.trueRisk, pick.riskLabel, di.trueRisk, "MEDIUM"),
+    finalDecision:
+      pick.officialSelected === true || pick.trackingType === "OFFICIAL"
+        ? "OFFICIAL"
+        : "RESEARCH",
     naturalDecision: first(
       pick.naturalDecision,
       di.naturalDecision,

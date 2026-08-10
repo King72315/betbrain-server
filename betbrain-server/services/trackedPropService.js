@@ -1353,7 +1353,8 @@ export function buildControlledTrackingCohort(input = {}, options = {}) {
     buildResultsTrackingCohort(bestSixCohort, {
       todayLocalDate,
       sourcePool,
-      trackAllBestSixDisplay: true,
+      // Control-plane V1: Official only via officialSelected, not display TRACK.
+      trackAllBestSixDisplay: false,
       cohortSlateDate: slateDate,
     });
 
