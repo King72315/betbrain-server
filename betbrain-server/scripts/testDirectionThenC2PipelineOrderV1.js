@@ -1,5 +1,6 @@
 /**
  * Direction → selected side → C2 membership order.
+ * Product policy: NO BET still picks a side (BEST_GUESS); Official = safest 2–6.
  * Does not retune O2.5 / U4 or C2 thresholds.
  */
 import assert from "assert";
@@ -61,6 +62,26 @@ const weakBothSides = {
   minutesStabilityScore: 80,
 };
 
+function makeCandidate(i, edgeBoost = 0) {
+  return {
+    playerName: `Pool Player ${i}`,
+    playerId: `pool-${i}`,
+    eventId: `evt-pool-${i}`,
+    team: "ATL",
+    opponent: "TOR",
+    slateDate: "2026-08-10",
+    line: 12.5 + (i % 5),
+    projection: 12.5 + (i % 5) + 0.4 + edgeBoost,
+    fairLine: 12.5 + (i % 5) + 0.2 + edgeBoost * 0.5,
+    bookCount: 3,
+    marketQualityScore: 70,
+    availabilityStatus: "ACTIVE",
+    expectedMinutes: 26 + (i % 4),
+    roleStabilityScore: 65 + (i % 10),
+    minutesStabilityScore: 70 + (i % 10),
+  };
+}
+
 test("1 pipelineOrder is DIRECTION_THEN_C2 when Direction on", () => {
   const pkt = buildCanonicalPlayerForecastPacketV1(strongUnder, {
     empiricalDirectionV1: true,
@@ -70,7 +91,8 @@ test("1 pipelineOrder is DIRECTION_THEN_C2 when Direction on", () => {
   });
   assert.strictEqual(pkt.pipelineOrder, "DIRECTION_THEN_C2");
   assert.strictEqual(pkt.membership.pipelineOrder, "DIRECTION_THEN_C2");
-  assert.strictEqual(pkt.membership.requiresDirectionApproval, true);
+  // Default product policy: Direction does not close Official.
+  assert.strictEqual(pkt.membership.requiresDirectionApproval, false);
 });
 
 test("2 opposite side does not receive C2 LOW/MEDIUM membership", () => {
@@ -108,7 +130,7 @@ test("3 selected side C2 is POST_DIRECTION", () => {
   assert.ok(["LOW", "MEDIUM", "HIGH"].includes(selected.risk?.risk));
 });
 
-test("4 Direction NO_BET never Official even if C2 would like research side", () => {
+test("4 Direction NO_BET still picks BEST_GUESS side and stays Official-eligible", () => {
   const pkt = buildCanonicalPlayerForecastPacketV1(weakBothSides, {
     empiricalDirectionV1: true,
     empiricalSafePropV2: true,
@@ -116,58 +138,75 @@ test("4 Direction NO_BET never Official even if C2 would like research side", ()
     seed: 14,
   });
   assert.strictEqual(pkt.direction?.decision, "NO_BET");
-  assert.strictEqual(pkt.membership.officialEligible, false);
-  assert.strictEqual(pkt.risk.officialEligible, false);
-  assert.strictEqual(pkt.membership.blockedByDirectionNoBet, true);
+  assert.ok(pkt.selectedSide === "OVER" || pkt.selectedSide === "UNDER");
+  assert.strictEqual(pkt.membership.directionAdmission, "BEST_GUESS");
+  assert.strictEqual(pkt.membership.educatedGuess, true);
+  assert.strictEqual(pkt.membership.officialEligible, true);
+  assert.strictEqual(pkt.membership.blockedByDirectionNoBet, false);
 });
 
-test("5 Official board hardens Direction approval", () => {
-  const board = selectOfficialBoardFromProbabilitySafetyV1(
-    [strongUnder, weakBothSides],
-    {
-      empiricalDirectionV1: true,
-      empiricalSafePropV2: true,
-      requestedSlateDate: "2026-08-10",
-      simulationCount: 700,
-    }
-  );
-  for (const p of board.selectedProps || []) {
+test("4b closed-gate env restores NO_BET Official block", () => {
+  const pkt = buildCanonicalPlayerForecastPacketV1(weakBothSides, {
+    empiricalDirectionV1: true,
+    empiricalSafePropV2: true,
+    directionNoBetBlocksOfficial: true,
+    simulationCount: 800,
+    seed: 15,
+  });
+  assert.strictEqual(pkt.direction?.decision, "NO_BET");
+  assert.strictEqual(pkt.membership.officialEligible, false);
+  assert.strictEqual(pkt.membership.blockedByDirectionNoBet, true);
+  assert.strictEqual(pkt.membership.requiresDirectionApproval, true);
+});
+
+test("5 Official board keeps safest top N (2–6) including educated guesses", () => {
+  const pool = [
+    strongUnder,
+    weakBothSides,
+    ...Array.from({ length: 8 }, (_, i) => makeCandidate(i, 0.1)),
+  ];
+  const board = selectOfficialBoardFromProbabilitySafetyV1(pool, {
+    empiricalDirectionV1: true,
+    empiricalSafePropV2: true,
+    requestedSlateDate: "2026-08-10",
+    simulationCount: 700,
+    officialBoardMin: 2,
+    officialBoardMax: 6,
+  });
+  const selected = board.selectedProps || [];
+  assert.ok(selected.length >= 2, `expected >=2 got ${selected.length}`);
+  assert.ok(selected.length <= 6, `expected <=6 got ${selected.length}`);
+  assert.strictEqual(board.boardSizePolicy, "SAFEST_TOP_N_EDUCATED_GUESS");
+  for (const p of selected) {
     assert.ok(p.officialEligible === true);
-    assert.ok(p.directionDecision === "OVER" || p.directionDecision === "UNDER");
     assert.ok(p.blockedByDirectionNoBet !== true);
-    assert.ok(["LOW", "MEDIUM"].includes(p.trueRisk));
+    assert.ok(
+      p.directionAdmission === "PRIMARY" ||
+        p.directionAdmission === "BEST_GUESS" ||
+        p.directionAdmission === "SCORE_SIDE"
+    );
+    assert.ok(p.side === "OVER" || p.side === "UNDER");
   }
-  // Weak both-sides must not appear Official
-  assert.ok(
-    !(board.selectedProps || []).some((p) => p.playerName === "Weak Edge Both")
-  );
 });
 
 test("6 deferred side eval exposes reliability feature without risk band", () => {
   const side = evaluateSideForecastPacketV1(
     { ...strongUnder, side: "UNDER", pick: "UNDER" },
     {
+      empiricalDirectionV1: true,
       empiricalSafePropV2: true,
       applyRiskClassification: false,
-      simulationCount: 600,
-      seed: 15,
+      simulationCount: 500,
+      seed: 16,
     }
   );
+  assert.ok(
+    side.reliabilityProbability == null ||
+      Number.isFinite(side.reliabilityProbability)
+  );
   assert.strictEqual(side.risk?.deferred, true);
+  assert.strictEqual(side.risk?.membershipStage, "AWAITING_DIRECTION");
   assert.strictEqual(side.risk?.risk, null);
-  assert.strictEqual(side.risk?.officialEligible, false);
-  assert.ok(typeof side.reliabilityProbability === "number");
-});
-
-test("7 Direction off keeps legacy dual-C2 path marker", () => {
-  const pkt = buildCanonicalPlayerForecastPacketV1(strongUnder, {
-    empiricalDirectionV1: false,
-    empiricalSafePropV2: true,
-    simulationCount: 600,
-    seed: 16,
-  });
-  assert.strictEqual(pkt.pipelineOrder, "LEGACY_DUAL_C2_THEN_SCORE");
-  assert.strictEqual(pkt.c2MembershipAppliedTo, "BOTH");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

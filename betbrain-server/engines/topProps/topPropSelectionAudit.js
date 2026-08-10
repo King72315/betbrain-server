@@ -66,16 +66,9 @@ export function finalizeTopPropSelectionAudit(audit = {}, selected = [], scored 
 }
 
 export function isOfficialPick(pick = {}) {
-  // Direction NO_BET / closed gate can never be treated as Official, even if a
-  // stale seal or display path left officialEligible=true.
-  const directionDecision = String(
-    pick.directionDecision ||
-      pick.direction?.decision ||
-      pick.membership?.directionDecision ||
-      ""
-  ).toUpperCase();
+  // Closed-gate only: Direction NO BET blocks Official when that flag stamped
+  // blockedByDirectionNoBet. Educated-guess Official (BEST_GUESS) is allowed.
   if (
-    directionDecision === "NO_BET" ||
     pick.blockedByDirectionNoBet === true ||
     pick.membership?.blockedByDirectionNoBet === true
   ) {

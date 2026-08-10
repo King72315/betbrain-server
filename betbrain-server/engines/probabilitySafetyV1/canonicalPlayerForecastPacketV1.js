@@ -37,8 +37,29 @@ import {
   EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
   EMPIRICAL_DIRECTION_V1_BUILD,
 } from "../empiricalDirectionV1/index.js";
-import { isEmpiricalDirectionV1Enabled } from "../empiricalDirectionV1/featureFlag.js";
+import {
+  isEmpiricalDirectionV1Enabled,
+  isDirectionNoBetBlockingOfficial,
+  getOfficialBoardSizePolicy,
+} from "../empiricalDirectionV1/featureFlag.js";
 import { decideDirectionalSideV2 } from "../empiricalDirectionV2/index.js";
+
+function hasHardIntegrityBlock(risk = {}) {
+  const reasons = [
+    ...(risk.reasons || []),
+    ...(risk.officialRejectionReasons || []),
+    ...(risk.integrityVetoes || []),
+  ].map((r) => String(r || ""));
+  return reasons.some(
+    (r) =>
+      r.startsWith("integrity:") ||
+      r.includes("CONFIRMED_INACTIVE") ||
+      r.includes("WRONG_DATE") ||
+      r.includes("WRONG_EVENT") ||
+      r.includes("PLAYER_IDENTITY") ||
+      r.includes("POST_START_MUTATION")
+  );
+}
 
 function isDirectionV2ShadowEnabled(options = {}) {
   if (options.directionV2Shadow === false) return false;
@@ -405,6 +426,9 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
   let selectedSide;
   let forcedNoBet = false;
 
+  const noBetBlocksOfficial = isDirectionNoBetBlockingOfficial(options);
+  let directionAdmission = null;
+
   if (directionOn) {
     direction = decideDirectionalSideV1({
       overPacket,
@@ -413,13 +437,16 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     });
     if (direction.decision === "OVER" || direction.decision === "UNDER") {
       selectedSide = direction.decision;
+      directionAdmission = "PRIMARY";
     } else {
-      // NO BET: research still keeps a preferred side; Official path closed.
+      // Educated guess: always pick a side from evidence scores.
+      // Closed-gate (optional) can still block Official via env flag.
       forcedNoBet = true;
       selectedSide = overScore >= underScore ? "OVER" : "UNDER";
+      directionAdmission = "BEST_GUESS";
     }
 
-    // C2 (or V1) membership only on the Direction-selected / research-preferred side.
+    // C2 (or V1) membership only on the chosen side.
     const postDirOpts = { ...options, membershipStage: "POST_DIRECTION" };
     if (selectedSide === "OVER") {
       overPacket = applyMembershipRiskToSidePacketV1(overPacket, postDirOpts);
@@ -430,6 +457,7 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     }
   } else {
     selectedSide = overScore >= underScore ? "OVER" : "UNDER";
+    directionAdmission = "SCORE_SIDE";
   }
 
   const selected =
@@ -437,17 +465,16 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
   const opposite =
     selectedSide === "OVER" ? underPacket : overPacket;
 
-  const directionApproved =
-    !directionOn ||
-    (direction?.decision === "OVER" || direction?.decision === "UNDER");
+  const integrityBlocked = hasHardIntegrityBlock(selected.risk || {});
+  // Product policy: every valid market is a candidate; board size is enforced later.
+  // Optional closed-gate restores Direction NO BET → not Official.
+  const closedGateBlocked =
+    noBetBlocksOfficial &&
+    (forcedNoBet ||
+      direction?.decision === "NO_BET" ||
+      direction?.officialDirectionEligible === false);
 
-  const officialEligible =
-    forcedNoBet ||
-    direction?.decision === "NO_BET" ||
-    !directionApproved ||
-    (directionOn && direction?.officialDirectionEligible === false)
-      ? false
-      : Boolean(selected.risk?.officialEligible);
+  const officialEligible = !integrityBlocked && !closedGateBlocked;
 
   return {
     playerId: basePick.playerId || basePick.player_id || null,
@@ -484,14 +511,10 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
           confidence: direction.confidence,
           marketConflict: direction.marketConflict,
           officialDirectionEligible: direction.officialDirectionEligible,
-          admission:
-            direction.decision === "OVER" || direction.decision === "UNDER"
-              ? "PRIMARY"
-              : null,
-          directionAdmission:
-            direction.decision === "OVER" || direction.decision === "UNDER"
-              ? "PRIMARY"
-              : null,
+          admission: directionAdmission,
+          directionAdmission,
+          boardSide: selectedSide,
+          educatedGuess: directionAdmission === "BEST_GUESS",
           rescuePathway: null,
           freezeId: direction.freezeId,
           engineVersion: direction.engineVersion,
@@ -540,7 +563,10 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       ...selected.risk,
       officialEligible,
       directionDecision: direction?.decision || null,
-      blockedByDirectionNoBet: forcedNoBet,
+      directionAdmission,
+      boardSide: selectedSide,
+      blockedByDirectionNoBet: noBetBlocksOfficial && forcedNoBet,
+      educatedGuess: directionAdmission === "BEST_GUESS",
     },
     riskV1Legacy: selected.riskV1Legacy,
     reliabilityProbability:
@@ -560,9 +586,13 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       reliabilityProbability: selected.risk?.reliabilityProbability ?? null,
       trustScore: selected.risk?.trustScore ?? null,
       directionDecision: direction?.decision || null,
-      blockedByDirectionNoBet: forcedNoBet,
-      requiresDirectionApproval: directionOn,
+      directionAdmission,
+      boardSide: selectedSide,
+      blockedByDirectionNoBet: noBetBlocksOfficial && forcedNoBet,
+      educatedGuess: directionAdmission === "BEST_GUESS",
+      requiresDirectionApproval: noBetBlocksOfficial && directionOn,
       pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
+      boardPolicy: "SAFEST_TOP_N_EDUCATED_GUESS",
     },
     forecastModelVersion: FORECAST_MODEL_VERSION,
     architectureBuild: isEmpiricalSafePropV2Enabled(options)
@@ -648,14 +678,15 @@ function safetyRankKey(packet) {
 }
 
 /**
- * Official membership: LOW first (safest→riskiest), then qualified MEDIUM.
- * No slice(0,6). No minimum. HIGH blocked.
+ * Official membership: every valid market gets an educated side guess, then
+ * keep only the safest 2–6 (LOW → MEDIUM → HIGH by trust/safety rank).
  */
 export function selectOfficialBoardFromProbabilitySafetyV1(
   candidates = [],
   options = {}
 ) {
   const research = buildResearchUniverseV1(candidates, options);
+  const sizePolicy = getOfficialBoardSizePolicy(options);
 
   // Persist every research packet (including HIGH) — never counts-only
   try {
@@ -705,15 +736,16 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     ])
   );
 
-  const officialPackets = rankedResearch
+  const rankedPool = rankedResearch
     .filter((p) => {
       if (p.membership?.officialEligible !== true) return false;
-      // Harden: never admit Official without Direction approval when Direction is required.
+      // Optional closed-gate only.
       if (p.membership?.requiresDirectionApproval === true) {
         const d = p.direction?.decision || p.membership?.directionDecision;
         if (d !== "OVER" && d !== "UNDER") return false;
         if (p.membership?.blockedByDirectionNoBet === true) return false;
       }
+      if (hasHardIntegrityBlock(p.risk || {})) return false;
       return true;
     })
     .sort((a, b) => {
@@ -723,6 +755,10 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
       if (ra !== rb) return ra - rb;
       return safetyRankKey(b) - safetyRankKey(a);
     });
+
+  // Keep only the safest 2–6. If fewer than min exist, take all available.
+  const takeN = Math.min(sizePolicy.max, rankedPool.length);
+  const officialPackets = rankedPool.slice(0, takeN);
 
   const selectedProps = officialPackets.map((packet, index) => {
     const src = packet.selectedSide === "OVER"
@@ -790,9 +826,13 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     highBlocked: research.HIGH,
     topHighCandidates: highCandidates,
     research: { ...research, packets: rankedResearch },
-    boardSizePolicy: "UNBOUNDED_QUALITY_FIRST",
+    boardSizePolicy: sizePolicy.policy,
+    officialBoardMin: sizePolicy.min,
+    officialBoardMax: sizePolicy.max,
+    officialPoolSize: rankedPool.length,
     forcedSide: false,
     noFixedSix: true,
+    // Soft min: take up to max; if pool < min, board may be smaller (no fake fills).
     noMinimumCount: true,
     noSideQuota: true,
     v1ShadowEnabled: true,
@@ -888,8 +928,21 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     trustScore: risk.trustScore ?? packet.trustScore ?? null,
     rawWinProbability: packet.probability?.rawWinProbability ?? null,
   });
+  const directionAdmission =
+    packet.direction?.directionAdmission ||
+    packet.membership?.directionAdmission ||
+    (directionDecision === "OVER" || directionDecision === "UNDER"
+      ? "PRIMARY"
+      : packet.membership?.educatedGuess
+        ? "BEST_GUESS"
+        : null);
   const directed =
-    directionDecision === "OVER" || directionDecision === "UNDER";
+    Boolean(packet.selectedSide) &&
+    (directionAdmission === "PRIMARY" ||
+      directionAdmission === "BEST_GUESS" ||
+      directionAdmission === "SCORE_SIDE" ||
+      directionDecision === "OVER" ||
+      directionDecision === "UNDER");
 
   return {
     side: packet.selectedSide,
@@ -970,8 +1023,9 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     directionDecision,
     directionReason: packet.direction?.reason ?? null,
     directionConfidence,
-    directionAdmission: directed ? "PRIMARY" : null,
-    admission: directed ? "PRIMARY" : null,
+    directionAdmission: directed ? directionAdmission : null,
+    admission: directed ? directionAdmission : null,
+    educatedGuess: directionAdmission === "BEST_GUESS",
     rescuePathway: null,
     blockedByDirectionNoBet: Boolean(packet.membership?.blockedByDirectionNoBet),
     pipelineOrder: packet.pipelineOrder || packet.membership?.pipelineOrder || null,

@@ -15,4 +15,9 @@ export {
 export {
   EMPIRICAL_DIRECTION_V1,
   isEmpiricalDirectionV1Enabled,
+  DIRECTION_NO_BET_BLOCKS_OFFICIAL,
+  isDirectionNoBetBlockingOfficial,
+  OFFICIAL_BOARD_MIN,
+  OFFICIAL_BOARD_MAX,
+  getOfficialBoardSizePolicy,
 } from "./featureFlag.js";

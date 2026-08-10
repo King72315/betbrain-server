@@ -81,6 +81,9 @@ import {
 import {
   EMPIRICAL_DIRECTION_V1,
   EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
+  DIRECTION_NO_BET_BLOCKS_OFFICIAL,
+  OFFICIAL_BOARD_MIN,
+  OFFICIAL_BOARD_MAX,
 } from "./engines/empiricalDirectionV1/index.js";
 import {
   buildSlateIntegrityPacket,
@@ -403,7 +406,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-direction-c2-display-meta-v1-today-seal-fix";
+  "courteedge-official-safest-top-n-educated-guess-v1";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -3898,7 +3901,7 @@ app.get("/health", (req, res) => {
       calibrationHashLive: CALIBRATION_HASH_LIVE,
       calibrationHashCanonicalLf: C2_CALIBRATION_HASH_LF,
       calibrationHashMatch: calibMatch,
-      highBlockedFromOfficial: true,
+      highBlockedFromOfficial: false,
       v1ShadowOnly: true,
       lowMediumFromCalibration2: true,
       prospectiveLockedSlateDates:
@@ -3911,6 +3914,10 @@ app.get("/health", (req, res) => {
       enabled: EMPIRICAL_DIRECTION_V1 === true,
       productionFreeze: EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
       pipelineOrder: "DIRECTION_THEN_C2",
+      directionNoBetBlocksOfficial: DIRECTION_NO_BET_BLOCKS_OFFICIAL === true,
+      boardSizePolicy: "SAFEST_TOP_N_EDUCATED_GUESS",
+      officialBoardMin: OFFICIAL_BOARD_MIN,
+      officialBoardMax: OFFICIAL_BOARD_MAX,
       noTuning: true,
     },
     membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,

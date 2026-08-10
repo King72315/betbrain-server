@@ -1445,8 +1445,6 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
         if (d !== today) return false;
         if (p.officialEligible === false) return false;
         if (p.blockedByDirectionNoBet === true) return false;
-        const dir = String(p.directionDecision || "").toUpperCase();
-        if (dir === "NO_BET") return false;
         return true;
       })
       .map((p) => ({

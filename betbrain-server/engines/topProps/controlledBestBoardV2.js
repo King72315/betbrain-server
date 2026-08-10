@@ -1246,16 +1246,13 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
     })),
   ];
 
-  // Official membership is only Direction+C2 eligible props — never the raw merge
-  // of display leftovers / LKG contamination.
+  // Official membership: safest educated-guess pool (PRIMARY or BEST_GUESS).
+  // Direction NO_BET alone does not drop a pick unless closed-gate stamped it.
   const officialOnly = (board = {}) =>
     (board.board || board.selectedProps || []).filter(
       (p) =>
         p?.officialEligible === true &&
-        (p?.blockedByDirectionNoBet !== true) &&
-        (p?.directionDecision == null ||
-          p.directionDecision === "OVER" ||
-          p.directionDecision === "UNDER")
+        p?.blockedByDirectionNoBet !== true
     );
   const todayOfficial = officialOnly(todayBoard);
   const tomorrowOfficial = officialOnly(tomorrowBoard);
