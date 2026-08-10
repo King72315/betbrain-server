@@ -81,10 +81,14 @@ import {
 import {
   EMPIRICAL_DIRECTION_V1,
   EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
-  DIRECTION_NO_BET_BLOCKS_OFFICIAL,
   OFFICIAL_BOARD_MIN,
   OFFICIAL_BOARD_MAX,
 } from "./engines/empiricalDirectionV1/index.js";
+import {
+  CONTROL_PLANE_BUILD,
+  CONTROL_PLANE_CONTRACT,
+  HIGH_POLICY,
+} from "./engines/courtEdgeControlPlaneV1/index.js";
 import {
   buildSlateIntegrityPacket,
   MEMBERSHIP_INTEGRITY_BUILD,
@@ -406,7 +410,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-official-safest-top-n-educated-guess-v1b";
+  "courteedge-single-machine-control-plane-v1";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -3891,16 +3895,25 @@ app.get("/health", (req, res) => {
     },
     championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
     calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
+    controlPlane: {
+      build: CONTROL_PLANE_BUILD,
+      ...CONTROL_PLANE_CONTRACT,
+      highPolicy: HIGH_POLICY,
+      officialBoardMin: OFFICIAL_BOARD_MIN,
+      officialBoardMax: OFFICIAL_BOARD_MAX,
+    },
     empiricalSafePropV2: {
       enabled: EMPIRICAL_SAFE_PROP_V2 === true,
       productionChampion: EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE,
       freezeId: CALIBRATION_2_CHAMPION_LOCK?.freezeId || null,
       championModel: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+      role: "RISK_AND_RANKING",
       calibrationHash: C2_CALIBRATION_HASH_CEREMONY,
       calibrationHashLocked: C2_CALIBRATION_HASH_CEREMONY,
       calibrationHashLive: CALIBRATION_HASH_LIVE,
       calibrationHashCanonicalLf: C2_CALIBRATION_HASH_LF,
       calibrationHashMatch: calibMatch,
+      highPolicy: HIGH_POLICY,
       highBlockedFromOfficial: false,
       v1ShadowOnly: true,
       lowMediumFromCalibration2: true,
@@ -3913,9 +3926,12 @@ app.get("/health", (req, res) => {
     empiricalDirectionV1: {
       enabled: EMPIRICAL_DIRECTION_V1 === true,
       productionFreeze: EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE,
-      pipelineOrder: "DIRECTION_THEN_C2",
-      directionNoBetBlocksOfficial: DIRECTION_NO_BET_BLOCKS_OFFICIAL === true,
-      boardSizePolicy: "SAFEST_TOP_N_EDUCATED_GUESS",
+      role: "SIDE_CHOICE_ONLY",
+      directionMode: "EDUCATED_GUESS",
+      directionAdmissions: ["PRIMARY", "BEST_GUESS"],
+      pipelineOrder: "INTEGRITY_DIRECTION_C2_SAFEST_2_TO_6",
+      directionNoBetBlocksOfficial: false,
+      boardSizePolicy: "SAFEST_2_TO_6",
       officialBoardMin: OFFICIAL_BOARD_MIN,
       officialBoardMax: OFFICIAL_BOARD_MAX,
       noTuning: true,

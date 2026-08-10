@@ -15,6 +15,7 @@ import {
   resolvePlayerStatForPick,
 } from "./resultService.js";
 import { clearGameFinalVerificationCache } from "./gameFinalVerificationService.js";
+import { clearWnbaGradingFallbackCaches } from "./wnbaGradingFallbackService.js";
 import {
   applyGradeMonotonicityGuard,
   buildLifecycleIntegrityDiagnostics,
@@ -679,44 +680,31 @@ function resolveDisplayResultsDecisionLabel(pick = {}) {
   return label;
 }
 
-/** Controlled Best 6 display cohort — all members are TRACK-admitted for Results learning. */
+/**
+ * Control-plane V1: Official Results only when officialSelected === true.
+ * Legacy TRACK / Best-6 display membership is not Official authority.
+ */
 export function isBestSixDisplayResultsProp(pick = {}) {
   if (pick.homeStaged === true) return false;
   if (isPreV1ShadowProp(pick)) return false;
-
-  const fromDisplay =
-    pick.controlledBestSixDisplay === true ||
-    pick.controlledBestSixDisplayTracked === true ||
-    pick.trackingAdmissionSource === "CONTROLLED_BEST_SIX_DISPLAY";
-
-  return fromDisplay;
+  return (
+    pick.officialSelected === true ||
+    pick.membership?.officialSelected === true
+  );
 }
 
-/** TRACK-admitted Best 6 props count as official Results record regardless of reader TEST demotion. */
+/** @deprecated TRACK is not Official authority — alias of officialSelected. */
 export function isTrackAdmittedResultsProp(pick = {}) {
-  if (isBestSixDisplayResultsProp(pick)) return true;
-
-  const di = pick.decisionIntelligence || {};
-  const eligibility = String(
-    pick.trackingEligibility ||
-      di.trackEligibility ||
-      pick.wnbaTrackingDecision ||
-      ""
-  ).toUpperCase();
-  if (eligibility !== "TRACK") return false;
-  const sideRescueAction = String(
-    pick.sideRescueAction || pick.sideRescue?.action || ""
-  ).toUpperCase();
-  if (sideRescueAction === "NO_BET") {
-    return false;
-  }
-  if (pick.homeStaged === true) return false;
-  return true;
+  return isBestSixDisplayResultsProp(pick);
 }
 
 function resolveResultsTrackingRecordType(pick = {}) {
-  if (isBestSixDisplayResultsProp(pick) || isTrackAdmittedResultsProp(pick)) {
+  if (isBestSixDisplayResultsProp(pick)) {
     return "OFFICIAL";
+  }
+  // All other analyzed markets are Research for grading — not Official W-L.
+  if (pick.boardCandidate === true || pick.membership?.boardCandidate === true) {
+    return "RESEARCH";
   }
   return getPickDecision(pick);
 }
@@ -3711,6 +3699,7 @@ export async function resolveTrackedProps(options = {}) {
   // BDL/ESPN final checks cache live + null results for the process lifetime;
   // clear each resolve pass so finished games are not stuck behind stale "in".
   clearGameFinalVerificationCache();
+  clearWnbaGradingFallbackCaches();
 
   const tracked = getTrackedProps();
   const pending = tracked.filter((item) => {
@@ -3805,9 +3794,10 @@ export async function resolveTrackedProps(options = {}) {
 
     const playerStats = getCachedStatsForPick(item, statsCache);
 
-    const { statResult, pendingReason, resolveDebug, gradingNotes, matchVerified, resultConfidence, matchedDate, matchedGameId, matchedSource } = await resolvePlayerStatForPick(
+    const { statResult, pendingReason, resolveDebug, gradingNotes, matchVerified, resultConfidence, matchedDate, matchedGameId, matchedSource, finalUngraded } = await resolvePlayerStatForPick(
       item,
-      playerStats
+      playerStats,
+      { resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1 }
     );
 
     if (statResult && resolveDebug?.blockedByGameNotFinal) {
@@ -3854,8 +3844,18 @@ export async function resolveTrackedProps(options = {}) {
       matchedSource,
     });
 
+    const nextStatus =
+      !statResult && finalUngraded
+        ? "final_ungraded"
+        : graded.status;
+
     const gradedWithAttempt = {
       ...graded,
+      status: nextStatus,
+      pendingReason:
+        nextStatus === "final_ungraded"
+          ? pendingReason || graded.pendingReason
+          : graded.pendingReason,
       lastResolveAttempt: attemptAt,
       lastResolveAttemptAt: attemptAt,
       lastResolveError: graded.status && !isResolvedStatus(graded.status)
@@ -3864,7 +3864,9 @@ export async function resolveTrackedProps(options = {}) {
       lastResolveProvider: matchedSource || graded.matchedSource || null,
       lastResolveNextAction: isResolvedStatus(graded.status)
         ? "none"
-        : "retry_when_stats_available",
+        : finalUngraded
+          ? "investigate_match_failure"
+          : "retry_when_stats_available",
       resolveAttemptCount: Number(item.resolveAttemptCount || 0) + 1,
     };
     if (isResolvedStatus(gradedWithAttempt.status)) {

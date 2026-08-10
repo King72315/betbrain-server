@@ -48,17 +48,18 @@ export default function PropCard({
     pick.decisionIntelligence?.gateReason || pick.wnbaTrackingReason;
   const tier = String(pick.tier || "WATCHLIST").toUpperCase();
   const wnbaV2 = String(pick.engineHandled || "") === "WNBA_V2";
-  // C2 / Probability Safety Official props: membership trueRisk outranks stale DDI.
-  const membershipRiskOwner = Boolean(
-    pick.v2Risk ||
-      pick.riskOwner ||
-      pick.productionFreeze ||
+  // Control-plane Official: C2 risk + displayConfidence only. DDI is research.
+  const officialControlPlane = Boolean(
+    pick.officialSelected === true ||
+      pick.controlPlaneBuild ||
+      String(pick.riskOwner || "").includes("EMPIRICAL_SAFE_PROP_V2") ||
       pick.membershipVersion ||
       (pick.architectureBuild &&
         String(pick.architectureBuild).includes("empirical"))
   );
-  const trueRisk = membershipRiskOwner
-    ? pick.v2Risk || pick.displayTrueRisk || pick.trueRisk || pick.decisionIntelligence?.trueRisk
+  const membershipRiskOwner = officialControlPlane;
+  const trueRisk = officialControlPlane
+    ? pick.c2Risk || pick.displayTrueRisk || pick.trueRisk || pick.v2Risk
     : pick.decisionIntelligence?.trueRisk || pick.trueRisk;
   const decisionExplanation = pick.decisionIntelligence?.simpleExplanation;
   const readerDecision = pick.readerDecision || pick.wnbaReader?.decision;
@@ -92,18 +93,17 @@ export default function PropCard({
   const shadowTier = wnbaShadow?.shadowTier
     ? String(wnbaShadow.shadowTier).toUpperCase()
     : null;
-  // Single owner: sealed canonical → analysis canonical → pick final fields.
+  // Official: displayConfidence only. Research rows may use sealed/analysis trails.
   const canonical = pick.homeDetailedAnalysisV1?.canonical || {};
-  const confidenceRaw = membershipRiskOwner
-    ? canonical.confidence ??
+  const confidenceRaw = officialControlPlane
+    ? pick.displayConfidence ??
       pick.finalConfidence ??
       pick.confidence ??
-      pick.decisionIntelligence?.finalConfidence ??
-      pick.winProbability
+      50
     : canonical.confidence ??
       pick.finalConfidence ??
       pick.confidence ??
-      pick.winProbability;
+      pick.winProbability
   const confidence =
     confidenceRaw === null || confidenceRaw === undefined || confidenceRaw === ""
       ? null
@@ -624,8 +624,17 @@ export default function PropCard({
       </View>
 
       <View style={styles.metricGrid}>
-        <Metric label="Risk" value={pick.riskAfterCeiling || pick.riskLabel || "—"} />
-        {trueRisk ? <Metric label="True Risk" value={trueRisk} /> : null}
+        <Metric
+          label="Risk"
+          value={
+            officialControlPlane
+              ? trueRisk || pick.riskLabel || "—"
+              : pick.riskAfterCeiling || pick.riskLabel || trueRisk || "—"
+          }
+        />
+        {!officialControlPlane && trueRisk ? (
+          <Metric label="True Risk" value={trueRisk} />
+        ) : null}
         {wnbaTrackingDecision ? (
           <Metric label="Track" value={wnbaTrackingDecision} />
         ) : null}
@@ -635,7 +644,11 @@ export default function PropCard({
         {pick.riskCeilingReason ? (
           <Metric label="Risk Ceiling" value={pick.riskCeilingReason} />
         ) : null}
-        <Metric label="Signal" value={pick.signalStrength || "—"} />
+        {!officialControlPlane ? (
+          <Metric label="Signal" value={pick.signalStrength || "—"} />
+        ) : pick.directionAdmission ? (
+          <Metric label="Admission" value={pick.directionAdmission} />
+        ) : null}
         <Metric label="Support" value={safeDisplay(pick.supportScore)} />
         <Metric
           label="Danger"

@@ -886,13 +886,8 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     return resolvePickSlateDateForHome({ commenceTime: commence }) === tomorrow;
   });
 
-  const fourPropToday = buildFourPropGameBoardFromGames(gamesToday, leagueCode);
-  const fourPropTomorrow = buildFourPropGameBoardFromGames(
-    gamesTomorrow,
-    leagueCode
-  );
-
-  // Never fall back to Results/Lab cohort (bestSix*) for Home Today/Tomorrow.
+  // Control-plane V1: never rebuild Official from allGeneratedCandidates.
+  // Server-sealed selectedProps / display arrays are the only Official source.
   const legacyToday = dedupeControlledBoardPicks(
     Array.isArray(explicitToday) && explicitToday.length
       ? explicitToday
@@ -904,15 +899,10 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
       : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow")
   );
 
-  const bestSixDisplayToday =
-    canonicalIsBalanced
-      ? canonicalToday
-      : fourPropToday.length
-        ? fourPropToday
-        : legacyToday;
-  const bestSixDisplayTomorrow = fourPropTomorrow.length
-    ? fourPropTomorrow
-    : legacyTomorrow;
+  const bestSixDisplayToday = canonicalToday?.length
+    ? canonicalToday
+    : legacyToday;
+  const bestSixDisplayTomorrow = legacyTomorrow;
   const combinedDisplay = dedupeControlledBoardPicks(
     display.length && isTeamBalancedFourPropBoard(display)
       ? display

@@ -135,7 +135,8 @@ export function buildCanonicalControlledBoardPacket(boardResult = {}, options = 
     selectionBuildId,
     variableBoardSize: true,
     noGlobalCap: true,
-    teamSlotRules: "one-over-one-under-per-team",
+    // Control-plane V1: no team/side quotas. Metadata only for legacy readers.
+    teamSlotRules: "NONE_CONTROL_PLANE_V1",
     verifiedSlateDate: slateDate,
     timezone: "America/Chicago",
     selectedProps,

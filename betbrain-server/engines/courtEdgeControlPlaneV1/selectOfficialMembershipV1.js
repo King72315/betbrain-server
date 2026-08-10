@@ -1,0 +1,156 @@
+/**
+ * One Official membership selector.
+ * Only this module writes officialSelected=true.
+ */
+import {
+  OFFICIAL_BOARD_MIN,
+  OFFICIAL_BOARD_MAX,
+  getOfficialBoardSizePolicy,
+  resolveC2RankScore,
+  resolveAbsoluteDirectionalEdge,
+  directionConfidenceRank,
+  stableMarketId,
+  CONTROL_PLANE_BUILD,
+  HIGH_POLICY,
+} from "./contract.js";
+
+function riskTier(packet = {}) {
+  const raw =
+    (typeof packet.risk === "string" ? packet.risk : null) ||
+    packet.risk?.risk ||
+    packet.c2Risk ||
+    packet.trueRisk ||
+    "";
+  const r = String(raw).toUpperCase();
+  if (r === "LOW" || r === "MEDIUM" || r === "HIGH") return r;
+  return "HIGH";
+}
+
+function compareWithinTier(a, b) {
+  const scoreA = resolveC2RankScore(a);
+  const scoreB = resolveC2RankScore(b);
+  if (scoreB !== scoreA) return scoreB - scoreA;
+
+  const dirA = directionConfidenceRank(
+    a.direction?.confidence ?? a.directionConfidence
+  );
+  const dirB = directionConfidenceRank(
+    b.direction?.confidence ?? b.directionConfidence
+  );
+  if (dirB !== dirA) return dirB - dirA;
+
+  const edgeA = resolveAbsoluteDirectionalEdge(a);
+  const edgeB = resolveAbsoluteDirectionalEdge(b);
+  if (edgeB !== edgeA) return edgeB - edgeA;
+
+  return stableMarketId(a).localeCompare(stableMarketId(b));
+}
+
+function isBoardCandidate(packet = {}) {
+  if (packet.boardCandidate === true) return true;
+  if (packet.membership?.boardCandidate === true) return true;
+  // Temporary bridge while packets migrate stages.
+  if (
+    packet.membership?.analysisEligible !== false &&
+    (packet.selectedSide === "OVER" || packet.selectedSide === "UNDER") &&
+    (packet.membership?.directionAdmission === "PRIMARY" ||
+      packet.membership?.directionAdmission === "BEST_GUESS" ||
+      packet.direction?.directionAdmission === "PRIMARY" ||
+      packet.direction?.directionAdmission === "BEST_GUESS") &&
+    packet.risk?.risk
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Rank boardCandidates and select Official membership (2–6).
+ * HIGH only fills when LOW+MEDIUM < 2.
+ */
+export function selectOfficialMembershipV1(packets = [], options = {}) {
+  const sizePolicy = getOfficialBoardSizePolicy();
+  const pool = (Array.isArray(packets) ? packets : [])
+    .filter((p) => isBoardCandidate(p))
+    .map((p) => ({
+      ...p,
+      c2Risk: riskTier(p),
+      c2RankScore: resolveC2RankScore(p),
+      boardCandidate: true,
+      officialSelected: false,
+    }));
+
+  const lowMed = pool
+    .filter((p) => p.c2Risk === "LOW" || p.c2Risk === "MEDIUM")
+    .sort(compareWithinTier);
+  const high = pool.filter((p) => p.c2Risk === "HIGH").sort(compareWithinTier);
+
+  let selected = [];
+  let thinSlate = false;
+  let highFillCount = 0;
+
+  if (lowMed.length >= OFFICIAL_BOARD_MIN) {
+    selected = lowMed.slice(0, OFFICIAL_BOARD_MAX);
+  } else {
+    selected = lowMed.slice();
+    const need = Math.max(0, OFFICIAL_BOARD_MIN - selected.length);
+    const highTake = high.slice(0, need);
+    highFillCount = highTake.length;
+    selected = [...selected, ...highTake];
+    // Genuine thin slate: fewer than 2 valid markets total.
+    if (pool.length < OFFICIAL_BOARD_MIN) {
+      selected = pool.sort(compareWithinTier).slice(0, pool.length);
+      thinSlate = true;
+      highFillCount = selected.filter((p) => p.c2Risk === "HIGH").length;
+    }
+  }
+
+  const selectedIds = new Set(selected.map((p) => stableMarketId(p)));
+  const withFlags = pool.map((p) => {
+    const officialSelected = selectedIds.has(stableMarketId(p));
+    return {
+      ...p,
+      officialSelected,
+      // Compat: officialEligible means on-board only after selection.
+      officialEligible: officialSelected,
+      membership: {
+        ...(p.membership || {}),
+        analysisEligible: p.membership?.analysisEligible !== false,
+        boardCandidate: true,
+        officialSelected,
+        officialEligible: officialSelected,
+      },
+    };
+  });
+
+  const selectedPackets = withFlags
+    .filter((p) => p.officialSelected)
+    .sort((a, b) => {
+      const order = { LOW: 0, MEDIUM: 1, HIGH: 2 };
+      const ra = order[a.c2Risk] ?? 9;
+      const rb = order[b.c2Risk] ?? 9;
+      if (ra !== rb) return ra - rb;
+      return compareWithinTier(a, b);
+    });
+
+  return {
+    controlPlaneBuild: CONTROL_PLANE_BUILD,
+    boardSizePolicy: sizePolicy.policy,
+    highPolicy: HIGH_POLICY,
+    officialBoardMin: sizePolicy.min,
+    officialBoardMax: sizePolicy.max,
+    boardCandidateCount: pool.length,
+    officialCount: selectedPackets.length,
+    lowCount: selectedPackets.filter((p) => p.c2Risk === "LOW").length,
+    mediumCount: selectedPackets.filter((p) => p.c2Risk === "MEDIUM").length,
+    highFillCount,
+    thinSlate,
+    thinSlateReason: thinSlate
+      ? "FEWER_THAN_TWO_VALID_BOARD_CANDIDATES"
+      : null,
+    selectedPackets,
+    boardCandidates: withFlags,
+    teamQuota: false,
+    sideQuota: false,
+  };
+}

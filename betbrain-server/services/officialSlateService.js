@@ -644,6 +644,26 @@ export function sealOfficialSlate(props = [], options = {}) {
     return { ok: false, message: `No props to seal for ${slateDate}`, slateDate };
   }
 
+  // Control-plane V1: seal freezes selector membership — never invents it.
+  const unselected = incoming.filter(
+    (p) =>
+      p.officialSelected !== true &&
+      p.membership?.officialSelected !== true &&
+      // Compat: freshly decorated Official rows stamp both flags.
+      !(p.officialEligible === true && String(p.trackingType || "").toUpperCase() === "OFFICIAL")
+  );
+  if (unselected.length) {
+    return {
+      ok: false,
+      sealed: false,
+      message: `Seal rejected — ${unselected.length} prop(s) lack officialSelected`,
+      slateDate,
+      rejectedPlayers: unselected
+        .slice(0, 8)
+        .map((p) => p.player || p.playerName),
+    };
+  }
+
   const variable =
     draftResult.variableBoardSize === true ||
     shouldUseVariableBoardSeal(incoming, options);

@@ -65,26 +65,30 @@ export function finalizeTopPropSelectionAudit(audit = {}, selected = [], scored 
   return audit;
 }
 
+/**
+ * Official membership authority: officialSelected === true only.
+ * TRACK/TEST and candidate-stage officialEligible are not authority.
+ */
 export function isOfficialPick(pick = {}) {
-  // Closed-gate only: Direction NO BET blocks Official when that flag stamped
-  // blockedByDirectionNoBet. Educated-guess Official (BEST_GUESS) is allowed.
+  if (pick.officialSelected === true) return true;
+  if (pick.membership?.officialSelected === true) return true;
+  // Compat after final selection: officialEligible is aliased to officialSelected.
   if (
-    pick.blockedByDirectionNoBet === true ||
-    pick.membership?.blockedByDirectionNoBet === true
+    pick.officialEligible === true &&
+    (String(pick.trackingType || "").toUpperCase() === "OFFICIAL" ||
+      String(pick.finalDecision || "").toUpperCase() === "OFFICIAL") &&
+    pick.officialSelected !== false
   ) {
-    return false;
+    return true;
   }
-  if (pick.officialEligible === true) return true;
-  if (String(pick.finalDecision || "").toUpperCase() === "OFFICIAL") return true;
-  if (String(pick.trackingType || "").toUpperCase() === "OFFICIAL") return true;
   return false;
 }
 
+/** Research / non-Official analyzed props. */
 export function isTestPick(pick = {}) {
   if (isNoBetPick(pick)) return false;
   if (isOfficialPick(pick)) return false;
-  const decision = String(pick.finalDecision || pick.trackingType || pick.readerDecision || "").toUpperCase();
-  return decision === "TEST" || decision === "WATCHLIST" || decision === "LEAN" || !decision;
+  return true;
 }
 
 export function isNoBetPick(pick = {}) {
@@ -100,12 +104,15 @@ export function summarizePickForAudit(pick = {}) {
     player: pick.player,
     team: pick.team,
     line: pick.line,
-    side: pick.side || pick.pick,
+    side: pick.side || pick.pick || pick.selectedSide,
     league: pick.league,
     game: pick.game,
     bestPropScore: pick.bestPropScore,
     tier: pick.tier,
+    officialSelected: pick.officialSelected === true,
     officialEligible: pick.officialEligible,
+    directionAdmission: pick.directionAdmission,
+    c2Risk: pick.c2Risk || pick.trueRisk,
     readerDecision: pick.readerDecision,
     engineHandled: pick.engineHandled,
   };

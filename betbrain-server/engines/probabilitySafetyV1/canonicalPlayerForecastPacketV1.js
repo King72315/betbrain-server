@@ -39,10 +39,15 @@ import {
 } from "../empiricalDirectionV1/index.js";
 import {
   isEmpiricalDirectionV1Enabled,
-  isDirectionNoBetBlockingOfficial,
-  getOfficialBoardSizePolicy,
 } from "../empiricalDirectionV1/featureFlag.js";
 import { decideDirectionalSideV2 } from "../empiricalDirectionV2/index.js";
+import {
+  CONTROL_PLANE_BUILD,
+  selectOfficialMembershipV1,
+  resolveC2RankScore,
+  getOfficialBoardSizePolicy,
+  stableMarketId,
+} from "../courtEdgeControlPlaneV1/index.js";
 
 function hasHardIntegrityBlock(risk = {}) {
   const reasons = [
@@ -426,8 +431,8 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
   let selectedSide;
   let forcedNoBet = false;
 
-  const noBetBlocksOfficial = isDirectionNoBetBlockingOfficial(options);
   let directionAdmission = null;
+  let directionResearchDecision = null;
 
   if (directionOn) {
     direction = decideDirectionalSideV1({
@@ -435,18 +440,18 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       underPacket,
       basePick,
     });
+    directionResearchDecision = direction.decision || null;
     if (direction.decision === "OVER" || direction.decision === "UNDER") {
       selectedSide = direction.decision;
       directionAdmission = "PRIMARY";
     } else {
-      // Educated guess: always pick a side from evidence scores.
-      // Closed-gate (optional) can still block Official via env flag.
+      // Educated guess: always pick a side. Raw NO_BET is research-only.
       forcedNoBet = true;
       selectedSide = overScore >= underScore ? "OVER" : "UNDER";
       directionAdmission = "BEST_GUESS";
     }
 
-    // C2 (or V1) membership only on the chosen side.
+    // C2 risk only on the chosen side — never membership authority.
     const postDirOpts = { ...options, membershipStage: "POST_DIRECTION" };
     if (selectedSide === "OVER") {
       overPacket = applyMembershipRiskToSidePacketV1(overPacket, postDirOpts);
@@ -457,7 +462,8 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     }
   } else {
     selectedSide = overScore >= underScore ? "OVER" : "UNDER";
-    directionAdmission = "SCORE_SIDE";
+    directionAdmission = "BEST_GUESS";
+    directionResearchDecision = null;
   }
 
   const selected =
@@ -466,15 +472,15 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     selectedSide === "OVER" ? underPacket : overPacket;
 
   const integrityBlocked = hasHardIntegrityBlock(selected.risk || {});
-  // Product policy: every valid market is a candidate; board size is enforced later.
-  // Optional closed-gate restores Direction NO BET → not Official.
-  const closedGateBlocked =
-    noBetBlocksOfficial &&
-    (forcedNoBet ||
-      direction?.decision === "NO_BET" ||
-      direction?.officialDirectionEligible === false);
-
-  const officialEligible = !integrityBlocked && !closedGateBlocked;
+  const analysisEligible = !integrityBlocked;
+  const boardCandidate =
+    analysisEligible &&
+    (selectedSide === "OVER" || selectedSide === "UNDER") &&
+    (directionAdmission === "PRIMARY" || directionAdmission === "BEST_GUESS") &&
+    Boolean(selected.risk?.risk);
+  // Only the final selector may set officialSelected=true.
+  const officialSelected = false;
+  const officialEligible = false;
 
   return {
     playerId: basePick.playerId || basePick.player_id || null,
@@ -504,24 +510,25 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     oppositeSideScore: selectedSide === "OVER" ? underScore : overScore,
     pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
     c2MembershipAppliedTo: directionOn ? selectedSide : "BOTH",
-    direction: direction
-      ? {
-          decision: direction.decision,
-          reason: direction.reason,
-          confidence: direction.confidence,
-          marketConflict: direction.marketConflict,
-          officialDirectionEligible: direction.officialDirectionEligible,
-          admission: directionAdmission,
-          directionAdmission,
-          boardSide: selectedSide,
-          educatedGuess: directionAdmission === "BEST_GUESS",
-          rescuePathway: null,
-          freezeId: direction.freezeId,
-          engineVersion: direction.engineVersion,
-          over: direction.over,
-          under: direction.under,
-        }
-      : null,
+    direction: {
+      // Production side authority is selectedSide + directionAdmission only.
+      decision: selectedSide,
+      researchDecision: directionResearchDecision,
+      reason: direction?.reason || (forcedNoBet ? "BEST_GUESS_FROM_SCORES" : null),
+      confidence: direction?.confidence || (forcedNoBet ? "NONE" : null),
+      marketConflict: direction?.marketConflict ?? null,
+      // Deprecated name — always true once a side is chosen; has zero membership veto.
+      officialDirectionEligible: true,
+      admission: directionAdmission,
+      directionAdmission,
+      boardSide: selectedSide,
+      educatedGuess: directionAdmission === "BEST_GUESS",
+      rescuePathway: null,
+      freezeId: direction?.freezeId || null,
+      engineVersion: direction?.engineVersion || null,
+      over: direction?.over || null,
+      under: direction?.under || null,
+    },
     // STUDY/SHADOW only — never Official authority.
     directionV2Shadow: (() => {
       if (!directionOn || !isDirectionV2ShadowEnabled(options)) return null;
@@ -561,11 +568,21 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     safety: selected.safety,
     risk: {
       ...selected.risk,
-      officialEligible,
-      directionDecision: direction?.decision || null,
+      // C2 risk label only — never final Official membership.
+      officialEligible: false,
+      c2Risk: selected.risk?.risk || null,
+      c2RankScore: resolveC2RankScore({
+        reliabilityProbability:
+          selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
+        trustScore: selected.risk?.trustScore,
+        safety: selected.safety,
+        risk: selected.risk,
+      }),
+      directionDecision: selectedSide,
+      directionResearchDecision,
       directionAdmission,
       boardSide: selectedSide,
-      blockedByDirectionNoBet: noBetBlocksOfficial && forcedNoBet,
+      blockedByDirectionNoBet: false,
       educatedGuess: directionAdmission === "BEST_GUESS",
     },
     riskV1Legacy: selected.riskV1Legacy,
@@ -573,31 +590,58 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
     trustScore: selected.risk?.trustScore ?? null,
     trustComponents: selected.risk?.trustComponents ?? null,
+    c2Risk: selected.risk?.risk || null,
+    c2RankScore: resolveC2RankScore({
+      reliabilityProbability:
+        selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
+      trustScore: selected.risk?.trustScore,
+      safety: selected.safety,
+      risk: selected.risk,
+    }),
     safePathway: selected.safePathway ?? selected.risk?.safePathway,
     pathwayMatched: selected.risk?.pathwayMatched ?? false,
     pathwayScore: selected.risk?.pathwayScore ?? 0,
     pathwayEvidence: selected.risk?.pathwayEvidence ?? [],
     membership: {
-      officialEligible,
+      analysisEligible,
+      boardCandidate,
+      officialSelected,
+      officialEligible: false,
       risk: selected.risk?.risk,
+      c2Risk: selected.risk?.risk || null,
+      c2RankScore: resolveC2RankScore({
+        reliabilityProbability:
+          selected.reliabilityProbability ?? selected.risk?.reliabilityProbability,
+        trustScore: selected.risk?.trustScore,
+        safety: selected.safety,
+        risk: selected.risk,
+      }),
       wouldPassLowGate: selected.risk?.wouldPassLowGate,
       wouldPassMediumGate: selected.risk?.wouldPassMediumGate,
       safePathway: selected.risk?.safePathway ?? null,
       reliabilityProbability: selected.risk?.reliabilityProbability ?? null,
       trustScore: selected.risk?.trustScore ?? null,
-      directionDecision: direction?.decision || null,
+      directionDecision: selectedSide,
+      directionResearchDecision,
       directionAdmission,
       boardSide: selectedSide,
-      blockedByDirectionNoBet: noBetBlocksOfficial && forcedNoBet,
+      blockedByDirectionNoBet: false,
       educatedGuess: directionAdmission === "BEST_GUESS",
-      requiresDirectionApproval: noBetBlocksOfficial && directionOn,
-      pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
-      boardPolicy: "SAFEST_TOP_N_EDUCATED_GUESS",
+      requiresDirectionApproval: false,
+      pipelineOrder: "INTEGRITY_DIRECTION_C2_SAFEST_2_TO_6",
+      boardPolicy: "SAFEST_2_TO_6",
+      controlPlaneBuild: CONTROL_PLANE_BUILD,
+      highPolicy: "MINIMUM_2_FILL_ONLY",
     },
+    analysisEligible,
+    boardCandidate,
+    officialSelected: false,
+    officialEligible: false,
     forecastModelVersion: FORECAST_MODEL_VERSION,
     architectureBuild: isEmpiricalSafePropV2Enabled(options)
       ? EMPIRICAL_SAFE_PROP_V2_BUILD
       : ARCHITECTURE_BUILD,
+    controlPlaneBuild: CONTROL_PLANE_BUILD,
     directionBuild: directionOn ? EMPIRICAL_DIRECTION_V1_BUILD : null,
     directionFreeze: directionOn ? EMPIRICAL_DIRECTION_V1_PRODUCTION_FREEZE : null,
     predictionCreatedAt: new Date().toISOString(),
@@ -630,35 +674,52 @@ export function buildResearchUniverseV1(candidates = [], options = {}) {
     (p) => p.risk?.risk === "HIGH" || !p.risk?.risk
   );
   const noBet = packets.filter(
-    (p) => p.direction?.decision === "NO_BET" || p.membership?.blockedByDirectionNoBet
+    (p) =>
+      p.direction?.researchDecision === "NO_BET" ||
+      p.membership?.directionResearchDecision === "NO_BET"
   );
   const directed = packets.filter(
     (p) =>
-      p.direction?.decision === "OVER" || p.direction?.decision === "UNDER"
+      p.selectedSide === "OVER" ||
+      p.selectedSide === "UNDER" ||
+      p.direction?.decision === "OVER" ||
+      p.direction?.decision === "UNDER"
+  );
+  const boardCandidates = packets.filter(
+    (p) => p.membership?.boardCandidate === true
   );
   const officialEligible = packets.filter(
-    (p) => p.membership?.officialEligible === true
+    (p) => p.membership?.officialSelected === true
   );
 
   return {
     version: RESEARCH_UNIVERSE_VERSION,
     architectureBuild: ARCHITECTURE_BUILD,
+    controlPlaneBuild: CONTROL_PLANE_BUILD,
     totalValidPlayerMarkets: packets.length,
     researchUniverseSize: packets.length,
     dualSidePacketCount: packets.length * 2,
     LOW: low.length,
     MEDIUM: medium.length,
     HIGH: high.length,
+    boardCandidates: boardCandidates.length,
     packets,
     counts: {
       LOW: low.length,
       MEDIUM: medium.length,
       HIGH: high.length,
+      boardCandidates: boardCandidates.length,
       Official: officialEligible.length,
       researchOnly: packets.length - officialEligible.length,
-      DIRECTION_OVER: directed.filter((p) => p.direction?.decision === "OVER").length,
-      DIRECTION_UNDER: directed.filter((p) => p.direction?.decision === "UNDER").length,
-      NO_BET: noBet.length,
+      DIRECTION_OVER: directed.filter((p) => p.selectedSide === "OVER").length,
+      DIRECTION_UNDER: directed.filter((p) => p.selectedSide === "UNDER").length,
+      DIRECTION_PRIMARY: packets.filter(
+        (p) => p.membership?.directionAdmission === "PRIMARY"
+      ).length,
+      DIRECTION_BEST_GUESS: packets.filter(
+        (p) => p.membership?.directionAdmission === "BEST_GUESS"
+      ).length,
+      NO_BET_RESEARCH: noBet.length,
     },
   };
 }
@@ -678,17 +739,16 @@ function safetyRankKey(packet) {
 }
 
 /**
- * Official membership: every valid market gets an educated side guess, then
- * keep only the safest 2–6 (LOW → MEDIUM → HIGH by trust/safety rank).
+ * Official membership — single control-plane selector.
+ * HIGH fills only when LOW+MEDIUM < 2 (MINIMUM_2_FILL_ONLY).
  */
 export function selectOfficialBoardFromProbabilitySafetyV1(
   candidates = [],
   options = {}
 ) {
   const research = buildResearchUniverseV1(candidates, options);
-  const sizePolicy = getOfficialBoardSizePolicy(options);
+  const sizePolicy = getOfficialBoardSizePolicy();
 
-  // Persist every research packet (including HIGH) — never counts-only
   try {
     const slateDateCT =
       options.requestedSlateDate ||
@@ -700,7 +760,10 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
         slateDateCT,
         packets: research.packets,
         researchUniverse: research.counts,
-        meta: { source: "selectOfficialBoardFromProbabilitySafetyV1" },
+        meta: {
+          source: "selectOfficialBoardFromProbabilitySafetyV1",
+          controlPlaneBuild: CONTROL_PLANE_BUILD,
+        },
       });
     }
   } catch {
@@ -717,7 +780,6 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     }
   }
 
-  // Annotate full research universe with slate-relative ranks (not just Official)
   const rankedResearch = annotateSlateRelativeStrengthV1(
     (research.packets || []).map((p) => ({
       ...p,
@@ -727,6 +789,7 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
       SafetyScore: p.safety?.finalSafetyScore,
       rawWinProbability:
         p.probability?.rawWinProbability ?? p.selectedSideProbability,
+      c2RankScore: resolveC2RankScore(p),
     }))
   );
   const rankByKey = new Map(
@@ -736,34 +799,13 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     ])
   );
 
-  const rankedPool = rankedResearch
-    .filter((p) => {
-      if (p.membership?.officialEligible !== true) return false;
-      // Optional closed-gate only.
-      if (p.membership?.requiresDirectionApproval === true) {
-        const d = p.direction?.decision || p.membership?.directionDecision;
-        if (d !== "OVER" && d !== "UNDER") return false;
-        if (p.membership?.blockedByDirectionNoBet === true) return false;
-      }
-      if (hasHardIntegrityBlock(p.risk || {})) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const riskOrder = { LOW: 0, MEDIUM: 1, HIGH: 2 };
-      const ra = riskOrder[a.risk?.risk] ?? 9;
-      const rb = riskOrder[b.risk?.risk] ?? 9;
-      if (ra !== rb) return ra - rb;
-      return safetyRankKey(b) - safetyRankKey(a);
-    });
+  const membership = selectOfficialMembershipV1(rankedResearch, options);
 
-  // Keep only the safest 2–6. If fewer than min exist, take all available.
-  const takeN = Math.min(sizePolicy.max, rankedPool.length);
-  const officialPackets = rankedPool.slice(0, takeN);
-
-  const selectedProps = officialPackets.map((packet, index) => {
-    const src = packet.selectedSide === "OVER"
-      ? packet.overPacket?.sourcePick
-      : packet.underPacket?.sourcePick;
+  const selectedProps = membership.selectedPackets.map((packet, index) => {
+    const src =
+      packet.selectedSide === "OVER"
+        ? packet.overPacket?.sourcePick
+        : packet.underPacket?.sourcePick;
     const sidePacket =
       packet.selectedSide === "OVER" ? packet.overPacket : packet.underPacket;
     const slateRel =
@@ -778,63 +820,112 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
       slateRelativeStrength: slateRel,
       calibrationHash,
     });
-    // Sync DI so Home/PropCard cannot prefer stale flood-gate trueRisk/confidence.
-    const decisionIntelligence = {
+    // Research-only DI snapshot — must not outrank Official display fields.
+    const decisionIntelligenceResearch = {
       ...(src?.decisionIntelligence || {}),
-      trueRisk: decorated.trueRisk,
-      riskAfterDecision: decorated.riskLabel,
-      finalConfidence: decorated.finalConfidence,
-      signalStrength: decorated.signalStrength,
-      confidenceOwner: decorated.confidenceOwner,
-      riskOwner: decorated.riskOwner,
-      signalOwner: decorated.signalOwner,
-      directionDecision: decorated.directionDecision,
-      directionConfidence: decorated.directionConfidence,
-      directionAdmission: decorated.directionAdmission,
+      researchOnly: true,
+      controlPlaneAuthority: false,
     };
     return {
       ...src,
       ...decorated,
-      decisionIntelligence,
-      confidence: decorated.confidence,
-      finalConfidence: decorated.finalConfidence,
-      winProbability: decorated.finalConfidence,
-      signalStrength: decorated.signalStrength,
-      signalLevel: decorated.signalLevel,
-      trueRisk: decorated.trueRisk,
-      displayTrueRisk: decorated.displayTrueRisk,
+      decisionIntelligence: {
+        trueRisk: decorated.c2Risk,
+        riskAfterDecision: decorated.riskLabel,
+        finalConfidence: decorated.displayConfidence,
+        confidenceOwner: decorated.confidenceOwner,
+        riskOwner: decorated.riskOwner,
+        directionDecision: decorated.selectedSide,
+        directionConfidence: decorated.directionConfidence,
+        directionAdmission: decorated.directionAdmission,
+        research: decisionIntelligenceResearch,
+      },
+      analysisEligible: true,
+      boardCandidate: true,
+      officialSelected: true,
+      officialEligible: true,
+      trackingType: "OFFICIAL",
+      finalDecision: "OFFICIAL",
+      recordType: "OFFICIAL",
+      confidence: decorated.displayConfidence,
+      finalConfidence: decorated.displayConfidence,
+      displayConfidence: decorated.displayConfidence,
+      winProbability: decorated.displayConfidence,
+      trueRisk: decorated.c2Risk,
+      displayTrueRisk: decorated.c2Risk,
+      c2Risk: decorated.c2Risk,
       riskLabel: decorated.riskLabel,
-      riskAfterCeiling: decorated.riskAfterCeiling,
+      riskAfterCeiling: decorated.riskLabel,
+      c2RankScore: decorated.c2RankScore,
     };
   });
 
-  const highCandidates = rankedResearch
-    .filter((p) => p.risk?.risk === "HIGH" || p.membership?.officialEligible !== true)
-    .sort((a, b) => safetyRankKey(b) - safetyRankKey(a))
+  // Mark research packets with post-selection officialSelected.
+  const selectedIds = new Set(
+    membership.selectedPackets.map((p) => stableMarketId(p))
+  );
+  const researchPackets = rankedResearch.map((p) => {
+    const id = stableMarketId(p);
+    const officialSelected = selectedIds.has(id);
+    return {
+      ...p,
+      officialSelected,
+      officialEligible: officialSelected,
+      trackingType: officialSelected ? "OFFICIAL" : "RESEARCH",
+      membership: {
+        ...(p.membership || {}),
+        officialSelected,
+        officialEligible: officialSelected,
+        boardCandidate: p.membership?.boardCandidate === true,
+      },
+    };
+  });
+
+  const highCandidates = researchPackets
+    .filter((p) => p.risk?.risk === "HIGH" && !p.officialSelected)
+    .sort((a, b) => resolveC2RankScore(b) - resolveC2RankScore(a))
     .slice(0, 10);
 
   return {
     version: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,
     architectureBuild: v2On ? EMPIRICAL_SAFE_PROP_V2_BUILD : ARCHITECTURE_BUILD,
-    membershipModel: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,
+    controlPlaneBuild: CONTROL_PLANE_BUILD,
+    membershipModel: "courteedge-single-machine-control-plane-v1",
     productionFreeze: v2On ? EMPIRICAL_SAFE_PROP_V2_PRODUCTION_FREEZE : null,
     calibrationHash,
     selectedProps,
     officialCount: selectedProps.length,
-    lowCount: selectedProps.filter((p) => p.trueRisk === "LOW").length,
-    mediumCount: selectedProps.filter((p) => p.trueRisk === "MEDIUM").length,
-    highBlocked: research.HIGH,
+    lowCount: membership.lowCount,
+    mediumCount: membership.mediumCount,
+    highFillCount: membership.highFillCount,
+    thinSlate: membership.thinSlate,
+    thinSlateReason: membership.thinSlateReason,
+    highBlocked: 0,
     topHighCandidates: highCandidates,
-    research: { ...research, packets: rankedResearch },
+    research: {
+      ...research,
+      packets: researchPackets,
+      counts: {
+        ...research.counts,
+        Official: selectedProps.length,
+        boardCandidates: membership.boardCandidateCount,
+        researchOnly: Math.max(
+          0,
+          membership.boardCandidateCount - selectedProps.length
+        ),
+      },
+    },
+    boardCandidates: membership.boardCandidates,
     boardSizePolicy: sizePolicy.policy,
+    highPolicy: membership.highPolicy,
     officialBoardMin: sizePolicy.min,
     officialBoardMax: sizePolicy.max,
-    officialPoolSize: rankedPool.length,
+    officialPoolSize: membership.boardCandidateCount,
     forcedSide: false,
     noFixedSix: true,
-    // Soft min: take up to max; if pool < min, board may be smaller (no fake fills).
-    noMinimumCount: true,
+    noMinimumCount: false,
     noSideQuota: true,
+    noTeamQuota: true,
     v1ShadowEnabled: true,
   };
 }
@@ -853,6 +944,7 @@ function riskCodeToLabel(code) {
  */
 export function resolveOfficialDisplayMetaV1({
   directionDecision = null,
+  directionAdmission = null,
   directionConfidence = null,
   c2Risk = null,
   reliabilityProbability = null,
@@ -860,25 +952,19 @@ export function resolveOfficialDisplayMetaV1({
   rawWinProbability = null,
 } = {}) {
   const dir = String(directionDecision || "").toUpperCase();
-  const directed = dir === "OVER" || dir === "UNDER";
+  const admission = String(directionAdmission || "").toUpperCase();
+  const directed =
+    (dir === "OVER" || dir === "UNDER") &&
+    (admission === "PRIMARY" ||
+      admission === "BEST_GUESS" ||
+      admission === "" ||
+      admission === "NULL");
   const riskCode = String(c2Risk || "HIGH").toUpperCase();
   const dirConf = String(directionConfidence || "NONE").toUpperCase();
   const rel = num(reliabilityProbability);
   const trust = num(trustScore);
   const rawP = num(rawWinProbability);
-
-  let signalStrength = "WEAK";
-  if (directed && riskCode === "LOW" && (dirConf === "STRONG" || dirConf === "STANDARD")) {
-    signalStrength = "STRONG";
-  } else if (directed && riskCode === "LOW") {
-    signalStrength = "MODERATE";
-  } else if (directed && riskCode === "MEDIUM" && dirConf === "STRONG") {
-    signalStrength = "MODERATE";
-  } else if (directed && riskCode === "MEDIUM" && dirConf === "STANDARD") {
-    signalStrength = "MODERATE";
-  } else if (directed && riskCode === "MEDIUM") {
-    signalStrength = "WEAK";
-  }
+  const isPrimary = admission === "PRIMARY";
 
   // Direction categorical → base %, then soft C2/reliability lifts. Not legacy netEdge.
   let confidence =
@@ -891,21 +977,29 @@ export function resolveOfficialDisplayMetaV1({
     confidence = Math.round(confidence * 0.65 + rawP * 100 * 0.35);
   }
   confidence = Math.max(48, Math.min(86, Math.round(confidence)));
-  if (!directed || riskCode === "HIGH") {
+  if (!isPrimary || riskCode === "HIGH") {
     confidence = Math.min(confidence, 52);
-    signalStrength = "WEAK";
   }
 
   return {
+    c2Risk: riskCode,
     trueRisk: riskCode,
     riskLabel: riskCodeToLabel(riskCode) || riskCode,
     riskAfterCeiling: riskCodeToLabel(riskCode) || riskCode,
     displayTrueRisk: riskCode,
-    signalStrength,
-    signalLevel: signalStrength,
+    // signalStrength is research/debug only — not Official display authority.
+    signalStrength: null,
+    signalLevel: null,
     confidence,
     finalConfidence: confidence,
-    directionAdmission: directed ? "PRIMARY" : null,
+    displayConfidence: confidence,
+    directionAdmission: isPrimary
+      ? "PRIMARY"
+      : admission === "BEST_GUESS"
+        ? "BEST_GUESS"
+        : directed
+          ? "PRIMARY"
+          : "BEST_GUESS",
   };
 }
 
@@ -917,10 +1011,15 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
   const v2Risk = risk.risk;
   const v1Risk = riskV1?.risk ?? null;
   const riskCode = String((v2On ? v2Risk : v1Risk || v2Risk) || "HIGH").toUpperCase();
-  const directionDecision = packet.direction?.decision ?? null;
+  const selectedSide = packet.selectedSide || packet.membership?.boardSide;
+  const directionAdmission =
+    packet.direction?.directionAdmission ||
+    packet.membership?.directionAdmission ||
+    "BEST_GUESS";
   const directionConfidence = packet.direction?.confidence ?? null;
   const display = resolveOfficialDisplayMetaV1({
-    directionDecision,
+    directionDecision: selectedSide,
+    directionAdmission,
     directionConfidence,
     c2Risk: riskCode,
     reliabilityProbability:
@@ -928,29 +1027,20 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     trustScore: risk.trustScore ?? packet.trustScore ?? null,
     rawWinProbability: packet.probability?.rawWinProbability ?? null,
   });
-  const directionAdmission =
-    packet.direction?.directionAdmission ||
-    packet.membership?.directionAdmission ||
-    (directionDecision === "OVER" || directionDecision === "UNDER"
-      ? "PRIMARY"
-      : packet.membership?.educatedGuess
-        ? "BEST_GUESS"
-        : null);
-  const directed =
-    Boolean(packet.selectedSide) &&
-    (directionAdmission === "PRIMARY" ||
-      directionAdmission === "BEST_GUESS" ||
-      directionAdmission === "SCORE_SIDE" ||
-      directionDecision === "OVER" ||
-      directionDecision === "UNDER");
+  const c2RankScore =
+    packet.c2RankScore ??
+    resolveC2RankScore(packet);
 
   return {
-    side: packet.selectedSide,
-    pick: packet.selectedSide,
-    trueRisk: display.trueRisk,
+    side: selectedSide,
+    pick: selectedSide,
+    selectedSide,
+    c2Risk: display.c2Risk,
+    trueRisk: display.c2Risk,
     riskLabel: display.riskLabel,
-    riskAfterCeiling: display.riskAfterCeiling,
-    displayTrueRisk: display.displayTrueRisk,
+    riskAfterCeiling: display.riskLabel,
+    displayTrueRisk: display.c2Risk,
+    c2RankScore,
     /** Production risk under Calibration 2 (champion). */
     v2Risk: v2On ? v2Risk : null,
     /** Shadow V1 giant-AND classification — comparison only, not Official authority. */
@@ -1013,38 +1103,49 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     slateTrustRank: slateRel?.slateTrustRank ?? null,
     slatePercentile: slateRel?.slatePercentile ?? null,
     slateRelativeStrength: slateRel,
+    analysisEligible: true,
+    boardCandidate: true,
+    officialSelected: true,
     officialEligible: true,
     trackingType: "OFFICIAL",
     finalDecision: "OFFICIAL",
     recordType: "OFFICIAL",
-    // Direction × C2 owned display fields (override legacy src spread).
-    confidence: display.confidence,
-    finalConfidence: display.finalConfidence,
-    winProbability: display.finalConfidence,
-    signalStrength: display.signalStrength,
-    signalLevel: display.signalLevel,
-    directionDecision,
+    // Single owners: Direction×C2 confidence, C2 risk.
+    displayConfidence: display.displayConfidence,
+    confidence: display.displayConfidence,
+    finalConfidence: display.displayConfidence,
+    winProbability: display.displayConfidence,
+    signalStrength: null,
+    signalLevel: null,
+    directionDecision: selectedSide,
+    directionResearchDecision:
+      packet.direction?.researchDecision ??
+      packet.membership?.directionResearchDecision ??
+      null,
     directionReason: packet.direction?.reason ?? null,
     directionConfidence,
-    directionAdmission: directed ? directionAdmission : null,
-    admission: directed ? directionAdmission : null,
+    directionAdmission,
+    admission: directionAdmission,
     educatedGuess: directionAdmission === "BEST_GUESS",
     rescuePathway: null,
-    blockedByDirectionNoBet: Boolean(packet.membership?.blockedByDirectionNoBet),
-    pipelineOrder: packet.pipelineOrder || packet.membership?.pipelineOrder || null,
+    blockedByDirectionNoBet: false,
+    pipelineOrder: "INTEGRITY_DIRECTION_C2_SAFEST_2_TO_6",
+    controlPlaneBuild: CONTROL_PLANE_BUILD,
     confidenceOwner: "probabilitySafetyV1.direction_x_c2",
-    signalOwner: "probabilitySafetyV1.direction_x_c2",
-    riskOwner: v2On
-      ? "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2"
-      : "probabilitySafetyV1",
+    riskOwner: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+    signalOwner: null,
     forcedSide: false,
     noFixedSix: true,
-    noMinimumBoard: true,
+    noMinimumBoard: false,
     noTeamQuota: true,
     whyNotLow: risk.whyNotLow || [],
     riskExplanation: risk.explanation || null,
     membershipQualificationStatus:
-      riskCode === "LOW" ? "QUALIFIED_LOW_RISK" : "QUALIFIED_MEDIUM_RISK",
+      riskCode === "LOW"
+        ? "QUALIFIED_LOW_RISK"
+        : riskCode === "MEDIUM"
+          ? "QUALIFIED_MEDIUM_RISK"
+          : "HIGH_MINIMUM_FILL",
   };
 }
 

@@ -112,6 +112,34 @@ export function clampNonNegativeOrNull(value) {
  * Resolve the one consumer confidence + risk pair.
  */
 export function resolveCanonicalConfidenceRisk(pick = {}) {
+  const isOfficialControlPlane =
+    pick.officialSelected === true ||
+    pick.membership?.officialSelected === true ||
+    pick.controlPlaneBuild ||
+    String(pick.riskOwner || "").includes("EMPIRICAL_SAFE_PROP_V2");
+
+  // Official rows: C2 risk + Direction×C2 displayConfidence only.
+  // DDI / sealed decision packets are research — not display authority.
+  if (isOfficialControlPlane) {
+    const confidence = roundConfidence(
+      first(
+        pick.displayConfidence,
+        pick.finalConfidence,
+        pick.confidence,
+        50
+      )
+    );
+    const risk = String(
+      first(pick.c2Risk, pick.displayTrueRisk, pick.trueRisk, pick.v2Risk, "HIGH")
+    ).toUpperCase();
+    return {
+      finalConfidence: confidence,
+      finalRisk: risk,
+      owner: "courteedge-single-machine-control-plane-v1",
+      source: "official.displayConfidence_x_c2Risk",
+    };
+  }
+
   const packet =
     pick.courtEdgeDecisionPacketV1 ||
     pick.courtEdgeDecisionPacket ||
@@ -132,19 +160,9 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
       packet.confidence,
       pick.finalConfidence,
       pick.confidence
-      // intentionally omit winProbability ΓÇö competing trail
     )
   );
 
-  // C2 / Probability Safety membership risk outranks stale DDI flood-gate risk.
-  const membershipRiskOwner = Boolean(
-    pick.v2Risk ||
-      pick.riskOwner ||
-      pick.productionFreeze ||
-      pick.membershipVersion ||
-      (pick.architectureBuild &&
-        String(pick.architectureBuild).includes("empirical"))
-  );
   const risk = String(
     first(
       sealedAnalysis?.canonical?.risk,
@@ -152,10 +170,6 @@ export function resolveCanonicalConfidenceRisk(pick = {}) {
       freeze.risk,
       freeze.trueRisk,
       packet.trueRisk,
-      membershipRiskOwner ? pick.v2Risk : null,
-      membershipRiskOwner ? pick.displayTrueRisk : null,
-      membershipRiskOwner ? pick.trueRisk : null,
-      membershipRiskOwner ? null : pick.decisionIntelligence?.trueRisk,
       pick.displayTrueRisk,
       pick.trueRisk,
       pick.decisionIntelligence?.trueRisk,

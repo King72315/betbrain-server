@@ -987,36 +987,44 @@ export function annotateResultsAdmission(pick = {}) {
   const di = promoted.decisionIntelligence || {};
   const qualityNote = ""; // keep prior-gate text out of user-facing Results reasons
 
-  // Final Controlled Best 6 / Results row: user-facing decision is always TRACK.
-  // Preserve pre-selection gate labels only in audit / naturalDecision fields.
+  // Control-plane V1: legacy TRACK stamp is not Official authority.
+  // Only officialSelected from the safest-2–6 selector admits Official Results.
+  const officialSelected =
+    promoted.officialSelected === true ||
+    promoted.membership?.officialSelected === true;
+  const trackingType = officialSelected ? "OFFICIAL" : "RESEARCH";
   const withWhy = applyHomeDisplayWhyToPick({
     ...promoted,
     naturalDecision,
-    finalDecision: "TRACK",
-    decision: "TRACK",
-    trackingDecision: "TRACK",
-    wnbaTrackingDecision: "TRACK",
-    trackingEligibility: "TRACK",
-    displayTrackEligibility: "TRACK",
-    userFacingDecision: "TRACK",
-    selectedForLearning: true,
-    resultsTracked: true,
-    resultsAdmissionEligible: true,
-    resultsDecisionLabel: "TRACK",
+    finalDecision: trackingType,
+    decision: trackingType,
+    trackingType,
+    trackingDecision: trackingType,
+    wnbaTrackingDecision: trackingType,
+    trackingEligibility: trackingType,
+    displayTrackEligibility: trackingType,
+    userFacingDecision: trackingType,
+    selectedForLearning: officialSelected,
+    resultsTracked: officialSelected,
+    resultsAdmissionEligible: officialSelected,
+    resultsDecisionLabel: trackingType,
     resultsTrackingWarning: qualityNote,
     resultsAdmissionReason: qualityNote,
     displayResultsReason: qualityNote,
-    controlledBestSixDisplayTracked: true,
+    controlledBestSixDisplayTracked: officialSelected,
+    officialSelected,
+    officialEligible: officialSelected,
     decisionIntelligence: {
       ...di,
-      trackEligibility: "TRACK",
-      bestSixEligibility: true,
+      trackEligibility: trackingType,
+      bestSixEligibility: officialSelected,
       originalGateEligibility:
         di.originalGateEligibility ||
         di.trackEligibility ||
         naturalDecision ||
         null,
       naturalDecision,
+      researchOnly: !officialSelected,
     },
   });
   return withWhy;
