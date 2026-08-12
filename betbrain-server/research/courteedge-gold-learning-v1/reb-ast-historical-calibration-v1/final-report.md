@@ -11,6 +11,8 @@
 | Starting HEAD | `6895f75` (PRA multistat) |
 | Checkpoint | `courteedge-pre-reb-ast-historical-calibration-v1` → `4433cb4` |
 | Feature branch | `feature/courteedge-reb-ast-historical-calibration-v1` |
+| Ending HEAD | `edaa821` |
+| Commit | Calibrate REB/AST from historical ESPN replay without Odds refresh. |
 | Odds API refresh | **Not run** (intentional) |
 
 ## Historical data
