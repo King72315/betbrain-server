@@ -32,6 +32,7 @@ import {
   resolveLeaguePicksPayload,
 } from "../utils/controlledBestSixDisplay";
 import { getTodayLocalDate } from "../utils/slateRotation";
+import BackendSourceBadge from "./BackendSourceBadge";
 import { formatSlateMessageDate } from "../utils/slateMessages";
 import {
   PROP_TYPE_DISPLAY_FILTERS,
@@ -373,6 +374,7 @@ export default function HomeControlledBestSixScreen() {
             <Text style={styles.versionLine}>Engine: {picksData.controlledBestSixVersion}</Text>
           ) : null}
           <CopyReportButton getReportText={getReportText} />
+          <BackendSourceBadge />
         </View>
 
         <View style={styles.leagueTabRow}>

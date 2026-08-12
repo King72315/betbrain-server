@@ -10,7 +10,13 @@ import {
 } from "react-native";
 
 import CopyReportButton from "../../components/CopyReportButton";
-import { getApiBaseUrl, refreshSavedPicks, resolvePicks } from "../../services/api";
+import {
+  ensureActiveBackend,
+  getApiBaseUrl,
+  refreshSavedPicks,
+  resolveActiveApiBaseUrl,
+  resolvePicks,
+} from "../../services/api";
 import { buildSettingsReport } from "../../utils/reportBuilders";
 
 export default function Settings() {
@@ -18,6 +24,7 @@ export default function Settings() {
   const [refreshing, setRefreshing] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [health, setHealth] = useState<any>(null);
+  const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
 
   useEffect(() => {
     checkBackend();
@@ -26,8 +33,11 @@ export default function Settings() {
   const checkBackend = async () => {
     try {
       setChecking(true);
+      await ensureActiveBackend();
+      const base = await resolveActiveApiBaseUrl();
+      setApiUrl(base);
 
-      const res = await fetch(`${getApiBaseUrl()}/health`);
+      const res = await fetch(`${base}/health`);
       const data = await res.json();
 
       setHealth(data);
@@ -114,7 +124,7 @@ export default function Settings() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Backend Connection</Text>
 
-          <InfoRow label="API URL" value={getApiBaseUrl()} />
+          <InfoRow label="API URL" value={apiUrl} />
           <InfoRow
             label="Status"
             value={checking ? "Checking..." : health?.ok ? "Online ✅" : "Offline ❌"}
@@ -209,7 +219,9 @@ export default function Settings() {
           </Text>
 
           <Text style={styles.codeText}>
-            EXPO_PUBLIC_API_URL=http://YOUR-COMPUTER-IP:3000
+            EXPO_PUBLIC_API_MODE=auto{"\n"}
+            EXPO_PUBLIC_LOCAL_API_URL=http://YOUR-COMPUTER-IP:3000{"\n"}
+            EXPO_PUBLIC_RENDER_API_URL=https://betbrain-server-1.onrender.com
           </Text>
         </View>
       </ScrollView>

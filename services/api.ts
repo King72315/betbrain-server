@@ -4,20 +4,32 @@
  * Core product reads (Home Controlled Best 6, Top props, league boards, Results
  * tracking displays) use unauthenticated GET/POST -- no JWT / login required.
  * Admin /scheduler endpoints are gated server-side separately and are not used here.
+ *
+ * All requests go through lib/apiEndpointResolver (LOCAL-first in dev, RENDER fallback).
+ * One active backend per session — never merge Local + Render responses.
  */
-const LIVE_RENDER_URL = "https://betbrain-server-1.onrender.com";
+import {
+  ensureActiveBackend,
+  formatBackendBadgeLabel,
+  getApiEndpointDiagnostics,
+  getLockedApiBaseUrlOrNull,
+  isLocalUrl,
+  isRenderUrl,
+  peekPreferredApiBaseUrl,
+  resolveActiveApiBaseUrl,
+} from "../lib/apiEndpointResolver.js";
 
+export {
+  ensureActiveBackend,
+  formatBackendBadgeLabel,
+  getApiEndpointDiagnostics,
+  resolveActiveApiBaseUrl,
+};
+
+/** Sync preferred URL (session lock if selected; else config peek — no health probe). */
 export function resolveApiBaseUrl(): string {
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.replace(/\/$/, "");
-  }
-
-  // Web and native default to live Render; localhost only via explicit EXPO_PUBLIC_API_URL.
-  return LIVE_RENDER_URL;
+  return peekPreferredApiBaseUrl();
 }
-
-const BASE_URL = resolveApiBaseUrl();
 
 type League = "NBA" | "WNBA";
 
@@ -35,11 +47,23 @@ type ApiResult = {
   topProps?: any[];
   topNBAProps?: any[];
   topWNBAProps?: any[];
-  topWNBAProps?: any[];
   bestSixWNBA?: any[];
   bestSixDisplayWNBA?: any[];
+  bestSixDisplayTodayWNBA?: any[];
+  bestSixDisplayTomorrowWNBA?: any[];
   bestSixNBA?: any[];
   bestSixDisplayNBA?: any[];
+  bestSixDisplayTodayNBA?: any[];
+  bestSixDisplayTomorrowNBA?: any[];
+  controlledBestBoard?: any[];
+  selectedPropsTodayWNBA?: any[];
+  selectedPropsTomorrowWNBA?: any[];
+  variableBoardSize?: boolean | null;
+  membershipSource?: string | null;
+  boardVersion?: string | null;
+  membershipModel?: string | null;
+  selectionBuildId?: string | null;
+  officialMembership?: any[];
   bestSixLimit?: number | null;
   controlledBestSixVersion?: string | null;
   wnbaTopPropLimit?: number | null;
@@ -66,7 +90,8 @@ async function safeJson(res: Response) {
 
 function nonJsonBackendError() {
   const mode = getBackendMode();
-  return `Backend returned HTML instead of JSON (${mode}: ${BASE_URL}). CourtEdge server may not be running on that port.`;
+  const base = getApiBaseUrl();
+  return `Backend returned HTML instead of JSON (${mode}: ${base}). CourtEdge server may not be running on that port.`;
 }
 
 function normalizePicksResponse(data: any = {}): ApiResult {
@@ -86,8 +111,21 @@ function normalizePicksResponse(data: any = {}): ApiResult {
     topWNBAProps: data.topWNBAProps || [],
     bestSixWNBA: data.bestSixWNBA || [],
     bestSixDisplayWNBA: data.bestSixDisplayWNBA || [],
+    bestSixDisplayTodayWNBA: data.bestSixDisplayTodayWNBA || [],
+    bestSixDisplayTomorrowWNBA: data.bestSixDisplayTomorrowWNBA || [],
     bestSixNBA: data.bestSixNBA || [],
     bestSixDisplayNBA: data.bestSixDisplayNBA || [],
+    bestSixDisplayTodayNBA: data.bestSixDisplayTodayNBA || [],
+    bestSixDisplayTomorrowNBA: data.bestSixDisplayTomorrowNBA || [],
+    controlledBestBoard: data.controlledBestBoard || [],
+    selectedPropsTodayWNBA: data.selectedPropsTodayWNBA || [],
+    selectedPropsTomorrowWNBA: data.selectedPropsTomorrowWNBA || [],
+    variableBoardSize: data.variableBoardSize ?? null,
+    membershipSource: data.membershipSource ?? null,
+    boardVersion: data.boardVersion ?? null,
+    membershipModel: data.membershipModel ?? null,
+    selectionBuildId: data.selectionBuildId ?? null,
+    officialMembership: data.officialMembership || [],
     bestSixLimit: data.bestSixLimit ?? null,
     controlledBestSixVersion: data.controlledBestSixVersion ?? null,
     wnbaTopPropLimit: data.wnbaTopPropLimit ?? null,
@@ -102,7 +140,8 @@ function normalizePicksResponse(data: any = {}): ApiResult {
 
 async function apiGet(path: string): Promise<ApiResult> {
   try {
-    const res = await fetch(`${BASE_URL}${path}`);
+    const base = await resolveActiveApiBaseUrl();
+    const res = await fetch(`${base}${path}`);
     const data = await safeJson(res);
 
     if (data._nonJson) {
@@ -139,7 +178,8 @@ async function apiGet(path: string): Promise<ApiResult> {
 
 async function apiPost(path: string, body?: any): Promise<ApiResult> {
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const base = await resolveActiveApiBaseUrl();
+    const res = await fetch(`${base}${path}`, {
       method: "POST",
       headers: body
         ? {
@@ -292,7 +332,7 @@ export const savePick = async (pick: any) => {
 
 export const fetchPickHistory = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/saved-picks`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/saved-picks`);
     const data = await safeJson(res);
 
     return {
@@ -330,7 +370,7 @@ export const resolvePicks = async (options?: { force?: boolean }) => {
   lastResolveAt = now;
 
   try {
-    const res = await fetch(`${BASE_URL}/resolve-picks`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/resolve-picks`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -386,7 +426,7 @@ export const checkPendingResults = async (options?: {
   lastResolveAt = now;
 
   try {
-    const res = await fetch(`${BASE_URL}/check-pending-results`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/check-pending-results`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -431,7 +471,7 @@ export const checkPendingResults = async (options?: {
 
 export const deletePick = async (id: string) => {
   try {
-    const res = await fetch(`${BASE_URL}/saved-picks/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/saved-picks/${encodeURIComponent(id)}`, {
       method: "DELETE",
     });
 
@@ -453,32 +493,21 @@ export const deletePick = async (id: string) => {
   }
 };
 
-export const getApiBaseUrl = () => BASE_URL;
+export const getApiBaseUrl = () =>
+  getLockedApiBaseUrlOrNull() || peekPreferredApiBaseUrl();
 
 export type BackendMode = "LOCAL DEV" | "LIVE RENDER" | "CUSTOM";
 
 export const getBackendMode = (): BackendMode => {
-  const url = BASE_URL.toLowerCase();
-
-  if (
-    url.includes("localhost") ||
-    url.includes("127.0.0.1") ||
-    /^http:\/\/192\.168\./.test(url) ||
-    /^http:\/\/10\./.test(url)
-  ) {
-    return "LOCAL DEV";
-  }
-
-  if (url.includes("onrender.com")) {
-    return "LIVE RENDER";
-  }
-
+  const url = getApiBaseUrl();
+  if (isLocalUrl(url)) return "LOCAL DEV";
+  if (isRenderUrl(url)) return "LIVE RENDER";
   return "CUSTOM";
 };
 
 export const fetchTrackedProps = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/tracked-props`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/tracked-props`);
     const data = await safeJson(res);
 
     if (data._nonJson) {
@@ -518,7 +547,7 @@ export const fetchTrackedProps = async () => {
 
 export const fetchTrackedAnalytics = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/tracked-props/analytics`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/tracked-props/analytics`);
     const data = await safeJson(res);
 
     return {
@@ -541,7 +570,7 @@ export const resolveTrackedProps = async (options?: {
   requireLikelyFinished?: boolean;
 }) => {
   try {
-    const res = await fetch(`${BASE_URL}/resolve-tracked-props`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/resolve-tracked-props`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -576,7 +605,7 @@ export const resolveTrackedProps = async (options?: {
 
 export const fetchDailySlateReports = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/daily-slate-reports`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/daily-slate-reports`);
     const data = await safeJson(res);
 
     return {
@@ -656,7 +685,7 @@ export const fetchCourtEdgeLabV2 = async (options?: {
     const path = options?.slateDate
       ? `/courtedge/lab/${encodeURIComponent(options.slateDate)}${qs ? `?${qs}` : ""}`
       : `/courtedge/lab${qs ? `?${qs}` : ""}`;
-    const res = await fetch(`${BASE_URL}${path}`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}${path}`);
     const data = await safeJson(res);
     return {
       ok: res.ok && (data.ok ?? false),
@@ -682,7 +711,7 @@ export const fetchCourtEdgeLabV2 = async (options?: {
 export const fetchDailySlateReport = async (slateDate: string) => {
   try {
     const res = await fetch(
-      `${BASE_URL}/daily-slate-reports/${encodeURIComponent(slateDate)}`
+      `${await resolveActiveApiBaseUrl()}/daily-slate-reports/${encodeURIComponent(slateDate)}`
     );
     const data = await safeJson(res);
 
@@ -707,7 +736,7 @@ export const buildDailySlateReports = async (options?: {
   forceRebuild?: boolean;
 }) => {
   try {
-    const res = await fetch(`${BASE_URL}/daily-slate-reports/build`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/daily-slate-reports/build`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -741,7 +770,7 @@ export const buildDailySlateReports = async (options?: {
 
 export const fetchLockedSlates = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/slates/locked`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/slates/locked`);
     const data = await safeJson(res);
 
     return {
@@ -764,7 +793,7 @@ export const fetchLockedSlates = async () => {
 
 export const lockSlate = async (slateDate: string, reason = "manual") => {
   try {
-    const res = await fetch(`${BASE_URL}/slates/${encodeURIComponent(slateDate)}/lock`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/slates/${encodeURIComponent(slateDate)}/lock`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -797,7 +826,7 @@ export const lockSlate = async (slateDate: string, reason = "manual") => {
 
 export const fetchDiagnostics = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/diagnostics`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/diagnostics`);
     const data = await safeJson(res);
 
     return {
@@ -816,7 +845,7 @@ export const fetchDiagnostics = async () => {
 
 export const fetchHistoryArchives = async () => {
   try {
-    const res = await fetch(`${BASE_URL}/history-archives`);
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/history-archives`);
     const data = await safeJson(res);
 
     return {
@@ -842,7 +871,7 @@ export const fetchHistoryArchives = async () => {
 export const fetchHistoryArchive = async (slateDate: string) => {
   try {
     const res = await fetch(
-      `${BASE_URL}/history-archives/${encodeURIComponent(slateDate)}`
+      `${await resolveActiveApiBaseUrl()}/history-archives/${encodeURIComponent(slateDate)}`
     );
     const data = await safeJson(res);
 
@@ -876,7 +905,7 @@ export const resetHistoryArchives = async (options?: {
       headers["x-admin-secret"] = secret;
     }
 
-    const res = await fetch(`${BASE_URL}/admin/reset-history`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/admin/reset-history`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -920,7 +949,7 @@ export const resetLabNoRestore = async (options?: {
       headers["x-admin-secret"] = secret;
     }
 
-    const res = await fetch(`${BASE_URL}/admin/reset-lab-no-restore`, {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/admin/reset-lab-no-restore`, {
       method: "POST",
       headers,
       body: JSON.stringify({
