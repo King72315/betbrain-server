@@ -1,5 +1,8 @@
 /**
- * playerRoleStabilityEngineV1
+ * playerRoleStabilityEngineV1 — scale/missingness fix for Empirical V2.
+ *
+ * FIX: unknown starter must NOT permanently map to 68 (bench), which made
+ * LOW (role>=75) structurally impossible. Missing → null/uncertain, not fake bench.
  */
 import { ROLE_MODEL_VERSION } from "./versions.js";
 
@@ -14,10 +17,23 @@ function clamp(n, lo, hi) {
 }
 
 export function buildPlayerRoleStabilityEngineV1(pick = {}) {
+  const hasExplicitStarterBool =
+    pick.isStarter === true || pick.isStarter === false;
+  const starterStatusRaw = String(pick.starterStatus || "").toUpperCase();
+  const hasStarterStatus =
+    starterStatusRaw === "STARTER" ||
+    starterStatusRaw === "BENCH" ||
+    starterStatusRaw === "RESERVE";
+  const startsL5 = num(pick.startsL5);
+  const hasStartsEvidence = startsL5 != null;
+
+  const starterKnown =
+    hasExplicitStarterBool || hasStarterStatus || hasStartsEvidence;
+
   const starter =
     pick.isStarter === true ||
-    String(pick.starterStatus || "").toUpperCase() === "STARTER" ||
-    num(pick.startsL5, 0) >= 3;
+    starterStatusRaw === "STARTER" ||
+    (startsL5 != null && startsL5 >= 3);
 
   const usage =
     num(pick.usageRate) ??
@@ -25,8 +41,7 @@ export function buildPlayerRoleStabilityEngineV1(pick = {}) {
     num(pick.expectedUsage) ??
     num(pick.homeDetailedAnalysisV1?.usage?.rate);
 
-  const usageL5 =
-    num(pick.usageL5) ?? num(pick.recentUsage) ?? usage;
+  const usageL5 = num(pick.usageL5) ?? num(pick.recentUsage) ?? usage;
   const usageSeason = num(pick.usageSeason) ?? usage;
 
   const fga = num(pick.expectedFGA) ?? num(pick.avgFGA) ?? num(pick.FGA);
@@ -35,31 +50,76 @@ export function buildPlayerRoleStabilityEngineV1(pick = {}) {
   const threePa =
     num(pick.expected3PA) ?? num(pick.avg3PA) ?? num(pick["3PA"]);
 
+  // Prefer explicit historical roleStability when present (frozen pregame)
+  const historicalRole = num(pick.roleStability) ?? num(pick.historicalRoleStability);
+
   const recentRoleChange =
     Boolean(pick.recentRoleChange) ||
     Boolean(pick.roleChange) ||
-    Math.abs((usageL5 ?? 0) - (usageSeason ?? 0)) > 0.06;
+    (usageL5 != null &&
+      usageSeason != null &&
+      Math.abs(usageL5 - usageSeason) > 0.06);
 
   const teammateImpact =
     Boolean(pick.teammateAvailabilityImpact) ||
     Boolean(pick.keyTeammateReturning) ||
     Boolean(pick.keyTeammateOut);
 
-  let roleStabilityScore = starter ? 82 : 68;
-  if (usage != null && usageL5 != null && usageSeason != null) {
-    const drift = Math.abs(usageL5 - usageSeason);
-    roleStabilityScore -= clamp(drift * 250, 0, 30);
-  }
-  if (recentRoleChange) roleStabilityScore -= 18;
-  if (teammateImpact) roleStabilityScore -= 12;
-  if (fga != null && fgaL5 != null && Math.abs(fga - fgaL5) > 3) {
-    roleStabilityScore -= 8;
-  }
-  if (pick.ROLE_ENVIRONMENT_CHANGED || pick.roleEnvironmentChanged) {
-    roleStabilityScore -= 20;
+  const minutes =
+    num(pick.avgMinutesL5) ??
+    num(pick.recentMinutes) ??
+    num(pick.expectedMinutes) ??
+    num(pick.projectedMinutes);
+
+  let roleStabilityScore;
+  let starterStatus;
+  let inferred = false;
+
+  if (historicalRole != null) {
+    roleStabilityScore = historicalRole;
+    starterStatus = starterKnown
+      ? starter
+        ? "STARTER"
+        : "BENCH_OR_UNKNOWN"
+      : "FROM_HISTORICAL_PACKET";
+  } else if (starterKnown) {
+    // Known starter/bench — full intended bases (can reach high 80s after no penalties)
+    roleStabilityScore = starter ? 88 : 62;
+    starterStatus = starter ? "STARTER" : "BENCH";
+  } else if (minutes != null && minutes >= 28) {
+    // Infer high-minute role without claiming known starter
+    roleStabilityScore = 80;
+    starterStatus = "INFERRED_HIGH_MINUTE";
+    inferred = true;
+  } else if (minutes != null && minutes >= 20) {
+    roleStabilityScore = 72;
+    starterStatus = "INFERRED_ROTATION";
+    inferred = true;
+  } else if (minutes != null) {
+    roleStabilityScore = 58;
+    starterStatus = "INFERRED_LOW_MINUTE";
+    inferred = true;
+  } else {
+    // Truly unknown — null score (missing ≠ 68 bench)
+    roleStabilityScore = null;
+    starterStatus = "UNKNOWN";
   }
 
-  roleStabilityScore = clamp(Math.round(roleStabilityScore), 0, 100);
+  if (roleStabilityScore != null) {
+    if (usage != null && usageL5 != null && usageSeason != null) {
+      const drift = Math.abs(usageL5 - usageSeason);
+      roleStabilityScore -= clamp(drift * 250, 0, 30);
+    }
+    if (recentRoleChange) roleStabilityScore -= 18;
+    if (teammateImpact) roleStabilityScore -= 12;
+    if (fga != null && fgaL5 != null && Math.abs(fga - fgaL5) > 3) {
+      roleStabilityScore -= 8;
+    }
+    if (pick.ROLE_ENVIRONMENT_CHANGED || pick.roleEnvironmentChanged) {
+      roleStabilityScore -= 20;
+    }
+    roleStabilityScore = clamp(Math.round(roleStabilityScore), 0, 100);
+  }
 
   const roleTrend =
     usageL5 != null && usageSeason != null
@@ -74,7 +134,7 @@ export function buildPlayerRoleStabilityEngineV1(pick = {}) {
     version: ROLE_MODEL_VERSION,
     roleStabilityScore,
     roleTrend,
-    starterStatus: starter ? "STARTER" : "BENCH_OR_UNKNOWN",
+    starterStatus,
     expectedUsage: usage,
     usageStability:
       usageL5 != null && usageSeason != null
@@ -93,9 +153,14 @@ export function buildPlayerRoleStabilityEngineV1(pick = {}) {
         pick.roleEnvironmentChanged ||
         (recentRoleChange && teammateImpact)
     ),
+    theoreticalMin: 0,
+    theoreticalMax: 100,
     missingness: {
       usage: usage == null,
       fga: fga == null,
+      starterStatus: !starterKnown,
+      roleScore: roleStabilityScore == null,
+      inferredFromMinutes: inferred,
     },
   };
 }

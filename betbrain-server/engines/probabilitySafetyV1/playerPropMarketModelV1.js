@@ -40,19 +40,20 @@ export function buildPlayerPropMarketModelV1(pick = {}) {
   const overPrice = num(pick.overPrice) ?? num(pick.overOdds);
   const underPrice = num(pick.underPrice) ?? num(pick.underOdds);
 
-  let marketQualityScore = 40;
+  // Unknown bookCount → null (missing ≠ thin-book 40)
+  let marketQualityScore = null;
   if (bookCount != null) {
-    if (bookCount >= 5) marketQualityScore = 85;
-    else if (bookCount >= 3) marketQualityScore = 72;
-    else if (bookCount === 2) marketQualityScore = 55;
-    else marketQualityScore = 35;
+    if (bookCount >= 5) marketQualityScore = 92;
+    else if (bookCount >= 3) marketQualityScore = 78;
+    else if (bookCount === 2) marketQualityScore = 58;
+    else marketQualityScore = 38;
+    if (lineRange != null && lineRange > 1.5) marketQualityScore -= 15;
+    if (lineRange != null && lineRange > 2.5) marketQualityScore -= 10;
+    if (pick.marketFresh === false || pick.staleMarket === true) {
+      marketQualityScore -= 20;
+    }
+    marketQualityScore = clamp(Math.round(marketQualityScore), 0, 100);
   }
-  if (lineRange != null && lineRange > 1.5) marketQualityScore -= 15;
-  if (lineRange != null && lineRange > 2.5) marketQualityScore -= 10;
-  if (pick.marketFresh === false || pick.staleMarket === true) {
-    marketQualityScore -= 20;
-  }
-  marketQualityScore = clamp(Math.round(marketQualityScore), 0, 100);
 
   const side = String(pick.side || pick.pick || "").toUpperCase();
   const projection = num(pick.projection ?? pick.projectedPoints);
@@ -86,9 +87,12 @@ export function buildPlayerPropMarketModelV1(pick = {}) {
     bookDisagreement: lineRange,
     marketQualityScore,
     singleBook: bookCount != null && bookCount < 2,
+    theoreticalMin: 0,
+    theoreticalMax: 100,
     missingness: {
       bookCount: bookCount == null,
       openingLine: openingLine == null,
+      marketQualityUnknown: marketQualityScore == null,
     },
   };
 }

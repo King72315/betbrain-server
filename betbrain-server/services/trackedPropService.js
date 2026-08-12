@@ -512,12 +512,18 @@ export function isTestTrackingPick(pick = {}) {
 }
 
 export function isOfficialTrackingPick(pick = {}) {
+  // Control-plane V1: Official W-L only via officialSelected.
+  if (pick.officialSelected === true || pick.membership?.officialSelected === true) {
+    return true;
+  }
   const trackingType = String(pick.trackingType || pick.recordType || "").toUpperCase();
-  if (trackingType === "OFFICIAL") return true;
-  if (trackingType === "TEST" || trackingType === "NO_BET") return false;
+  if (trackingType === "RESEARCH" || trackingType === "TEST" || trackingType === "NO_BET") {
+    return false;
+  }
+  if (trackingType === "OFFICIAL" && pick.officialSelected !== false) return true;
   if (pick.excludedFromOfficialRecord === true) return false;
   if (isPreV1ShadowProp(pick)) return false;
-  return true;
+  return false;
 }
 
 export function isPreV1ShadowProp(pick = {}) {
@@ -544,13 +550,17 @@ export function labelPreV1ShadowProps(props = [], metadata = {}) {
 
 export function isOfficialResultsProp(pick = {}) {
   if (isPreV1ShadowProp(pick)) return false;
-  // Immutable official seal wins over stale TEST / excludedFromOfficialRecord
-  // mislabels (same posture as Lab isOfficialBestSixProp).
-  if (pick.immutableOfficial === true && pick.homeStaged !== true) return true;
+  if (String(pick.trackingType || pick.recordType || "").toUpperCase() === "RESEARCH") {
+    return false;
+  }
+  // Control-plane V1: Official Results == officialSelected only.
+  if (pick.officialSelected === true || pick.membership?.officialSelected === true) {
+    return pick.homeStaged !== true;
+  }
   if (isTrackAdmittedResultsProp(pick)) return true;
   if (isTestTrackingPick(pick)) return false;
   if (pick.excludedFromOfficialRecord === true) return false;
-  return true;
+  return false;
 }
 
 export function isOfficialTrackablePick(pick = {}) {
@@ -568,6 +578,14 @@ export function isOfficialTrackablePick(pick = {}) {
 
 export function isTrackablePick(pick = {}) {
   if (!passesBaseTrackableGate(pick)) return false;
+
+  // Research boardCandidates are graded for model evaluation, not Official W-L.
+  if (
+    String(pick.trackingType || "").toUpperCase() === "RESEARCH" ||
+    (pick.boardCandidate === true && pick.officialSelected !== true)
+  ) {
+    return true;
+  }
 
   if (isTestTrackingPick(pick)) {
     return true;
@@ -588,6 +606,81 @@ export function isTrackablePick(pick = {}) {
   }
 
   return true;
+}
+
+/**
+ * Materialize RESEARCH tracked rows from control-plane boardCandidates.
+ * Official rows are excluded — those come from sealed selectedProps only.
+ */
+export function materializeResearchTrackedPropsFromBoardCandidates(
+  boardCandidates = [],
+  options = {}
+) {
+  const slateDate = options.slateDate || options.requestedSlateDate || null;
+  return (Array.isArray(boardCandidates) ? boardCandidates : [])
+    .filter((p) => p && p.officialSelected !== true)
+    .filter(
+      (p) =>
+        p.boardCandidate === true ||
+        p.membership?.boardCandidate === true ||
+        p.selectedSide === "OVER" ||
+        p.selectedSide === "UNDER"
+    )
+    .map((p) => {
+      const side = p.selectedSide || p.membership?.boardSide || p.side || p.pick;
+      const src =
+        side === "OVER"
+          ? p.overPacket?.sourcePick
+          : side === "UNDER"
+            ? p.underPacket?.sourcePick
+            : null;
+      return {
+        ...(src || {}),
+        player: p.playerName || p.player || src?.player,
+        playerName: p.playerName || p.player || src?.playerName,
+        playerId: p.playerId || src?.playerId,
+        team: p.team || src?.team,
+        opponent: p.opponent || src?.opponent,
+        league: "WNBA",
+        eventId: p.eventId || src?.eventId,
+        gameId: p.eventId || src?.gameId,
+        side,
+        pick: side,
+        line: p.line ?? src?.line,
+        projection: src?.projection ?? p.overPacket?.projection ?? p.underPacket?.projection,
+        fairLine: src?.fairLine ?? p.overPacket?.fairLine ?? p.underPacket?.fairLine,
+        slateDate: slateDate || p.canonicalSlateDateCT || src?.slateDate,
+        canonicalSlateDateCT: slateDate || p.canonicalSlateDateCT || src?.slateDate,
+        analysisEligible: true,
+        boardCandidate: true,
+        officialSelected: false,
+        officialEligible: false,
+        trackingType: "RESEARCH",
+        finalDecision: "RESEARCH",
+        recordType: "RESEARCH",
+        excludedFromOfficialRecord: true,
+        directionAdmission:
+          p.direction?.directionAdmission ||
+          p.membership?.directionAdmission ||
+          null,
+        directionConfidence: p.direction?.confidence || null,
+        directionResearchDecision:
+          p.direction?.researchDecision ||
+          p.membership?.directionResearchDecision ||
+          null,
+        c2Risk: p.c2Risk || p.risk?.risk || null,
+        c2RankScore: p.c2RankScore ?? null,
+        trueRisk: p.c2Risk || p.risk?.risk || null,
+        displayConfidence: null,
+        reliabilityProbability:
+          p.reliabilityProbability ?? p.risk?.reliabilityProbability ?? null,
+        trustScore: p.trustScore ?? p.risk?.trustScore ?? null,
+        controlPlaneBuild: p.controlPlaneBuild || p.membership?.controlPlaneBuild,
+        trackingAdmissionSource: "CONTROL_PLANE_BOARD_CANDIDATE_RESEARCH",
+        sourcePool: "CONTROL_PLANE_BOARD_CANDIDATE_RESEARCH",
+      };
+    })
+    .filter((p) => p.player && (p.side === "OVER" || p.side === "UNDER"));
 }
 
 function enrichPickFromGameCard(pick = {}, game = {}) {

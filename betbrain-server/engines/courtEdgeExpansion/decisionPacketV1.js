@@ -195,8 +195,12 @@ export function admitResultsFromDecisionPacket(pick = {}) {
     courtEdgeEngineAdjustmentsApplied: true,
     courtEdgeEngineSignalsApplied: true,
     admittedFromDecisionPacket: true,
-    userFacingDecision: "TRACK",
-    finalDecision: "TRACK",
+    // Control-plane V1: TRACK is not Official authority.
+    userFacingDecision:
+      pick.officialSelected === true ? "OFFICIAL" : "RESEARCH",
+    finalDecision: pick.officialSelected === true ? "OFFICIAL" : "RESEARCH",
+    trackingType: pick.officialSelected === true ? "OFFICIAL" : "RESEARCH",
+    officialSelected: pick.officialSelected === true,
   };
 }
 

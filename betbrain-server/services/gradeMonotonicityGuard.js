@@ -4,7 +4,7 @@
  */
 
 const FINAL_STATUSES = new Set(["win", "loss", "push"]);
-const PENDING_STATUSES = new Set(["pending", "awaiting_stats"]);
+const PENDING_STATUSES = new Set(["pending", "awaiting_stats", "final_ungraded"]);
 
 export const PROTECTED_GRADE_FIELDS = [
   "status",

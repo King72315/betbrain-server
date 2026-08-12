@@ -26,6 +26,7 @@ import {
   getHistoricalAccuracyForPlayer,
   applyProjectionAdjustmentPipeline,
 } from "./playerIntelligence/index.js";
+import { calibrateProjectionMeanV1 } from "./projectionMeanCalibrationV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -439,6 +440,35 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
         stagedVolatilityAdj: staged.stages?.[1]?.adjustment ?? 0,
         stagedOpportunityAdj: staged.stages?.[2]?.adjustment ?? 0,
         finalProjection: staged.finalProjection,
+      },
+    };
+  }
+
+  // Shared-mean calibration: lift systematically under-predicted means when
+  // projection sits below market (not an UNDER-side patch). Runs before fairLine
+  // so OVER/UNDER/Direction/C2 all see the same corrected mean.
+  const meanCalib = calibrateProjectionMeanV1({
+    projection: projectionResult.projection,
+    line: line > 0 ? line : null,
+    fairLine: null, // fair not built yet; market gap is primary signal
+    expectedMinutes:
+      effectiveRecentMinutes > 0
+        ? effectiveRecentMinutes
+        : effectiveSeasonMinutes > 0
+          ? effectiveSeasonMinutes
+          : null,
+  });
+  if (meanCalib.applied) {
+    projectionResult = {
+      ...projectionResult,
+      projection: meanCalib.projection,
+      projectionBeforeMeanCalibration: meanCalib.previousProjection,
+      projectionMeanCalibration: meanCalib,
+      projectionComponents: {
+        ...(projectionResult.projectionComponents || {}),
+        meanCalibrationLift: meanCalib.lift,
+        meanCalibrationReasons: meanCalib.reasons,
+        finalProjection: meanCalib.projection,
       },
     };
   }

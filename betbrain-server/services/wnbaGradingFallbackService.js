@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import nodeFetch from "node-fetch";
 import { CONFIG } from "../config.js";
 import { verifyPickGameIsFinal } from "./gameFinalVerificationService.js";
 
@@ -9,8 +9,16 @@ const ESPN_WNBA_SCOREBOARD =
 const ESPN_WNBA_SUMMARY =
   "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary";
 
+// ESPN Akamai returns 403 HTML to node-fetch; Node's native fetch succeeds.
+const espnFetch = globalThis.fetch.bind(globalThis);
+
 const dateStatsCache = new Map();
 const espnEventCache = new Map();
+
+export function clearWnbaGradingFallbackCaches() {
+  dateStatsCache.clear();
+  espnEventCache.clear();
+}
 
 function clean(value = "") {
   return String(value || "")
@@ -135,23 +143,39 @@ function parseEspnMinutes(value = "") {
   return num(raw);
 }
 
-async function fetchJSON(url, label, headers = {}) {
+async function fetchJSON(url, label, headers = {}, fetchImpl = nodeFetch) {
   try {
     console.log(`${label} URL:`, url);
 
-    const res = await fetch(url, { headers });
-    const data = await res.json();
+    const res = await fetchImpl(url, { headers });
+    const contentType = String(res.headers?.get?.("content-type") || "");
+    const rawText = await res.text();
+
+    if (!res.ok) {
+      console.log(`${label} STATUS:`, res.status);
+      console.log(`${label} ERROR BODY:`, rawText.slice(0, 240));
+      return null;
+    }
+
+    if (contentType.includes("text/html") || rawText.trimStart().startsWith("<")) {
+      console.log(`${label} STATUS:`, res.status);
+      console.log(`${label} FAILED: non-JSON HTML response (likely blocked)`);
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (err) {
+      console.log(`${label} FAILED:`, err.message);
+      return null;
+    }
 
     console.log(`${label} STATUS:`, res.status);
     console.log(
       `${label} COUNT:`,
       Array.isArray(data) ? data.length : data?.data?.length ?? "object"
     );
-
-    if (!res.ok) {
-      console.log(`${label} ERROR BODY:`, data);
-      return null;
-    }
 
     return data;
   } catch (err) {
@@ -276,9 +300,12 @@ function eventMatchesPickTeams(event = {}, teamA = "", teamB = "") {
     .map((entry) => normalizeEspnTeam(entry?.team || {}))
     .filter(Boolean);
 
-  if (!teamA || !teamB || eventTeams.length < 2) return false;
+  const normalizedA = normalizeWnbaTeam(teamA);
+  const normalizedB = normalizeWnbaTeam(teamB);
 
-  return eventTeams.includes(teamA) && eventTeams.includes(teamB);
+  if (!normalizedA || !normalizedB || eventTeams.length < 2) return false;
+
+  return eventTeams.includes(normalizedA) && eventTeams.includes(normalizedB);
 }
 
 function eventMatchesQueryDate(event = {}, queryDate = "") {
@@ -303,7 +330,12 @@ async function findEspnFinalEvent(queryDate = "", teamA = "", teamB = "") {
   }
 
   const url = `${ESPN_WNBA_SCOREBOARD}?dates=${espnDateParam(queryDate)}`;
-  const data = await fetchJSON(url, `ESPN WNBA SCOREBOARD ${queryDate}`);
+  const data = await fetchJSON(
+    url,
+    `ESPN WNBA SCOREBOARD ${queryDate}`,
+    {},
+    espnFetch
+  );
 
   const events = Array.isArray(data?.events) ? data.events : [];
   const match =
@@ -314,7 +346,10 @@ async function findEspnFinalEvent(queryDate = "", teamA = "", teamB = "") {
         eventMatchesPickTeams(event, teamA, teamB)
     ) || null;
 
-  espnEventCache.set(cacheKey, match);
+  // Do not permanently cache misses — scoreboard may be blocked or pre-final.
+  if (match) {
+    espnEventCache.set(cacheKey, match);
+  }
   return match;
 }
 
@@ -359,16 +394,27 @@ export async function fetchEspnWnbaStatsByDate(queryDate = "", teamA = "", teamB
   const event = await findEspnFinalEvent(dateKey, teamA, teamB);
 
   if (!event?.id) {
-    dateStatsCache.set(cacheKey, []);
+    // Misses are not cached — retry on next resolve after finals / fetch recovery.
     return [];
   }
 
   const url = `${ESPN_WNBA_SUMMARY}?event=${event.id}`;
-  const summary = await fetchJSON(url, `ESPN WNBA SUMMARY ${event.id}`);
+  const summary = await fetchJSON(
+    url,
+    `ESPN WNBA SUMMARY ${event.id}`,
+    {},
+    espnFetch
+  );
+
+  if (!summary) {
+    return [];
+  }
 
   const stats = parseEspnBoxScorePlayers(summary, dateKey, event.id);
 
-  dateStatsCache.set(cacheKey, stats);
+  if (stats.length) {
+    dateStatsCache.set(cacheKey, stats);
+  }
   return stats;
 }
 

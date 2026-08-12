@@ -18,6 +18,7 @@ import {
   classifyRiskV1,
   resolveAvailabilityCertainty,
 } from "./propSafetyEngineV1.js";
+import { buildPropSafetyEnvironmentV2 } from "./propSafetyEnvironmentV2.js";
 import {
   classifyRiskEmpiricalV2,
   computeReliabilityProbabilityV2,
@@ -48,6 +49,11 @@ import {
   getOfficialBoardSizePolicy,
   stableMarketId,
 } from "../courtEdgeControlPlaneV1/index.js";
+import {
+  applyPredictedProbabilityCalibrationV1,
+  rebuildSafetyWithCalibratedProbabilityV1,
+  PREDICTED_PROBABILITY_CALIBRATION_V1_BUILD,
+} from "./predictedProbabilityCalibrationV1.js";
 
 function hasHardIntegrityBlock(risk = {}) {
   const reasons = [
@@ -205,6 +211,69 @@ function markOppositeSideNotSelected(sidePacket = {}) {
   };
 }
 
+/** Lower = safer C2 tier. */
+function c2RiskTierRank(riskCode = "") {
+  const r = String(riskCode || "").toUpperCase();
+  if (r === "LOW") return 0;
+  if (r === "MEDIUM") return 1;
+  if (r === "HIGH") return 2;
+  return 3;
+}
+
+/**
+ * On Direction NO_BET: both sides already have C2 applied.
+ * Keep the safer C2 side (tier, then reliability, then winP+safety score).
+ * Does not retune Direction thresholds or C2 calibration.
+ */
+export function chooseSaferC2SideV1({
+  overPacket = {},
+  underPacket = {},
+  overScore = 0,
+  underScore = 0,
+} = {}) {
+  const overTier = c2RiskTierRank(overPacket.risk?.risk);
+  const underTier = c2RiskTierRank(underPacket.risk?.risk);
+  if (overTier !== underTier) {
+    return {
+      selectedSide: overTier < underTier ? "OVER" : "UNDER",
+      reason: "BEST_GUESS_DUAL_C2_SAFER_TIER",
+      overTier,
+      underTier,
+    };
+  }
+
+  const overRank = resolveC2RankScore({
+    reliabilityProbability:
+      overPacket.reliabilityProbability ?? overPacket.risk?.reliabilityProbability,
+    trustScore: overPacket.risk?.trustScore,
+    safety: overPacket.safety,
+    risk: overPacket.risk,
+  });
+  const underRank = resolveC2RankScore({
+    reliabilityProbability:
+      underPacket.reliabilityProbability ??
+      underPacket.risk?.reliabilityProbability,
+    trustScore: underPacket.risk?.trustScore,
+    safety: underPacket.safety,
+    risk: underPacket.risk,
+  });
+  if (overRank !== underRank) {
+    return {
+      selectedSide: overRank >= underRank ? "OVER" : "UNDER",
+      reason: "BEST_GUESS_DUAL_C2_SAFER_RANK",
+      overRank,
+      underRank,
+    };
+  }
+
+  return {
+    selectedSide: overScore >= underScore ? "OVER" : "UNDER",
+    reason: "BEST_GUESS_DUAL_C2_SCORE_TIEBREAK",
+    overScore,
+    underScore,
+  };
+}
+
 /**
  * Evaluate one side packet (Over or Under) without board context.
  *
@@ -256,16 +325,29 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
         ? distribution.PUnder
         : null;
 
-  const safety = buildPropSafetyEngineV1({
-    rawWinProbability: rawWinProbability ?? 0.5,
-    minutes,
-    role,
-    distribution,
-    market,
-    conflict,
-    failure,
-    availability,
-  });
+  // Safety = evidence-environment stability (not model belief strength).
+  // Legacy winP-weighted Safety kept only when explicitly requested.
+  const useEnvSafety = options.useSafetyEnvironmentV2 !== false;
+  const safety = useEnvSafety
+    ? buildPropSafetyEnvironmentV2({
+        minutes,
+        role,
+        distribution,
+        market,
+        conflict,
+        failure,
+        availability,
+      })
+    : buildPropSafetyEngineV1({
+        rawWinProbability: rawWinProbability ?? 0.5,
+        minutes,
+        role,
+        distribution,
+        market,
+        conflict,
+        failure,
+        availability,
+      });
 
   const line = num(stamped.line ?? stamped.selectedLine);
   const projection =
@@ -434,6 +516,9 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
   let directionAdmission = null;
   let directionResearchDecision = null;
 
+  let bestGuessSideReason = null;
+  let c2MembershipAppliedTo = null;
+
   if (directionOn) {
     direction = decideDirectionalSideV1({
       overPacket,
@@ -441,29 +526,47 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       basePick,
     });
     directionResearchDecision = direction.decision || null;
+    const postDirOpts = { ...options, membershipStage: "POST_DIRECTION" };
+
     if (direction.decision === "OVER" || direction.decision === "UNDER") {
+      // PRIMARY: Direction owns the side; C2 ranks that side only.
       selectedSide = direction.decision;
       directionAdmission = "PRIMARY";
+      c2MembershipAppliedTo = selectedSide;
+      if (selectedSide === "OVER") {
+        overPacket = applyMembershipRiskToSidePacketV1(overPacket, postDirOpts);
+        underPacket = markOppositeSideNotSelected(underPacket);
+      } else {
+        underPacket = applyMembershipRiskToSidePacketV1(underPacket, postDirOpts);
+        overPacket = markOppositeSideNotSelected(overPacket);
+      }
     } else {
-      // Educated guess: always pick a side. Raw NO_BET is research-only.
+      // NO_BET → BEST_GUESS: run frozen C2 on BOTH sides, keep the safer one.
+      // Prevents Aug-10-style boards that guessed a side before checking risk.
       forcedNoBet = true;
-      selectedSide = overScore >= underScore ? "OVER" : "UNDER";
       directionAdmission = "BEST_GUESS";
-    }
-
-    // C2 risk only on the chosen side — never membership authority.
-    const postDirOpts = { ...options, membershipStage: "POST_DIRECTION" };
-    if (selectedSide === "OVER") {
       overPacket = applyMembershipRiskToSidePacketV1(overPacket, postDirOpts);
-      underPacket = markOppositeSideNotSelected(underPacket);
-    } else {
       underPacket = applyMembershipRiskToSidePacketV1(underPacket, postDirOpts);
-      overPacket = markOppositeSideNotSelected(overPacket);
+      const safer = chooseSaferC2SideV1({
+        overPacket,
+        underPacket,
+        overScore,
+        underScore,
+      });
+      selectedSide = safer.selectedSide;
+      bestGuessSideReason = safer.reason;
+      c2MembershipAppliedTo = "BOTH_THEN_SAFER_SIDE";
+      if (selectedSide === "OVER") {
+        underPacket = markOppositeSideNotSelected(underPacket);
+      } else {
+        overPacket = markOppositeSideNotSelected(overPacket);
+      }
     }
   } else {
     selectedSide = overScore >= underScore ? "OVER" : "UNDER";
     directionAdmission = "BEST_GUESS";
     directionResearchDecision = null;
+    c2MembershipAppliedTo = "BOTH";
   }
 
   const selected =
@@ -481,6 +584,36 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
   // Only the final selector may set officialSelected=true.
   const officialSelected = false;
   const officialEligible = false;
+
+  // Probability transform under existing authority (shadow unless opted in).
+  // Side selection already completed on raw distribution probs + frozen gates.
+  // Environment Safety V2 must NOT be rebuilt from calibrated probability —
+  // that would reintroduce belief into the stability score.
+  const probabilityCalibration = applyPredictedProbabilityCalibrationV1(
+    selected.rawWinProbability
+  );
+  const applyProbCalibLive = options.applyProbabilityCalibration === true;
+  const predictedProbability = applyProbCalibLive
+    ? probabilityCalibration.predictedProbability
+    : selected.rawWinProbability;
+  const envSafetyActive = options.useSafetyEnvironmentV2 !== false;
+  const safetyOut = envSafetyActive
+    ? selected.safety
+    : (() => {
+        const safetyWithCalibratedProbability =
+          rebuildSafetyWithCalibratedProbabilityV1({
+            safety: selected.safety,
+            calibratedProbability: probabilityCalibration.predictedProbability,
+            rawWinProbability: selected.rawWinProbability,
+          });
+        return applyProbCalibLive
+          ? safetyWithCalibratedProbability
+          : {
+              ...selected.safety,
+              shadowSafetyWithCalibratedProbability:
+                safetyWithCalibratedProbability,
+            };
+      })();
 
   return {
     playerId: basePick.playerId || basePick.player_id || null,
@@ -509,12 +642,18 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     selectedSideScore: selectedSide === "OVER" ? overScore : underScore,
     oppositeSideScore: selectedSide === "OVER" ? underScore : overScore,
     pipelineOrder: directionOn ? "DIRECTION_THEN_C2" : "LEGACY_DUAL_C2_THEN_SCORE",
-    c2MembershipAppliedTo: directionOn ? selectedSide : "BOTH",
+    c2MembershipAppliedTo:
+      c2MembershipAppliedTo ||
+      (directionOn ? selectedSide : "BOTH"),
     direction: {
       // Production side authority is selectedSide + directionAdmission only.
       decision: selectedSide,
       researchDecision: directionResearchDecision,
-      reason: direction?.reason || (forcedNoBet ? "BEST_GUESS_FROM_SCORES" : null),
+      reason: forcedNoBet
+        ? bestGuessSideReason || "BEST_GUESS_DUAL_C2_SAFER_SIDE"
+        : direction?.reason || null,
+      // Raw Direction veto reason kept for research (NO_BET gates, etc.).
+      researchReason: direction?.reason || null,
       confidence: direction?.confidence || (forcedNoBet ? "NONE" : null),
       marketConflict: direction?.marketConflict ?? null,
       // Deprecated name — always true once a side is chosen; has zero membership veto.
@@ -523,6 +662,8 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
       directionAdmission,
       boardSide: selectedSide,
       educatedGuess: directionAdmission === "BEST_GUESS",
+      bestGuessSideReason: bestGuessSideReason || null,
+      dualC2SaferSide: Boolean(forcedNoBet),
       rescuePathway: null,
       freezeId: direction?.freezeId || null,
       engineVersion: direction?.engineVersion || null,
@@ -558,14 +699,19 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     })(),
     probability: {
       rawWinProbability: selected.rawWinProbability,
-      calibratedWinProbability: null,
-      probabilityCalibrationStatus: "INSUFFICIENT_SAMPLE",
+      calibratedWinProbability: probabilityCalibration.predictedProbability,
+      predictedProbability,
+      probabilityCalibrationStatus: applyProbCalibLive
+        ? "EMPIRICAL_BAND_V1_APPLIED"
+        : "SHADOW_EMPIRICAL_BAND_V1",
+      probabilityCalibration,
+      probabilityCalibrationBuild: PREDICTED_PROBABILITY_CALIBRATION_V1_BUILD,
     },
     uncertainty: {
       distributionWidth: selected.distribution.distributionWidth,
       conflictIndex: selected.conflict.conflictIndex,
     },
-    safety: selected.safety,
+    safety: safetyOut,
     risk: {
       ...selected.risk,
       // C2 risk label only — never final Official membership.
@@ -749,27 +895,6 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
   const research = buildResearchUniverseV1(candidates, options);
   const sizePolicy = getOfficialBoardSizePolicy();
 
-  try {
-    const slateDateCT =
-      options.requestedSlateDate ||
-      candidates[0]?.slateDate ||
-      candidates[0]?.canonicalSlateDateCT ||
-      null;
-    if (slateDateCT && research.packets?.length) {
-      persistResearchUniversePacketsV2({
-        slateDateCT,
-        packets: research.packets,
-        researchUniverse: research.counts,
-        meta: {
-          source: "selectOfficialBoardFromProbabilitySafetyV1",
-          controlPlaneBuild: CONTROL_PLANE_BUILD,
-        },
-      });
-    }
-  } catch {
-    // persistence must never break Official selection
-  }
-
   const v2On = isEmpiricalSafePropV2Enabled(options);
   let calibrationHash = null;
   if (v2On) {
@@ -885,6 +1010,35 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     .filter((p) => p.risk?.risk === "HIGH" && !p.officialSelected)
     .sort((a, b) => resolveC2RankScore(b) - resolveC2RankScore(a))
     .slice(0, 10);
+
+  // Freeze all boardCandidates after Official selection stamps officialSelected.
+  try {
+    const slateDateCT =
+      options.requestedSlateDate ||
+      candidates[0]?.slateDate ||
+      candidates[0]?.canonicalSlateDateCT ||
+      null;
+    if (slateDateCT && researchPackets.length) {
+      persistResearchUniversePacketsV2({
+        slateDateCT,
+        packets: researchPackets,
+        researchUniverse: {
+          ...research.counts,
+          Official: selectedProps.length,
+          boardCandidates: membership.boardCandidateCount,
+        },
+        officialProps: selectedProps,
+        meta: {
+          source: "selectOfficialBoardFromProbabilitySafetyV1",
+          controlPlaneBuild: CONTROL_PLANE_BUILD,
+          highPolicy: membership.highPolicy,
+          thinSlate: membership.thinSlate,
+        },
+      });
+    }
+  } catch {
+    // persistence must never break Official selection
+  }
 
   return {
     version: v2On ? MEMBERSHIP_VERSION_V2 : MEMBERSHIP_VERSION,

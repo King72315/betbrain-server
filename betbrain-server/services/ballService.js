@@ -25,6 +25,7 @@ const WNBA_BASE = "https://api.balldontlie.io/wnba/v1";
 const playerCache = new Map();
 const statsCache = new Map();
 const ballApiTeamIdCache = new Map();
+const gameDetailCache = new Map();
 
 function getBallBase(league = "NBA") {
   return league === "WNBA" ? WNBA_BASE : NBA_BASE;
@@ -353,6 +354,66 @@ export async function findBallPlayer(playerName, league = "NBA") {
   return null;
 }
 
+async function fetchBallGameById(gameId, league = "WNBA") {
+  if (gameId == null || gameId === "") return null;
+
+  const key = `${league}-${gameId}`;
+  if (gameDetailCache.has(key)) {
+    return gameDetailCache.get(key);
+  }
+
+  const base = getBallBase(league);
+  const data = await ballFetch(
+    `${base}/games/${gameId}`,
+    `BALL GAME DETAIL (${league} ${gameId})`
+  );
+  const game = data?.data || data || null;
+  gameDetailCache.set(key, game);
+  return game;
+}
+
+/**
+ * player_stats often embeds game as {id,date,season} only — no home/visitor.
+ * Fetch full game so opponent identity is real (do not loosen team matching).
+ */
+async function hydrateMissingOpponents(games = [], league = "WNBA") {
+  if (!Array.isArray(games) || !games.length) return games;
+
+  for (const game of games) {
+    if (game.opponent || game.opponentTeamId) continue;
+
+    const gameId = game.raw?.game?.id ?? game.raw?.game_id ?? null;
+    if (gameId == null) continue;
+
+    const detail = await fetchBallGameById(gameId, league);
+    if (!detail) continue;
+
+    const mergedRaw = {
+      ...(game.raw || {}),
+      game: {
+        ...(game.raw?.game || {}),
+        ...detail,
+        home_team: detail.home_team || detail.homeTeam,
+        visitor_team:
+          detail.visitor_team || detail.away_team || detail.visitorTeam,
+      },
+      team: game.raw?.team || detail.home_team || detail.visitor_team,
+    };
+
+    // Prefer player team already on the stat row.
+    if (game.raw?.team) mergedRaw.team = game.raw.team;
+
+    const opponent = resolveOpponentFromStat(mergedRaw, league);
+    if (!opponent) continue;
+
+    game.opponent = opponent;
+    game.opponentTeamId = opponent;
+    game.raw = mergedRaw;
+  }
+
+  return games;
+}
+
 function resolveOpponentFromStat(stat = {}, league = "NBA") {
   const homeObj = stat.game?.home_team;
   const awayObj = stat.game?.visitor_team || stat.game?.away_team;
@@ -644,6 +705,8 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
     .filter((g) => g.date)
     .filter((g) => g.played)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  await hydrateMissingOpponents(games, league);
 
   console.log(
     "BALL NORMALIZED GAMES:",

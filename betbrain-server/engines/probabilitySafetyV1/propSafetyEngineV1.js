@@ -27,12 +27,23 @@ export function resolveAvailabilityCertainty(pick = {}) {
   const status = String(
     pick.availabilityStatus || pick.availability || pick.injuryStatus || ""
   ).toUpperCase();
-  if (!status || status === "ACTIVE" || status === "AVAILABLE" || status === "PROBABLE") {
+  // Blank/unknown is NOT "mostly fine" (70). Missing raises uncertainty.
+  if (!status) {
     return {
-      availabilityCertaintyScore: status ? 90 : 70,
-      availabilityStatus: status || "UNKNOWN",
+      availabilityCertaintyScore: null,
+      availabilityStatus: "UNKNOWN",
       availabilitySource: pick.availabilitySource || null,
       availabilityTimestamp: pick.availabilityTimestamp || null,
+      missingness: { status: true },
+    };
+  }
+  if (status === "ACTIVE" || status === "AVAILABLE" || status === "PROBABLE") {
+    return {
+      availabilityCertaintyScore: 90,
+      availabilityStatus: status,
+      availabilitySource: pick.availabilitySource || null,
+      availabilityTimestamp: pick.availabilityTimestamp || null,
+      missingness: { status: false },
     };
   }
   if (/QUESTION|GTD|DOUBT/.test(status)) {

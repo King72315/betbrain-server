@@ -116,6 +116,64 @@ test("1 MEDIUM + HIGH pool → MEDIUM + 1 HIGH", () => {
   assert.ok(out.selectedPackets.some((p) => p.c2Risk === "HIGH"));
 });
 
+test("PRIMARY outranks BEST_GUESS inside same C2 tier", () => {
+  const pool = [
+    pkt({
+      playerName: "Guess",
+      playerId: "g1",
+      eventId: "eg",
+      risk: "MEDIUM",
+      rel: 0.95,
+      directionAdmission: "BEST_GUESS",
+    }),
+    pkt({
+      playerName: "Primary",
+      playerId: "p1",
+      eventId: "ep",
+      risk: "MEDIUM",
+      rel: 0.5,
+      directionAdmission: "PRIMARY",
+      directionConfidence: "STANDARD",
+    }),
+  ];
+  const out = selectOfficialMembershipV1(pool);
+  assert.strictEqual(out.selectedPackets[0].playerName, "Primary");
+});
+
+test("HIGH fill prefers PRIMARY over BEST_GUESS", () => {
+  const pool = [
+    pkt({
+      playerName: "Med",
+      playerId: "med",
+      risk: "MEDIUM",
+      rel: 0.8,
+      directionAdmission: "BEST_GUESS",
+    }),
+    pkt({
+      playerName: "GuessHigh",
+      playerId: "gh",
+      eventId: "egh",
+      risk: "HIGH",
+      rel: 0.99,
+      directionAdmission: "BEST_GUESS",
+    }),
+    pkt({
+      playerName: "PrimaryHigh",
+      playerId: "ph",
+      eventId: "eph",
+      risk: "HIGH",
+      rel: 0.4,
+      directionAdmission: "PRIMARY",
+      directionConfidence: "WEAK",
+    }),
+  ];
+  const out = selectOfficialMembershipV1(pool);
+  assert.strictEqual(out.officialCount, 2);
+  assert.ok(out.selectedPackets.some((p) => p.playerName === "Med"));
+  assert.ok(out.selectedPackets.some((p) => p.playerName === "PrimaryHigh"));
+  assert.ok(!out.selectedPackets.some((p) => p.playerName === "GuessHigh"));
+});
+
 test("all HIGH → safest 2 HIGH only", () => {
   const pool = Array.from({ length: 5 }, (_, i) =>
     pkt({
@@ -205,6 +263,8 @@ test("Direction NO_BET still yields BEST_GUESS side on packet", () => {
   assert.strictEqual(p.membership.officialSelected, false);
   assert.strictEqual(p.direction.researchDecision, "NO_BET");
   assert.ok(p.direction.decision === "OVER" || p.direction.decision === "UNDER");
+  assert.strictEqual(p.c2MembershipAppliedTo, "BOTH_THEN_SAFER_SIDE");
+  assert.ok(String(p.direction.reason || "").startsWith("BEST_GUESS_DUAL_C2_"));
 });
 
 test("display meta uses one risk and displayConfidence", () => {

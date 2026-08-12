@@ -161,6 +161,7 @@ export function selectControlledBestBoardViaProbabilitySafetyV1(
     bestSixOverall: canonical.bestSixOverall,
     topPicks: canonical.topPicks,
     probabilitySafety: membership,
+    boardCandidates: membership.boardCandidates || [],
     researchUniverse: membership.research,
     audit: {
       ...preliminary.audit,

@@ -1246,13 +1246,10 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
     })),
   ];
 
-  // Official membership: safest educated-guess pool (PRIMARY or BEST_GUESS).
-  // Direction NO_BET alone does not drop a pick unless closed-gate stamped it.
+  // Official membership: only control-plane officialSelected rows.
   const officialOnly = (board = {}) =>
     (board.board || board.selectedProps || []).filter(
-      (p) =>
-        p?.officialEligible === true &&
-        p?.blockedByDirectionNoBet !== true
+      (p) => p?.officialSelected === true || p?.officialEligible === true
     );
   const todayOfficial = officialOnly(todayBoard);
   const tomorrowOfficial = officialOnly(tomorrowBoard);
@@ -1269,6 +1266,15 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
     })),
   ];
 
+  const boardCandidatesToday =
+    todayBoard.probabilitySafety?.boardCandidates ||
+    todayBoard.boardCandidates ||
+    [];
+  const boardCandidatesTomorrow =
+    tomorrowBoard.probabilitySafety?.boardCandidates ||
+    tomorrowBoard.boardCandidates ||
+    [];
+
   // Prefer tomorrow's build id when tomorrow has membership (seal target), else today.
   const primaryPacket =
     tomorrowBoard.controlledBestBoardV2?.selectedProps?.length
@@ -1277,6 +1283,11 @@ export function selectControlledBestBoardCombined(candidates = [], options = {})
 
   return {
     board: officialMembership,
+    boardCandidatesToday,
+    boardCandidatesTomorrow,
+    boardCandidates: [...boardCandidatesToday, ...boardCandidatesTomorrow],
+    probabilitySafetyToday: todayBoard.probabilitySafety || null,
+    probabilitySafetyTomorrow: tomorrowBoard.probabilitySafety || null,
     bestSix: officialMembership,
     selectedProps: officialMembership,
     officialMembership,

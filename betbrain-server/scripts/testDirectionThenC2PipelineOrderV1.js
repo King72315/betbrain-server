@@ -4,6 +4,7 @@
 import assert from "assert";
 import {
   buildCanonicalPlayerForecastPacketV1,
+  chooseSaferC2SideV1,
   evaluateSideForecastPacketV1,
   selectOfficialBoardFromProbabilitySafetyV1,
 } from "../engines/probabilitySafetyV1/canonicalPlayerForecastPacketV1.js";
@@ -111,6 +112,49 @@ test("4 NO_BET research still BEST_GUESS boardCandidate", () => {
   assert.strictEqual(pkt.membership.directionAdmission, "BEST_GUESS");
   assert.strictEqual(pkt.membership.boardCandidate, true);
   assert.strictEqual(pkt.membership.officialSelected, false);
+  assert.strictEqual(pkt.c2MembershipAppliedTo, "BOTH_THEN_SAFER_SIDE");
+  assert.ok(
+    String(pkt.direction?.reason || "").startsWith("BEST_GUESS_DUAL_C2_")
+  );
+  assert.strictEqual(pkt.direction?.dualC2SaferSide, true);
+});
+
+test("4b dual-C2 helper prefers safer risk tier", () => {
+  const pick = chooseSaferC2SideV1({
+    overPacket: {
+      risk: { risk: "HIGH", reliabilityProbability: 0.9 },
+      reliabilityProbability: 0.9,
+      safety: { finalSafetyScore: 80 },
+    },
+    underPacket: {
+      risk: { risk: "MEDIUM", reliabilityProbability: 0.4 },
+      reliabilityProbability: 0.4,
+      safety: { finalSafetyScore: 50 },
+    },
+    overScore: 0.9,
+    underScore: 0.2,
+  });
+  assert.strictEqual(pick.selectedSide, "UNDER");
+  assert.strictEqual(pick.reason, "BEST_GUESS_DUAL_C2_SAFER_TIER");
+});
+
+test("4c dual-C2 helper uses reliability when tiers tie", () => {
+  const pick = chooseSaferC2SideV1({
+    overPacket: {
+      risk: { risk: "MEDIUM", reliabilityProbability: 0.55 },
+      reliabilityProbability: 0.55,
+      safety: { finalSafetyScore: 60 },
+    },
+    underPacket: {
+      risk: { risk: "MEDIUM", reliabilityProbability: 0.8 },
+      reliabilityProbability: 0.8,
+      safety: { finalSafetyScore: 60 },
+    },
+    overScore: 0.7,
+    underScore: 0.3,
+  });
+  assert.strictEqual(pick.selectedSide, "UNDER");
+  assert.strictEqual(pick.reason, "BEST_GUESS_DUAL_C2_SAFER_RANK");
 });
 
 test("5 Official board uses SAFEST_2_TO_6 selector", () => {

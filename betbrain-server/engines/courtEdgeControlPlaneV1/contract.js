@@ -4,7 +4,7 @@
  * One owner per decision. Immutable product contract — not env-switched.
  */
 export const CONTROL_PLANE_BUILD =
-  "courteedge-single-machine-control-plane-v1";
+  "courteedge-single-machine-control-plane-v1-safer-side";
 
 export const CONTROL_PLANE_CONTRACT = Object.freeze({
   pipeline: [
@@ -16,10 +16,14 @@ export const CONTROL_PLANE_CONTRACT = Object.freeze({
   ],
   directionMode: "EDUCATED_GUESS",
   directionAdmissions: ["PRIMARY", "BEST_GUESS"],
+  /** On Direction NO_BET: C2 both sides, keep safer tier/rank. */
+  bestGuessSidePolicy: "DUAL_C2_SAFER_SIDE",
   c2Role: "RISK_AND_RANKING",
   c2Freeze: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
   officialPolicy: "SAFEST_2_TO_6",
   highPolicy: "MINIMUM_2_FILL_ONLY",
+  /** BEST_GUESS+HIGH only fills min-2 after PRIMARY HIGH is exhausted. */
+  highFillAdmissionPreference: "PRIMARY_BEFORE_BEST_GUESS",
   legacyBestSixAuthority: false,
   teamQuota: false,
   sideQuota: false,

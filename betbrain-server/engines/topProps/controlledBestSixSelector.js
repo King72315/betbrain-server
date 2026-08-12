@@ -1584,6 +1584,9 @@ export function selectControlledBestSixCombined(gameCards = [], options = {}) {
         wnbaCombined.tomorrow?.selectedProps ||
         wnbaCombined.tomorrow?.board ||
         [],
+      boardCandidatesTodayWNBA: wnbaCombined.boardCandidatesToday || [],
+      boardCandidatesTomorrowWNBA: wnbaCombined.boardCandidatesTomorrow || [],
+      boardCandidatesWNBA: wnbaCombined.boardCandidates || [],
       selectionBuildId: wnbaCombined.selectionBuildId || null,
       selectionBuildIdToday: wnbaCombined.today?.selectionBuildId || null,
       selectionBuildIdTomorrow: wnbaCombined.tomorrow?.selectionBuildId || null,

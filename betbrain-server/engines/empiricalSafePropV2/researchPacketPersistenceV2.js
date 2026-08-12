@@ -53,10 +53,28 @@ export function slimForecastPacketForPersist(pkt = {}) {
     trustScore: pkt.trustScore ?? pkt.risk?.trustScore ?? null,
     risk: v2Risk,
     v2Risk,
+    c2Risk: v2Risk,
+    c2RankScore: pkt.c2RankScore ?? pkt.risk?.c2RankScore ?? null,
     v1Risk,
     safePathway: pkt.safePathway ?? pkt.risk?.safePathway,
     pathwayEvidence: pkt.pathwayEvidence ?? pkt.risk?.pathwayEvidence ?? [],
-    officialEligible: pkt.risk?.officialEligible,
+    analysisEligible: pkt.analysisEligible ?? pkt.membership?.analysisEligible ?? null,
+    boardCandidate: pkt.boardCandidate ?? pkt.membership?.boardCandidate ?? null,
+    officialSelected: pkt.officialSelected ?? pkt.membership?.officialSelected ?? false,
+    officialEligible: pkt.officialSelected ?? pkt.membership?.officialSelected ?? false,
+    directionAdmission:
+      pkt.direction?.directionAdmission ||
+      pkt.membership?.directionAdmission ||
+      null,
+    directionConfidence: pkt.direction?.confidence || null,
+    directionResearchDecision:
+      pkt.direction?.researchDecision ||
+      pkt.membership?.directionResearchDecision ||
+      null,
+    trackingType:
+      pkt.officialSelected || pkt.membership?.officialSelected
+        ? "OFFICIAL"
+        : "RESEARCH",
     minutesStability: pkt.minutesModel?.minutesStabilityScore,
     expectedMinutes: pkt.minutesModel?.expectedMinutes,
     roleStability: pkt.roleModel?.roleStabilityScore,

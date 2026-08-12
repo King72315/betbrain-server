@@ -34,11 +34,15 @@ export function buildPlayerMinutesModelV1(pick = {}) {
     num(pick.expectedMinutes) ??
     num(pick.minutesProjection);
 
-  const expectedMinutes =
-    projected ??
-    (recent != null && season != null
-      ? 0.6 * recent + 0.4 * season
-      : recent ?? season ?? 24);
+  const allMinutesMissing =
+    recent == null && season == null && projected == null;
+
+  const expectedMinutes = allMinutesMissing
+    ? null
+    : projected ??
+      (recent != null && season != null
+        ? 0.6 * recent + 0.4 * season
+        : recent ?? season);
 
   const samples = [recent, season, projected].filter((x) => x != null);
   const mean =
@@ -48,15 +52,23 @@ export function buildPlayerMinutesModelV1(pick = {}) {
   const variance =
     samples.length > 1
       ? samples.reduce((s, x) => s + (x - mean) ** 2, 0) / samples.length
-      : Math.max(4, (expectedMinutes * 0.12) ** 2);
-  const minutesStdDev = Math.sqrt(variance);
+      : expectedMinutes != null
+        ? Math.max(4, (expectedMinutes * 0.12) ** 2)
+        : null;
+  const minutesStdDev =
+    variance != null ? Math.sqrt(variance) : null;
   const minutesCv =
-    expectedMinutes > 0 ? minutesStdDev / expectedMinutes : 1;
+    expectedMinutes != null && expectedMinutes > 0 && minutesStdDev != null
+      ? minutesStdDev / expectedMinutes
+      : null;
 
-  // Stability: lower CV + higher minutes → higher score
-  let minutesStabilityScore = 100 - clamp(minutesCv * 180, 0, 70);
-  if (expectedMinutes < 18) minutesStabilityScore -= 15;
-  if (expectedMinutes < 12) minutesStabilityScore -= 20;
+  // Missing minutes → null stability (not fabricated ~78 from default 24)
+  let minutesStabilityScore = null;
+  if (!allMinutesMissing && expectedMinutes != null && minutesCv != null) {
+    minutesStabilityScore = 100 - clamp(minutesCv * 180, 0, 70);
+    if (expectedMinutes < 18) minutesStabilityScore -= 15;
+    if (expectedMinutes < 12) minutesStabilityScore -= 20;
+  }
 
   const avail = String(
     pick.availabilityStatus ||
@@ -72,32 +84,48 @@ export function buildPlayerMinutesModelV1(pick = {}) {
     Boolean(pick.minutesRestriction) ||
     /RETURN|REST/.test(avail);
 
-  if (restricted) minutesStabilityScore -= 35;
-  if (returning) minutesStabilityScore -= 20;
-  if (pick.minutesRestriction) minutesStabilityScore -= 40;
+  if (minutesStabilityScore != null) {
+    if (restricted) minutesStabilityScore -= 35;
+    if (returning) minutesStabilityScore -= 20;
+    if (pick.minutesRestriction) minutesStabilityScore -= 40;
+    minutesStabilityScore = clamp(Math.round(minutesStabilityScore), 0, 100);
+  }
 
-  minutesStabilityScore = clamp(Math.round(minutesStabilityScore), 0, 100);
-
-  const minutesFloor = Math.max(0, expectedMinutes - 1.5 * minutesStdDev);
-  const minutesCeiling = expectedMinutes + 1.5 * minutesStdDev;
+  const minutesFloor =
+    expectedMinutes != null && minutesStdDev != null
+      ? Math.max(0, expectedMinutes - 1.5 * minutesStdDev)
+      : null;
+  const minutesCeiling =
+    expectedMinutes != null && minutesStdDev != null
+      ? expectedMinutes + 1.5 * minutesStdDev
+      : null;
   const minutesMedian = expectedMinutes;
 
   return {
     version: MINUTES_MODEL_VERSION,
-    expectedMinutes: Number(expectedMinutes.toFixed(2)),
-    minutesMedian: Number(minutesMedian.toFixed(2)),
-    minutesFloor: Number(minutesFloor.toFixed(2)),
-    minutesCeiling: Number(minutesCeiling.toFixed(2)),
-    minutesStdDev: Number(minutesStdDev.toFixed(3)),
-    minutesCoefficientOfVariation: Number(minutesCv.toFixed(4)),
-    probabilityBelowExpectedRole: clamp(0.5 * minutesCv, 0, 0.5),
+    expectedMinutes:
+      expectedMinutes != null ? Number(expectedMinutes.toFixed(2)) : null,
+    minutesMedian:
+      minutesMedian != null ? Number(minutesMedian.toFixed(2)) : null,
+    minutesFloor: minutesFloor != null ? Number(minutesFloor.toFixed(2)) : null,
+    minutesCeiling:
+      minutesCeiling != null ? Number(minutesCeiling.toFixed(2)) : null,
+    minutesStdDev:
+      minutesStdDev != null ? Number(minutesStdDev.toFixed(3)) : null,
+    minutesCoefficientOfVariation:
+      minutesCv != null ? Number(minutesCv.toFixed(4)) : null,
+    probabilityBelowExpectedRole:
+      minutesCv != null ? clamp(0.5 * minutesCv, 0, 0.5) : null,
     minutesStabilityScore,
     restricted: Boolean(restricted || pick.minutesRestriction),
     returning: Boolean(returning),
+    theoreticalMin: 0,
+    theoreticalMax: 100,
     missingness: {
       recent: recent == null,
       season: season == null,
       projected: projected == null,
+      allMissing: allMinutesMissing,
     },
   };
 }

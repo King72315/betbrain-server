@@ -26,7 +26,24 @@ function riskTier(packet = {}) {
   return "HIGH";
 }
 
+function directionAdmissionOf(packet = {}) {
+  return String(
+    packet.membership?.directionAdmission ||
+      packet.direction?.directionAdmission ||
+      packet.directionAdmission ||
+      ""
+  ).toUpperCase();
+}
+
+/** PRIMARY outranks BEST_GUESS inside the same C2 tier. */
+function admissionRank(packet = {}) {
+  return directionAdmissionOf(packet) === "PRIMARY" ? 1 : 0;
+}
+
 function compareWithinTier(a, b) {
+  const adm = admissionRank(b) - admissionRank(a);
+  if (adm !== 0) return adm;
+
   const scoreA = resolveC2RankScore(a);
   const scoreB = resolveC2RankScore(b);
   if (scoreB !== scoreA) return scoreB - scoreA;
@@ -94,7 +111,14 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
   } else {
     selected = lowMed.slice();
     const need = Math.max(0, OFFICIAL_BOARD_MIN - selected.length);
-    const highTake = high.slice(0, need);
+    // HIGH fill: PRIMARY first. BEST_GUESS+HIGH only if still below min-2.
+    const highPrimary = high.filter((p) => admissionRank(p) === 1);
+    const highGuess = high.filter((p) => admissionRank(p) !== 1);
+    let highPool = highPrimary.slice();
+    if (selected.length + highPool.length < OFFICIAL_BOARD_MIN) {
+      highPool = [...highPool, ...highGuess];
+    }
+    const highTake = highPool.slice(0, need);
     highFillCount = highTake.length;
     selected = [...selected, ...highTake];
     // Genuine thin slate: fewer than 2 valid markets total.

@@ -206,6 +206,7 @@ import {
   getAnalyticsScopeProps,
   getLifecycleIntegrityDiagnostics,
   getTrackedProps,
+  materializeResearchTrackedPropsFromBoardCandidates,
   resetChiDalBadGrades,
   resolveResultsCohortSlateDate,
   resolveTrackedProps,
@@ -410,7 +411,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-single-machine-control-plane-v1";
+  "courteedge-single-machine-control-plane-v1-safer-side";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -3633,6 +3634,25 @@ async function refreshAllPicks(options = {}) {
     preFilteredCohort: true,
     allowLockedBestSixBackfill: false,
   });
+
+  // Control-plane V1: freeze/grade every boardCandidate as RESEARCH (not Official W-L).
+  const researchBoardCandidates = [
+    ...(controlledSelection.boardCandidatesTodayWNBA || []),
+    ...(controlledSelection.boardCandidatesTomorrowWNBA || []),
+    ...(controlledSelection.boardCandidatesWNBA || []),
+  ];
+  const researchTracked = materializeResearchTrackedPropsFromBoardCandidates(
+    researchBoardCandidates,
+    { slateDate: calendarToday, requestedSlateDate: calendarToday }
+  );
+  if (researchTracked.length) {
+    addTrackedProps(researchTracked, {
+      skipTopPickReferences: true,
+      preFilteredCohort: true,
+      allowLockedBestSixBackfill: false,
+      forbidHomeStaging: true,
+    });
+  }
 
   const lifecycleValidation = validateOfficialSlateLifecycle(resultsSlateDate, {
     trackedProps: getTrackedProps(),

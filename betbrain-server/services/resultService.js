@@ -553,6 +553,9 @@ function getPickDate(savedPick = {}) {
   const dateSource =
     savedPick.gameDate ||
     savedPick.date ||
+    savedPick.slateDate ||
+    savedPick.resultsSlateDate ||
+    savedPick.canonicalSlateDateCT ||
     savedPick.commenceTime ||
     savedPick.time ||
     null;
@@ -567,6 +570,18 @@ export function getPickQueryDates(savedPick = {}) {
 
   if (gameDate) {
     const normalized = getSlateDateKey(gameDate) || formatDate(gameDate);
+
+    if (normalized) dates.add(normalized);
+  }
+
+  const slateDate =
+    savedPick.slateDate ||
+    savedPick.resultsSlateDate ||
+    savedPick.canonicalSlateDateCT ||
+    "";
+
+  if (slateDate) {
+    const normalized = getSlateDateKey(slateDate) || formatDate(slateDate);
 
     if (normalized) dates.add(normalized);
   }
@@ -588,6 +603,134 @@ export function getPickQueryDates(savedPick = {}) {
   if (primary) dates.add(primary);
 
   return [...dates].filter(Boolean);
+}
+
+const FINAL_UNGRADED_MIN_ATTEMPTS = 3;
+
+/**
+ * Exact rejection dimension for one candidate row vs a pick.
+ * Does not loosen matching — diagnostics only.
+ */
+export function diagnoseStatMatchRejection(savedPick = {}, stat = {}, options = {}) {
+  const league = normalizeLeague(savedPick.league || stat.league || "NBA");
+  const queryDates = options.queryDates || getPickQueryDates(savedPick);
+  const reasons = [];
+
+  const target = {
+    player: savedPick.player || savedPick.playerName || "",
+    team: normalizeTeam(savedPick.team || "", league),
+    opponent: normalizeTeam(savedPick.opponent || "", league),
+    eventId: String(savedPick.gameId || savedPick.eventId || ""),
+    queryDates,
+  };
+
+  const candidate = {
+    player: getStatPlayerName(stat),
+    team: getStatTeam(stat, league),
+    opponent: getStatOpponent(stat, league),
+    date: getStatDate(stat) || stat.date || "",
+    eventId: String(
+      stat.raw?.game?.id ||
+        stat.raw?.GameID ||
+        stat.raw?.game_id ||
+        stat.gameId ||
+        ""
+    ),
+    points: num(stat.points ?? stat.pts),
+    source: stat.source || "",
+  };
+
+  if (getStatLeague(stat) !== league) {
+    reasons.push("LEAGUE_MISMATCH");
+  }
+
+  const candidateDateKey = String(candidate.date || "").slice(0, 10);
+  if (!candidateDateKey || !queryDates.includes(candidateDateKey)) {
+    reasons.push("DATE_MISMATCH");
+  }
+
+  const pickForPlayer = {
+    ...savedPick,
+    player: target.player || savedPick.player,
+  };
+  if (!playerMatches(pickForPlayer, { ...stat, player: candidate.player })) {
+    reasons.push("PLAYER_NAME_MISMATCH");
+  }
+
+  if (!candidate.team) {
+    reasons.push("TEAM_MISSING");
+  } else if (target.team && candidate.team !== target.team) {
+    reasons.push("TEAM_MISMATCH");
+  }
+
+  if (
+    target.opponent &&
+    candidate.opponent &&
+    candidate.opponent !== target.opponent
+  ) {
+    reasons.push("OPPONENT_MISMATCH");
+  }
+
+  if (target.eventId && candidate.eventId && target.eventId !== candidate.eventId) {
+    // Odds hash vs BDL/ESPN numeric IDs are different namespaces — annotate only.
+    // Do not hard-reject; date+team identity is the production matcher.
+    reasons.push("EVENT_ID_NAMESPACE_DIFF");
+  }
+
+  // Hard rejects only — namespace diffs are informational and do not block PASS.
+  const hard = reasons.filter((r) => r !== "EVENT_ID_NAMESPACE_DIFF");
+  const passed = hard.length === 0;
+
+  return {
+    target,
+    candidate,
+    rejectedBecause: hard,
+    notes: reasons.includes("EVENT_ID_NAMESPACE_DIFF")
+      ? ["event_id_cross_provider_namespace"]
+      : [],
+    passed,
+  };
+}
+
+export function buildMatchRejectionDiagnostics(
+  savedPick = {},
+  playerStats = [],
+  options = {}
+) {
+  const queryDates = options.queryDates || getPickQueryDates(savedPick);
+  const limit = Math.max(0, Number(options.limit ?? 40));
+  const rows = Array.isArray(playerStats) ? playerStats : [];
+  const diagnostics = [];
+  const histogram = {};
+
+  for (const stat of rows) {
+    const entry = diagnoseStatMatchRejection(savedPick, stat, { queryDates });
+    const key = entry.passed
+      ? "PASS"
+      : entry.rejectedBecause.join("+") || "UNKNOWN";
+    histogram[key] = (histogram[key] || 0) + 1;
+
+    if (diagnostics.length < limit) {
+      diagnostics.push(entry);
+      if (!entry.passed) {
+        console.log("RESULT MATCH REJECTED CANDIDATE:", {
+          target: entry.target,
+          candidate: entry.candidate,
+          rejectedBecause: entry.rejectedBecause,
+        });
+      }
+    }
+  }
+
+  return {
+    targetPlayer: savedPick.player || savedPick.playerName || "",
+    targetTeam: savedPick.team || "",
+    targetEventId: savedPick.gameId || savedPick.eventId || "",
+    queryDates,
+    candidateCount: rows.length,
+    histogram,
+    samples: diagnostics,
+  };
 }
 
 const GAME_LIKELY_FINISHED_MS = 3 * 60 * 60 * 1000;
@@ -884,7 +1027,12 @@ function buildMatchConfidence(savedPick = {}, stat = {}, matchContext = {}) {
   }
 
   if (matchContext.playerFallbackAttempted && !matchContext.wnbaOfficialFallback && !matchContext.espnFallback) {
-    confidence = confidence === "high" ? "medium" : "low";
+    // Date+team verified matches stay medium. Only demote unverified high→medium.
+    // Never demote medium→low here — that falsely withheld Aug 8 Young/Boston
+    // when BDL opponent was blank (team_match_only) despite correct points rows.
+    if (confidence === "high") {
+      confidence = "medium";
+    }
     reasons.push("player_stats_fallback");
   }
 
@@ -999,16 +1147,34 @@ function buildPendingReason(savedPick = {}, playerStats = [], statResult = null,
   if (statResult) return null;
 
   const hasPlayerHistory = hasWnbaPlayerStatHistory(extras);
+  const gameFinal = Boolean(extras.gameFinalCheck?.gameFinal);
+  const attempts = Number(extras.resolveAttemptCount || savedPick.resolveAttemptCount || 0);
+
+  if (
+    gameFinal &&
+    attempts >= FINAL_UNGRADED_MIN_ATTEMPTS &&
+    !statResult
+  ) {
+    return [
+      "FINAL_UNGRADED",
+      "Game final verified.",
+      "Player stat lookup failed.",
+      `BDL rows: ${Number(extras.fallbackRowCount || 0)}`,
+      `ESPN rows: ${Number(extras.espnRowCount || 0)}`,
+      `Official rows: ${Number(extras.officialRowCount || 0)}`,
+      `Resolve attempts: ${attempts}`,
+    ].join(" ");
+  }
 
   if (!Array.isArray(playerStats) || playerStats.length === 0) {
-    if (isPickLikelyFinished(savedPick) && hasPlayerHistory) {
+    if ((isPickLikelyFinished(savedPick) || gameFinal) && hasPlayerHistory) {
       return "Game final, awaiting official player stat row from source.";
     }
 
     return "Final player stats unavailable from source";
   }
 
-  if (isPickLikelyFinished(savedPick)) {
+  if (isPickLikelyFinished(savedPick) || gameFinal) {
     if (hasPlayerHistory) {
       return "Game final, awaiting official player stat row from source.";
     }
@@ -1025,6 +1191,11 @@ function buildResolveDebug(savedPick = {}, playerStats = [], statResult = null, 
   const now = extras.now ? new Date(extras.now) : new Date();
   const gradingBlock = evaluateGradingBlock(savedPick, now);
   const gameFinalCheck = extras.gameFinalCheck || {};
+  const finalUngraded =
+    Boolean(gameFinalCheck.gameFinal) &&
+    !statResult &&
+    Number(extras.resolveAttemptCount || savedPick.resolveAttemptCount || 0) >=
+      FINAL_UNGRADED_MIN_ATTEMPTS;
 
   return {
     player: savedPick.player || "",
@@ -1048,6 +1219,7 @@ function buildResolveDebug(savedPick = {}, playerStats = [], statResult = null, 
       Boolean(statResult) &&
       (statResult?.matchMeta?.matchedConfidence === "high" ||
         statResult?.matchMeta?.matchedConfidence === "medium"),
+    matchRejectionDiagnostics: extras.matchRejectionDiagnostics || null,
     gameStarted: gradingBlock.gameStarted,
     gameLikelyFinished: gradingBlock.gameLikelyFinished,
     blockedByFutureGame: gradingBlock.blockedByFutureGame,
@@ -1059,6 +1231,7 @@ function buildResolveDebug(savedPick = {}, playerStats = [], statResult = null, 
     blockedByLiveGame: Boolean(gameFinalCheck.blockedByLiveGame),
     gameFinalVerifiedSource: gameFinalCheck.verifiedSource || extras.gameFinalVerifiedSource || "",
     blocked: gradingBlock.blocked || Boolean(gameFinalCheck.blockedByGameNotFinal),
+    finalUngraded,
     pendingReason,
     at: now.toISOString(),
   };
@@ -1089,14 +1262,39 @@ async function fetchBallPlayerStatForPick(savedPick = {}) {
   const queryDates = getPickQueryDates(savedPick);
 
   if (!queryDates.length || !savedPick.player) {
-    return { statResult: null, fallbackRowCount: 0 };
+    return {
+      statResult: null,
+      fallbackRowCount: 0,
+      matchRejectionDiagnostics: null,
+    };
   }
 
   const games = await fetchPlayerStats(savedPick.player, league);
 
   if (!games.length) {
-    return { statResult: null, fallbackRowCount: 0 };
+    return {
+      statResult: null,
+      fallbackRowCount: 0,
+      matchRejectionDiagnostics: null,
+    };
   }
+
+  // Convert BDL season games into stat-shaped rows for shared diagnostics.
+  const asStats = games.map((game) => ({
+    source: "BallDontLie",
+    league,
+    date: getSlateDateKey(game.date),
+    player: savedPick.player,
+    team: game.team || "",
+    opponent: game.opponent || "",
+    points: num(game.points),
+    minutes: num(game.minutes),
+    fga: num(game.fga),
+    fta: num(game.fta),
+    fg3a: num(game.fg3a),
+    gameId: game.raw?.game?.id || "",
+    raw: game.raw || game,
+  }));
 
   const match = games.find((game) => {
     const gameDate = getSlateDateKey(game.date);
@@ -1115,12 +1313,30 @@ async function fetchBallPlayerStatForPick(savedPick = {}) {
   });
 
   if (!match) {
-    return { statResult: null, fallbackRowCount: games.length };
+    const matchRejectionDiagnostics = buildMatchRejectionDiagnostics(
+      savedPick,
+      asStats,
+      { queryDates, limit: 40 }
+    );
+    console.log("BDL FALLBACK MATCH FAILED:", {
+      player: savedPick.player,
+      team: savedPick.team,
+      eventId: savedPick.gameId || savedPick.eventId,
+      queryDates,
+      fallbackRowCount: games.length,
+      histogram: matchRejectionDiagnostics.histogram,
+    });
+    return {
+      statResult: null,
+      fallbackRowCount: games.length,
+      matchRejectionDiagnostics,
+    };
   }
 
   return {
     statResult: ballGameToStatResult(savedPick, match, league),
     fallbackRowCount: games.length,
+    matchRejectionDiagnostics: null,
   };
 }
 
@@ -1187,6 +1403,7 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
   let espnFallbackAttempted = false;
   let officialRowCount = 0;
   let espnRowCount = 0;
+  let matchRejectionDiagnostics = null;
 
   if (!stats) {
     stats = [];
@@ -1237,6 +1454,7 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
 
     statResult = fallback.statResult;
     fallbackRowCount = fallback.fallbackRowCount;
+    matchRejectionDiagnostics = fallback.matchRejectionDiagnostics || null;
 
     if (statResult) {
       statResult.matchMeta = attachMatchMeta(savedPick, statResult, {
@@ -1264,6 +1482,9 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
             espnRowCount,
             weakMatchWithheld: true,
             matchMeta: statResult.matchMeta,
+            matchRejectionDiagnostics,
+            gameFinalCheck,
+            resolveAttemptCount: options.resolveAttemptCount,
           }),
           gradingNotes:
             "Weak fallback stat match (low confidence) — grading withheld",
@@ -1310,6 +1531,9 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
             espnRowCount,
             weakMatchWithheld: true,
             matchMeta: statResult.matchMeta,
+            matchRejectionDiagnostics,
+            gameFinalCheck,
+            resolveAttemptCount: options.resolveAttemptCount,
           }),
           gradingNotes:
             "Weak fallback stat match (low confidence) — grading withheld",
@@ -1326,10 +1550,19 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     });
   }
 
+  if (!statResult && !matchRejectionDiagnostics && Array.isArray(stats) && stats.length) {
+    matchRejectionDiagnostics = buildMatchRejectionDiagnostics(savedPick, stats, {
+      queryDates,
+      limit: 40,
+    });
+  }
+
   const pendingReason = buildPendingReason(savedPick, stats, statResult, {
     fallbackRowCount,
     officialRowCount,
     espnRowCount,
+    gameFinalCheck,
+    resolveAttemptCount: options.resolveAttemptCount,
   });
   const resolveDebug = buildResolveDebug(savedPick, stats, statResult, {
     batchQueryDates: queryDates,
@@ -1340,6 +1573,8 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     officialRowCount,
     espnRowCount,
     gameFinalCheck,
+    matchRejectionDiagnostics,
+    resolveAttemptCount: options.resolveAttemptCount,
   });
 
   const matchMeta = statResult?.matchMeta || {};
@@ -1361,6 +1596,7 @@ export async function resolvePlayerStatForPick(savedPick = {}, batchStats = null
     matchedDate: matchMeta.matchedDate || statResult?.date || "",
     matchedGameId: matchMeta.matchedGameId || "",
     matchedSource: matchMeta.matchedSource || statResult?.source || "",
+    finalUngraded: Boolean(resolveDebug.finalUngraded),
   };
 }
 
