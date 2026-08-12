@@ -1,6 +1,9 @@
-import LeagueControlledBestSixScreen from "../../components/LeagueControlledBestSixScreen";
+import { Redirect } from "expo-router";
 
-/** Dedicated WNBA tab with Today / Tomorrow date tabs. */
-export default function WnbaScreen() {
-  return <LeagueControlledBestSixScreen league="WNBA" variant="explore" />;
+/**
+ * Legacy standalone WNBA product tab removed from CourtEdge bottom nav.
+ * WNBA remains available inside Home (NBA | WNBA selector).
+ */
+export default function LegacyWnbaTabRedirect() {
+  return <Redirect href="/" />;
 }

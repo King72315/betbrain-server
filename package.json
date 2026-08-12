@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test:courtedge-nav-cleanup": "node ./scripts/testCourtEdgeNavigationCleanupV1.js",
     "build:android:private": "eas build --platform android --profile preview",
     "update:ota": "eas update --branch preview --message \"CourtEdge update\"",
     "postinstall": "npm install --prefix betbrain-server"

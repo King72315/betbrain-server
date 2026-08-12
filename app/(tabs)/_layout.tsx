@@ -1,11 +1,23 @@
 import { Tabs } from "expo-router";
 import React from "react";
 
+import {
+  COURTEDGE_BOTTOM_TAB_ROUTE_NAMES_V1,
+  COURTEDGE_BOTTOM_TAB_TITLES_V1,
+} from "../../utils/courtEdgeNavigationV1";
+
 /**
- * CourtEdge navigation V2:
- * Home → WNBA → Results → Tennis → History
- * Top and Lab remain hidden from active product chrome.
+ * CourtEdge bottom navigation V1 (lifecycle):
+ * Home → Results → Lab → History
+ *
+ * WNBA is a league selector inside Home (not a product tab).
+ * Tennis product screens are not CourtEdge destinations.
  */
+export {
+  COURTEDGE_BOTTOM_TAB_ROUTE_NAMES_V1 as COURTEDGE_BOTTOM_TABS_V1_ROUTES,
+  COURTEDGE_BOTTOM_TAB_TITLES_V1 as COURTEDGE_BOTTOM_TABS_V1,
+};
+
 export default function TabsLayout() {
   return (
     <Tabs
@@ -34,13 +46,6 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="wnba"
-        options={{
-          title: "WNBA",
-        }}
-      />
-
-      <Tabs.Screen
         name="results"
         options={{
           title: "Results",
@@ -48,9 +53,9 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="tennis-results"
+        name="prop-lab"
         options={{
-          title: "Tennis",
+          title: "Lab",
         }}
       />
 
@@ -61,18 +66,27 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* Legacy / non-product routes — not bottom-nav destinations */}
       <Tabs.Screen
-        name="top-props"
+        name="wnba"
         options={{
-          title: "Top",
+          title: "WNBA",
           href: null,
         }}
       />
 
       <Tabs.Screen
-        name="prop-lab"
+        name="tennis-results"
         options={{
-          title: "Lab",
+          title: "Tennis",
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="top-props"
+        options={{
+          title: "Top",
           href: null,
         }}
       />
