@@ -153,9 +153,20 @@ function gameKey(pick = {}) {
 }
 
 function marketKey(pick = {}) {
+  const propType = String(
+    pick.propType || pick.canonicalPropType || pick.stat || "POINTS"
+  )
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+  const propCanon = /REBOUND/.test(propType)
+    ? "REBOUNDS"
+    : /ASSIST/.test(propType)
+      ? "ASSISTS"
+      : "POINTS";
   return [
     gameKey(pick),
     playerKey(pick),
+    propCanon,
     num(pick.line ?? pick.selectedLine, ""),
   ].join("|");
 }

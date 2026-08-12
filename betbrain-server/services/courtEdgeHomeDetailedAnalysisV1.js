@@ -117,16 +117,46 @@ function displayOrUnavailable(value, statusWhenMissing = "UNAVAILABLE") {
   return { value, status: "AVAILABLE", display: value };
 }
 
-function extractPointsList(source) {
+function resolveAnalysisPropType(pick = {}, evidence = {}) {
+  const raw = String(
+    pick.propType ||
+      pick.canonicalPropType ||
+      pick.stat ||
+      evidence.recentForm?.propType ||
+      "POINTS"
+  ).toUpperCase();
+  if (raw.includes("REBOUND")) return "REBOUNDS";
+  if (raw.includes("ASSIST")) return "ASSISTS";
+  return "POINTS";
+}
+
+function boxValueFromGame(game = {}, propType = "POINTS") {
+  if (propType === "REBOUNDS") {
+    return num(game?.rebounds ?? game?.reb ?? game?.REB ?? game?.statValue ?? game?.value);
+  }
+  if (propType === "ASSISTS") {
+    return num(game?.assists ?? game?.ast ?? game?.AST ?? game?.statValue ?? game?.value);
+  }
+  return num(game?.points ?? game?.pts ?? game?.PTS ?? game?.statValue ?? game?.value);
+}
+
+function extractStatList(source, propType = "POINTS") {
   if (!source) return [];
   if (Array.isArray(source)) {
     if (!source.length) return [];
-    if (typeof source[0] === "number") return source.map((v) => num(v)).filter((v) => v !== null);
+    if (typeof source[0] === "number") {
+      return source.map((v) => num(v)).filter((v) => v !== null);
+    }
     return source
-      .map((g) => num(g?.points ?? g?.pts ?? g?.value))
+      .map((g) => boxValueFromGame(g, propType))
       .filter((v) => v !== null);
   }
   return [];
+}
+
+/** @deprecated use extractStatList(source, propType) */
+function extractPointsList(source) {
+  return extractStatList(source, "POINTS");
 }
 
 function resolveSealedLine(pick = {}) {
@@ -293,21 +323,45 @@ function buildAvailabilitySection(pick = {}, evidence = {}) {
   };
 }
 
-function buildMatchupHistory(pick = {}, evidence = {}, sealedLine = null, finalSide = "OVER") {
+function buildMatchupHistory(
+  pick = {},
+  evidence = {},
+  sealedLine = null,
+  finalSide = "OVER",
+  propType = "POINTS"
+) {
   const matchup = evidence.matchup || {};
+  const legacyValues =
+    propType === "REBOUNDS"
+      ? matchup.rebounds
+      : propType === "ASSISTS"
+        ? matchup.assists
+        : matchup.points;
   const games =
     pick.matchupGames ||
     pick.opponentMatchupGames ||
-    (Array.isArray(matchup.points)
-      ? matchup.points.map((pts, i) => ({
-          points: pts,
+    (Array.isArray(legacyValues)
+      ? legacyValues.map((val, i) => ({
+          points: propType === "POINTS" ? val : null,
+          rebounds: propType === "REBOUNDS" ? val : null,
+          assists: propType === "ASSISTS" ? val : null,
+          statValue: val,
           minutes: matchup.minutes?.[i] ?? null,
           fga: matchup.fga?.[i] ?? null,
           fta: matchup.fta?.[i] ?? null,
           fg3a: matchup.fg3a?.[i] ?? null,
           date: matchup.dates?.[i] || matchup.recency || null,
         }))
-      : []);
+      : Array.isArray(matchup.points)
+        ? matchup.points.map((pts, i) => ({
+            points: pts,
+            minutes: matchup.minutes?.[i] ?? null,
+            fga: matchup.fga?.[i] ?? null,
+            fta: matchup.fta?.[i] ?? null,
+            fg3a: matchup.fg3a?.[i] ?? null,
+            date: matchup.dates?.[i] || matchup.recency || null,
+          }))
+        : []);
 
   if (!games.length && !(matchup.sampleSize > 0)) {
     return {
@@ -319,17 +373,18 @@ function buildMatchupHistory(pick = {}, evidence = {}, sealedLine = null, finalS
       matchupAverage: null,
       matchupMedian: null,
       matchupHitRate: null,
+      propType,
     };
   }
 
   const normalized = (games.length ? games : []).slice(0, 3).map((g) => {
-    const pts = measuredNum(g.points ?? g.pts);
+    const statVal = measuredNum(boxValueFromGame(g, propType));
     const lineResult =
-      pts === null || sealedLine === null
+      statVal === null || sealedLine === null
         ? "Unavailable"
-        : pts > sealedLine
+        : statVal > sealedLine
           ? "Over"
-          : pts < sealedLine
+          : statVal < sealedLine
             ? "Under"
             : "Push";
     const differentTeam = Boolean(
@@ -345,14 +400,17 @@ function buildMatchupHistory(pick = {}, evidence = {}, sealedLine = null, finalS
       date: g.date || g.gameDate || null,
       teamAtTime: g.team || g.teamAtTime || pick.team || null,
       opponent: g.opponent || pick.opponent || null,
-      points: pts === null ? null : roundStat(pts),
+      propType,
+      statValue: statVal === null ? null : roundStat(statVal),
+      // Legacy field holds the propType-relevant value (not always points).
+      points: statVal === null ? null : roundStat(statVal),
       minutes: minutes.value,
       minutesStatus: minutes.status,
-      fga: fga.value,
-      fgaStatus: fga.status,
-      fta: fta.value,
-      ftaStatus: fta.status,
-      fg3a: fg3a.value,
+      fga: propType === "POINTS" ? fga.value : null,
+      fgaStatus: propType === "POINTS" ? fga.status : "NOT_APPLICABLE",
+      fta: propType === "POINTS" ? fta.value : null,
+      ftaStatus: propType === "POINTS" ? fta.status : "NOT_APPLICABLE",
+      fg3a: propType === "POINTS" ? fg3a.value : null,
       starter: g.starter ?? g.started ?? null,
       homeAway: g.homeAway || g.location || null,
       againstTodaysLine: lineResult,
@@ -368,7 +426,7 @@ function buildMatchupHistory(pick = {}, evidence = {}, sealedLine = null, finalS
     };
   });
 
-  const pts = normalized.map((g) => g.points).filter((v) => v !== null);
+  const pts = normalized.map((g) => g.statValue ?? g.points).filter((v) => v !== null);
   const hit = hitRateVsLine(pts, sealedLine, finalSide);
 
   return {
@@ -376,6 +434,7 @@ function buildMatchupHistory(pick = {}, evidence = {}, sealedLine = null, finalS
     display: normalized.length
       ? null
       : "No previous matchup data available.",
+    propType,
     sampleSize: measuredNum(matchup.sampleSize) || normalized.length,
     lastMatchup: normalized[0] || null,
     // Complete history: up to last 3 real matchups (never pad with zeros).
@@ -440,11 +499,23 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     )
   );
 
-  const last5Pts = extractPointsList(
-    first(evidence.recentForm?.last5Points, pick.last5, pick.playerState?.last5)
+  const propType = resolveAnalysisPropType(pick, evidence);
+  const last5Pts = extractStatList(
+    first(
+      evidence.recentForm?.last5Values,
+      evidence.recentForm?.last5Points,
+      pick.last5,
+      pick.playerState?.last5
+    ),
+    propType
   ).slice(0, 5);
-  const last10Pts = extractPointsList(
-    first(evidence.recentForm?.last10Points, pick.last10)
+  const last10Pts = extractStatList(
+    first(
+      evidence.recentForm?.last10Values,
+      evidence.recentForm?.last10Points,
+      pick.last10
+    ),
+    propType
   ).slice(0, 10);
   // Do not fabricate Last 10 from Last 5 alone when fewer than 10 games exist.
   const last10Display =
@@ -465,7 +536,10 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     seasonAvgRaw === 0 && !last5Pts.length && !last10Display.length
       ? null
       : seasonAvgRaw;
-  const seasonPts = extractPointsList(pick.bdlSeasonGames || pick.seasonGames || []);
+  const seasonPts = extractStatList(
+    pick.bdlSeasonGames || pick.seasonGames || [],
+    propType
+  );
   const trend = scoringTrend(last5Pts.length ? last5Pts : last10Display);
   const lineForHits = sealed ? sealedLine : currentLine ?? sealedLine;
   const last5Hit = hitRateVsLine(last5Pts, lineForHits, finalSide);
@@ -475,6 +549,12 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     lineForHits,
     finalSide
   );
+  const statLabel =
+    propType === "REBOUNDS"
+      ? "rebounds"
+      : propType === "ASSISTS"
+        ? "assists"
+        : "points";
 
   const projection = num(
     first(
@@ -520,7 +600,13 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     defenseStatus === "UNAVAILABLE" ? null : num(defense.defenseScore);
 
   const availability = buildAvailabilitySection(pick, evidence);
-  const matchupHistory = buildMatchupHistory(pick, evidence, lineForHits, finalSide);
+  const matchupHistory = buildMatchupHistory(
+    pick,
+    evidence,
+    lineForHits,
+    finalSide,
+    propType
+  );
 
   // Single owner: sealed canonical → decision packet → pick final fields.
   const canonicalDecision = resolveCanonicalDecisionFields({
@@ -538,6 +624,8 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     team: first(pick.team, evidence.identity?.team),
     opponent: first(pick.opponent, evidence.identity?.opponent),
     league,
+    propType,
+    stat: first(pick.stat, propType === "REBOUNDS" ? "Rebounds" : propType === "ASSISTS" ? "Assists" : "Points"),
     gameDateTime: first(pick.commenceTime, pick.time, evidence.identity?.commenceTime),
     homeAway: first(pick.homeAway, pick.isHome === true ? "HOME" : pick.isHome === false ? "AWAY" : null),
     finalCourtEdgeSide: finalSide,
@@ -553,6 +641,11 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
   };
 
   const recentPerformance = {
+    propType,
+    statLabel,
+    last5Values: last5Pts.length ? last5Pts.map((v) => roundStat(v)) : null,
+    last10Values: last10Display.length ? last10Display.map((v) => roundStat(v)) : null,
+    // Legacy aliases — values are for propType, not always points.
     last5Points: last5Pts.length ? last5Pts.map((v) => roundStat(v)) : null,
     last5Average: avg(last5Pts),
     last5HitRate: last5Hit,
@@ -713,15 +806,15 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
     pick.decisionDataIntelligence?.flipFirst?.action,
     "KEEP"
   );
-  const rescueRaw = first(pick.sideRescue?.action, pick.sideRescueAction, "KEEP_ORIGINAL");
   const finalDecision = {
     originalModelSide: originalSide,
     readerSide: normalizeSide(first(pick.readerSide, pick.wnbaReader?.finalSide)),
     flipFirstAction: flipRaw,
     flipFirstDisplay: translateFlipAction(flipRaw),
-    sideRescueAction: rescueRaw,
-    sideRescueDisplay:
-      translateOrScrubAction(rescueRaw) || translateFlipAction(rescueRaw),
+    // Side Rescue has no production authority — never surface KEEP_ORIGINAL / NO_DECISIVE_RESCUE.
+    sideRescueAction: null,
+    sideRescueDisplay: null,
+    sideRescueProductionAuthority: false,
     sameTeamArbitration: sameTeam
       ? {
           applied: true,
@@ -957,37 +1050,54 @@ export function formatHomeDetailedAnalysisReportText(analysis = {}, pick = {}) {
   const dq = analysis.dataQuality || {};
   const matchups = Array.isArray(m.recentMatchups) ? m.recentMatchups : [];
 
+  const propType =
+    s.propType ||
+    r.propType ||
+    analysis.propType ||
+    "POINTS";
+  const statWord =
+    propType === "REBOUNDS"
+      ? "reb"
+      : propType === "ASSISTS"
+        ? "ast"
+        : "pts";
+  const l5 = r.last5Values || r.last5Points || [];
+  const l10 = r.last10Values || r.last10Points || [];
   const matchupLines =
     m.status === "UNAVAILABLE"
       ? [`  Matchup: ${m.display || "No previous matchup data available."}`]
       : matchups.length
-        ? matchups.map(
-            (row, i) =>
-              `  Matchup ${i + 1}: ${row.date || "—"} pts ${row.points ?? "Unavailable"} min ${row.minutes ?? "Unavailable"} FGA ${row.fga ?? "Unavailable"} FTA ${row.fta ?? "Unavailable"} vs line: ${row.againstTodaysLine || "—"}`
-          )
+        ? matchups.map((row, i) => {
+            const val = row.statValue ?? row.points;
+            const volume =
+              propType === "POINTS"
+                ? ` FGA ${row.fga ?? "Unavailable"} FTA ${row.fta ?? "Unavailable"}`
+                : "";
+            return `  Matchup ${i + 1}: ${row.date || "—"} ${statWord} ${val ?? "Unavailable"} min ${row.minutes ?? "Unavailable"}${volume} vs line: ${row.againstTodaysLine || "—"}`;
+          })
         : [`  Matchup: ${m.display || "No previous matchup data available."}`];
 
-  const rescueDisplay =
-    dec.sideRescueDisplay ||
-    translateOrScrubAction(dec.sideRescueAction) ||
-    "Kept original side";
   const flipDisplay =
     dec.flipFirstDisplay || translateFlipAction(dec.flipFirstAction);
+  const roleLine =
+    propType === "POINTS"
+      ? `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} expFGA ${role.expectedFGA ?? "Unavailable"} expFTA ${role.expectedFTA ?? "Unavailable"} stability ${role.roleStability ?? "—"}`
+      : `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} stability ${role.roleStability ?? "—"}`;
 
   const lines = [
     "  --- DETAILED ANALYSIS ---",
-    `  Prop Snapshot: ${s.player} | ${s.team} vs ${s.opponent} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${s.confidence}% | Risk ${s.risk} | ${s.sealedLiveStatus}`,
-    `  Original model side: ${s.originalModelSide} | Best6 #${s.bestSixRank ?? "—"} | Coverage ${s.evidenceCoverage ?? "—"}%`,
-    `  Recent: L5 [${(r.last5Points || []).join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
-    `  L10 [${(r.last10Points || []).join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) seasonAvg ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
+    `  Prop Snapshot: ${s.player} | ${s.team} vs ${s.opponent} | ${propType} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${s.confidence}% | Risk ${s.risk} | ${s.sealedLiveStatus}`,
+    `  Original model side: ${s.originalModelSide} | Official #${s.bestSixRank ?? "—"} | Coverage ${s.evidenceCoverage ?? "—"}%`,
+    `  Recent: L5 ${statWord} [${l5.join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
+    `  L10 ${statWord} [${l10.join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) seasonAvg ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
     ...matchupLines,
-    `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} expFGA ${role.expectedFGA ?? "Unavailable"} expFTA ${role.expectedFTA ?? "Unavailable"} stability ${role.roleStability ?? "—"}`,
+    roleLine,
     `  Projection: raw ${proj.rawProjection ?? "—"} final ${proj.finalProjection ?? "—"} fair ${proj.fairLine ?? "—"} gap ${proj.projectionGap ?? "—"} vol ${proj.volatilityTier ?? "—"}`,
     `  Opponent defense: ${opp.opponentDefenseStatus} score ${opp.defenseScore ?? "Unavailable"} source ${opp.opponentDefenseSource}`,
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} itt ${env.impliedTeamTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"} (not true pace) rest ${env.daysRest ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult} (${mkt.marketRelativeToFinalSide?.explanation || ""})`,
     `  Availability: ${avail.displayStatus}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence}% | Risk ${dec.finalRisk} | Flip ${flipDisplay} | Rescue ${rescueDisplay} | SameTeam ${dec.sameTeamArbitration?.applied ? "YES" : "NO"}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence}% | Risk ${dec.finalRisk} | Flip ${flipDisplay} | SameTeam ${dec.sameTeamArbitration?.applied ? "YES" : "NO"}`,
     dec.topPickTransparency
       ? `  Top: rank ${dec.topPickTransparency.rank} | ${dec.topPickTransparency.reason}${
           dec.topPickTransparency.scoreVsNext?.explanation

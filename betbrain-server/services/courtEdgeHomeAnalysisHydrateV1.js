@@ -473,18 +473,22 @@ export async function hydrateHomeBoardAnalysis(board = {}, options = {}) {
     }
   }
 
-  // Keep game-card Best 6 mirrors in sync by player+line when present.
+  // Keep game-card Official mirrors in sync by player+propType+line.
   if (Array.isArray(next.games)) {
     const index = new Map();
+    const propKey = (p) => {
+      const raw = String(p?.propType || p?.canonicalPropType || p?.stat || "POINTS").toUpperCase();
+      const pt = /REBOUND/.test(raw) ? "REBOUNDS" : /ASSIST/.test(raw) ? "ASSISTS" : "POINTS";
+      return `${String(p?.player || "").toLowerCase()}|${pt}|${num(p?.line ?? p?.sealedLine)}`;
+    };
     for (const p of next.bestSixDisplayTodayWNBA || next.bestSixDisplayWNBA || []) {
-      const k = `${String(p.player || "").toLowerCase()}|${num(p.line ?? p.sealedLine)}`;
-      index.set(k, p);
+      index.set(propKey(p), p);
     }
     next.games = next.games.map((g) => {
       if (!g || typeof g !== "object") return g;
       const patch = (list) =>
         (Array.isArray(list) ? list : []).map((p) => {
-          const k = `${String(p.player || "").toLowerCase()}|${num(p.line ?? p.sealedLine)}`;
+          const k = propKey(p);
           return index.get(k) || p;
         });
       return {

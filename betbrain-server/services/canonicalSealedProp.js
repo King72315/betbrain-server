@@ -44,6 +44,21 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
     pregame.sameTeamOpportunity ||
     {};
 
+  const propTypeRaw = String(
+    pick.propType || pick.canonicalPropType || pick.stat || "POINTS"
+  ).toUpperCase();
+  const propType = /REBOUND/.test(propTypeRaw)
+    ? "REBOUNDS"
+    : /ASSIST/.test(propTypeRaw)
+      ? "ASSISTS"
+      : "POINTS";
+  const statLabel =
+    propType === "REBOUNDS"
+      ? "Rebounds"
+      : propType === "ASSISTS"
+        ? "Assists"
+        : "Points";
+
   return {
     schemaVersion: CANONICAL_SEALED_PROP_VERSION,
     officialPropId: pick.officialPropId || null,
@@ -55,6 +70,10 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
     game: pick.game || pick.gameLabel || null,
     gameId: pick.gameId || null,
     league: String(pick.league || "WNBA").toUpperCase() === "NBA" ? "NBA" : "WNBA",
+    propType,
+    canonicalPropType: propType,
+    stat: pick.stat || statLabel,
+    marketType: pick.marketType || pick.marketKey || null,
     side,
     line: num(pick.officialLine ?? pick.sealedLine ?? pick.selectedLine ?? pick.line),
     openingLine: num(
@@ -127,11 +146,11 @@ export function buildCanonicalSealedProp(pick = {}, options = {}) {
         pick.sameTeamArbitration?.originalModelConfidence
     ),
     sideRescue: {
-      action: pick.sideRescue?.action || pick.sideRescueAction || null,
-      explanation:
-        pick.sideRescue?.simpleExplanation ||
-        pick.sideRescueExplanation ||
-        null,
+      action: null,
+      productionAuthority: false,
+      skippedReason:
+        pick.sideRescue?.skippedReason || "NO_PRODUCTION_RESCUE_AUTHORITY",
+      explanation: null,
     },
     signals: {
       usage: signals.usage || pick.usageSignal || null,

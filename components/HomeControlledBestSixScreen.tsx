@@ -84,7 +84,7 @@ function LeagueDateSection({
           {league} -- {viewLabel}
         </Text>
         <Text style={styles.leagueSubtext}>
-          Controlled Best Board · 4 props/game · 1 Over + 1 Under per team
+          Official Board · variable membership · POINTS / REBOUNDS / ASSISTS
         </Text>
       </View>
 
@@ -128,11 +128,11 @@ function LeagueDateSection({
           <Text style={styles.summaryTitle}>{viewLabel} Summary</Text>
           <View style={styles.summaryRow}>
             <SummaryMetric
-              label="Controlled Best Board"
+              label="Official Board"
               value={`${summary.controlledBestSixTotal ?? summary.controlledBestBoard ?? 0}`}
             />
             <SummaryMetric
-              label="Results Tracked"
+              label="Results"
               value={`${summary.controlledBestSixTotal ?? 0}/${summary.controlledBestSixTotal ?? 0}`}
             />
             <SummaryMetric label="Overs" value={summary.overs ?? "—"} />
@@ -148,30 +148,35 @@ function LeagueDateSection({
       {!loading && !loadError && bestSixCards.length > 0 ? (
         <View style={styles.bestSixSection}>
           <Text style={[styles.sectionTitle, { color: theme.sectionTitle }]}>
-            {viewLabel} -- {league} Controlled Best Board
+            {viewLabel} -- {league} Official Board
           </Text>
           <Text style={styles.sectionSubtext}>
-            Ranked safest → riskiest · Best organic Over + Under per team ·{" "}
+            Ranked safest → riskiest ·{" "}
             {summary.controlledBestSixTotal} Official props (variable board, no
             cap)
           </Text>
-          {bestSixCards.map((pick, index) => (
-            <PropCard
-              key={`home-${league}-${dateView}-${pick.player}-${pick.line}-${index}`}
-              pick={pick}
-              index={index}
-              onSave={() => onSavePick(pick, league)}
-              showSaveHint
-              variant="bestSix"
-            />
-          ))}
+          {bestSixCards.map((pick, index) => {
+            const pt = String(
+              pick.propType || pick.canonicalPropType || pick.stat || "POINTS"
+            ).toUpperCase();
+            return (
+              <PropCard
+                key={`home-${league}-${dateView}-${pick.player}-${pt}-${pick.line}-${index}`}
+                pick={pick}
+                index={index}
+                onSave={() => onSavePick(pick, league)}
+                showSaveHint
+                variant="bestSix"
+              />
+            );
+          })}
         </View>
       ) : null}
 
       {!loading && !loadError && bestSixCards.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>
-            No {league} Controlled Best Board for {viewLabel}.
+            No {league} Official Board for {viewLabel}.
           </Text>
           <Text style={styles.emptyText}>
             {alternateLeagueHasProps
@@ -440,7 +445,7 @@ export default function HomeControlledBestSixScreen() {
             {viewLabel} -- {activeLeague}
           </Text>
           <Text style={styles.homeDateSubtext}>
-            Controlled Best Board for {activeLeague} · Switch Today / Tomorrow
+            Official Board for {activeLeague} · Switch Today / Tomorrow
             above · Full board Official · Results → History
           </Text>
         </View>
@@ -456,7 +461,7 @@ export default function HomeControlledBestSixScreen() {
         </TouchableOpacity>
 
         {loading ? (
-          <Text style={styles.loadingText}>Loading Controlled Best Board...</Text>
+          <Text style={styles.loadingText}>Loading Official Board...</Text>
         ) : null}
 
         <LoadErrorBanner message={loadError} />

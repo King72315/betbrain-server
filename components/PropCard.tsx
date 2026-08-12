@@ -110,17 +110,15 @@ export default function PropCard({
       : Math.round(Number(confidenceRaw));
   const side = pick.side || pick.pick || "";
   const line = pick.line ?? pick.sportsbookLine;
-  const stat = pick.stat || pick.propType || "Points";
   const propTypeRaw = String(
-    pick.propType || pick.canonicalPropType || stat || "POINTS"
+    pick.propType || pick.canonicalPropType || pick.stat || "POINTS"
   ).toUpperCase();
   const displayStat = propTypeRaw.includes("REBOUND")
     ? "REBOUNDS"
     : propTypeRaw.includes("ASSIST")
       ? "ASSISTS"
-      : propTypeRaw.includes("POINT")
-        ? "POINTS"
-        : String(stat).toUpperCase();
+      : "POINTS";
+  const stat = displayStat;
   const league = pick.league || game.league || "—";
   const dataMode =
     pick.dataMode || pick.playerState?.dataMode || "";
@@ -166,7 +164,7 @@ export default function PropCard({
 
   if (variant === "bestSix") {
     const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
-    const trackDecision = "TRACK";
+    const trackDecision = "OFFICIAL";
     const displayTrueRisk = String(
       membershipRiskOwner
         ? canonical.risk ||
@@ -215,35 +213,10 @@ export default function PropCard({
       (pick.decisionIntelligence?.riskRepairs || []).map((d: any) =>
         typeof d === "string" ? d : d.label || d.code || String(d)
       );
-    // Hide Flip-First / Side Rescue actions that contradict the printed final side.
-    const rawRescue =
-      pick.displaySideRescueAction ??
-      pick.sideRescueAction ??
-      pick.sideRescue?.action ??
-      null;
-    const sideRescueAction =
-      sameTeamFlip
-        ? "SAME_TEAM_ARBITRATION"
-        : rawRescue &&
-          String(rawRescue).toUpperCase() === "NO_DECISIVE_RESCUE"
-          ? "No stronger opposite-side case was found."
-          : rawRescue &&
-            !/FLIPPED_TO_OVER|FLIPPED_TO_UNDER|BOARD_ONLY|NO_BET/i.test(String(rawRescue))
-            ? rawRescue
-            : sameTeamFlip
-              ? "SAME_TEAM_ARBITRATION"
-              : rawRescue === "KEEP_ORIGINAL"
-                ? null
-                : rawRescue && /FLIPPED_TO_/i.test(String(rawRescue))
-                  ? null
-                  : rawRescue;
-    const sideRescueExplanation =
-      sameTeamFlip
-        ? whyText
-        : pick.displaySideRescueExplanation ??
-          pick.sideRescueExplanation ??
-          pick.sideRescue?.simpleExplanation ??
-          "";
+    // Side Rescue has no production authority — never render rescue chrome.
+    // Same-team arbitration remains a separate, legitimate display path.
+    const sideRescueAction = sameTeamFlip ? "SAME_TEAM_ARBITRATION" : null;
+    const sideRescueExplanation = sameTeamFlip ? whyText : "";
     const flipLabels =
       pick.displayFlipFirstLabels ??
       pick.flipFirstLabels ??
@@ -406,13 +379,9 @@ export default function PropCard({
           </View>
         ) : null}
 
-        {sideRescueAction &&
-        sideRescueAction !== "KEEP_ORIGINAL" &&
-        !/BOARD_ONLY|NO_BET|FLIPPED_TO_/i.test(String(sideRescueAction)) ? (
+        {sameTeamFlip ? (
           <View style={styles.bestSixRescueBox}>
-            <Text style={styles.bestSixRescueTitle}>
-              {sameTeamFlip ? "Same-Team Arbitration" : `Side Rescue: ${sideRescueAction}`}
-            </Text>
+            <Text style={styles.bestSixRescueTitle}>Same-Team Arbitration</Text>
             {sideRescueExplanation ? (
               <Text style={styles.bestSixRescueText} numberOfLines={3}>
                 {String(sideRescueExplanation).replace(/^Side Rescue: [^—]+ — /, "")}
@@ -1134,10 +1103,16 @@ export function ResultMarginText({ pick }: { pick: any }) {
 }
 
 function Metric({ label, value }: { label: string; value: any }) {
+  const display =
+    value == null || value === ""
+      ? "—"
+      : typeof value === "object"
+        ? String(value.label || value.code || value.value || "—")
+        : String(value);
   return (
     <View style={styles.metricBox}>
       <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricValue}>{display}</Text>
     </View>
   );
 }
@@ -1295,6 +1270,22 @@ function DetailedAnalysisPanel({
   const dec = a.finalDecision || {};
   const dq = a.dataQuality || {};
   const last = m.lastMatchup;
+  const propTypeRaw = String(
+    s.propType || r.propType || pick?.propType || pick?.stat || "POINTS"
+  ).toUpperCase();
+  const propType = propTypeRaw.includes("REBOUND")
+    ? "REBOUNDS"
+    : propTypeRaw.includes("ASSIST")
+      ? "ASSISTS"
+      : "POINTS";
+  const statWord =
+    propType === "REBOUNDS"
+      ? "rebounds"
+      : propType === "ASSISTS"
+        ? "assists"
+        : "points";
+  const l5 = r.last5Values || r.last5Points;
+  const l10 = r.last10Values || r.last10Points;
 
   return (
     <View style={styles.daBox}>
@@ -1302,24 +1293,27 @@ function DetailedAnalysisPanel({
 
       <Text style={styles.daHeader}>1. Prop Snapshot</Text>
       <Text style={styles.daLine}>
-        {daVal(s.player)} · {daVal(s.team)} vs {daVal(s.opponent)} · {daVal(s.league)}
+        {daVal(s.player)} · {daVal(s.team)} vs {daVal(s.opponent)} · {daVal(s.league)} ·{" "}
+        {propType}
       </Text>
       <Text style={styles.daLine}>
         {daVal(s.finalCourtEdgeSide)} {daVal(s.sealedLine)} · Conf {daVal(s.confidence)}% · Risk{" "}
         {daVal(s.risk)} · {daVal(s.sealedLiveStatus)}
       </Text>
       <Text style={styles.daLine}>
-        Original model: {daVal(s.originalModelSide)} · B6 #{daVal(s.bestSixRank, "—")} · Coverage{" "}
-        {daVal(s.evidenceCoverage, "—")}%
+        Original model: {daVal(s.originalModelSide)} · Official #{daVal(s.bestSixRank, "—")} ·
+        Coverage {daVal(s.evidenceCoverage, "—")}%
       </Text>
 
       <Text style={styles.daHeader}>2. Recent Performance</Text>
-      <Text style={styles.daLine}>Last 5 points: {daVal(r.last5Points)}</Text>
+      <Text style={styles.daLine}>
+        Last 5 {statWord}: {daVal(l5)}
+      </Text>
       <Text style={styles.daLine}>
         Last 5 avg: {daVal(r.last5Average)} · Hit: {daVal(r.last5HitRate?.label)}
       </Text>
       <Text style={styles.daLine}>
-        Last 10 points: {daVal(r.last10Points)} (n={daVal(r.last10SampleSize, "0")})
+        Last 10 {statWord}: {daVal(l10)} (n={daVal(r.last10SampleSize, "0")})
       </Text>
       <Text style={styles.daLine}>
         Last 10 avg: {daVal(r.last10Average)} · Season avg: {daVal(r.seasonAverage)} · Trend:{" "}
@@ -1337,9 +1331,13 @@ function DetailedAnalysisPanel({
             (row: any, i: number) => (
               <View key={`mu-${i}`}>
                 <Text style={styles.daLine}>
-                  Matchup {i + 1}: {daVal(row.date)} · Pts {daVal(row.points)} · Min{" "}
-                  {daVal(row.minutes)} · FGA {daVal(row.fga)} · FTA {daVal(row.fta)} ·{" "}
-                  {daVal(row.againstTodaysLine)}
+                  Matchup {i + 1}: {daVal(row.date)} ·{" "}
+                  {propType === "POINTS" ? "Pts" : propType === "REBOUNDS" ? "Reb" : "Ast"}{" "}
+                  {daVal(row.statValue ?? row.points)} · Min {daVal(row.minutes)}
+                  {propType === "POINTS"
+                    ? ` · FGA ${daVal(row.fga)} · FTA ${daVal(row.fta)}`
+                    : ""}{" "}
+                  · {daVal(row.againstTodaysLine)}
                 </Text>
                 {row.relevanceNote ? (
                   <Text style={styles.daNote}>{row.relevanceNote}</Text>
@@ -1356,12 +1354,14 @@ function DetailedAnalysisPanel({
 
       <Text style={styles.daHeader}>4. Role And Opportunity</Text>
       <Text style={styles.daLine}>
-        Exp min {daVal(role.expectedMinutes)} · L5 min {daVal(role.last5Minutes)} · Exp FGA{" "}
-        {daVal(role.expectedFGA)} · Exp FTA {daVal(role.expectedFTA)}
+        Exp min {daVal(role.expectedMinutes)} · L5 min {daVal(role.last5Minutes)}
+        {propType === "POINTS"
+          ? ` · Exp FGA ${daVal(role.expectedFGA)} · Exp FTA ${daVal(role.expectedFTA)}`
+          : ""}
       </Text>
       <Text style={styles.daLine}>
-        Usage {daVal(role.expectedUsage)} · Stability {daVal(role.roleStability)} ·{" "}
-        {daVal(role.teammateImpactSummary)}
+        {propType === "POINTS" ? `Usage ${daVal(role.expectedUsage)} · ` : ""}
+        Stability {daVal(role.roleStability)} · {daVal(role.teammateImpactSummary)}
       </Text>
 
       <Text style={styles.daHeader}>5. Projection, Distribution, Volatility</Text>
@@ -1410,12 +1410,8 @@ function DetailedAnalysisPanel({
         {daVal(dec.finalConfidence)}% · Risk {daVal(dec.finalRisk)}
       </Text>
       <Text style={styles.daLine}>
-        Flip {daVal(dec.flipFirstAction)} · Rescue{" "}
-        {dec.sideRescueDisplay ||
-          (String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
-            ? "No stronger opposite-side case was found."
-            : daVal(dec.sideRescueAction))}{" "}
-        · Same-team {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
+        Flip {daVal(dec.flipFirstDisplay || dec.flipFirstAction)} · Same-team{" "}
+        {dec.sameTeamArbitration?.applied ? "Applied" : "No"}
       </Text>
       {dec.topPickTransparency ? (
         <Text style={styles.daNote}>

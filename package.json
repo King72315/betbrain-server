@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "test:courtedge-nav-cleanup": "node ./scripts/testCourtEdgeNavigationCleanupV1.js",
     "test:courtedge-local-render-fallback": "node ./scripts/testCourtEdgeLocalRenderFallbackV1.mjs",
+    "test:courtedge-proptype-identity": "node ./scripts/testCourtEdgePropTypeIdentityFixV1.mjs",
     "build:android:private": "eas build --platform android --profile preview",
     "update:ota": "eas update --branch preview --message \"CourtEdge update\"",
     "postinstall": "npm install --prefix betbrain-server"

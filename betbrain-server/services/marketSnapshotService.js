@@ -1,6 +1,14 @@
+/**
+ * Market line snapshots — identity MUST include propType/stat.
+ * event + player + propType (+ gameId) — never player-only fallback.
+ */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  normalizePropTypeV1,
+  propTypeStatLabel,
+} from "../engines/wnba/propTypeV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +24,21 @@ function clean(value = "") {
 function num(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Canonical snapshot market label from propType and/or legacy stat.
+ * Identity: POINTS | REBOUNDS | ASSISTS → Points | Rebounds | Assists
+ */
+export function resolveSnapshotStatLabel({
+  propType = null,
+  stat = null,
+} = {}) {
+  const fromProp = normalizePropTypeV1(propType);
+  if (fromProp) return propTypeStatLabel(fromProp);
+  const fromStat = normalizePropTypeV1(stat);
+  if (fromStat) return propTypeStatLabel(fromStat);
+  return "Points";
 }
 
 function ensureSnapshotsFile() {
@@ -43,14 +66,16 @@ export function generateSnapshotId({
   gameDate = "",
   player = "",
   stat = "Points",
+  propType = null,
   snapshotTime = new Date().toISOString(),
 } = {}) {
+  const statLabel = resolveSnapshotStatLabel({ propType, stat });
   const stamp = String(snapshotTime).replace(/[^0-9]/g, "").slice(0, 14);
   return [
     clean(league),
     clean(gameDate),
     clean(player),
-    clean(stat),
+    clean(statLabel),
     stamp || Date.now(),
   ]
     .filter(Boolean)
@@ -62,38 +87,54 @@ function buildSnapshotKey({
   gameDate = "",
   player = "",
   stat = "Points",
+  propType = null,
   gameId = "",
 } = {}) {
+  const statLabel = resolveSnapshotStatLabel({ propType, stat });
   return [
     clean(league),
     clean(gameDate),
     clean(player),
-    clean(stat),
+    clean(statLabel),
     clean(gameId),
   ]
     .filter(Boolean)
     .join("|");
 }
 
+/**
+ * Opening line lookup — REQUIRES propType/stat identity.
+ * Never falls back to player+date alone (cross-stat contamination).
+ */
 export function getOpeningLine({
   league = "",
   gameDate = "",
   player = "",
   stat = "Points",
+  propType = null,
   gameId = "",
 } = {}) {
-  const key = buildSnapshotKey({ league, gameDate, player, stat, gameId });
-  const keyNoGame = buildSnapshotKey({ league, gameDate, player, stat });
+  const key = buildSnapshotKey({
+    league,
+    gameDate,
+    player,
+    stat,
+    propType,
+    gameId,
+  });
+  const keyNoGame = buildSnapshotKey({
+    league,
+    gameDate,
+    player,
+    stat,
+    propType,
+  });
   const snapshots = readSnapshots();
 
   const match =
     snapshots.find((s) => buildSnapshotKey(s) === key) ||
-    snapshots.find((s) => buildSnapshotKey({ ...s, gameId: "" }) === keyNoGame) ||
     snapshots.find(
-      (s) =>
-        clean(s.player) === clean(player) &&
-        clean(s.gameDate) === clean(gameDate) &&
-        clean(s.league) === clean(league)
+      (s) => buildSnapshotKey({ ...s, gameId: "" }) === keyNoGame
     );
 
   if (!match) return null;
@@ -103,6 +144,11 @@ export function getOpeningLine({
     snapshotId: match.snapshotId,
     snapshotTime: match.snapshotTime,
     currentLine: num(match.currentLine ?? match.bookLine),
+    propType: normalizePropTypeV1(match.propType || match.stat) || null,
+    stat: resolveSnapshotStatLabel({
+      propType: match.propType,
+      stat: match.stat,
+    }),
   };
 }
 
@@ -114,6 +160,7 @@ export function appendMarketSnapshot({
   team = "",
   opponent = "",
   stat = "Points",
+  propType = null,
   bookLine = 0,
   bookCount = 0,
   marketQuality = 0,
@@ -125,7 +172,16 @@ export function appendMarketSnapshot({
   snapshotTime = new Date().toISOString(),
 } = {}) {
   const snapshots = readSnapshots();
-  const key = buildSnapshotKey({ league, gameDate, player, stat, gameId });
+  const statLabel = resolveSnapshotStatLabel({ propType, stat });
+  const propTypeCanon = normalizePropTypeV1(propType || statLabel) || "POINTS";
+  const key = buildSnapshotKey({
+    league,
+    gameDate,
+    player,
+    stat: statLabel,
+    propType: propTypeCanon,
+    gameId,
+  });
   const currentLine = num(bookLine);
 
   const existingIndex = snapshots.findIndex(
@@ -136,7 +192,8 @@ export function appendMarketSnapshot({
     league,
     gameDate,
     player,
-    stat,
+    stat: statLabel,
+    propType: propTypeCanon,
     snapshotTime,
   });
 
@@ -150,6 +207,8 @@ export function appendMarketSnapshot({
       ...existing,
       snapshotTime,
       gameId: existing.gameId || gameId || "",
+      stat: statLabel,
+      propType: propTypeCanon,
       currentLine,
       bookLine: currentLine,
       bookCount: num(bookCount),
@@ -178,7 +237,8 @@ export function appendMarketSnapshot({
     team,
     opponent,
     gameId: gameId || "",
-    stat,
+    stat: statLabel,
+    propType: propTypeCanon,
     bookLine: currentLine,
     currentLine,
     openingLine,
@@ -195,3 +255,5 @@ export function appendMarketSnapshot({
 
   return snapshot;
 }
+
+export { buildSnapshotKey };

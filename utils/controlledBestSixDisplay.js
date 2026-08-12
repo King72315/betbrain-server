@@ -851,24 +851,6 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     ? data.bestSixDisplayTomorrowWNBA
     : data.bestSixDisplayTomorrowNBA;
 
-  // Canonical V2/V3: Home Today must use controlledBestBoard / selectedProps, not
-  // the sealed legacy Best 6 overall ranking.
-  const canonicalTodayRaw =
-    isWNBA &&
-    Array.isArray(data.controlledBestBoard) &&
-    data.controlledBestBoard.length
-      ? data.controlledBestBoard
-      : isWNBA &&
-          Array.isArray(data.selectedPropsTodayWNBA) &&
-          data.selectedPropsTodayWNBA.length
-        ? data.selectedPropsTodayWNBA
-        : null;
-  const canonicalToday = canonicalTodayRaw
-    ? dedupeControlledBoardPicks(canonicalTodayRaw)
-    : null;
-  const canonicalIsBalanced =
-    canonicalToday && isTeamBalancedFourPropBoard(canonicalToday);
-
   const today = getChicagoCalendarDate();
   const tomorrow = shiftChicagoDate(today, 1);
   const gamesToday = (games || []).filter((g) => {
@@ -885,6 +867,34 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     if (!commence) return String(g.dayBucket || "").toUpperCase() === "TOMORROW";
     return resolvePickSlateDateForHome({ commenceTime: commence }) === tomorrow;
   });
+
+  // Canonical V2/V3: prefer controlledBestBoard / selectedPropsToday only when
+  // those rows are calendar-aligned to Chicago Today. Stale controlled boards
+  // (e.g. July props still hanging on the payload) must not blank Home Today
+  // when bestSixDisplayTodayWNBA has a fresh Official slate.
+  const controlledTodayAligned = filterCalendarTodayHomePool(
+    dedupeControlledBoardPicks(
+      isWNBA && Array.isArray(data.controlledBestBoard)
+        ? data.controlledBestBoard
+        : []
+    ),
+    today
+  );
+  const selectedTodayAligned = filterCalendarTodayHomePool(
+    dedupeControlledBoardPicks(
+      isWNBA && Array.isArray(data.selectedPropsTodayWNBA)
+        ? data.selectedPropsTodayWNBA
+        : []
+    ),
+    today
+  );
+  const canonicalToday = controlledTodayAligned.length
+    ? controlledTodayAligned
+    : selectedTodayAligned.length
+      ? selectedTodayAligned
+      : null;
+  const canonicalIsBalanced =
+    canonicalToday && isTeamBalancedFourPropBoard(canonicalToday);
 
   // Control-plane V1: never rebuild Official from allGeneratedCandidates.
   // Server-sealed selectedProps / display arrays are the only Official source.
@@ -925,8 +935,8 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
       isTeamBalancedFourPropBoard(bestSixDisplayToday),
     membershipSource:
       data.membershipSource ||
-      (fourPropToday.length && !canonicalIsBalanced
-        ? "four-prop-game-safest-team-slots"
+      (canonicalToday?.length && !canonicalIsBalanced
+        ? "controlled-best-board-unbalanced"
         : null),
     selectionBuildId: data.selectionBuildId || null,
     boardVersion: data.boardVersion || null,
@@ -1179,16 +1189,25 @@ function formatReportValue(value) {
   return String(value);
 }
 
+function resolvePickPropTypeLabel(pick = {}) {
+  const raw = String(
+    pick.propType || pick.canonicalPropType || pick.stat || "POINTS"
+  ).toUpperCase();
+  if (raw.includes("REBOUND")) return "REBOUNDS";
+  if (raw.includes("ASSIST")) return "ASSISTS";
+  return "POINTS";
+}
+
 export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "WNBA") {
   const leagueCode = normalizeLeagueCode(pick.league || league);
   const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
   const side = pick.side || pick.pick || "—";
   const line = pick.line ?? pick.sportsbookLine;
-  const stat = pick.stat || "Points";
+  const stat = resolvePickPropTypeLabel(pick);
   const team = pick.team || "—";
   const opponent = pick.opponent || "—";
   const game = pick.game || `${team} vs ${opponent}`;
-  const trackDecision = "TRACK";
+  const trackDecision = "OFFICIAL";
   const trueRisk = resolveTrueRisk(pick);
   const canonical = pick.homeDetailedAnalysisV1?.canonical || {};
   const conf =
@@ -1229,7 +1248,6 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
         "The Over has a limited projection advantage despite otherwise complete data.",
       DANGER_STACK_INSUFFICIENT_EDGE:
         "The projection edge is thin relative to the identified risk factors.",
-      NO_DECISIVE_RESCUE: "No stronger opposite-side case was found.",
       DANGER_GATE_STACK_BOARD_ONLY:
         "Multiple risk factors are stacked against this side.",
     };
@@ -1243,20 +1261,14 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     why && why !== "—"
       ? why
       : whyTranslated
-        ? `TRACK — ${whyTranslated}`
-        : `TRACK — Selected on available evidence. True risk ${trueRisk}.`;
+        ? whyTranslated
+        : `Selected on available evidence. True risk ${trueRisk}.`;
   const sameTeamFlip = Boolean(
     pick.sameTeamArbitrationFlip ||
       pick.flipReasonCode === "SAME_TEAM_ARBITRATION_FLIP"
   );
   const originalModelSide =
     pick.originalModelSide || pick.sameTeamArbitration?.originalModelSide || null;
-  const sideRescueAction = sameTeamFlip
-    ? "SAME_TEAM_ARBITRATION"
-    : pick.displaySideRescueAction ??
-      pick.sideRescueAction ??
-      pick.sideRescue?.action ??
-      null;
   const flipLabels =
     pick.displayFlipFirstLabels ??
     pick.flipFirstLabels ??
@@ -1265,7 +1277,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
   const topBadge = pick.topPickLabel ? ` · ${pick.topPickLabel}` : "";
 
   return [
-    `[Best #${rank}${topBadge}] ${pick.player || "Unknown"} (${leagueCode})`,
+    `[Official #${rank}${topBadge}] ${pick.player || "Unknown"} (${leagueCode})`,
     `  Game: ${game}`,
     `  Prop: ${side} ${formatReportValue(line)} ${stat}`,
     `  Confidence: ${confDisplay}% | Risk: ${trueRisk} | Decision: ${trackDecision}`,
@@ -1276,11 +1288,6 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
       ? `  Signals: Usage ${flipLabels.usage} | Collision ${flipLabels.collision} | Market ${flipLabels.market} | Avail ${flipLabels.availability} | Proj ${flipLabels.projectionQuality}`
       : null,
     whyFinal ? `  Why: ${whyFinal}` : null,
-    sideRescueAction &&
-    sideRescueAction !== "KEEP_ORIGINAL" &&
-    !/BOARD_ONLY|NO_BET|FLIPPED_TO_|NO_DECISIVE_RESCUE/i.test(String(sideRescueAction))
-      ? `  ${sameTeamFlip ? "Arbitration" : "Side Rescue"}: ${sideRescueAction}`
-      : null,
     formatDetailedAnalysisReportBlock(pick),
   ]
     .filter(Boolean)
@@ -1304,24 +1311,26 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
   const matchups = Array.isArray(m.recentMatchups) ? m.recentMatchups : [];
   const conf = s.confidence ?? dec.finalConfidence ?? a.canonical?.confidence;
   const risk = s.risk ?? dec.finalRisk ?? a.canonical?.risk;
+  const propType = resolvePickPropTypeLabel({
+    propType: s.propType || r.propType || pick.propType || pick.stat,
+  });
+  const statWord =
+    propType === "REBOUNDS" ? "reb" : propType === "ASSISTS" ? "ast" : "pts";
+  const l5 = r.last5Values || r.last5Points || [];
+  const l10 = r.last10Values || r.last10Points || [];
   const matchupLines =
     m.status === "UNAVAILABLE" || !matchups.length
       ? [
           `  Matchup: ${m.display || "No previous matchup data available."}`,
         ]
-      : matchups.map(
-          (row, i) =>
-            `  Matchup ${i + 1}: ${row.date || "—"} pts ${row.points ?? "Unavailable"} min ${row.minutes ?? "Unavailable"} FGA ${row.fga ?? "Unavailable"} FTA ${row.fta ?? "Unavailable"} vs line ${row.againstTodaysLine || "—"}`
-        );
-  const rescue =
-    dec.sideRescueDisplay ||
-    (String(dec.sideRescueAction || "").toUpperCase() === "NO_DECISIVE_RESCUE"
-      ? "No stronger opposite-side case was found."
-      : /KEEP/i.test(String(dec.sideRescueAction || ""))
-        ? "Kept original side"
-        : /FLIP/i.test(String(dec.sideRescueAction || ""))
-          ? "Flipped side"
-          : dec.sideRescueAction || "—");
+      : matchups.map((row, i) => {
+          const val = row.statValue ?? row.points;
+          const volume =
+            propType === "POINTS"
+              ? ` FGA ${row.fga ?? "Unavailable"} FTA ${row.fta ?? "Unavailable"}`
+              : "";
+          return `  Matchup ${i + 1}: ${row.date || "—"} ${statWord} ${val ?? "Unavailable"} min ${row.minutes ?? "Unavailable"}${volume} vs line ${row.againstTodaysLine || "—"}`;
+        });
   const flip =
     dec.flipFirstDisplay ||
     (/KEEP/i.test(String(dec.flipFirstAction || ""))
@@ -1329,20 +1338,24 @@ function formatDetailedAnalysisReportBlock(pick = {}) {
       : /FLIP/i.test(String(dec.flipFirstAction || ""))
         ? "Flipped side"
         : dec.flipFirstAction || "—");
+  const roleLine =
+    propType === "POINTS"
+      ? `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} FGA ${role.expectedFGA ?? "Unavailable"} FTA ${role.expectedFTA ?? "Unavailable"}`
+      : `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"}`;
   return [
     "  --- DETAILED ANALYSIS ---",
-    `  Snapshot: ${s.player || pick.player} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${conf}% | Risk ${risk} | ${s.sealedLiveStatus}`,
+    `  Snapshot: ${s.player || pick.player} | ${propType} | ${s.finalCourtEdgeSide} ${s.sealedLine} | Conf ${conf}% | Risk ${risk} | ${s.sealedLiveStatus}`,
     `  Original side: ${s.originalModelSide} | Coverage ${s.evidenceCoverage ?? "—"}%`,
-    `  L5: [${(r.last5Points || []).join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
-    `  L10: [${(r.last10Points || []).join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) season ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
+    `  L5 ${statWord}: [${l5.join(", ") || "Unavailable"}] avg ${r.last5Average ?? "Unavailable"} hit ${r.last5HitRate?.label || "Unavailable"}`,
+    `  L10 ${statWord}: [${l10.join(", ") || "Unavailable"}] avg ${r.last10Average ?? "Unavailable"} (n=${r.last10SampleSize ?? 0}) season ${r.seasonAverage ?? "Unavailable"} trend ${r.scoringTrend?.trend || "Unavailable"}`,
     ...matchupLines,
-    `  Role: expMin ${role.expectedMinutes ?? "Unavailable"} L5min ${role.last5Minutes ?? "Unavailable"} FGA ${role.expectedFGA ?? "Unavailable"} FTA ${role.expectedFTA ?? "Unavailable"}`,
+    roleLine,
     `  Projection: final ${proj.finalProjection ?? "—"} fair ${proj.fairLine ?? "—"} gap ${proj.projectionGap ?? "—"} vol ${proj.volatilityTier ?? "—"}`,
     `  Opponent: defense ${opp.opponentDefenseStatus} score ${opp.defenseScore ?? "Unavailable"}`,
     `  Environment: spread ${env.spread ?? "Unavailable"} total ${env.gameTotal ?? "Unavailable"} paceProxy ${env.paceProxy ?? "Unavailable"}`,
     `  Market: open ${mkt.openingLine ?? "Unavailable"} sealed ${mkt.selectedSealedLine ?? "Unavailable"} current ${mkt.currentLine ?? "Unavailable"} → ${mkt.compactResult}`,
     `  Availability: ${avail.displayStatus || "Unavailable"}`,
-    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence ?? conf}% | Risk ${dec.finalRisk ?? risk} | Flip ${flip} | Rescue ${rescue}`,
+    `  Decision: ${dec.originalModelSide} → ${dec.finalCourtEdgeSide} | Conf ${dec.finalConfidence ?? conf}% | Risk ${dec.finalRisk ?? risk} | Flip ${flip}`,
     dec.topPickTransparency
       ? `  Top: rank ${dec.topPickTransparency.rank} | ${dec.topPickTransparency.reason}`
       : null,
@@ -1378,25 +1391,25 @@ export function buildLeagueControlledBestSixReportText({
     summary.bestSixOverallCount ?? Math.min(controlledTotal, overallViewLimit);
 
   const lines = [
-    `${leagueCode} Props — Controlled Best Board`,
+    `${leagueCode} Props — Official Board`,
     `View: ${viewLabel}`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
     "--- Summary ---",
-    `Controlled Best Board: ${controlledTotal}`,
-    `Results Tracked: ${resultsTrack}/${controlledTotal || bestSixLimit}`,
+    `Official Board: ${controlledTotal}`,
+    `Results: ${resultsTrack}/${controlledTotal || bestSixLimit}`,
     `Top Picks: ${topPicks}/${topPickLimit}`,
-    `Best 6 Overall (view): ${overallCount}/${overallViewLimit}`,
-    `Board rule: 4 props/game · best organic Over + Under per team (never forced)`,
+    `Official Overall (view): ${overallCount}/${overallViewLimit}`,
+    `Board rule: variable Official membership · safest available props`,
     `Board Candidates: ${boardCandidates}`,
     `High Risk (board): ${highRisk || 0}`,
     "",
-    "--- Controlled Best Board ---",
+    "--- Official Board ---",
     bestSixCards.length
       ? bestSixCards
           .map((pick, index) => formatControlledBestSixPickLine(pick, index, leagueCode))
           .join("\n\n")
-      : `No Controlled Best Board props for ${viewLabel}.`,
+      : `No Official Board props for ${viewLabel}.`,
   ];
 
   if (includeFullBoard && games.length) {
@@ -1408,7 +1421,7 @@ export function buildLeagueControlledBestSixReportText({
   }
 
   if (loading) {
-    lines.push("", "Status: Loading Controlled Best Board...");
+    lines.push("", "Status: Loading Official Board...");
   }
 
   return lines.filter((line) => line !== null).join("\n");
@@ -1458,7 +1471,7 @@ export function buildHomeControlledBestSixReportText({
       );
     }
     return [
-      "CourtEdge Home — Today + Tomorrow Controlled Best Board",
+      "CourtEdge Home — Today + Tomorrow Official Board",
       lastUpdated ? `Last updated: ${lastUpdated}` : null,
       "",
       blocks.join("\n\n---\n\n"),

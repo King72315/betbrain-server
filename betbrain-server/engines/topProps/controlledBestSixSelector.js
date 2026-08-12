@@ -25,11 +25,7 @@ import {
   DECISION_INTELLIGENCE_VERSION,
   promoteBestSixCohortPick,
 } from "../decisionIntelligence/propDecisionIntelligenceV1.js";
-import {
-  applySideRescueToPick,
-  evaluateSideRescue,
-  SIDE_RESCUE_VERSION,
-} from "../decisionIntelligence/sideRescueEngineV1.js";
+import { SIDE_RESCUE_VERSION } from "../decisionIntelligence/sideRescueEngineV1.js";
 import { syncWnbaDataModeOnPick } from "../wnba/wnbaGateInputs.js";
 import { runFlipFirstDecisionPipeline } from "../decisionIntelligence/decisionDataIntelligenceV1.js";
 import {
@@ -724,33 +720,22 @@ function applyWnbaDecisionStack(pick = {}, options = {}) {
   );
   enriched = applyDecisionIntelligenceToPick(enriched, null, gate);
 
-  if (!enriched.sideRescue) {
-    const di = enriched.decisionIntelligence || {};
-    const sideRescue = evaluateSideRescue(enriched, {
-      decisionIntelligence: di,
-      gate,
-      dataCard: enriched.wnbaDataCard,
-      reader: enriched.wnbaReader,
-      originalSide: enriched.initialSide,
-      flipFirstDecision:
-        enriched.flipFirstDecision || enriched.decisionDataIntelligence?.flipFirstDecision,
-    });
-    enriched = applySideRescueToPick(enriched, sideRescue, {
-      dataCard: enriched.wnbaDataCard,
-      reader: enriched.wnbaReader,
-    });
-    if (sideRescue.action === "FLIP_SIDE" && sideRescue.finalSide) {
-      const flippedGate = evaluateWnbaTrackingEligibility(
-        enriched,
-        enriched.wnbaDataCard,
-        enriched.wnbaReader
-      );
-      enriched = applyDecisionIntelligenceToPick(enriched, null, flippedGate);
-      enriched = applySideRescueToPick(enriched, sideRescue, {
-        dataCard: enriched.wnbaDataCard,
-        reader: enriched.wnbaReader,
-      });
-    }
+  // Production: Side Rescue has no decision authority.
+  // Do not evaluate/apply — stamp inert marker only (no KEEP_ORIGINAL / flip path).
+  if (!enriched.sideRescue || enriched.sideRescue.productionAuthority !== false) {
+    enriched = {
+      ...enriched,
+      sideRescue: {
+        action: null,
+        productionAuthority: false,
+        skippedReason: "NO_PRODUCTION_RESCUE_AUTHORITY",
+        version: SIDE_RESCUE_VERSION,
+      },
+      sideRescueAction: null,
+      sideRescueExplanation: null,
+      displaySideRescueAction: null,
+      displaySideRescueExplanation: null,
+    };
   }
 
   enriched = finalizeCanonicalDecision(enriched);

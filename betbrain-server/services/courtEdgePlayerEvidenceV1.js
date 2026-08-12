@@ -42,9 +42,33 @@ function qualityBlock({
   };
 }
 
-function ptsList(games = []) {
+function resolveEvidencePropType(ctx = {}) {
+  const raw = String(
+    ctx.propType ||
+      ctx.prop?.propType ||
+      ctx.canonicalPropType ||
+      ctx.stat ||
+      ctx.prop?.stat ||
+      "POINTS"
+  ).toUpperCase();
+  if (raw.includes("REBOUND")) return "REBOUNDS";
+  if (raw.includes("ASSIST")) return "ASSISTS";
+  return "POINTS";
+}
+
+function boxValueFromGame(game = {}, propType = "POINTS") {
+  if (propType === "REBOUNDS") {
+    return num(game.rebounds ?? game.reb ?? game.REB ?? game.value);
+  }
+  if (propType === "ASSISTS") {
+    return num(game.assists ?? game.ast ?? game.AST ?? game.value);
+  }
+  return num(game.points ?? game.pts ?? game.PTS ?? game.value);
+}
+
+function ptsList(games = [], propType = "POINTS") {
   return (games || [])
-    .map((g) => num(g.points ?? g.pts))
+    .map((g) => boxValueFromGame(g, propType))
     .filter((v) => v !== null);
 }
 
@@ -97,13 +121,14 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
   const marketSnapshot = ctx.marketSnapshot || {};
   const projectionResult = ctx.projectionResult || ctx.projection || {};
   const line = num(ctx.line ?? prop.line);
-  const last5Pts = ptsList(last5);
+  const propType = resolveEvidencePropType(ctx);
+  const last5Pts = ptsList(last5, propType);
   const last10Source = seasonGames.length
     ? seasonGames.slice(0, 10)
     : last5;
-  const last10Pts = ptsList(last10Source).slice(0, 10);
+  const last10Pts = ptsList(last10Source, propType).slice(0, 10);
   const last3Pts = last5Pts.slice(0, 3);
-  const seasonPts = ptsList(seasonGames);
+  const seasonPts = ptsList(seasonGames, propType);
   const seasonAvgRaw = num(
     ctx.seasonAverage ??
       ctx.playerState?.seasonPoints ??
@@ -121,7 +146,7 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
     defense.defenseScore !== undefined &&
     defense.status !== "UNAVAILABLE";
 
-  const matchupPts = ptsList(matchupGames);
+  const matchupPts = ptsList(matchupGames, propType);
   const matchupAvailable = matchupGames.length > 0;
 
   const coverageGroups = {
@@ -178,11 +203,17 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
       unresolvedIdentityReason: identity.unresolvedIdentityReason || null,
     },
     recentForm: {
+      propType,
       seasonGames: seasonGames.length || null,
+      // seasonPointsAverage kept as legacy alias for the propType season avg
       seasonPointsAverage: seasonAvg,
+      seasonStatAverage: seasonAvg,
       last3Points: last3Pts.length ? last3Pts : null,
       last5Points: last5Pts.length ? last5Pts : null,
       last10Points: last10Pts.length ? last10Pts : null,
+      last3Values: last3Pts.length ? last3Pts : null,
+      last5Values: last5Pts.length ? last5Pts : null,
+      last10Values: last10Pts.length ? last10Pts : null,
       pointsMedian: median(last10Pts.length ? last10Pts : last5Pts),
       standardDeviation: stdev(last10Pts.length ? last10Pts : last5Pts),
       hitRateAgainstCurrentLine: hitRate(

@@ -58,11 +58,7 @@ import {
   applyDecisionIntelligenceToPick,
   DECISION_INTELLIGENCE_VERSION,
 } from "../engines/decisionIntelligence/propDecisionIntelligenceV1.js";
-import {
-  applySideRescueToPick,
-  evaluateSideRescue,
-  SIDE_RESCUE_VERSION,
-} from "../engines/decisionIntelligence/sideRescueEngineV1.js";
+import { SIDE_RESCUE_VERSION } from "../engines/decisionIntelligence/sideRescueEngineV1.js";
 import { runFlipFirstDecisionPipeline } from "../engines/decisionIntelligence/decisionDataIntelligenceV1.js";
 import {
   selectControlledBestSixCombined,
@@ -981,26 +977,26 @@ export function buildResultsTrackingCohort(candidates = [], options = {}) {
       );
       gatedPick = applyDecisionIntelligenceToPick(gatedPick, null, gate);
       const di = gatedPick.decisionIntelligence || {};
-      if (!gatedPick.sideRescue) {
-        const sideRescue = evaluateSideRescue(gatedPick, {
-          decisionIntelligence: di,
-          gate,
-          dataCard: pick.wnbaDataCard,
-          reader: pick.wnbaReader,
-          originalSide: pick.initialSide,
-        });
-        gatedPick = applySideRescueToPick(gatedPick, sideRescue, {
-          dataCard: pick.wnbaDataCard,
-          reader: pick.wnbaReader,
-        });
-      }
+      // Production: Side Rescue has no decision authority.
+      gatedPick = {
+        ...gatedPick,
+        sideRescue: {
+          action: null,
+          productionAuthority: false,
+          skippedReason: "NO_PRODUCTION_RESCUE_AUTHORITY",
+          version: SIDE_RESCUE_VERSION,
+        },
+        sideRescueAction: null,
+        sideRescueExplanation: null,
+      };
       auditEntry.trackingEligibility =
         gatedPick.trackingEligibility || di.trackEligibility || gate.trackingEligibility;
       auditEntry.qualityGateScore = gate.qualityGateScore;
       auditEntry.qualityGateVersion = gate.qualityGateVersion;
       auditEntry.decisionIntelligenceVersion = DECISION_INTELLIGENCE_VERSION;
       auditEntry.sideRescueVersion = SIDE_RESCUE_VERSION;
-      auditEntry.sideRescueAction = gatedPick.sideRescue?.action || null;
+      auditEntry.sideRescueAction = null;
+      auditEntry.sideRescueProductionAuthority = false;
       auditEntry.trueRisk = di.trueRisk;
       auditEntry.blockReasons = gate.trackingBlockReasons;
       auditEntry.warnings = gate.trackingWarnings;
