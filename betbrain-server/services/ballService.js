@@ -98,6 +98,28 @@ function getStatPoints(stat = {}) {
   return num(stat.pts ?? stat.points ?? 0);
 }
 
+function getStatRebounds(stat = {}) {
+  const total = num(stat.reb ?? stat.rebounds ?? stat.total_rebounds, null);
+  if (total != null) return total;
+  const orb = num(stat.oreb ?? stat.offensive_rebounds ?? 0);
+  const drb = num(stat.dreb ?? stat.defensive_rebounds ?? 0);
+  return orb + drb;
+}
+
+function getStatAssists(stat = {}) {
+  return num(stat.ast ?? stat.assists ?? 0);
+}
+
+function getStatOffRebounds(stat = {}) {
+  if (stat.oreb == null && stat.offensive_rebounds == null) return null;
+  return num(stat.oreb ?? stat.offensive_rebounds);
+}
+
+function getStatDefRebounds(stat = {}) {
+  if (stat.dreb == null && stat.defensive_rebounds == null) return null;
+  return num(stat.dreb ?? stat.defensive_rebounds);
+}
+
 function getStatFGA(stat = {}) {
   return num(stat.fga ?? stat.field_goal_attempts ?? 0);
 }
@@ -459,6 +481,8 @@ function normalizeStat(stat, league = "NBA") {
       : clean(opponentTeamId);
 
   const points = getStatPoints(stat);
+  const rebounds = getStatRebounds(stat);
+  const assists = getStatAssists(stat);
   const minutes = parseMinutes(stat.min ?? stat.minutes);
 
   return {
@@ -468,6 +492,10 @@ function normalizeStat(stat, league = "NBA") {
     opponentTeamId: league === "WNBA" ? opponentTeamId : clean(opponent),
 
     points,
+    rebounds,
+    assists,
+    offensiveRebounds: getStatOffRebounds(stat),
+    defensiveRebounds: getStatDefRebounds(stat),
     minutes,
     fga: getStatFGA(stat),
     fta: getStatFTA(stat),

@@ -1610,6 +1610,47 @@ function getActualPoints(statResult = {}) {
   );
 }
 
+function getActualStatForPropType(statResult = {}, propType = "POINTS") {
+  const pt = String(propType || "POINTS").toUpperCase();
+  if (pt === "REBOUNDS" || pt === "REB") {
+    return num(
+      statResult.rebounds ??
+        statResult.reb ??
+        statResult.total_rebounds ??
+        statResult.actualRebounds ??
+        statResult.actualStat ??
+        0
+    );
+  }
+  if (pt === "ASSISTS" || pt === "AST") {
+    return num(
+      statResult.assists ??
+        statResult.ast ??
+        statResult.actualAssists ??
+        statResult.actualStat ??
+        0
+    );
+  }
+  return getActualPoints(statResult);
+}
+
+function resolvePickPropType(savedPick = {}) {
+  const raw =
+    savedPick.propType ||
+    savedPick.canonicalPropType ||
+    savedPick.stat ||
+    savedPick.marketType ||
+    "POINTS";
+  const s = String(raw).toUpperCase();
+  if (s.includes("REBOUND") || s === "REB" || s === "PLAYER_REBOUNDS") {
+    return "REBOUNDS";
+  }
+  if (s.includes("ASSIST") || s === "AST" || s === "PLAYER_ASSISTS") {
+    return "ASSISTS";
+  }
+  return "POINTS";
+}
+
 function normalizeSide(savedPick = {}) {
   const side = String(
     savedPick.side ||
@@ -1648,7 +1689,8 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
     };
   }
 
-  const actualPoints = getActualPoints(statResult);
+  const propType = resolvePickPropType(savedPick);
+  const actualPoints = getActualStatForPropType(statResult, propType);
   const line = num(
     savedPick.officialLine ?? savedPick.pickLine ?? savedPick.line ?? savedPick.sportsbookLine
   );
@@ -1659,6 +1701,7 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
       player: savedPick.player,
       side,
       line,
+      propType,
     });
 
     return {
@@ -1698,11 +1741,14 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
     statResult.fg3Pct ??
     (fg3a > 0 && fg3m != null ? Number(((fg3m / fg3a) * 100).toFixed(1)) : null);
   const tsDenom = fga != null && fta != null ? 2 * (fga + 0.44 * fta) : null;
-  const tsPct =
-    statResult.tsPct ??
-    (tsDenom && tsDenom > 0
-      ? Number(((actualPoints / tsDenom) * 100).toFixed(1))
-      : null);
+  let tsPct = null;
+  if (propType === "POINTS") {
+    tsPct =
+      statResult.tsPct ??
+      (tsDenom && tsDenom > 0
+        ? Number(((actualPoints / tsDenom) * 100).toFixed(1))
+        : null);
+  }
   const teamScore = num(statResult.teamScore);
   const opponentScore = num(statResult.opponentScore);
 
@@ -1711,6 +1757,14 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
 
     side,
     pick: side,
+    propType,
+    stat:
+      savedPick.stat ||
+      (propType === "REBOUNDS"
+        ? "Rebounds"
+        : propType === "ASSISTS"
+          ? "Assists"
+          : "Points"),
 
     actualStat: actualPoints,
     actualPoints,

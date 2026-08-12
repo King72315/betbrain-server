@@ -405,8 +405,21 @@ export async function fetchConsensusGameTotal(eventId, league = "NBA") {
 }
 
 export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
+  return fetchPlayerPropMarketsForEvent(eventId, league, ["player_points"]);
+}
+
+/**
+ * Fetch one or more Odds API player prop markets in a single request when possible.
+ * Supported: player_points, player_rebounds, player_assists.
+ * Returns flat raw outcomes stamped with marketKey + propType.
+ */
+export async function fetchPlayerPropMarketsForEvent(
+  eventId,
+  league = "NBA",
+  marketKeys = ["player_points", "player_rebounds", "player_assists"]
+) {
   if (!API_KEY || !eventId) {
-    console.log("FETCH POINT PROPS SKIPPED:", {
+    console.log("FETCH PLAYER PROP MARKETS SKIPPED:", {
       league,
       eventId,
       reason: !API_KEY ? "missing ODDS_KEY" : "missing eventId",
@@ -414,55 +427,70 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
     return [];
   }
 
+  const markets = (marketKeys || [])
+    .map((k) => String(k || "").toLowerCase())
+    .filter(Boolean);
+  if (!markets.length) return [];
+
+  const marketCsv = markets.join(",");
   const data = await oddsGet(
     `${getOddsBase(league)}/events/${eventId}/odds`,
     {
       apiKey: API_KEY,
       regions: "us",
-      markets: "player_points",
+      markets: marketCsv,
       oddsFormat: "american",
     },
-    `FETCH POINT PROPS (${league})`
+    `FETCH PLAYER PROP MARKETS (${league}:${marketCsv})`
   );
 
   if (!data) {
-    console.log("FETCH POINT PROPS EMPTY RESPONSE:", { league, eventId });
+    console.log("FETCH PLAYER PROP MARKETS EMPTY:", { league, eventId, markets });
     return [];
   }
 
+  const PROP_TYPE_BY_MARKET = {
+    player_points: "POINTS",
+    player_rebounds: "REBOUNDS",
+    player_assists: "ASSISTS",
+  };
+  const STAT_LABEL = {
+    POINTS: "Points",
+    REBOUNDS: "Rebounds",
+    ASSISTS: "Assists",
+  };
+
   const props = [];
   const rejected = [];
-  let playerPointOutcomes = 0;
+  const outcomeCounts = {};
 
   for (const book of data?.bookmakers || []) {
     for (const market of book.markets || []) {
-      if (market.key !== "player_points") continue;
+      const marketKey = String(market.key || "").toLowerCase();
+      if (!PROP_TYPE_BY_MARKET[marketKey]) continue;
+      const propType = PROP_TYPE_BY_MARKET[marketKey];
+      outcomeCounts[marketKey] = (outcomeCounts[marketKey] || 0) + (market.outcomes?.length || 0);
 
       for (const outcome of market.outcomes || []) {
-        playerPointOutcomes += 1;
-
         const player = outcome.description;
         const side = outcome.name;
         const line = Number(outcome.point);
         const odds = Number(outcome.price);
 
         if (!player) {
-          rejected.push({ reason: "missing player name", outcome: outcome.name });
+          rejected.push({ reason: "missing player name", marketKey });
           continue;
         }
-
         if (!["Over", "Under"].includes(side)) {
-          rejected.push({ player, reason: "invalid side", side });
+          rejected.push({ player, reason: "invalid side", side, marketKey });
           continue;
         }
-
         if (!Number.isFinite(line)) {
-          rejected.push({ player, side, reason: "invalid line" });
+          rejected.push({ player, side, reason: "invalid line", marketKey });
           continue;
         }
-
         if (!Number.isFinite(odds)) {
-          rejected.push({ player, side, line, reason: "invalid odds" });
+          rejected.push({ player, side, line, reason: "invalid odds", marketKey });
           continue;
         }
 
@@ -476,21 +504,199 @@ export async function fetchPointsPropsForEvent(eventId, league = "NBA") {
           sportsbookKey: book.key,
           eventId,
           league,
+          marketKey,
+          propType,
+          stat: STAT_LABEL[propType],
         });
       }
     }
   }
 
-  console.log(`POINT PROPS FOUND (${league}):`, {
+  console.log(`PLAYER PROP MARKETS FOUND (${league}):`, {
     eventId,
+    markets,
     bookmakers: data?.bookmakers?.length || 0,
-    playerPointOutcomes,
+    outcomeCounts,
     accepted: props.length,
     rejected: rejected.length,
     rejectedSample: rejected.slice(0, 5),
   });
 
   return props;
+}
+
+/** Back-compat alias — Points-only consensus for legacy callers. */
+export function buildConsensusPointProps(rawProps = []) {
+  const hasTyped = (rawProps || []).some(
+    (p) => p?.propType || p?.marketKey || p?.marketType
+  );
+  if (hasTyped) return buildConsensusPlayerProps(rawProps);
+  return buildConsensusPlayerProps(rawProps, { propType: "POINTS" });
+}
+
+/**
+ * Consensus collapse keyed by playerKey + propType (distinct markets).
+ */
+export function buildConsensusPlayerProps(rawProps = [], options = {}) {
+  const forcePropType = options.propType
+    ? String(options.propType).toUpperCase()
+    : null;
+  const byMarket = {};
+  const rejected = [];
+
+  for (const prop of rawProps) {
+    const propType = forcePropType || String(prop.propType || "POINTS").toUpperCase();
+    const key = `${prop.playerKey}|${propType}`;
+
+    if (!byMarket[key]) {
+      byMarket[key] = {
+        player: prop.player,
+        playerKey: prop.playerKey,
+        propType,
+        marketKey:
+          prop.marketKey ||
+          (propType === "REBOUNDS"
+            ? "player_rebounds"
+            : propType === "ASSISTS"
+              ? "player_assists"
+              : "player_points"),
+        allLines: [],
+        books: new Set(),
+        booksByLine: {},
+        oversByLine: {},
+        undersByLine: {},
+        overBooksByLine: {},
+        underBooksByLine: {},
+      };
+    }
+
+    const line = Number(prop.line);
+    if (!Number.isFinite(line)) continue;
+    const lineKey = String(line);
+
+    byMarket[key].allLines.push(line);
+    byMarket[key].books.add(prop.sportsbook);
+
+    if (!byMarket[key].booksByLine[lineKey]) {
+      byMarket[key].booksByLine[lineKey] = new Set();
+    }
+    if (!byMarket[key].oversByLine[lineKey]) {
+      byMarket[key].oversByLine[lineKey] = [];
+    }
+    if (!byMarket[key].undersByLine[lineKey]) {
+      byMarket[key].undersByLine[lineKey] = [];
+    }
+    if (!byMarket[key].overBooksByLine[lineKey]) {
+      byMarket[key].overBooksByLine[lineKey] = new Set();
+    }
+    if (!byMarket[key].underBooksByLine[lineKey]) {
+      byMarket[key].underBooksByLine[lineKey] = new Set();
+    }
+
+    byMarket[key].booksByLine[lineKey].add(prop.sportsbook);
+
+    if (prop.side === "Over") {
+      byMarket[key].oversByLine[lineKey].push(prop.odds);
+      byMarket[key].overBooksByLine[lineKey].add(prop.sportsbook);
+    }
+    if (prop.side === "Under") {
+      byMarket[key].undersByLine[lineKey].push(prop.odds);
+      byMarket[key].underBooksByLine[lineKey].add(prop.sportsbook);
+    }
+  }
+
+  const STAT_LABEL = {
+    POINTS: "Points",
+    REBOUNDS: "Rebounds",
+    ASSISTS: "Assists",
+  };
+
+  const results = Object.values(byMarket)
+    .map((item) => {
+      const mainLine = chooseMainLine(item.allLines);
+      if (mainLine === null) {
+        rejected.push({ player: item.player, propType: item.propType, reason: "no main line" });
+        return null;
+      }
+      const availableLines = [...new Set(item.allLines)]
+        .map(Number)
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      const closestLine = chooseClosestLine(availableLines, mainLine);
+      if (closestLine === null) {
+        rejected.push({
+          player: item.player,
+          propType: item.propType,
+          reason: "no closest line",
+        });
+        return null;
+      }
+
+      const lineKey = String(closestLine);
+      const overOddsArray = item.oversByLine[lineKey] || [];
+      const underOddsArray = item.undersByLine[lineKey] || [];
+      const overAverage = average(overOddsArray);
+      const underAverage = average(underOddsArray);
+      const overBookCount = item.overBooksByLine[lineKey]?.size || 0;
+      const underBookCount = item.underBooksByLine[lineKey]?.size || 0;
+      const consensusBookCount = item.booksByLine[lineKey]?.size || 0;
+      const bookCount = item.books.size;
+      const lineSpread =
+        availableLines.length > 1
+          ? Number(
+              (
+                Math.max(...availableLines) - Math.min(...availableLines)
+              ).toFixed(1)
+            )
+          : 0;
+      const hasBothSides = overBookCount > 0 && underBookCount > 0;
+      const market = buildMarketProfile({
+        bookCount,
+        consensusBookCount,
+        overBookCount,
+        underBookCount,
+        lineSpread,
+        hasBothSides,
+      });
+
+      return {
+        player: item.player,
+        playerKey: item.playerKey,
+        propType: item.propType,
+        marketType: item.marketKey,
+        marketKey: item.marketKey,
+        stat: STAT_LABEL[item.propType] || item.propType,
+        line: Number(closestLine),
+        consensusLine: Number(mainLine),
+        availableLines,
+        overOdds: overAverage !== null ? Math.round(overAverage) : null,
+        underOdds: underAverage !== null ? Math.round(underAverage) : null,
+        bookCount,
+        consensusBookCount,
+        overBookCount,
+        underBookCount,
+        lineSpread,
+        hasBothSides,
+        marketQuality: market.marketQuality,
+        marketGrade: market.marketGrade,
+        marketStrengths: market.marketStrengths,
+        marketWarnings: market.marketWarnings,
+      };
+    })
+    .filter(Boolean);
+
+  console.log("CONSENSUS PLAYER PROPS:", {
+    rawCount: rawProps.length,
+    markets: results.length,
+    byPropType: results.reduce((acc, r) => {
+      acc[r.propType] = (acc[r.propType] || 0) + 1;
+      return acc;
+    }, {}),
+    rejected: rejected.length,
+    rejectedSample: rejected.slice(0, 5),
+  });
+
+  return results;
 }
 
 function average(arr = []) {
@@ -599,163 +805,6 @@ function buildMarketProfile({
     marketStrengths: strengths,
     marketWarnings: warnings,
   };
-}
-
-export function buildConsensusPointProps(rawProps = []) {
-  const byPlayer = {};
-  const rejected = [];
-
-  for (const prop of rawProps) {
-    const key = prop.playerKey;
-
-    if (!byPlayer[key]) {
-      byPlayer[key] = {
-        player: prop.player,
-        playerKey: prop.playerKey,
-        allLines: [],
-        books: new Set(),
-        booksByLine: {},
-        oversByLine: {},
-        undersByLine: {},
-        overBooksByLine: {},
-        underBooksByLine: {},
-      };
-    }
-
-    const line = Number(prop.line);
-
-    if (!Number.isFinite(line)) continue;
-
-    const lineKey = String(line);
-
-    byPlayer[key].allLines.push(line);
-    byPlayer[key].books.add(prop.sportsbook);
-
-    if (!byPlayer[key].booksByLine[lineKey]) {
-      byPlayer[key].booksByLine[lineKey] = new Set();
-    }
-
-    if (!byPlayer[key].oversByLine[lineKey]) {
-      byPlayer[key].oversByLine[lineKey] = [];
-    }
-
-    if (!byPlayer[key].undersByLine[lineKey]) {
-      byPlayer[key].undersByLine[lineKey] = [];
-    }
-
-    if (!byPlayer[key].overBooksByLine[lineKey]) {
-      byPlayer[key].overBooksByLine[lineKey] = new Set();
-    }
-
-    if (!byPlayer[key].underBooksByLine[lineKey]) {
-      byPlayer[key].underBooksByLine[lineKey] = new Set();
-    }
-
-    byPlayer[key].booksByLine[lineKey].add(prop.sportsbook);
-
-    if (prop.side === "Over") {
-      byPlayer[key].oversByLine[lineKey].push(prop.odds);
-      byPlayer[key].overBooksByLine[lineKey].add(prop.sportsbook);
-    }
-
-    if (prop.side === "Under") {
-      byPlayer[key].undersByLine[lineKey].push(prop.odds);
-      byPlayer[key].underBooksByLine[lineKey].add(prop.sportsbook);
-    }
-  }
-
-  const results = Object.values(byPlayer)
-    .map((item) => {
-      const mainLine = chooseMainLine(item.allLines);
-
-      if (mainLine === null) {
-        rejected.push({ player: item.player, reason: "no main line" });
-        return null;
-      }
-
-      const availableLines = [...new Set(item.allLines)]
-        .map(Number)
-        .filter(Number.isFinite)
-        .sort((a, b) => a - b);
-
-      const closestLine = chooseClosestLine(availableLines, mainLine);
-
-      if (closestLine === null) {
-        rejected.push({ player: item.player, reason: "no closest line" });
-        return null;
-      }
-
-      const lineKey = String(closestLine);
-
-      const overOddsArray = item.oversByLine[lineKey] || [];
-      const underOddsArray = item.undersByLine[lineKey] || [];
-
-      const overAverage = average(overOddsArray);
-      const underAverage = average(underOddsArray);
-
-      const overBookCount = item.overBooksByLine[lineKey]?.size || 0;
-      const underBookCount = item.underBooksByLine[lineKey]?.size || 0;
-      const consensusBookCount = item.booksByLine[lineKey]?.size || 0;
-      const bookCount = item.books.size;
-
-      const lineSpread =
-        availableLines.length > 1
-          ? Number(
-              (
-                Math.max(...availableLines) - Math.min(...availableLines)
-              ).toFixed(1)
-            )
-          : 0;
-
-      const hasBothSides = overBookCount > 0 && underBookCount > 0;
-
-      const market = buildMarketProfile({
-        bookCount,
-        consensusBookCount,
-        overBookCount,
-        underBookCount,
-        lineSpread,
-        hasBothSides,
-      });
-
-      return {
-        player: item.player,
-        playerKey: item.playerKey,
-        stat: "Points",
-
-        line: Number(closestLine),
-        consensusLine: Number(mainLine),
-        availableLines,
-
-        overOdds:
-          overAverage !== null ? Math.round(overAverage) : null,
-
-        underOdds:
-          underAverage !== null ? Math.round(underAverage) : null,
-
-        bookCount,
-        consensusBookCount,
-        overBookCount,
-        underBookCount,
-        lineSpread,
-        hasBothSides,
-
-        marketQuality: market.marketQuality,
-        marketGrade: market.marketGrade,
-        marketStrengths: market.marketStrengths,
-        marketWarnings: market.marketWarnings,
-      };
-    })
-    .filter(Boolean);
-
-  console.log("CONSENSUS POINT PROPS:", {
-    rawCount: rawProps.length,
-    players: results.length,
-    rejected: rejected.length,
-    rejectedSample: rejected.slice(0, 5),
-  });
-
-  return results;
 }
 
 export async function fetchOddsGameCards(

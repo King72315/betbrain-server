@@ -88,12 +88,30 @@ export function resolveAbsoluteDirectionalEdge(packet = {}) {
 }
 
 export function stableMarketId(packet = {}) {
+  const propType = String(
+    packet.propType ||
+      packet.canonicalPropType ||
+      packet.stat ||
+      packet.marketType ||
+      "POINTS"
+  )
+    .toUpperCase()
+    .replace(/PLAYER_/g, "");
+  const normalizedProp =
+    propType.includes("REBOUND")
+      ? "REBOUNDS"
+      : propType.includes("ASSIST")
+        ? "ASSISTS"
+        : propType.includes("POINT") || propType === "PTS"
+          ? "POINTS"
+          : propType || "POINTS";
   return [
     packet.playerId || packet.player_id || "",
     String(packet.playerName || packet.player || "")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, ""),
     packet.eventId || packet.gameId || "",
+    normalizedProp,
     packet.selectedSide || packet.boardSide || "",
     packet.line ?? packet.selectedLine ?? "",
   ].join("|");

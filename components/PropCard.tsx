@@ -110,7 +110,17 @@ export default function PropCard({
       : Math.round(Number(confidenceRaw));
   const side = pick.side || pick.pick || "";
   const line = pick.line ?? pick.sportsbookLine;
-  const stat = pick.stat || "Points";
+  const stat = pick.stat || pick.propType || "Points";
+  const propTypeRaw = String(
+    pick.propType || pick.canonicalPropType || stat || "POINTS"
+  ).toUpperCase();
+  const displayStat = propTypeRaw.includes("REBOUND")
+    ? "REBOUNDS"
+    : propTypeRaw.includes("ASSIST")
+      ? "ASSISTS"
+      : propTypeRaw.includes("POINT")
+        ? "POINTS"
+        : String(stat).toUpperCase();
   const league = pick.league || game.league || "—";
   const dataMode =
     pick.dataMode || pick.playerState?.dataMode || "";
@@ -280,7 +290,7 @@ export default function PropCard({
 
         <View style={styles.pickLineBox}>
           <Text style={styles.pickSide}>
-            {side} {safeDisplay(line)} {stat}
+            {side} {safeDisplay(line)} {displayStat}
           </Text>
         </View>
 
@@ -473,7 +483,7 @@ export default function PropCard({
 
         <View style={styles.pickLineBox}>
           <Text style={styles.pickSide}>
-            {side} {safeDisplay(line)} {stat}
+            {side} {safeDisplay(line)} {displayStat}
           </Text>
           {wnbaV2 ? (
             <View style={styles.wnbaV2Compact}>
@@ -593,7 +603,7 @@ export default function PropCard({
 
       <View style={styles.pickLineBox}>
         <Text style={styles.pickSide}>
-          {side} {safeDisplay(line)} {stat}
+          {side} {safeDisplay(line)} {displayStat}
         </Text>
         {wnbaV2 ? (
           <View style={styles.wnbaV2Compact}>

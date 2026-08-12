@@ -54,6 +54,11 @@ import {
   rebuildSafetyWithCalibratedProbabilityV1,
   PREDICTED_PROBABILITY_CALIBRATION_V1_BUILD,
 } from "./predictedProbabilityCalibrationV1.js";
+import {
+  normalizePropTypeV1,
+  propTypeStatLabel,
+} from "../wnba/propTypeV1.js";
+import { computeOfficialRankScoreV1 } from "../wnba/officialRankScoreV1.js";
 
 function hasHardIntegrityBlock(risk = {}) {
   const reasons = [
@@ -615,9 +620,34 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
             };
       })();
 
+  const propType =
+    normalizePropTypeV1(
+      basePick.propType || basePick.canonicalPropType || basePick.stat
+    ) || "POINTS";
+  const rankPacket = computeOfficialRankScoreV1({
+    propType,
+    predictedProbability,
+    calibratedProbability: probabilityCalibration.predictedProbability,
+    Safety: safetyOut?.finalSafetyScore,
+    riskV2: selected.risk?.risk,
+  });
+
   return {
     playerId: basePick.playerId || basePick.player_id || null,
     playerName: basePick.playerName || basePick.player || null,
+    propType,
+    stat: propTypeStatLabel(propType),
+    marketType:
+      basePick.marketType ||
+      basePick.marketKey ||
+      (propType === "REBOUNDS"
+        ? "player_rebounds"
+        : propType === "ASSISTS"
+          ? "player_assists"
+          : "player_points"),
+    officialRankScore: rankPacket.officialRankScore,
+    officialRank: rankPacket,
+    calibrationStatus: rankPacket.calibrationStatus,
     teamId: basePick.teamId || null,
     team: basePick.team || basePick.teamKey || null,
     opponent: basePick.opponent || null,

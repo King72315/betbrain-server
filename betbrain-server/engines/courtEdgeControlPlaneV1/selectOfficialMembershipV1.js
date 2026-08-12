@@ -44,6 +44,13 @@ function compareWithinTier(a, b) {
   const adm = admissionRank(b) - admissionRank(a);
   if (adm !== 0) return adm;
 
+  // Cross-stat comparable quality — no propType bonus/penalty.
+  const rankA = Number(a.officialRankScore);
+  const rankB = Number(b.officialRankScore);
+  if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankB !== rankA) {
+    return rankB - rankA;
+  }
+
   const scoreA = resolveC2RankScore(a);
   const scoreB = resolveC2RankScore(b);
   if (scoreB !== scoreA) return scoreB - scoreA;

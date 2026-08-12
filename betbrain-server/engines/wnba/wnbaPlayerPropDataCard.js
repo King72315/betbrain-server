@@ -27,6 +27,13 @@ import {
   applyProjectionAdjustmentPipeline,
 } from "./playerIntelligence/index.js";
 import { calibrateProjectionMeanV1 } from "./projectionMeanCalibrationV1.js";
+import { projectWnbaStatByPropTypeV1 } from "./projectWnbaStatByPropTypeV1.js";
+import { buildFairLineForPropTypeV1 } from "./fairLineByPropTypeV1.js";
+import {
+  normalizePropTypeV1,
+  propTypeStatLabel,
+} from "./propTypeV1.js";
+import { buildSharedPlayerGameContextV1 } from "./wnbaSharedPlayerContextV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -115,6 +122,12 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     runDataRecovery = true,
     beforeTime = null,
   } = context;
+
+  const propType =
+    normalizePropTypeV1(
+      pick.propType || prop.propType || prop.stat || pick.stat || context.propType
+    ) || "POINTS";
+  const statLabel = propTypeStatLabel(propType);
 
   const ballPlayer = await findBallPlayer(playerName, "WNBA");
   const stablePlayerId = resolveStableWnbaPlayerId(playerName);
@@ -447,6 +460,70 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   // Shared-mean calibration: lift systematically under-predicted means when
   // projection sits below market (not an UNDER-side patch). Runs before fairLine
   // so OVER/UNDER/Direction/C2 all see the same corrected mean.
+  // POINTS keep the upgraded volume model; REB/AST use dedicated projectors.
+  if (propType === "REBOUNDS" || propType === "ASSISTS") {
+    const seasonReb = avg(
+      (bdlSeasonGames || []).map((g) => num(g.rebounds)).filter((n) => n > 0)
+    );
+    const recentReb = avg(last5.map((g) => num(g.rebounds)));
+    const seasonAst = avg(
+      (bdlSeasonGames || []).map((g) => num(g.assists)).filter((n) => n > 0)
+    );
+    const recentAst = avg(last5.map((g) => num(g.assists)));
+    const sharedCtx = buildSharedPlayerGameContextV1({
+      playerName,
+      playerId: effectivePlayerId,
+      team,
+      opponent,
+      last5,
+      seasonMinutes: effectiveSeasonMinutes,
+      expectedMinutes: projectionResult.expectedMinutes,
+      seasonPoints: effectiveSeasonPoints,
+      seasonRebounds: seasonReb,
+      seasonAssists: seasonAst,
+      seasonFGA: effectiveSeasonFGA,
+      recentFGA: effectiveRecentFGA,
+      pace: wnbaGameContext?.pace,
+      spread: wnbaGameContext?.spread,
+      gameTotal: wnbaGameContext?.total,
+      availabilityCertaintyScore: availabilityGate?.availabilityCertaintyScore,
+      roleStabilityScore: playerRoleProfile?.roleStabilityScore,
+    });
+    const alt = projectWnbaStatByPropTypeV1(propType, {
+      seasonMinutes: effectiveSeasonMinutes,
+      recentMinutes: effectiveRecentMinutes,
+      seasonRebounds: seasonReb,
+      recentRebounds: recentReb,
+      seasonAssists: seasonAst,
+      recentAssists: recentAst,
+      seasonOffRebounds: avg(
+        (bdlSeasonGames || [])
+          .map((g) => num(g.offensiveRebounds, null))
+          .filter((n) => n != null)
+      ),
+      recentOffRebounds: avg(
+        last5.map((g) => num(g.offensiveRebounds, null)).filter((n) => n != null)
+      ),
+      seasonDefRebounds: avg(
+        (bdlSeasonGames || [])
+          .map((g) => num(g.defensiveRebounds, null))
+          .filter((n) => n != null)
+      ),
+      recentDefRebounds: avg(
+        last5.map((g) => num(g.defensiveRebounds, null)).filter((n) => n != null)
+      ),
+      pace: sharedCtx.gameContext.pace,
+    });
+    projectionResult = {
+      ...projectionResult,
+      ...alt,
+      projection: alt.projection,
+      expectedMinutes: alt.expectedMinutes ?? projectionResult.expectedMinutes,
+      propType,
+      sharedPlayerContext: sharedCtx,
+    };
+  }
+
   const meanCalib = calibrateProjectionMeanV1({
     projection: projectionResult.projection,
     line: line > 0 ? line : null,
@@ -473,7 +550,17 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     };
   }
 
-  fairLine = buildFairLine({
+  const seasonRebForFair = avg(
+    (bdlSeasonGames || []).map((g) => num(g.rebounds)).filter((n) => n > 0)
+  );
+  const recentRebForFair = avg(last5.map((g) => num(g.rebounds)));
+  const seasonAstForFair = avg(
+    (bdlSeasonGames || []).map((g) => num(g.assists)).filter((n) => n > 0)
+  );
+  const recentAstForFair = avg(last5.map((g) => num(g.assists)));
+
+  fairLine = buildFairLineForPropTypeV1({
+    propType,
     playerState: {
       ...playerState,
       seasonPoints: effectiveSeasonPoints,
@@ -484,10 +571,16 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       recentMinutes: effectiveRecentMinutes,
       recentFGA: effectiveRecentFGA,
       recentFTA: effectiveRecentFTA,
+      seasonRebounds: seasonRebForFair,
+      recentRebounds: recentRebForFair,
+      seasonAssists: seasonAstForFair,
+      recentAssists: recentAstForFair,
       sportsProjection: projectionResult.projection,
+      projection: projectionResult.projection,
     },
     roleChange,
     prop,
+    projection: projectionResult.projection,
   });
 
   playerRoleProfileAudit = buildPlayerRoleProfileAudit({
@@ -504,7 +597,16 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     player: playerName,
     team,
     opponent,
-    propType: "Points",
+    propType: statLabel,
+    canonicalPropType: propType,
+    marketType:
+      prop.marketType ||
+      prop.marketKey ||
+      (propType === "REBOUNDS"
+        ? "player_rebounds"
+        : propType === "ASSISTS"
+          ? "player_assists"
+          : "player_points"),
     gameLabel: game.game || pick.game || "",
     gameDate: game.date || pick.gameDate || "",
     overCandidate: { side: "OVER", line },

@@ -16,10 +16,12 @@ import {
 
 import {
   buildConsensusPointProps,
+  buildConsensusPlayerProps,
   computeBlowoutRiskFromSpread,
   fetchConsensusGameSpread,
   fetchOddsGameCards,
   fetchPointsPropsForEvent,
+  fetchPlayerPropMarketsForEvent,
   findOddsEventForGame,
 } from "./services/oddsService.js";
 
@@ -1883,8 +1885,12 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       continue;
     }
 
-    const rawProps = await fetchPointsPropsForEvent(oddsEvent.id, league);
-    const propsAll = buildConsensusPointProps(rawProps);
+    const rawProps = await fetchPlayerPropMarketsForEvent(
+      oddsEvent.id,
+      league,
+      ["player_points", "player_rebounds", "player_assists"]
+    );
+    const propsAll = buildConsensusPlayerProps(rawProps);
     // Cap analyzed consensus props per game to keep Render refresh under
     // memory/lifetime limits while still leaving ?6 playable candidates when
     // markets support it. Prefer higher bookCount / marketQuality.
@@ -1925,6 +1931,25 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
     for (const prop of props) {
       const playerName = prop.player;
+      const propType = String(prop.propType || "POINTS").toUpperCase();
+      const statLabel =
+        prop.stat ||
+        (propType === "REBOUNDS"
+          ? "Rebounds"
+          : propType === "ASSISTS"
+            ? "Assists"
+            : "Points");
+      // Ensure every consensus prop carries canonical identity fields
+      prop.propType = propType;
+      prop.stat = statLabel;
+      prop.marketType =
+        prop.marketType ||
+        prop.marketKey ||
+        (propType === "REBOUNDS"
+          ? "player_rebounds"
+          : propType === "ASSISTS"
+            ? "player_assists"
+            : "player_points");
 
       const team =
         league === "WNBA"
@@ -2181,14 +2206,17 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         league,
         gameDate: game.date,
         player: playerName,
-        stat: "Points",
+        stat: statLabel,
+        propType,
         gameId: game.gameId || game.id || "",
       });
       const trackedSeed = getTrackedProps().find(
         (t) =>
           String(t.player || "").toLowerCase() === String(playerName).toLowerCase() &&
           String(t.slateDate || t.gameDate || "").slice(0, 10) ===
-            String(game.date || "").slice(0, 10)
+            String(game.date || "").slice(0, 10) &&
+          String(t.propType || t.stat || "Points").toLowerCase() ===
+            String(statLabel).toLowerCase()
       );
       const marketSnapshot = appendMarketSnapshot({
         league,
@@ -2198,7 +2226,8 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
         team: safeTeam,
         opponent,
         gameId: game.gameId || game.id || "",
-        stat: "Points",
+        stat: statLabel,
+        propType,
         bookLine: prop.line,
         bookCount: prop.bookCount,
         marketQuality: prop.marketQuality,
@@ -2295,7 +2324,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
         builtPicks.push({
           ...v2Pick,
-          label: `${playerName} ? ${safeTeam} ${v2Pick.pick} ${prop.line} Points`,
+          label: `${playerName} · ${safeTeam} ${v2Pick.pick} ${prop.line} ${statLabel}`,
         });
         continue;
       }
@@ -2786,7 +2815,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       builtPicks.push({
         ...slimPickForBoardMemory(bestPick),
-        label: `${playerName} ? ${safeTeam} ${bestPick.pick} ${prop.line} Points`,
+        label: `${playerName} · ${safeTeam} ${bestPick.pick} ${prop.line} ${statLabel}`,
       });
 
       if (riskComparison.pickSide === "OVER") {
