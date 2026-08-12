@@ -1215,7 +1215,7 @@ function getStatusStyle(status: string) {
 
 function getDecisionStyle(decision: string) {
   const normalized = String(decision || "").toUpperCase();
-  if (normalized === "TRACK") {
+  if (normalized === "TRACK" || normalized === "OFFICIAL") {
     return { backgroundColor: "#14532d", color: "#bbf7d0" };
   }
   if (normalized === "NOT SELECTED" || normalized === "NOT_SELECTED") {
