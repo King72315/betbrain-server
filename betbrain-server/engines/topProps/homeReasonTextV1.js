@@ -18,8 +18,6 @@ export const HOME_REASON_TRANSLATIONS = {
     "Multiple risk factors are stacked against this side.",
   DANGER_GATE_STACK_NO_TRACK:
     "Risk factors are stacked too heavily for a clean read.",
-  NO_DECISIVE_RESCUE:
-    "No stronger opposite-side case was found.",
   READER_UNCERTAIN_TEST:
     "The model lean is uncertain; confidence stays conservative.",
   READER_UNCERTAIN:
@@ -40,14 +38,6 @@ export const HOME_REASON_TRANSLATIONS = {
     "Kept as a playable board lean on available evidence.",
   ROLE_TREND_CONTRADICTS_SIDE:
     "Role trend conflicts with this side.",
-  KEEP_ORIGINAL:
-    "Kept original side — no stronger opposite case.",
-  KEEP:
-    "Kept original side.",
-  FLIP_SIDE:
-    "Flipped to the opposite side.",
-  FLIP:
-    "Flipped to the opposite side.",
 };
 
 const RAW_CODE_RE =
@@ -56,6 +46,14 @@ const RAW_CODE_RE =
 export function translateHomeReasonCode(code = "") {
   const key = String(code || "").trim().toUpperCase();
   if (!key) return "";
+  // Side Rescue has no production authority — never translate into consumer Why.
+  if (
+    key.includes("NO_DECISIVE_RESCUE") ||
+    key.includes("KEEP_ORIGINAL") ||
+    key.includes("SIDE_RESCUE")
+  ) {
+    return "";
+  }
   if (HOME_REASON_TRANSLATIONS[key]) return HOME_REASON_TRANSLATIONS[key];
   for (const [raw, text] of Object.entries(HOME_REASON_TRANSLATIONS)) {
     if (key.includes(raw)) return text;
@@ -65,13 +63,18 @@ export function translateHomeReasonCode(code = "") {
 
 export function stripRawDecisionLabels(text = "") {
   return String(text || "")
+    .replace(/Side\s*Rescue\s*:\s*/gi, "")
+    .replace(/\bKEEP[_\s-]?ORIGINAL\b/gi, "")
+    .replace(/\bNO[_\s-]?DECISIVE[_\s-]?RESCUE\b/gi, "")
+    .replace(/\bNo stronger opposite-side case was found\.?/gi, "")
+    .replace(/\bKept original side(?:\s*[—–-]\s*no stronger opposite case)?\.?/gi, "")
     .replace(RAW_CODE_RE, "")
-    // Consumer compact text must never mention internal danger-gate machinery.
     .replace(/\s*flagged by danger gate\.?/gi, ".")
     .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
     .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
     .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK)\b/gi, "")
     .replace(/prior gate:\s*/gi, "")
+    .replace(/\bTRACK\b/gi, "Official")
     .replace(/\.\s*\./g, ".")
     .replace(/^\s*[—–-]+\s*/g, "")
     .replace(/\s*[—–-]\s*$/g, "")
@@ -90,8 +93,6 @@ export function buildHomeDisplayWhy(pick = {}) {
     di.naturalGateReason ||
     di.gateReason ||
     pick.wnbaTrackingReason ||
-    pick.sideRescueAction ||
-    pick.sideRescue?.action ||
     pick.naturalGateReason ||
     "";
   const translated = translateHomeReasonCode(rawCode);
@@ -99,24 +100,23 @@ export function buildHomeDisplayWhy(pick = {}) {
   let base =
     pick.displayWhy ||
     di.simpleExplanation ||
-    pick.sideRescueExplanation ||
     "";
   base = stripRawDecisionLabels(base);
 
   if (translated) {
-    if (!base || /^TRACK\s*[—–-]\s*True risk/i.test(base)) {
+    if (!base || /^Official\s*[—–-]\s*True risk/i.test(base)) {
       const risk = String(di.trueRisk || pick.trueRisk || "MEDIUM").toUpperCase();
-      base = `TRACK — ${translated} True risk ${risk}.`;
+      base = `Official — ${translated} True risk ${risk}.`;
     } else if (!base.includes(translated)) {
       base = `${base.replace(/\.$/, "")}. ${translated}`;
     }
   }
 
   base = stripRawDecisionLabels(base);
-  if (!base || base === "—" || base === "-" || /^TRACK\s*[—–-]\s*$/i.test(base)) {
+  if (!base || base === "—" || base === "-" || /^Official\s*[—–-]\s*$/i.test(base)) {
     const risk = String(di.trueRisk || pick.trueRisk || "MEDIUM").toUpperCase();
     const side = String(pick.side || pick.pick || "this side");
-    base = `TRACK — Selected ${side} on available evidence. True risk ${risk}.`;
+    base = `Official — Selected ${side} on available evidence. True risk ${risk}.`;
   }
 
   return base.trim();
@@ -131,7 +131,6 @@ export function applyHomeDisplayWhyToPick(pick = {}) {
     decisionIntelligence: {
       ...di,
       simpleExplanation: displayWhy,
-      // Preserve raw codes for diagnostics / Lab only
       gateReasonRaw: di.gateReason || pick.wnbaTrackingReason || di.gateReasonRaw || null,
       naturalGateReason:
         di.naturalGateReason || di.gateReason || pick.wnbaTrackingReason || null,

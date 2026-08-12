@@ -500,21 +500,37 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
   );
 
   const propType = resolveAnalysisPropType(pick, evidence);
+  const evidencePropType = resolveAnalysisPropType(
+    { propType: evidence.recentForm?.propType || "" },
+    {}
+  );
+  const evidenceMatchesProp =
+    !evidencePropType || evidencePropType === propType;
+  // Prefer raw game logs for REB/AST so stale points arrays in evidence cannot win.
+  const preferGameLogs =
+    propType !== "POINTS" &&
+    Array.isArray(pick.last5) &&
+    pick.last5[0] &&
+    typeof pick.last5[0] === "object";
   const last5Pts = extractStatList(
-    first(
-      evidence.recentForm?.last5Values,
-      evidence.recentForm?.last5Points,
-      pick.last5,
-      pick.playerState?.last5
-    ),
+    preferGameLogs
+      ? pick.last5
+      : first(
+          evidenceMatchesProp ? evidence.recentForm?.last5Values : null,
+          evidenceMatchesProp ? evidence.recentForm?.last5Points : null,
+          pick.last5,
+          pick.playerState?.last5
+        ),
     propType
   ).slice(0, 5);
   const last10Pts = extractStatList(
-    first(
-      evidence.recentForm?.last10Values,
-      evidence.recentForm?.last10Points,
-      pick.last10
-    ),
+    preferGameLogs
+      ? first(pick.last10, pick.bdlSeasonGames, pick.seasonGames, pick.last5)
+      : first(
+          evidenceMatchesProp ? evidence.recentForm?.last10Values : null,
+          evidenceMatchesProp ? evidence.recentForm?.last10Points : null,
+          pick.last10
+        ),
     propType
   ).slice(0, 10);
   // Do not fabricate Last 10 from Last 5 alone when fewer than 10 games exist.

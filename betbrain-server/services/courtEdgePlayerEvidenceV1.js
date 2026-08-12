@@ -129,10 +129,11 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
   const last10Pts = ptsList(last10Source, propType).slice(0, 10);
   const last3Pts = last5Pts.slice(0, 3);
   const seasonPts = ptsList(seasonGames, propType);
+  // Never borrow POINTS season average for REB/AST markets.
   const seasonAvgRaw = num(
-    ctx.seasonAverage ??
-      ctx.playerState?.seasonPoints ??
-      avg(seasonPts)
+    propType === "POINTS"
+      ? ctx.seasonAverage ?? ctx.playerState?.seasonPoints ?? avg(seasonPts)
+      : ctx.seasonAverage ?? avg(seasonPts)
   );
   // Never publish season average 0 with an empty sample (zero-default poison).
   const seasonAvg =

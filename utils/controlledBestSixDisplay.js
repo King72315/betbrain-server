@@ -1224,6 +1224,9 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     pick.decisionIntelligence?.simpleExplanation ||
     "";
   const why = String(whyRaw)
+    .replace(/Side\s*Rescue\s*:\s*/gi, "")
+    .replace(/\bKEEP[_\s-]?ORIGINAL\b/gi, "")
+    .replace(/\bNO[_\s-]?DECISIVE[_\s-]?RESCUE\b/gi, "")
     .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?|NO_DECISIVE_RESCUE)\b/gi, "")
     .replace(
       /\b(UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+)\b/gi,
@@ -1232,6 +1235,7 @@ export function formatControlledBestSixPickLine(pick = {}, index = 0, league = "
     .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
     .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
     .replace(/prior gate:\s*/gi, "")
+    .replace(/\bTRACK\b/gi, "Official")
     .replace(/\s{2,}/g, " ")
     .replace(/\s*[—–-]\s*$/g, "")
     .trim();
@@ -1493,7 +1497,7 @@ export function buildHomeControlledBestSixReportText({
 
   const titleView = formatDateViewLabel(dateView);
   return [
-    `CourtEdge Home — ${titleView} Controlled Best Board`,
+    `CourtEdge Home — ${titleView} Official Board`,
     lastUpdated ? `Last updated: ${lastUpdated}` : null,
     "",
     sections.join("\n\n---\n\n"),

@@ -284,6 +284,7 @@ import {
   resolveHomeBoardSlateDate,
   sanitizeHomeBoardForLifecycle,
 } from "./services/slateScopeService.js";
+import { sanitizePropTypeDisplayOnBoard } from "./services/propTypeDisplaySanitizeV1.js";
 
 import {
   buildStaleSealedLifecycleDiagnostics,
@@ -4090,13 +4091,15 @@ app.get("/picks", async (req, res) => {
           }
         : board;
 
-    const sanitized = sanitizeHomeBoardForLifecycle(boardWithSeal, {
-      todayLocalDate: todayDate,
-      trackedProps: getTrackedProps(),
-      reports: getRawDailySlateReports(),
-      archives: getAllHistoryArchives(),
-      lockedSlates: getLockedSlatesRegistry().slates || [],
-    });
+    const sanitized = sanitizePropTypeDisplayOnBoard(
+      sanitizeHomeBoardForLifecycle(boardWithSeal, {
+        todayLocalDate: todayDate,
+        trackedProps: getTrackedProps(),
+        reports: getRawDailySlateReports(),
+        archives: getAllHistoryArchives(),
+        lockedSlates: getLockedSlatesRegistry().slates || [],
+      })
+    );
     return res.json({
       ...sanitized,
       readOnly: true,
@@ -4142,13 +4145,15 @@ app.get("/top-props", async (req, res) => {
       });
     }
     picksCache = board;
-    const sanitized = sanitizeHomeBoardForLifecycle(board, {
-      todayLocalDate: getTodayLocalDate(),
-      trackedProps: getTrackedProps(),
-      reports: getRawDailySlateReports(),
-      archives: getAllHistoryArchives(),
-      lockedSlates: getLockedSlatesRegistry().slates || [],
-    });
+    const sanitized = sanitizePropTypeDisplayOnBoard(
+      sanitizeHomeBoardForLifecycle(board, {
+        todayLocalDate: getTodayLocalDate(),
+        trackedProps: getTrackedProps(),
+        reports: getRawDailySlateReports(),
+        archives: getAllHistoryArchives(),
+        lockedSlates: getLockedSlatesRegistry().slates || [],
+      })
+    );
 
     res.json({
       ok: true,

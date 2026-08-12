@@ -157,6 +157,41 @@ await testAsync(
   }
 );
 
+await testAsync("read-path sanitize rebuilds ASSISTS L5 from game logs", async () => {
+  const { sanitizePropTypeDisplayOnPick } = await import(
+    href("betbrain-server/services/propTypeDisplaySanitizeV1.js")
+  );
+  const fixed = sanitizePropTypeDisplayOnPick({
+    player: "Paige Bueckers",
+    propType: "ASSISTS",
+    stat: "Points",
+    side: "UNDER",
+    line: 7.5,
+    confidence: 52,
+    trueRisk: "MEDIUM",
+    displayWhy: "Side Rescue: KEEP ORIGINAL — Original UNDER stronger.",
+    sideRescueAction: "KEEP_ORIGINAL",
+    homeDetailedAnalysisV1: {
+      schemaVersion: "x",
+      recentPerformance: { last5Points: [23, 17, 17, 6, 23] },
+      finalDecision: { sideRescueAction: "KEEP_ORIGINAL", sideRescueDisplay: "x" },
+    },
+    last5: [
+      { assists: 8, points: 23 },
+      { assists: 1, points: 17 },
+      { assists: 4, points: 17 },
+      { assists: 4, points: 6 },
+      { assists: 2, points: 23 },
+    ],
+  });
+  assert.equal(fixed.stat, "Assists");
+  assert.deepEqual(fixed.homeDetailedAnalysisV1.recentPerformance.last5Values, [
+    8, 1, 4, 4, 2,
+  ]);
+  assert.equal(fixed.sideRescueAction, null);
+  assert.ok(!/Side Rescue|KEEP ORIGINAL/i.test(fixed.displayWhy || ""));
+});
+
 test("canonical sealed prop persists propType", () => {
   const sealed = buildCanonicalSealedProp({
     player: "Paige Bueckers",
