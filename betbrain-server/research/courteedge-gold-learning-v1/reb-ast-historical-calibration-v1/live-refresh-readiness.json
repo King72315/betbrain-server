@@ -1,0 +1,53 @@
+{
+  "build": "live-refresh-readiness-v1",
+  "oddsApiRefreshInThisTask": false,
+  "readyForHomeRefresh": true,
+  "freezeFieldsRequired": [
+    "propType",
+    "market line",
+    "book consensus",
+    "projection",
+    "fairLine",
+    "pOver",
+    "pUnder",
+    "predictedSide",
+    "predictedProbability",
+    "Safety",
+    "riskV2",
+    "signal",
+    "officialRankScore",
+    "calibration statuses",
+    "feature provenance",
+    "timestamp",
+    "model version"
+  ],
+  "prospectiveMarketEdgePlan": {
+    "upgradeCondition": "Graded sportsbook freezes by propType with reported N + CI — no automatic sample threshold promotion",
+    "slices": [
+      "edge band",
+      "predictedProbability band",
+      "OVER / UNDER",
+      "Safety quintile",
+      "RiskV2",
+      "signalLevel",
+      "officialRankScore band",
+      "Certified",
+      "Best Available",
+      "Full"
+    ],
+    "from": { "marketEdge": "DEVELOPING" },
+    "to": { "marketEdge": "ACTIVE" }
+  },
+  "homeChecklist": [
+    "1. checkout feature/courteedge-reb-ast-historical-calibration-v1",
+    "2. confirm clean working tree (or known intentional dirt only)",
+    "3. start server/app",
+    "4. run exactly ONE clean WNBA refresh",
+    "5. capture provider credit headers",
+    "6. verify candidate counts: POINTS / REBOUNDS / ASSISTS",
+    "7. verify non-null projections for each propType present",
+    "8. inspect mixed Official board (no quotas)",
+    "9. freeze slate",
+    "10. later grade all markets"
+  ]
+}

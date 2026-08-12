@@ -1,0 +1,29 @@
+{
+  "build": "reb-ast-historical-calibration-dataset-v1",
+  "oddsHistoricalProviderCalls": 0,
+  "espnSource": "espn-wnba-player-game-logs-v1",
+  "logRows": 4441,
+  "replayRows": 4441,
+  "tierCounts": {
+    "EXCLUDED": 430,
+    "FORENSIC": 202,
+    "SILVER": 390,
+    "GOLD": 3419
+  },
+  "calibrationCohort": "GOLD_ONLY",
+  "calibrationN": 3419,
+  "reb": {
+    "totalRows": 4441,
+    "GOLD": 3419,
+    "SILVER": 390,
+    "FORENSIC": 202,
+    "EXCLUDED": 430
+  },
+  "ast": {
+    "totalRows": 4441,
+    "GOLD": 3419,
+    "SILVER": 390,
+    "FORENSIC": 202,
+    "EXCLUDED": 430
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "build": "reb-ast-safety-calibration-v1",
+  "principle": "Safety = environment stability, not belief",
+  "REBOUNDS": {
+    "n": 3419,
+    "higherSafetyLowerError": false,
+    "maeDeltaQ5minusQ1": 0.0104,
+    "byQuintile": {
+      "Q1": {
+        "n": 683,
+        "meanSafety": 65.18,
+        "mae": 1.6523
+      },
+      "Q2": {
+        "n": 683,
+        "meanSafety": 74.48,
+        "mae": 1.7695
+      },
+      "Q3": {
+        "n": 683,
+        "meanSafety": 82.53,
+        "mae": 1.7444
+      },
+      "Q4": {
+        "n": 683,
+        "meanSafety": 88.4,
+        "mae": 1.7714
+      },
+      "Q5": {
+        "n": 687,
+        "meanSafety": 97.57,
+        "mae": 1.6627
+      }
+    }
+  },
+  "ASSISTS": {
+    "n": 3419,
+    "higherSafetyLowerError": false,
+    "maeDeltaQ5minusQ1": 0.144,
+    "byQuintile": {
+      "Q1": {
+        "n": 683,
+        "meanSafety": 71.69,
+        "mae": 1.142
+      },
+      "Q2": {
+        "n": 683,
+        "meanSafety": 80.06,
+        "mae": 1.3387
+      },
+      "Q3": {
+        "n": 683,
+        "meanSafety": 86.43,
+        "mae": 1.1208
+      },
+      "Q4": {
+        "n": 683,
+        "meanSafety": 90.59,
+        "mae": 1.4209
+      },
+      "Q5": {
+        "n": 687,
+        "meanSafety": 96.94,
+        "mae": 1.286
+      }
+    }
+  },
+  "weightsInformedByHistory": {
+    "REBOUNDS": {
+      "minutesStability": 0.34,
+      "starterStability": 0.18,
+      "reboundVariance": 0.22,
+      "dataCompleteness": 0.16,
+      "roleStability": 0.1
+    },
+    "ASSISTS": {
+      "minutesStability": 0.32,
+      "creatorRoleStability": 0.22,
+      "assistVariance": 0.2,
+      "starterStability": 0.14,
+      "dataCompleteness": 0.12
+    }
+  }
+}

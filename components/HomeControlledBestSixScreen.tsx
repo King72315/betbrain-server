@@ -33,8 +33,14 @@ import {
 } from "../utils/controlledBestSixDisplay";
 import { getTodayLocalDate } from "../utils/slateRotation";
 import { formatSlateMessageDate } from "../utils/slateMessages";
+import {
+  PROP_TYPE_DISPLAY_FILTERS,
+  filterPicksByPropTypePresentation,
+  resolveDisplayPropTypeFilter,
+} from "../utils/propTypeDisplayFilter";
 
 type HomeDateView = "today" | "tomorrow";
+type PropTypeFilter = "ALL" | "POINTS" | "REBOUNDS" | "ASSISTS";
 
 const HOME_DATE_TABS: { key: HomeDateView; label: string }[] = [
   { key: "today", label: "Today" },
@@ -49,6 +55,8 @@ function LeagueDateSection({
   loadError,
   onSavePick,
   alternateLeagueHasProps = false,
+  propTypeFilter = "ALL",
+  onPropTypeFilterChange,
 }: {
   league: SupportedLeague;
   dateView: HomeDateView;
@@ -57,9 +65,15 @@ function LeagueDateSection({
   loadError: string | null;
   onSavePick: (pick: any, league: SupportedLeague) => void;
   alternateLeagueHasProps?: boolean;
+  propTypeFilter?: PropTypeFilter;
+  onPropTypeFilterChange?: (next: PropTypeFilter) => void;
 }) {
   const theme = LEAGUE_THEME[league];
-  const { bestSixCards, summary } = board;
+  const { bestSixCards: rawCards, summary } = board;
+  const bestSixCards = filterPicksByPropTypePresentation(
+    rawCards,
+    propTypeFilter
+  );
   const viewLabel = formatDateViewLabel(dateView);
 
   return (
@@ -72,6 +86,41 @@ function LeagueDateSection({
           Controlled Best Board · 4 props/game · 1 Over + 1 Under per team
         </Text>
       </View>
+
+      {typeof onPropTypeFilterChange === "function" ? (
+        <View style={styles.propTypeFilterRow}>
+          {PROP_TYPE_DISPLAY_FILTERS.map((view) => {
+            const active =
+              resolveDisplayPropTypeFilter(propTypeFilter) === view.key;
+            return (
+              <TouchableOpacity
+                key={view.key}
+                onPress={() =>
+                  onPropTypeFilterChange(view.key as PropTypeFilter)
+                }
+                style={[
+                  styles.propTypeFilterButton,
+                  active && {
+                    borderColor: theme.activeFilterBorder || theme.headerBorder,
+                    backgroundColor: theme.activeFilterBg || "#0f172a",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.propTypeFilterText,
+                    active && {
+                      color: theme.activeFilterText || theme.titleColor,
+                    },
+                  ]}
+                >
+                  {view.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
 
       {!loading && !loadError ? (
         <View style={styles.summaryCard}>
@@ -173,6 +222,7 @@ export default function HomeControlledBestSixScreen() {
   const [dateView, setDateView] = useState<HomeDateView>(
     resolveHomeControlledDateView() as HomeDateView
   );
+  const [propTypeFilter, setPropTypeFilter] = useState<PropTypeFilter>("ALL");
   const [picksData, setPicksData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -417,6 +467,8 @@ export default function HomeControlledBestSixScreen() {
           loading={loading}
           loadError={loadError}
           onSavePick={handleSavePick}
+          propTypeFilter={propTypeFilter}
+          onPropTypeFilterChange={setPropTypeFilter}
           alternateLeagueHasProps={
             activeLeague === "NBA"
               ? boards.WNBA.bestSixCards.length > 0
@@ -508,6 +560,27 @@ const styles = StyleSheet.create({
   },
   leagueTitle: { fontSize: 24, fontWeight: "900" },
   leagueSubtext: { color: "#94a3b8", fontSize: 13, fontWeight: "700", marginTop: 4 },
+  propTypeFilterRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  propTypeFilterButton: {
+    flexGrow: 1,
+    minWidth: "22%",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  propTypeFilterText: {
+    color: "#94a3b8",
+    textAlign: "center",
+    fontWeight: "900",
+    fontSize: 11,
+  },
   summaryCard: {
     backgroundColor: "#111827",
     borderRadius: 16,

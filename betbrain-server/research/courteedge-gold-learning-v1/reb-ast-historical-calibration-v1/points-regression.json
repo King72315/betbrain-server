@@ -1,0 +1,29 @@
+{
+  "build": "points-regression-check-v1",
+  "intent": "Adding REB/AST historical calibration must not silently change mature Points behavior",
+  "checks": [
+    {
+      "name": "POINTS mean calibration still POINTS-only",
+      "file": "engines/wnba/wnbaPlayerPropDataCard.js",
+      "result": "PASS",
+      "note": "calibrateProjectionMeanV1 gated to propType === POINTS"
+    },
+    {
+      "name": "POINTS distribution engine unchanged as authority",
+      "file": "engines/probabilitySafetyV1/playerPointsDistributionEngineV1.js",
+      "result": "PASS",
+      "note": "REB/AST residual CDF overlays only when propType is REB/AST"
+    },
+    {
+      "name": "POINTS calibration stamps remain ACTIVE/CALIBRATED",
+      "result": "PASS"
+    },
+    {
+      "name": "Certified / Direction / C2 frozen configs untouched",
+      "result": "PASS",
+      "note": "No edits to EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2 or EMPIRICAL_DIRECTION_V1_PRODUCTION_1"
+    }
+  ],
+  "changedPointsOutputs": [],
+  "pass": true
+}

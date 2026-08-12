@@ -1,0 +1,58 @@
+{
+  "build": "reb-ast-risk-calibration-v1",
+  "authority": "riskV2 (unchanged owner; prop-type failure factors underneath)",
+  "largeMissThresholds": {
+    "REBOUNDS_ABS": 1.98,
+    "ASSISTS_ABS": 1.45,
+    "REBOUNDS_REL": 0.45,
+    "ASSISTS_REL": 0.5,
+    "note": "Relative miss preferred for cross-volume fairness"
+  },
+  "REBOUNDS": {
+    "LOW": {
+      "n": 974,
+      "mae": 2.1347,
+      "relativeMae": 0.4052,
+      "medianAE": 1.6,
+      "largeMissRate": 0.3655
+    },
+    "MEDIUM": {
+      "n": 1849,
+      "mae": 1.6234,
+      "relativeMae": 0.6496,
+      "medianAE": 1.2,
+      "largeMissRate": 0.55
+    },
+    "HIGH": {
+      "n": 596,
+      "mae": 1.3421,
+      "relativeMae": 0.7772,
+      "medianAE": 1.1,
+      "largeMissRate": 0.651
+    }
+  },
+  "ASSISTS": {
+    "LOW": {
+      "n": 870,
+      "mae": 1.6199,
+      "relativeMae": 0.4846,
+      "medianAE": 1.2,
+      "largeMissRate": 0.3598
+    },
+    "MEDIUM": {
+      "n": 2344,
+      "mae": 1.1291,
+      "relativeMae": 0.7221,
+      "medianAE": 0.9,
+      "largeMissRate": 0.5525
+    },
+    "HIGH": {
+      "n": 205,
+      "mae": 1.2576,
+      "relativeMae": 0.6071,
+      "medianAE": 1,
+      "largeMissRate": 0.522
+    }
+  },
+  "validation": "Relative-error based — no sportsbook W-L; validates failure exposure ordering"
+}

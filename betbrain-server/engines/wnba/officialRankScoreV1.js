@@ -7,18 +7,23 @@
  * V1 uses predictedProbability after prop-type calibration when available,
  * else raw selected probability. No stat bonus/penalty.
  *
- * Markets with insufficient calibration are stamped CALIBRATION_DEVELOPING.
+ * Component-level calibration stamps live in calibrationStatusByComponentV1.
+ * No "new market" penalty — quality differences come from empirical uncertainty.
  */
 import { normalizePropTypeV1 } from "./propTypeV1.js";
+import {
+  collapseOfficialRankScoreStatusV1,
+  getCalibrationStatusForPropTypeV1,
+} from "./calibrationStatusByComponentV1.js";
 
 export const OFFICIAL_RANK_SCORE_V1_BUILD =
   "courteedge-official-rank-score-v1";
 
-/** Provisional until each propType has enough graded rows. */
+/** @deprecated Prefer getCalibrationStatusForPropTypeV1 — kept for callers. */
 export const PROP_TYPE_CALIBRATION_STATUS_V1 = Object.freeze({
-  POINTS: "ACTIVE",
-  REBOUNDS: "CALIBRATION_DEVELOPING",
-  ASSISTS: "CALIBRATION_DEVELOPING",
+  POINTS: "CALIBRATED",
+  REBOUNDS: "INITIAL_CALIBRATED",
+  ASSISTS: "INITIAL_CALIBRATED",
 });
 
 function num(v, fb = null) {
@@ -42,13 +47,18 @@ export function computeOfficialRankScoreV1({
   riskV2 = null,
 } = {}) {
   const pt = normalizePropTypeV1(propType) || "POINTS";
-  const status = PROP_TYPE_CALIBRATION_STATUS_V1[pt] || "CALIBRATION_DEVELOPING";
+  const componentStatus = getCalibrationStatusForPropTypeV1(pt);
+  const status =
+    collapseOfficialRankScoreStatusV1(pt) ||
+    PROP_TYPE_CALIBRATION_STATUS_V1[pt] ||
+    "CALIBRATION_DEVELOPING";
   const p = clamp01(
     num(calibratedProbability ?? predictedProbability, 0.5)
   );
 
   // Soft environment support — does NOT reintroduce belief; tiny tilt only
   // so equal-P candidates with much stabler environments can edge ranking.
+  // No propType label penalty (Step 19).
   const safety = num(Safety);
   const safetyTilt =
     safety == null ? 0 : ((clamp01(safety / 100) - 0.5) * 0.04);
@@ -68,6 +78,8 @@ export function computeOfficialRankScoreV1({
     propType: pt,
     officialRankScore,
     calibrationStatus: status,
+    officialRankScoreStatus: status,
+    calibration: componentStatus.calibration,
     inputs: {
       predictedProbability: num(predictedProbability),
       calibratedProbability: num(calibratedProbability),
@@ -79,7 +91,9 @@ export function computeOfficialRankScoreV1({
     note:
       status === "CALIBRATION_DEVELOPING"
         ? "Provisional rank — collect prospective REB/AST rows before treating as equal-certainty to POINTS"
-        : "Active prop-type calibration",
+        : status === "INITIAL_CALIBRATED"
+          ? "Initial historical-stat calibration — marketEdge still DEVELOPING"
+          : "Active prop-type calibration",
   };
 }
 

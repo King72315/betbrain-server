@@ -59,6 +59,13 @@ import {
   propTypeStatLabel,
 } from "../wnba/propTypeV1.js";
 import { computeOfficialRankScoreV1 } from "../wnba/officialRankScoreV1.js";
+import {
+  resolveStatProbabilityV1,
+  buildProjectionUncertaintyV1,
+  getResidualSummaryForPropTypeV1,
+  PROBABILITY_CALIBRATION_SOURCE_HISTORICAL_V1,
+} from "../wnba/statResidualDistributionV1.js";
+import { getCalibrationStatusForPropTypeV1 } from "../wnba/calibrationStatusByComponentV1.js";
 
 function hasHardIntegrityBlock(risk = {}) {
   const reasons = [
@@ -292,7 +299,7 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
   const minutes = buildPlayerMinutesModelV1(stamped);
   const role = buildPlayerRoleStabilityEngineV1(stamped);
   const volume = buildPlayerScoringOpportunityModelV1(stamped, minutes);
-  const distribution = buildPlayerPointsDistributionEngineV1(
+  let distribution = buildPlayerPointsDistributionEngineV1(
     stamped,
     minutes,
     volume,
@@ -301,6 +308,57 @@ export function evaluateSideForecastPacketV1(pick = {}, options = {}) {
       seed: options.seed ?? hashSeed(playerKey(stamped) + side),
     }
   );
+  const sidePropType =
+    normalizePropTypeV1(
+      stamped.propType || stamped.canonicalPropType || stamped.stat
+    ) || "POINTS";
+  // REB/AST: replace Points MC variance with historical residual CDF when available.
+  if (sidePropType === "REBOUNDS" || sidePropType === "ASSISTS") {
+    const line = num(stamped.line ?? stamped.selectedLine ?? stamped.officialLine);
+    const projection =
+      num(stamped.projection) ??
+      num(stamped.projectedPoints) ??
+      num(stamped.finalProjection);
+    const residualProb = resolveStatProbabilityV1({
+      propType: sidePropType,
+      projection,
+      line,
+      fallbackPOver: distribution.POver,
+      fallbackPUnder: distribution.PUnder,
+    });
+    if (residualProb.usedResidualCdf) {
+      distribution = {
+        ...distribution,
+        POver: residualProb.pOver,
+        PUnder: residualProb.pUnder,
+        probabilitySum:
+          residualProb.pOver != null && residualProb.pUnder != null
+            ? residualProb.pOver + residualProb.pUnder
+            : distribution.probabilitySum,
+        residualProbability: residualProb,
+        probabilityCalibrationSource:
+          residualProb.probabilityCalibrationSource ||
+          PROBABILITY_CALIBRATION_SOURCE_HISTORICAL_V1,
+        distributionAuthority: "HISTORICAL_STAT_RESIDUAL_V1",
+      };
+    } else {
+      distribution = {
+        ...distribution,
+        residualProbability: residualProb,
+        probabilityCalibrationSource:
+          residualProb.probabilityCalibrationSource ||
+          "PENDING_HISTORICAL_RESIDUAL",
+        distributionAuthority: "FALLBACK_MC_UNTIL_RESIDUALS",
+      };
+    }
+    const residualSummary = getResidualSummaryForPropTypeV1(sidePropType);
+    distribution.projectionUncertainty = buildProjectionUncertaintyV1({
+      propType: sidePropType,
+      expectedValue: projection,
+      residualSummary,
+      cohortSource: "GOLD",
+    });
+  }
   const market = buildPlayerPropMarketModelV1(stamped);
   const availability = resolveAvailabilityCertainty(stamped);
   const blowout = buildPlayerBlowoutSensitivityEngineV1(stamped, minutes);
@@ -631,6 +689,7 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     Safety: safetyOut?.finalSafetyScore,
     riskV2: selected.risk?.risk,
   });
+  const componentCalibration = getCalibrationStatusForPropTypeV1(propType);
 
   return {
     playerId: basePick.playerId || basePick.player_id || null,
@@ -648,6 +707,14 @@ export function buildCanonicalPlayerForecastPacketV1(basePick = {}, options = {}
     officialRankScore: rankPacket.officialRankScore,
     officialRank: rankPacket,
     calibrationStatus: rankPacket.calibrationStatus,
+    officialRankScoreStatus: rankPacket.officialRankScoreStatus,
+    calibration: componentCalibration.calibration,
+    probabilityCalibrationSource:
+      selected.distribution?.probabilityCalibrationSource ||
+      (propType === "POINTS"
+        ? "POINTS_GOLD_V1"
+        : "PENDING_HISTORICAL_RESIDUAL"),
+    projectionUncertainty: selected.distribution?.projectionUncertainty || null,
     teamId: basePick.teamId || null,
     team: basePick.team || basePick.teamKey || null,
     opponent: basePick.opponent || null,

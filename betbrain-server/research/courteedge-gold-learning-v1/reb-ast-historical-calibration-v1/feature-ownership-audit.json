@@ -1,0 +1,49 @@
+{
+  "build": "feature-ownership-audit-v1",
+  "registryBuild": "courteedge-feature-ownership-registry-v1",
+  "checks": [
+    {
+      "feature": "FGA",
+      "POINTS": "HIGH",
+      "REBOUNDS": "CONTEXTUAL",
+      "ASSISTS": "CONTEXTUAL",
+      "expect": "POINTS HIGH; REB/AST CONTEXTUAL"
+    },
+    {
+      "feature": "reboundShare",
+      "POINTS": "NONE",
+      "REBOUNDS": "HIGH",
+      "ASSISTS": "NONE",
+      "expect": "REB HIGH; PTS/AST NONE"
+    },
+    {
+      "feature": "assistRate",
+      "POINTS": "CONTEXTUAL",
+      "REBOUNDS": "NONE",
+      "ASSISTS": "HIGH",
+      "expect": "AST HIGH; REB NONE; PTS CONTEXTUAL"
+    }
+  ],
+  "pass": true,
+  "registryKeys": [
+    "expectedMinutes",
+    "minutesStability",
+    "seasonPPG",
+    "seasonRPG",
+    "seasonAPG",
+    "FGA",
+    "FTA",
+    "usageOrShotShare",
+    "reboundShare",
+    "reboundRate",
+    "assistRate",
+    "playmakingRole",
+    "teammateFinishing",
+    "teammateReboundCompetition",
+    "opponentMissedShotVolume",
+    "pace",
+    "spreadBlowout",
+    "availability",
+    "roleStability"
+  ]
+}

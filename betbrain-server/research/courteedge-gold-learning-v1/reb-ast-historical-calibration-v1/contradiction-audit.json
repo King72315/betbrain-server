@@ -1,0 +1,69 @@
+{
+  "build": "reb-ast-contradiction-audit-v1",
+  "authorityMap": {
+    "propType": {
+      "owner": "propTypeV1.normalizePropTypeV1",
+      "writers": ["oddsService/buildConsensus", "wnbaPlayerPropDataCard", "canonicalPlayerForecastPacketV1"],
+      "readers": ["projectWnbaStatByPropTypeV1", "fairLineByPropTypeV1", "officialRankScoreV1", "resultService"]
+    },
+    "projection": {
+      "owner": "stat-specific engines via projectWnbaStatByPropTypeV1 / projectWnbaPoints",
+      "writers": ["wnbaProjectionEngine", "wnbaReboundsProjectionEngine", "wnbaAssistsProjectionEngine", "projectionMeanCalibrationV1(POINTS only)"],
+      "readers": ["fairLine", "distribution/residual CDF", "officialRankScore inputs"]
+    },
+    "fairLine": {
+      "owner": "fairLineByPropTypeV1",
+      "writers": ["buildFairLineForPropTypeV1"],
+      "readers": ["data card", "research packets"]
+    },
+    "pOver/pUnder": {
+      "owner": "distribution layer in evaluateSideForecastPacketV1",
+      "writers": ["playerPointsDistributionEngineV1 (POINTS)", "statResidualDistributionV1 empirical CDF (REB/AST when artifact present)"],
+      "readers": ["rawWinProbability → side selection"]
+    },
+    "predictedSide": {
+      "owner": "empirical Direction engine (frozen)",
+      "writers": ["decideDirectionalSideV1/V2"],
+      "readers": ["membership", "Official selector"]
+    },
+    "predictedProbability": {
+      "owner": "canonical forecast packet (selected side rawWinProbability; optional band calib)",
+      "writers": ["applyPredictedProbabilityCalibrationV1 (shadow/opt-in)"],
+      "readers": ["officialRankScoreV1", "UI"]
+    },
+    "Safety": {
+      "owner": "propSafetyEnvironmentV2 (default)",
+      "writers": ["buildPropSafetyEnvironmentV2"],
+      "readers": ["rank", "research"],
+      "forbiddenInputs": ["rawWinProbability", "edge", "Trust", "Reliability"]
+    },
+    "riskV2": {
+      "owner": "empiricalSafePropV2 classifyRiskEmpiricalV2 / classifyRiskV1 path",
+      "writers": ["risk classification under same owner; REB/AST failure factors inform research calib"],
+      "readers": ["membership", "officialRankScore"]
+    },
+    "signalLevel": {
+      "owner": "direction confidence / signal field (canonical)",
+      "writers": ["direction engine"],
+      "readers": ["UI", "research"]
+    },
+    "recommendationTier": {
+      "owner": "Certified/Best Available policy (frozen Certified)",
+      "writers": ["membership / tracking gate"],
+      "readers": ["ledgers", "UI"]
+    },
+    "officialRankScore": {
+      "owner": "officialRankScoreV1.computeOfficialRankScoreV1",
+      "writers": ["canonicalPlayerForecastPacketV1"],
+      "readers": ["selectOfficialMembershipV1 sort"]
+    },
+    "officialSelected": {
+      "owner": "selectOfficialMembershipV1 ONLY",
+      "writers": ["selectOfficialMembershipV1"],
+      "readers": ["seal", "UI"]
+    }
+  },
+  "oneOwnerPerDecision": true,
+  "contradictions": [],
+  "pass": true
+}

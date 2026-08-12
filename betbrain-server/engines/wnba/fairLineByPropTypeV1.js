@@ -49,66 +49,74 @@ export function buildFairLineForPropTypeV1({
   if (pt === "REBOUNDS") {
     const season = num(playerState.seasonRebounds);
     const recent = num(playerState.recentRebounds);
-    const base = blend(recent, season, 0.6);
-    const anchorWeight = sportsProjection > 0 ? 0.35 : 0;
+    // Fair line: season RPG only (or light recent). Projection engine owns
+    // recent-rate × minutes. This avoids near-1.0 projection/fair aliasing.
     let fairLine =
-      sportsProjection > 0 && base > 0
-        ? base * (1 - anchorWeight) + sportsProjection * anchorWeight
-        : sportsProjection > 0
-          ? sportsProjection
-          : base;
+      season > 0
+        ? season
+        : recent > 0
+          ? recent
+          : sportsProjection > 0
+            ? sportsProjection
+            : 0;
+    if (season > 0 && recent > 0) {
+      fairLine = season * 0.85 + recent * 0.15;
+    }
     fairLine = Number(Math.max(0, fairLine).toFixed(1));
     return {
       fairLine,
       fairLineEdge: Number((fairLine - bookLine).toFixed(1)),
       fairLineQuality: clamp(
-        (season > 0 ? 40 : 0) + (recent > 0 ? 40 : 0) + (sportsProjection > 0 ? 20 : 0),
+        (season > 0 ? 50 : 0) + (recent > 0 ? 30 : 0) + (sportsProjection > 0 ? 20 : 0),
         0,
         100
       ),
       fairLineReasons: [
-        `REBOUNDS fair from season/recent RPG blend (${base.toFixed(1)})`,
+        `REBOUNDS fair from season RPG (${Number(season || 0).toFixed(1)}) with light recent mix`,
         sportsProjection > 0
-          ? `Projection anchor ${sportsProjection}`
-          : "No projection anchor",
+          ? `Projection ${sportsProjection} kept separate (not blended as primary)`
+          : "No projection",
       ],
       fairLineRiskReasons: [],
       propType: "REBOUNDS",
-      fairLineSource: "REBOUNDS_RATE_BLEND",
+      fairLineSource: "REBOUNDS_SEASON_PRIMARY_BLEND",
       sharedInputs: ["minutes", "availability", "pace"],
       independentInputs: ["seasonRPG", "recentRPG", "reboundRate", "competition"],
     };
   }
 
-  // ASSISTS
+  // ASSISTS — season APG fair; projection owns recent assist-rate × minutes
   const seasonA = num(playerState.seasonAssists);
   const recentA = num(playerState.recentAssists);
-  const baseA = blend(recentA, seasonA, 0.6);
-  const anchorW = sportsProjection > 0 ? 0.35 : 0;
   let fairA =
-    sportsProjection > 0 && baseA > 0
-      ? baseA * (1 - anchorW) + sportsProjection * anchorW
-      : sportsProjection > 0
-        ? sportsProjection
-        : baseA;
+    seasonA > 0
+      ? seasonA
+      : recentA > 0
+        ? recentA
+        : sportsProjection > 0
+          ? sportsProjection
+          : 0;
+  if (seasonA > 0 && recentA > 0) {
+    fairA = seasonA * 0.85 + recentA * 0.15;
+  }
   fairA = Number(Math.max(0, fairA).toFixed(1));
   return {
     fairLine: fairA,
     fairLineEdge: Number((fairA - bookLine).toFixed(1)),
     fairLineQuality: clamp(
-      (seasonA > 0 ? 40 : 0) + (recentA > 0 ? 40 : 0) + (sportsProjection > 0 ? 20 : 0),
+      (seasonA > 0 ? 50 : 0) + (recentA > 0 ? 30 : 0) + (sportsProjection > 0 ? 20 : 0),
       0,
       100
     ),
     fairLineReasons: [
-      `ASSISTS fair from season/recent APG blend (${baseA.toFixed(1)})`,
+      `ASSISTS fair from season APG (${Number(seasonA || 0).toFixed(1)}) with light recent mix`,
       sportsProjection > 0
-        ? `Projection anchor ${sportsProjection}`
-        : "No projection anchor",
+        ? `Projection ${sportsProjection} kept separate (not blended as primary)`
+        : "No projection",
     ],
     fairLineRiskReasons: [],
     propType: "ASSISTS",
-    fairLineSource: "ASSISTS_RATE_BLEND",
+    fairLineSource: "ASSISTS_SEASON_PRIMARY_BLEND",
     sharedInputs: ["minutes", "availability", "pace", "teammateAvailability"],
     independentInputs: [
       "seasonAPG",

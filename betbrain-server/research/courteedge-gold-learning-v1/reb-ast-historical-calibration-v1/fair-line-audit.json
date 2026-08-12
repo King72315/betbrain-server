@@ -1,0 +1,41 @@
+{
+  "build": "reb-ast-fair-line-audit-v1",
+  "REBOUNDS": {
+    "n": 3419,
+    "projectionVsActual": {
+      "n": 3419,
+      "mae": 1.72,
+      "medianAE": 1.3,
+      "signedBias": -0.0679,
+      "rmse": 2.3009
+    },
+    "fairVsActual": {
+      "n": 3419,
+      "mae": 1.7064,
+      "medianAE": 1.3,
+      "signedBias": -0.0607,
+      "rmse": 2.2701
+    },
+    "projectionFairCorrelation": 0.9889,
+    "flag": "DISTINCT_ENOUGH"
+  },
+  "ASSISTS": {
+    "n": 3419,
+    "projectionFairCorrelation": 0.9892,
+    "flag": "DISTINCT_ENOUGH",
+    "projectionVsActual": {
+      "n": 3419,
+      "mae": 1.2617,
+      "medianAE": 0.9,
+      "signedBias": -0.0168,
+      "rmse": 1.7149
+    },
+    "fairVsActual": {
+      "n": 3419,
+      "mae": 1.2376,
+      "medianAE": 0.9,
+      "signedBias": 0.0492,
+      "rmse": 1.6792
+    }
+  }
+}

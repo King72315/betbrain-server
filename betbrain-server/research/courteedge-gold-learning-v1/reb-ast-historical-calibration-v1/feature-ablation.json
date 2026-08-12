@@ -1,0 +1,122 @@
+{
+  "build": "reb-ast-feature-ablation-v1",
+  "REBOUNDS": [
+    {
+      "family": "recent_form",
+      "full": {
+        "n": 3419,
+        "mae": 1.72,
+        "medianAE": 1.3,
+        "signedBias": -0.0679,
+        "rmse": 2.3009
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.7146,
+        "medianAE": 1.3182,
+        "signedBias": -0.066,
+        "rmse": 2.2771
+      },
+      "maeDelta": -0.0054,
+      "note": "weak / noisy / insufficient separation"
+    },
+    {
+      "family": "minutes",
+      "full": {
+        "n": 3419,
+        "mae": 1.72,
+        "medianAE": 1.3,
+        "signedBias": -0.0679,
+        "rmse": 2.3009
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.7146,
+        "medianAE": 1.3182,
+        "signedBias": -0.066,
+        "rmse": 2.2771
+      },
+      "maeDelta": -0.0054,
+      "note": "weak / noisy / insufficient separation"
+    },
+    {
+      "family": "role",
+      "full": {
+        "n": 3419,
+        "mae": 1.72,
+        "medianAE": 1.3,
+        "signedBias": -0.0679,
+        "rmse": 2.3009
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.7187,
+        "medianAE": 1.2985,
+        "signedBias": -0.0678,
+        "rmse": 2.2984
+      },
+      "maeDelta": -0.0013,
+      "note": "weak / noisy / insufficient separation"
+    }
+  ],
+  "ASSISTS": [
+    {
+      "family": "recent_form",
+      "full": {
+        "n": 3419,
+        "mae": 1.2617,
+        "medianAE": 0.9,
+        "signedBias": -0.0168,
+        "rmse": 1.7149
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.2374,
+        "medianAE": 0.9167,
+        "signedBias": 0.0551,
+        "rmse": 1.6789
+      },
+      "maeDelta": -0.0243,
+      "note": "weak / noisy / insufficient separation"
+    },
+    {
+      "family": "minutes",
+      "full": {
+        "n": 3419,
+        "mae": 1.2617,
+        "medianAE": 0.9,
+        "signedBias": -0.0168,
+        "rmse": 1.7149
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.2374,
+        "medianAE": 0.9167,
+        "signedBias": 0.0551,
+        "rmse": 1.6789
+      },
+      "maeDelta": -0.0243,
+      "note": "weak / noisy / insufficient separation"
+    },
+    {
+      "family": "role",
+      "full": {
+        "n": 3419,
+        "mae": 1.2617,
+        "medianAE": 0.9,
+        "signedBias": -0.0168,
+        "rmse": 1.7149
+      },
+      "ablated": {
+        "n": 3419,
+        "mae": 1.2603,
+        "medianAE": 0.9083,
+        "signedBias": -0.0147,
+        "rmse": 1.7125
+      },
+      "maeDelta": -0.0014,
+      "note": "weak / noisy / insufficient separation"
+    }
+  ],
+  "limitation": "Offline ablation uses season-prior proxies; teammate/pace features sparse in ESPN-only dump"
+}

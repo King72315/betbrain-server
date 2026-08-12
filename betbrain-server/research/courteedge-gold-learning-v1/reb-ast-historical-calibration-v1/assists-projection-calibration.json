@@ -1,0 +1,139 @@
+{
+  "cohort": "GOLD_ONLY",
+  "overall": {
+    "n": 3419,
+    "mae": 1.2617,
+    "medianAE": 0.9,
+    "signedBias": -0.0168,
+    "rmse": 1.7149
+  },
+  "byCreator": {
+    "OTHER": {
+      "n": 2645,
+      "mae": 2.376,
+      "medianAE": 1.8,
+      "signedBias": -1.8316,
+      "rmse": 3.1153
+    },
+    "SECONDARY": {
+      "n": 499,
+      "mae": 3.0248,
+      "medianAE": 2.3,
+      "signedBias": -0.4737,
+      "rmse": 3.9876
+    },
+    "PRIMARY": {
+      "n": 275,
+      "mae": 3.7258,
+      "medianAE": 3.3,
+      "signedBias": 1.7382,
+      "rmse": 4.6202
+    }
+  },
+  "byStarter": {
+    "BENCH": {
+      "n": 1600,
+      "mae": 1.7592,
+      "medianAE": 1.4,
+      "signedBias": -1.1631,
+      "rmse": 2.2458
+    },
+    "STARTER": {
+      "n": 1819,
+      "mae": 3.3006,
+      "medianAE": 2.8,
+      "signedBias": -1.5075,
+      "rmse": 4.1551
+    }
+  },
+  "byMinutesBand": {
+    "0-12": {
+      "n": 585,
+      "mae": 1.3699,
+      "medianAE": 1.2,
+      "signedBias": -0.8263,
+      "rmse": 1.7073
+    },
+    "12-18": {
+      "n": 735,
+      "mae": 1.7486,
+      "medianAE": 1.5,
+      "signedBias": -1.0003,
+      "rmse": 2.1372
+    },
+    "30-36": {
+      "n": 622,
+      "mae": 3.5034,
+      "medianAE": 2.6,
+      "signedBias": -1.2432,
+      "rmse": 4.5625
+    },
+    "24-30": {
+      "n": 825,
+      "mae": 3.4896,
+      "medianAE": 3,
+      "signedBias": -1.7895,
+      "rmse": 4.3008
+    },
+    "18-24": {
+      "n": 649,
+      "mae": 2.5672,
+      "medianAE": 2.3,
+      "signedBias": -1.7385,
+      "rmse": 3.0855
+    },
+    "36+": {
+      "n": 3,
+      "mae": 2.6,
+      "medianAE": 3.5,
+      "signedBias": -2.2,
+      "rmse": 2.9609
+    }
+  },
+  "byRecentApg": {
+    "0-2": {
+      "n": 1918,
+      "mae": 2.1056,
+      "medianAE": 1.7,
+      "signedBias": -1.6769,
+      "rmse": 2.7047
+    },
+    "2-4": {
+      "n": 974,
+      "mae": 3.0976,
+      "medianAE": 2.4,
+      "signedBias": -1.9303,
+      "rmse": 4.0488
+    },
+    "4-6": {
+      "n": 307,
+      "mae": 3.2873,
+      "medianAE": 2.5,
+      "signedBias": -0.0547,
+      "rmse": 4.2637
+    },
+    "6+": {
+      "n": 220,
+      "mae": 3.4259,
+      "medianAE": 3,
+      "signedBias": 2.3186,
+      "rmse": 4.2088
+    }
+  },
+  "byHomeAway": {
+    "away": {
+      "n": 1705,
+      "mae": 2.5494,
+      "medianAE": 1.9,
+      "signedBias": -1.3883,
+      "rmse": 3.3484
+    },
+    "home": {
+      "n": 1714,
+      "mae": 2.609,
+      "medianAE": 2,
+      "signedBias": -1.3046,
+      "rmse": 3.4464
+    }
+  }
+}

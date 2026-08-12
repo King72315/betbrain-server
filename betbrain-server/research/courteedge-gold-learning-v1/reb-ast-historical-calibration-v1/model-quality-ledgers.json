@@ -1,0 +1,38 @@
+{
+  "build": "reb-ast-model-quality-ledgers-v1",
+  "note": "Research quality — separate from betting ledgers",
+  "REBOUNDS": {
+    "n": 3419,
+    "mae": 1.72,
+    "medianAE": 1.3,
+    "signedBias": -0.0679,
+    "rmse": 2.3009,
+    "modelVersion": "courteedge-wnba-rebounds-projection-v1"
+  },
+  "ASSISTS": {
+    "n": 3419,
+    "mae": 1.2617,
+    "medianAE": 0.9,
+    "signedBias": -0.0168,
+    "rmse": 1.7149,
+    "modelVersion": "courteedge-wnba-assists-projection-v1"
+  },
+  "bettingLedgers": {
+    "POINTS": {
+      "Full": "existing",
+      "BestAvailable": "existing",
+      "Certified": "existing"
+    },
+    "REBOUNDS": {
+      "Full": 0,
+      "BestAvailable": 0,
+      "Certified": 0
+    },
+    "ASSISTS": {
+      "Full": 0,
+      "BestAvailable": 0,
+      "Certified": 0
+    },
+    "note": "REB/AST betting ledgers start at 0 until real sportsbook freezes grade"
+  }
+}

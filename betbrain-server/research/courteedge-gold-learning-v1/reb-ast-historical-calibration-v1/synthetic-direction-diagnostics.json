@@ -1,0 +1,13 @@
+{
+  "label": "SYNTHETIC_DIRECTION_DIAGNOSTIC",
+  "REBOUNDS": {
+    "n": 3419,
+    "directionalAccuracy": 0.556,
+    "note": "Not sportsbook W-L; discrimination around synthetic thresholds only"
+  },
+  "ASSISTS": {
+    "n": 3419,
+    "directionalAccuracy": 0.5674,
+    "note": "Not sportsbook W-L; discrimination around synthetic thresholds only"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "build": "calibration-status-overlay-v1",
+  "overlay": {
+    "POINTS": {
+      "projection": "ACTIVE",
+      "residualDistribution": "ACTIVE",
+      "safety": "ACTIVE",
+      "risk": "ACTIVE",
+      "probability": "ACTIVE",
+      "marketEdge": "ACTIVE",
+      "officialRankScoreStatus": "CALIBRATED"
+    },
+    "REBOUNDS": {
+      "projection": "ACTIVE",
+      "residualDistribution": "ACTIVE",
+      "safety": "INITIAL_CALIBRATED",
+      "risk": "INITIAL_CALIBRATED",
+      "probability": "INITIAL_CALIBRATED",
+      "marketEdge": "DEVELOPING",
+      "officialRankScoreStatus": "INITIAL_CALIBRATED"
+    },
+    "ASSISTS": {
+      "projection": "ACTIVE",
+      "residualDistribution": "ACTIVE",
+      "safety": "INITIAL_CALIBRATED",
+      "risk": "INITIAL_CALIBRATED",
+      "probability": "INITIAL_CALIBRATED",
+      "marketEdge": "DEVELOPING",
+      "officialRankScoreStatus": "INITIAL_CALIBRATED"
+    }
+  }
+}

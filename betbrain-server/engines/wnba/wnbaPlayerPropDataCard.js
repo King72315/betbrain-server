@@ -524,17 +524,22 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     };
   }
 
-  const meanCalib = calibrateProjectionMeanV1({
-    projection: projectionResult.projection,
-    line: line > 0 ? line : null,
-    fairLine: null, // fair not built yet; market gap is primary signal
-    expectedMinutes:
-      effectiveRecentMinutes > 0
-        ? effectiveRecentMinutes
-        : effectiveSeasonMinutes > 0
-          ? effectiveSeasonMinutes
-          : null,
-  });
+  // POINTS-only shared-mean calibration. REB/AST use historical residual
+  // calibration — do not apply Points below-market lift to other stats.
+  const meanCalib =
+    propType === "POINTS"
+      ? calibrateProjectionMeanV1({
+          projection: projectionResult.projection,
+          line: line > 0 ? line : null,
+          fairLine: null, // fair not built yet; market gap is primary signal
+          expectedMinutes:
+            effectiveRecentMinutes > 0
+              ? effectiveRecentMinutes
+              : effectiveSeasonMinutes > 0
+                ? effectiveSeasonMinutes
+                : null,
+        })
+      : { applied: false };
   if (meanCalib.applied) {
     projectionResult = {
       ...projectionResult,

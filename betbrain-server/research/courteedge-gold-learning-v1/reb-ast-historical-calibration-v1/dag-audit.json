@@ -1,0 +1,38 @@
+{
+  "build": "reb-ast-dag-audit-v1",
+  "desired": [
+    "RAW FEATURES → STAT PROJECTION",
+    "RAW FEATURES → ENVIRONMENT SAFETY",
+    "RAW FEATURES → FAILURE EXPOSURE / RISK",
+    "projection + line → probability",
+    "probability + Safety + Risk → recommendation / ranking"
+  ],
+  "forbiddenCyclesChecked": [
+    "Probability → Safety → Reliability → Probability",
+    "Safety → Trust → Risk → Safety",
+    "Risk → recommendation → Risk"
+  ],
+  "findings": [
+    {
+      "path": "evaluateSideForecastPacketV1",
+      "note": "SafetyEnvironmentV2 built before probability calibration; does not accept rawWinProbability",
+      "status": "PASS"
+    },
+    {
+      "path": "buildCanonicalPlayerForecastPacketV1",
+      "note": "Probability transform is shadow/opt-in; env Safety not rebuilt from calibrated P when V2 active",
+      "status": "PASS"
+    },
+    {
+      "path": "computeOfficialRankScoreV1",
+      "note": "Consumes P + Safety + Risk; does not write back into Safety/Risk authorities",
+      "status": "PASS"
+    },
+    {
+      "path": "selectOfficialMembershipV1",
+      "note": "Final Official selector only; no risk rewrite from membership",
+      "status": "PASS"
+    }
+  ],
+  "pass": true
+}
