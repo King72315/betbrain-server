@@ -133,7 +133,7 @@ export function buildCourtEdgePlayerEvidenceV1(ctx = {}) {
   const seasonAvgRaw = num(
     propType === "POINTS"
       ? ctx.seasonAverage ?? ctx.playerState?.seasonPoints ?? avg(seasonPts)
-      : ctx.seasonAverage ?? avg(seasonPts)
+      : avg(seasonPts)
   );
   // Never publish season average 0 with an empty sample (zero-default poison).
   const seasonAvg =

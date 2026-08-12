@@ -540,22 +540,30 @@ export function buildHomeDetailedAnalysisV1(pick = {}, options = {}) {
       : last10Pts.length > 0
         ? last10Pts
         : [];
+  const seasonPts = extractStatList(
+    pick.bdlSeasonGames || pick.seasonGames || pick.last5 || [],
+    propType
+  );
   const seasonAvgRaw = measuredNum(
-    first(
-      evidence.recentForm?.seasonPointsAverage,
-      pick.seasonAverage,
-      pick.playerState?.seasonPoints
-    )
+    propType === "POINTS"
+      ? first(
+          evidence.recentForm?.seasonStatAverage,
+          evidence.recentForm?.seasonPointsAverage,
+          pick.seasonAverage,
+          pick.playerState?.seasonPoints
+        )
+      : first(
+          evidence.recentForm?.seasonStatAverage,
+          // Only trust evidence season average when it was built for this propType.
+          evidenceMatchesProp ? evidence.recentForm?.seasonPointsAverage : null,
+          avg(seasonPts.length ? seasonPts : last5Pts)
+        )
   );
   // Zero with no game sample is poison — treat as unavailable.
   const seasonAvg =
     seasonAvgRaw === 0 && !last5Pts.length && !last10Display.length
       ? null
       : seasonAvgRaw;
-  const seasonPts = extractStatList(
-    pick.bdlSeasonGames || pick.seasonGames || [],
-    propType
-  );
   const trend = scoringTrend(last5Pts.length ? last5Pts : last10Display);
   const lineForHits = sealed ? sealedLine : currentLine ?? sealedLine;
   const last5Hit = hitRateVsLine(last5Pts, lineForHits, finalSide);
