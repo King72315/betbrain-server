@@ -1,0 +1,38 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "band": "Full",
+  "status": "PENDING",
+  "note": "Stat counts from pregame Full freeze; W-L PENDING — games not FINAL.",
+  "counts": {
+    "POINTS": 19,
+    "REBOUNDS": 17,
+    "ASSISTS": 14,
+    "total": 50
+  },
+  "trustedCounts": {
+    "POINTS": 3,
+    "REBOUNDS": 6,
+    "ASSISTS": 6
+  },
+  "bestCounts": {
+    "POINTS": 10,
+    "REBOUNDS": 0,
+    "ASSISTS": 0
+  },
+  "outcomes": {
+    "POINTS": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "REBOUNDS": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "ASSISTS": {
+      "status": "PENDING",
+      "wL": null
+    }
+  }
+}

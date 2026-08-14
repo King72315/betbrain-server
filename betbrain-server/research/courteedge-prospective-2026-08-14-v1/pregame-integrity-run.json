@@ -1,0 +1,87 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "exportedAt": "2026-08-14T09:20:54.063Z",
+  "gitCommit": "1d7a6deeca02559454c68c1c74fd0cf0f1a9f8d0",
+  "homeDisplayAudit": {
+    "expectedTrusted": 15,
+    "displayedTrusted": 15,
+    "missing": [],
+    "extra": [],
+    "mutated": [],
+    "expectedBest": 10,
+    "displayedBest": 10,
+    "expectedFull": 50,
+    "displayedFull": 50,
+    "fullByPropType": {
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "marketBalancedWeave": false,
+    "homeRankAuthority": "global_quality_v3",
+    "pass": true
+  },
+  "capAudit": {
+    "fullTotal": 50,
+    "points": 19,
+    "rebounds": 17,
+    "assists": 14,
+    "not151515": true,
+    "expected": {
+      "total": 50,
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "pass": true
+  },
+  "gradeTargets": {
+    "dryRun": true,
+    "note": "Lookup-only — no grades written",
+    "trusted": {
+      "found": 15,
+      "missing": []
+    },
+    "best": {
+      "found": 10,
+      "missing": []
+    },
+    "full": {
+      "found": 50,
+      "missing": []
+    },
+    "byPropType": {
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "pass": true
+  },
+  "epremStatus": {
+    "exitCode": 0,
+    "pass": true,
+    "stdoutTail": "PASS atomicWriteJson succeeds with open reader handle (Windows-safe)\nPASS batchAppendCanonicalResults exists and is exported\n\nEPERM atomic write regression tests done\n",
+    "stderrTail": ""
+  },
+  "gradingStatus": {
+    "gamesFinalObserved": false,
+    "pendingCount": 50,
+    "finalCount": 0,
+    "action": "GRADING_DEFERRED_AWAIT_FINALS — all 50 PENDING; dry-run only"
+  },
+  "backupReport": {
+    "copied": [
+      "canonical-predictions-v1.json",
+      "tracked-props.json",
+      "line-snapshots.json",
+      "locked-slates.json",
+      "daily-slate-reports.json",
+      "pregame-product-truth.json"
+    ],
+    "missing": [],
+    "at": "2026-08-14T09:20:54.063Z"
+  },
+  "trustedN": 15,
+  "bestN": 10,
+  "fullN": 50
+}

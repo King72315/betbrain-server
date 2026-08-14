@@ -1,0 +1,6 @@
+{
+  "exitCode": 0,
+  "pass": true,
+  "stdoutTail": "PASS atomicWriteJson succeeds with open reader handle (Windows-safe)\nPASS batchAppendCanonicalResults exists and is exported\n\nEPERM atomic write regression tests done\n",
+  "stderrTail": ""
+}

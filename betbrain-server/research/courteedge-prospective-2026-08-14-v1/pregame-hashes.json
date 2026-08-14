@@ -1,0 +1,71 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "exportedAt": "2026-08-14T09:20:54.063Z",
+  "gitCommit": "1d7a6deeca02559454c68c1c74fd0cf0f1a9f8d0",
+  "fullSha256": "d86b6aa08c34351c8a9338a54f0cb8d82748b28a4d7a8f9c1cab17fad526657c",
+  "trustedSha256": "74cdd6a0adda8d9505d19a88fd3c50590b100b44374c481be42b2105b977bd4e",
+  "bestSha256": "547416acdc4849610f951df606228890dc0a2ae23ab84b330201202b8a391e81",
+  "identityManifestSha256": "f5688211b855bece3b828cb2bd00b4ec4c16d3258d29046a3866c360e0a78a16",
+  "perTrusted": [
+    {
+      "key": "alanna-smith|REBOUNDS|OVER|7.5",
+      "hash": "8f6650f58f2a7e623ad834fa1b504437600ae5239306ca25f937a3b7b50e4600"
+    },
+    {
+      "key": "aliyah-boston|ASSISTS|OVER|3.5",
+      "hash": "950027b0a676753080510292b00041a78159653a3d7616dd73c501f6f581c38c"
+    },
+    {
+      "key": "aliyah-boston|REBOUNDS|OVER|8.5",
+      "hash": "cc858c2f1d868484f7d6b47a566bc55f0d2a20d8941ff5f5c4c5aa8b0ebedcd7"
+    },
+    {
+      "key": "arike-ogunbowale|ASSISTS|OVER|3.5",
+      "hash": "8e1d808360820bf81f5b336aaf0819f62be5ed4e32a67938a3aa5b7e96774a7f"
+    },
+    {
+      "key": "caitlin-clark|ASSISTS|OVER|9.5",
+      "hash": "93d346a19b68c7e60f381fbfb9029bd6faef2f591685f43c1ff29c29abd6d167"
+    },
+    {
+      "key": "kelsey-mitchell|ASSISTS|OVER|2.5",
+      "hash": "c5fde4c86977d6d5f4a5bbd98200966aefc0d6b1a30852097cc59519b8c2ce33"
+    },
+    {
+      "key": "kelsey-mitchell|POINTS|OVER|24.5",
+      "hash": "9ecdd24e7b87367fddba5351c2abb6fbbc8216363c3ff21e564d6a4f7fcf4c44"
+    },
+    {
+      "key": "lexie-hull|REBOUNDS|OVER|2.5",
+      "hash": "6c6facaef112b025f80766f3e19a31ec19bfedbe57b794a096e5dbf4528c2ae6"
+    },
+    {
+      "key": "bridget-carleton|POINTS|OVER|16.5",
+      "hash": "68af46425c26af3a238d4599f05cf8501c75ca9569d53092b4c234a2c2b03629"
+    },
+    {
+      "key": "bridget-carleton|REBOUNDS|OVER|4.5",
+      "hash": "6347f8a2d27ceceb8a3660323dfbce061b591b11941b77060ddb7aa46816eabd"
+    },
+    {
+      "key": "carla-leite|ASSISTS|OVER|6.5",
+      "hash": "81203e77a97eb38cb6b7bed500a114c785ce2898f59a576c14b985579e34c799"
+    },
+    {
+      "key": "jade-melbourne|POINTS|OVER|9.5",
+      "hash": "002d1aed8afc7e9d805d53a43f178918e0ef628838b520c59392b494ce66bb29"
+    },
+    {
+      "key": "megan-dileo|REBOUNDS|OVER|4.5",
+      "hash": "f8c90eeb431088d90715139c2fa1cb5a2eb7df4e08842da44f6dcbee089ad3fd"
+    },
+    {
+      "key": "natisha-hiedeman|ASSISTS|OVER|4.5",
+      "hash": "0ff8095ed2f3d13eb7cf1030d0535c4f316bb1998579eec00a273f9fcc435bec"
+    },
+    {
+      "key": "natisha-hiedeman|REBOUNDS|OVER|2.5",
+      "hash": "c869fe210b9819ea69ee185b43a8ab88defded85f54910c260c70539281f0738"
+    }
+  ]
+}

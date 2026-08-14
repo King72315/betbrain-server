@@ -1,0 +1,209 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "band": "Trusted",
+  "status": "PENDING",
+  "note": "Trusted probability band template — outcomes PENDING until finals. No fabricated hit rates.",
+  "summary": {
+    "ge60": 8,
+    "55_60": 1,
+    "lt55": 6
+  },
+  "rows": [
+    {
+      "integrityKey": "alanna-smith|REBOUNDS|OVER|7.5",
+      "player": "Alanna Smith",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.564785,
+      "modelWinProbability": 0.6103,
+      "decisionScoreV2": 0.6103,
+      "probabilityBucket": "55_60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|ASSISTS|OVER|3.5",
+      "player": "Aliyah Boston",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.680023,
+      "modelWinProbability": 0.6351,
+      "decisionScoreV2": 0.6351,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|REBOUNDS|OVER|8.5",
+      "player": "Aliyah Boston",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.60895,
+      "modelWinProbability": 0.6398,
+      "decisionScoreV2": 0.6398,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "arike-ogunbowale|ASSISTS|OVER|3.5",
+      "player": "Arike Ogunbowale",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.541094,
+      "modelWinProbability": 0.6004,
+      "decisionScoreV2": 0.6004,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "caitlin-clark|ASSISTS|OVER|9.5",
+      "player": "Caitlin Clark",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.470313,
+      "modelWinProbability": 0.5827,
+      "decisionScoreV2": 0.5827,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|ASSISTS|OVER|2.5",
+      "player": "Kelsey Mitchell",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.470313,
+      "modelWinProbability": 0.5827,
+      "decisionScoreV2": 0.5827,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|POINTS|OVER|24.5",
+      "player": "Kelsey Mitchell",
+      "propType": "POINTS",
+      "predictedProbability": 0.7132,
+      "modelWinProbability": 0.644,
+      "decisionScoreV2": 0.644,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "lexie-hull|REBOUNDS|OVER|2.5",
+      "player": "Lexie Hull",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.501024,
+      "modelWinProbability": 0.5793,
+      "decisionScoreV2": 0.5793,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|POINTS|OVER|16.5",
+      "player": "Bridget Carleton",
+      "propType": "POINTS",
+      "predictedProbability": 0.6694,
+      "modelWinProbability": 0.5774,
+      "decisionScoreV2": 0.5774,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|REBOUNDS|OVER|4.5",
+      "player": "Bridget Carleton",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.896461,
+      "modelWinProbability": 0.7062,
+      "decisionScoreV2": 0.7062,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "carla-leite|ASSISTS|OVER|6.5",
+      "player": "Carla Leite",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.611875,
+      "modelWinProbability": 0.6092,
+      "decisionScoreV2": 0.6092,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "jade-melbourne|POINTS|OVER|9.5",
+      "player": "Jade Melbourne",
+      "propType": "POINTS",
+      "predictedProbability": 0.747,
+      "modelWinProbability": 0.5538,
+      "decisionScoreV2": 0.5538,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "megan-dileo|REBOUNDS|OVER|4.5",
+      "player": "Megan DiLeo",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.47821,
+      "modelWinProbability": 0.5685,
+      "decisionScoreV2": 0.5685,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|ASSISTS|OVER|4.5",
+      "player": "Natisha Hiedeman",
+      "propType": "ASSISTS",
+      "predictedProbability": 0.83387,
+      "modelWinProbability": 0.6735,
+      "decisionScoreV2": 0.6735,
+      "probabilityBucket": "ge60",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|REBOUNDS|OVER|2.5",
+      "player": "Natisha Hiedeman",
+      "propType": "REBOUNDS",
+      "predictedProbability": 0.463586,
+      "modelWinProbability": 0.5688,
+      "decisionScoreV2": 0.5688,
+      "probabilityBucket": "lt55",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    }
+  ],
+  "outcomes": {
+    "ge60": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "55_60": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "lt55": {
+      "status": "PENDING",
+      "wL": null
+    }
+  }
+}

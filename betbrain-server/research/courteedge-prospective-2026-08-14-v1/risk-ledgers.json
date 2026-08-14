@@ -1,0 +1,217 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "band": "Trusted",
+  "status": "PENDING",
+  "note": "Trusted RiskV2 band template — outcomes PENDING until finals.",
+  "summary": {
+    "HIGH": 14,
+    "MEDIUM": 1,
+    "LOW": 0,
+    "n": 15
+  },
+  "bands": {
+    "HIGH": [
+      "alanna-smith|REBOUNDS|OVER|7.5",
+      "aliyah-boston|ASSISTS|OVER|3.5",
+      "aliyah-boston|REBOUNDS|OVER|8.5",
+      "arike-ogunbowale|ASSISTS|OVER|3.5",
+      "caitlin-clark|ASSISTS|OVER|9.5",
+      "kelsey-mitchell|ASSISTS|OVER|2.5",
+      "lexie-hull|REBOUNDS|OVER|2.5",
+      "bridget-carleton|POINTS|OVER|16.5",
+      "bridget-carleton|REBOUNDS|OVER|4.5",
+      "carla-leite|ASSISTS|OVER|6.5",
+      "jade-melbourne|POINTS|OVER|9.5",
+      "megan-dileo|REBOUNDS|OVER|4.5",
+      "natisha-hiedeman|ASSISTS|OVER|4.5",
+      "natisha-hiedeman|REBOUNDS|OVER|2.5"
+    ],
+    "MEDIUM": [
+      "kelsey-mitchell|POINTS|OVER|24.5"
+    ],
+    "LOW": []
+  },
+  "rows": [
+    {
+      "integrityKey": "alanna-smith|REBOUNDS|OVER|7.5",
+      "player": "Alanna Smith",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 7.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|ASSISTS|OVER|3.5",
+      "player": "Aliyah Boston",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 3.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|REBOUNDS|OVER|8.5",
+      "player": "Aliyah Boston",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 8.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "arike-ogunbowale|ASSISTS|OVER|3.5",
+      "player": "Arike Ogunbowale",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 3.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "caitlin-clark|ASSISTS|OVER|9.5",
+      "player": "Caitlin Clark",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 9.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|ASSISTS|OVER|2.5",
+      "player": "Kelsey Mitchell",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 2.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|POINTS|OVER|24.5",
+      "player": "Kelsey Mitchell",
+      "propType": "POINTS",
+      "side": "OVER",
+      "line": 24.5,
+      "risk": "MEDIUM",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "lexie-hull|REBOUNDS|OVER|2.5",
+      "player": "Lexie Hull",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 2.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|POINTS|OVER|16.5",
+      "player": "Bridget Carleton",
+      "propType": "POINTS",
+      "side": "OVER",
+      "line": 16.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|REBOUNDS|OVER|4.5",
+      "player": "Bridget Carleton",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 4.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "carla-leite|ASSISTS|OVER|6.5",
+      "player": "Carla Leite",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 6.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "jade-melbourne|POINTS|OVER|9.5",
+      "player": "Jade Melbourne",
+      "propType": "POINTS",
+      "side": "OVER",
+      "line": 9.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "megan-dileo|REBOUNDS|OVER|4.5",
+      "player": "Megan DiLeo",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 4.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|ASSISTS|OVER|4.5",
+      "player": "Natisha Hiedeman",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 4.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|REBOUNDS|OVER|2.5",
+      "player": "Natisha Hiedeman",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 2.5,
+      "risk": "HIGH",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    }
+  ],
+  "outcomes": {
+    "HIGH": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "MEDIUM": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "LOW": {
+      "status": "PENDING",
+      "wL": null
+    }
+  }
+}

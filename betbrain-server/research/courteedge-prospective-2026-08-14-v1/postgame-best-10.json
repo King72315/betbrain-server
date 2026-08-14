@@ -1,0 +1,15 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "lane": "BestAvailable",
+  "n": 10,
+  "status": "AWAIT_FINALS",
+  "note": "Postgame stub — games not FINAL. Do not fabricate outcomes. Pregame prediction fields are authoritative until graded.",
+  "pregamePointer": "pregame-best-available-10.json",
+  "gitCommit": "1d7a6deeca02559454c68c1c74fd0cf0f1a9f8d0",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "grades": null,
+  "wL": null,
+  "hitRate": null,
+  "records": null
+}

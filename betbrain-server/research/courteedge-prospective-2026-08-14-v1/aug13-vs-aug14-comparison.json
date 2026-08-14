@@ -1,0 +1,125 @@
+{
+  "title": "Architecture difference: 2026-08-13 vs 2026-08-14 CourtEdge prospective",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "claimIdenticalArchitecture": false,
+  "note": "8/13 and 8/14 are NOT identical architecture. Do not compare W-L as same-system evidence without this caveat.",
+  "2026-08-13": {
+    "architecture": "PRE-V3_INCOMPLETE",
+    "label": "PRE-V3 / odds-incomplete freeze (historical product + separate V3 shadow)",
+    "knownRecords": {
+      "original": {
+        "candidateCount": 45,
+        "byType": {
+          "POINTS": 15,
+          "REBOUNDS": 15,
+          "ASSISTS": 15
+        },
+        "fullWl": {
+          "WIN": 26,
+          "LOSS": 19,
+          "n": 45,
+          "hit": 0.5778,
+          "record": "26-19"
+        },
+        "homeWeaveWl": {
+          "WIN": 5,
+          "LOSS": 5,
+          "n": 10,
+          "hit": 0.5,
+          "record": "5-5"
+        },
+        "officialCount": 0,
+        "officialWl": {
+          "WIN": 0,
+          "LOSS": 0,
+          "n": 0,
+          "hit": null,
+          "record": "0-0"
+        }
+      },
+      "v3Shadow": {
+        "trustedCount": 0,
+        "completeTrustedPacketN": 0,
+        "incompleteReasons": {
+          "MISSING_PROJECTION": 45,
+          "MISSING_FAIR_LINE": 45,
+          "MISSING_SAFETY": 45
+        },
+        "bestAvailableWl": {
+          "WIN": 5,
+          "LOSS": 5,
+          "n": 10,
+          "hit": 0.5,
+          "record": "5-5"
+        },
+        "fullWl": {
+          "WIN": 26,
+          "LOSS": 19,
+          "n": 45,
+          "hit": 0.5778,
+          "record": "26-19"
+        },
+        "globalTop10Wl": {
+          "WIN": 5,
+          "LOSS": 5,
+          "n": 10,
+          "hit": 0.5,
+          "record": "5-5"
+        },
+        "marketBalancedWeave": false,
+        "forcedHomeFill": false,
+        "note": "Candidate count unchanged because 8/13 freeze already truncated; V3 removes future truncation only."
+      },
+      "shadowLabel": "SHADOW_NOT_HISTORICAL_PRODUCT_TRUTH",
+      "interpretation": [
+        "Original Official=0 remains 0 under V3 because odds-only packets fail complete Trusted gate.",
+        "Best Available shows honest non-trusted top quality (not labeled Official).",
+        "Weave no longer production authority; global Top10 W-L remains 5-5 on this slate (ranking still weak on odds-implied scores).",
+        "Do not treat any W-L change here as Grade-A proof."
+      ]
+    },
+    "counts": {
+      "fullCandidates": 45,
+      "byType": {
+        "POINTS": 15,
+        "REBOUNDS": 15,
+        "ASSISTS": 15
+      },
+      "trustedCompletePacket": 0,
+      "official": 0
+    },
+    "homeRankAuthorityHistorical": "market_balanced_v2_home_weave (pre-V3 production)",
+    "fullStack": false
+  },
+  "2026-08-14": {
+    "architecture": "V3_FULL_STACK",
+    "label": "V3 FULL_STACK prospective cohort",
+    "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+    "architectureFlags": {
+      "FULL_STACK_OK": true,
+      "homeRankAuthority": "global_quality_v3",
+      "market_weave_OFF": true
+    },
+    "counts": {
+      "Trusted": 15,
+      "BestAvailable": 10,
+      "Full": 50,
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "grading": {
+      "status": "AWAIT_FINALS",
+      "gamesFinalObserved": false,
+      "pendingCount": 50,
+      "finalCount": 0
+    },
+    "note": "Full-stack Trusted packets present (projection, fairLine, P, Safety, Risk). Outcomes not yet graded."
+  },
+  "comparisonRules": [
+    "Do not claim identical architecture between 8/13 and 8/14.",
+    "8/13 PRE-V3 incomplete (odds-only packets; Trusted complete=0).",
+    "8/14 V3 FULL_STACK prospective freeze (Trusted=15 complete).",
+    "W-L comparison deferred until 8/14 finals; even then interpret with architecture caveat."
+  ]
+}

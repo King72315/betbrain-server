@@ -1,0 +1,19 @@
+{
+  "expectedTrusted": 15,
+  "displayedTrusted": 15,
+  "missing": [],
+  "extra": [],
+  "mutated": [],
+  "expectedBest": 10,
+  "displayedBest": 10,
+  "expectedFull": 50,
+  "displayedFull": 50,
+  "fullByPropType": {
+    "POINTS": 19,
+    "REBOUNDS": 17,
+    "ASSISTS": 14
+  },
+  "marketBalancedWeave": false,
+  "homeRankAuthority": "global_quality_v3",
+  "pass": true
+}

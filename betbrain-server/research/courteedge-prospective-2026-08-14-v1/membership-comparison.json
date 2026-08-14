@@ -1,0 +1,47 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "gitCommit": "1d7a6deeca02559454c68c1c74fd0cf0f1a9f8d0",
+  "note": "Membership structure freeze — outcomes PENDING until games FINAL. Do not invent W-L.",
+  "Full": {
+    "N": 50,
+    "byPropType": {
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "status": "PENDING",
+    "wL": null,
+    "hitRate": null
+  },
+  "Best": {
+    "N": 10,
+    "byPropType": {
+      "POINTS": 10,
+      "REBOUNDS": 0,
+      "ASSISTS": 0
+    },
+    "status": "PENDING",
+    "wL": null,
+    "hitRate": null,
+    "sourceFile": "pregame-best-available-10.json"
+  },
+  "Trusted": {
+    "N": 15,
+    "byPropType": {
+      "POINTS": 3,
+      "REBOUNDS": 6,
+      "ASSISTS": 6
+    },
+    "status": "PENDING",
+    "wL": null,
+    "hitRate": null,
+    "sourceFile": "pregame-trusted-15.json"
+  },
+  "separation": {
+    "trustedWithinFull": true,
+    "bestWithinFull": true,
+    "trustedDisjointFromBestPresentation": "Best Available is non-Trusted global top; Trusted is Official complete-packet band"
+  }
+}

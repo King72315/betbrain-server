@@ -1,0 +1,40 @@
+{
+  "status": "AWAIT_FINALS",
+  "preflightPass": true,
+  "epermPass": true,
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "dryRunOnly": true,
+  "note": "Lookup-only preflight + EPERM regression PASS. No grades written. All 50 PENDING until games FINAL.",
+  "gradeTargets": {
+    "trusted": {
+      "found": 15,
+      "missing": []
+    },
+    "best": {
+      "found": 10,
+      "missing": []
+    },
+    "full": {
+      "found": 50,
+      "missing": []
+    },
+    "byPropType": {
+      "POINTS": 19,
+      "REBOUNDS": 17,
+      "ASSISTS": 14
+    },
+    "pass": true
+  },
+  "eperm": {
+    "exitCode": 0,
+    "pass": true
+  },
+  "gradingStatus": {
+    "gamesFinalObserved": false,
+    "pendingCount": 50,
+    "finalCount": 0,
+    "action": "GRADING_DEFERRED_AWAIT_FINALS"
+  }
+}

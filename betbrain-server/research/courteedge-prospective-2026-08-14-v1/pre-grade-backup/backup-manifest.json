@@ -1,0 +1,12 @@
+{
+  "copied": [
+    "canonical-predictions-v1.json",
+    "tracked-props.json",
+    "line-snapshots.json",
+    "locked-slates.json",
+    "daily-slate-reports.json",
+    "pregame-product-truth.json"
+  ],
+  "missing": [],
+  "at": "2026-08-14T09:20:54.063Z"
+}

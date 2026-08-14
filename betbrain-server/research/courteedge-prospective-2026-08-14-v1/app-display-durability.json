@@ -1,0 +1,16 @@
+{
+  "pass": true,
+  "countsMatch": true,
+  "trustedPropIdsMatch": true,
+  "durability1": {
+    "trusted": 15,
+    "best": 10,
+    "full": 50
+  },
+  "durability2": {
+    "trusted": 15,
+    "best": 10,
+    "full": 50
+  },
+  "at": "2026-08-14T09:18:34.428Z"
+}

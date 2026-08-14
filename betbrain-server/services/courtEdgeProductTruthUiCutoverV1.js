@@ -31,11 +31,15 @@ export function cardToDisplayPick(card = {}, options = {}) {
     : String(grade).toLowerCase();
   const slateDate = card.slateDateCt || options.slateDateCt || null;
   let v2 = null;
+  // Prospective integrity: frozen Product Truth scores are immutable on display.
+  // Prefer stored decisionScoreV2 / modelWinProbability / officialRankScore.
+  // Rescore only when no frozen score exists (legacy incomplete rows).
   const storedScore =
-    card.modelWinProbability ?? card.decisionScoreV2 ?? null;
-  // Prefer stored cross-market Home score when projection is missing
-  // (odds-implied regenerate path). Otherwise rescore with Decision Engine V2.
-  if (card.projection != null) {
+    card.decisionScoreV2 ??
+    card.modelWinProbability ??
+    card.officialRankScore ??
+    null;
+  if (storedScore == null && card.projection != null) {
     try {
       v2 = scoreCandidateV2({
         propType: card.propType,
@@ -54,9 +58,9 @@ export function cardToDisplayPick(card = {}, options = {}) {
     }
   }
   const modelWinProbability =
-    v2?.modelWinProbability ??
-    (storedScore != null ? Number(storedScore) : null) ??
-    null;
+    storedScore != null
+      ? Number(storedScore)
+      : v2?.modelWinProbability ?? null;
   const displayConfidence =
     modelWinProbability == null
       ? card.confidence
@@ -84,7 +88,8 @@ export function cardToDisplayPick(card = {}, options = {}) {
     displayConfidence,
     predictedProbability: card.predictedProbability,
     modelWinProbability,
-    decisionScoreV2: v2?.decisionScoreV2 ?? modelWinProbability,
+    decisionScoreV2:
+      card.decisionScoreV2 ?? v2?.decisionScoreV2 ?? modelWinProbability,
     normalizedProjectionStrength: v2?.normalizedProjectionStrength ?? null,
     decisionAuthority: DECISION_ENGINE_V2_BUILD,
     safetyScore: card.safetyScore,
@@ -93,7 +98,8 @@ export function cardToDisplayPick(card = {}, options = {}) {
     trueRisk: card.risk,
     c2Risk: card.risk,
     officialRankScore:
-      modelWinProbability ?? card.officialRankScore,
+      card.officialRankScore ?? modelWinProbability,
+    frozenScorePreserved: storedScore != null,
     membership: card.membership,
     officialSelected: card.membership === "OFFICIAL",
     immutableOfficial: card.membership === "OFFICIAL",

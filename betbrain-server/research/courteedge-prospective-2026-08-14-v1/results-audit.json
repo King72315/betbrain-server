@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "endpoint": "/product-truth/results?slateDate=2026-08-14",
+  "status": 200,
+  "topKeys": [
+    "ok",
+    "build",
+    "slateDateCt",
+    "todayLocalDate",
+    "availableSlateDates",
+    "official",
+    "research",
+    "officialSummary",
+    "researchSummary",
+    "props",
+    "copyOfficial",
+    "copyResearch",
+    "authority",
+    "legacyActiveSlatePointerIgnored"
+  ],
+  "officialCount": 15,
+  "researchCount": 35,
+  "trustedCount": 15,
+  "trustedCanonicalPropIdsPresentInOfficial": 15,
+  "trustedCanonicalPropIdsPresentInResearch": 0,
+  "trustedCanonicalPropIdsPresentInEither": 15,
+  "allTrustedPresent": true,
+  "missingTrustedIds": [],
+  "pendingSummaryOfficial": {
+    "n": 15,
+    "pending": 15,
+    "final": 0,
+    "other": 0
+  },
+  "pendingSummaryResearch": {
+    "n": 35,
+    "pending": 35,
+    "final": 0,
+    "other": 0
+  },
+  "slateDate": null
+}

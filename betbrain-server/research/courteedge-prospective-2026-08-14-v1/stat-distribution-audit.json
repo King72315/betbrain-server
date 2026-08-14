@@ -1,0 +1,14 @@
+{
+  "fullTotal": 50,
+  "points": 19,
+  "rebounds": 17,
+  "assists": 14,
+  "not151515": true,
+  "expected": {
+    "total": 50,
+    "POINTS": 19,
+    "REBOUNDS": 17,
+    "ASSISTS": 14
+  },
+  "pass": true
+}

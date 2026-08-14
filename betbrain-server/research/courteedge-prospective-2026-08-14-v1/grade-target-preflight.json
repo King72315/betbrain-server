@@ -1,0 +1,22 @@
+{
+  "dryRun": true,
+  "note": "Lookup-only — no grades written",
+  "trusted": {
+    "found": 15,
+    "missing": []
+  },
+  "best": {
+    "found": 10,
+    "missing": []
+  },
+  "full": {
+    "found": 50,
+    "missing": []
+  },
+  "byPropType": {
+    "POINTS": 19,
+    "REBOUNDS": 17,
+    "ASSISTS": 14
+  },
+  "pass": true
+}

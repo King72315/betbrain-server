@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "endpoint": "/history-archives?slateDate=2026-08-14",
+  "status": 200,
+  "topKeys": [
+    "ok",
+    "archives",
+    "count",
+    "serverBuild",
+    "signalPerformanceVersion",
+    "historyThreeSlateGroupsVersion",
+    "historyThreeSlateGroups",
+    "membershipIntegrityBuild"
+  ],
+  "count": 19,
+  "error": null,
+  "slim": {
+    "ok": true,
+    "slateDate": null,
+    "message": null
+  }
+}

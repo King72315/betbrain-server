@@ -1,0 +1,179 @@
+{
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "exportedAt": "2026-08-14T09:24:42.869Z",
+  "band": "Trusted",
+  "status": "PENDING",
+  "note": "Trusted Safety band template — outcomes PENDING until finals.",
+  "summary": {
+    "70plus": 7,
+    "50_69": 7,
+    "under50": 1
+  },
+  "rows": [
+    {
+      "integrityKey": "alanna-smith|REBOUNDS|OVER|7.5",
+      "player": "Alanna Smith",
+      "propType": "REBOUNDS",
+      "safetyScore": 63,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|ASSISTS|OVER|3.5",
+      "player": "Aliyah Boston",
+      "propType": "ASSISTS",
+      "safetyScore": 66,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "aliyah-boston|REBOUNDS|OVER|8.5",
+      "player": "Aliyah Boston",
+      "propType": "REBOUNDS",
+      "safetyScore": 67,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "arike-ogunbowale|ASSISTS|OVER|3.5",
+      "player": "Arike Ogunbowale",
+      "propType": "ASSISTS",
+      "safetyScore": 66,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "caitlin-clark|ASSISTS|OVER|9.5",
+      "player": "Caitlin Clark",
+      "propType": "ASSISTS",
+      "safetyScore": 67,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|ASSISTS|OVER|2.5",
+      "player": "Kelsey Mitchell",
+      "propType": "ASSISTS",
+      "safetyScore": 49,
+      "safetyBucket": "under50",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "kelsey-mitchell|POINTS|OVER|24.5",
+      "player": "Kelsey Mitchell",
+      "propType": "POINTS",
+      "safetyScore": 76,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "lexie-hull|REBOUNDS|OVER|2.5",
+      "player": "Lexie Hull",
+      "propType": "REBOUNDS",
+      "safetyScore": 50,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|POINTS|OVER|16.5",
+      "player": "Bridget Carleton",
+      "propType": "POINTS",
+      "safetyScore": 82,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "bridget-carleton|REBOUNDS|OVER|4.5",
+      "player": "Bridget Carleton",
+      "propType": "REBOUNDS",
+      "safetyScore": 73,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "carla-leite|ASSISTS|OVER|6.5",
+      "player": "Carla Leite",
+      "propType": "ASSISTS",
+      "safetyScore": 70,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "jade-melbourne|POINTS|OVER|9.5",
+      "player": "Jade Melbourne",
+      "propType": "POINTS",
+      "safetyScore": 79,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "megan-dileo|REBOUNDS|OVER|4.5",
+      "player": "Megan DiLeo",
+      "propType": "REBOUNDS",
+      "safetyScore": 65,
+      "safetyBucket": "50_69",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|ASSISTS|OVER|4.5",
+      "player": "Natisha Hiedeman",
+      "propType": "ASSISTS",
+      "safetyScore": 72,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    },
+    {
+      "integrityKey": "natisha-hiedeman|REBOUNDS|OVER|2.5",
+      "player": "Natisha Hiedeman",
+      "propType": "REBOUNDS",
+      "safetyScore": 70,
+      "safetyBucket": "70plus",
+      "status": "PENDING",
+      "grade": "PENDING",
+      "actual": null
+    }
+  ],
+  "outcomes": {
+    "70plus": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "50_69": {
+      "status": "PENDING",
+      "wL": null
+    },
+    "under50": {
+      "status": "PENDING",
+      "wL": null
+    }
+  }
+}

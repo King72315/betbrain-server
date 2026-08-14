@@ -1,0 +1,9 @@
+{
+  "status": "AWAIT_FINALS",
+  "note": "Miss margins require FINAL game actuals vs frozen lines. No grades written; all 50 Full rows still PENDING. Recompute after postgame grading without mutating pregame prediction fields.",
+  "cohortId": "COURTEDGE_V3_PROSPECTIVE_COHORT_2026_08_14_01",
+  "slateDateCt": "2026-08-14",
+  "pendingCount": 50,
+  "finalCount": 0,
+  "margins": []
+}
