@@ -169,6 +169,7 @@ import {
   teamsMatch,
 } from "./engines/wnba/wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "./engines/wnba/wnbaPlayerIdResolver.js";
+import { normalizePropTypeV1 } from "./engines/wnba/propTypeV1.js";
 import {
   PLAYER_INTELLIGENCE_BUILD_TAG,
   buildPlayerProfileLabReport,
@@ -383,6 +384,27 @@ import {
   buildHonestResultsEmptyCopy,
   archiveCompletedSlateIdempotent,
 } from "./services/courtEdgeTabFlowRepairV1.js";
+import { identityOwnershipReport } from "./services/courtEdgeCanonicalPropIdV1.js";
+import {
+  bootstrapAug12ProductTruth,
+  formatCopyReportFromCanonical,
+  getProductTruthBoard,
+  SINGLE_PRODUCT_TRUTH_BUILD,
+} from "./services/courtEdgeSingleProductTruthApiV1.js";
+import { admitCanonicalOfficialToResults } from "./services/courtEdgeOfficialCanonicalAdmitV1.js";
+import {
+  reconstructAug12ForensicCohorts,
+  AUG12_SLATE,
+} from "./services/courtEdgeAug12ForensicReconstructionV1.js";
+import { buildDailyDecisionLearningReport } from "./services/courtEdgeDecisionLearningWarehouseV1.js";
+import {
+  downgradeLegacyMembershipToForensic,
+  getHomeProductTruthBoard,
+  getResultsProductTruthBoard,
+  PRODUCT_TRUTH_UI_CUTOVER_BUILD,
+} from "./services/courtEdgeProductTruthUiCutoverV1.js";
+import { gradeAug12ResearchCandidates } from "./services/courtEdgeAug12ResearchGradingV1.js";
+import { bootstrapFullSlateHome } from "./services/courtEdgeFullSlateHomeV1.js";
 import {
   classifyProviderError,
   getSchedulerStatus,
@@ -414,7 +436,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-single-machine-control-plane-v1-safer-side";
+  "courteedge-grade-a-recovery-v3";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -1773,6 +1795,82 @@ function trackSideAuditRejection(audit, side, reasons = []) {
   }
 }
 
+/**
+ * Keep PTS + REB + AST in the analyzed set.
+ * V3: NO per-market / maxTotal production quotas. All valid consensus markets
+ * with proven propType flow into Full Predictions. Soft caps only when
+ * options.diagnosticSoftCap === true (non-production diagnostics).
+ */
+function selectMultiStatAnalyzedPropsPerGame(propsAll = [], options = {}) {
+  const diagnosticSoftCap = options.diagnosticSoftCap === true;
+  const perMarket = diagnosticSoftCap
+    ? Number(options.perMarket) > 0
+      ? Number(options.perMarket)
+      : 4
+    : Infinity;
+  const maxTotal = diagnosticSoftCap
+    ? Number(options.maxTotal) > 0
+      ? Number(options.maxTotal)
+      : 12
+    : Infinity;
+  const buckets = { POINTS: [], REBOUNDS: [], ASSISTS: [] };
+  for (const prop of Array.isArray(propsAll) ? propsAll : []) {
+    const pt = normalizePropTypeV1(
+      prop.propType || prop.canonicalPropType || prop.stat
+    );
+    if (!pt || !buckets[pt]) continue;
+    buckets[pt].push(prop);
+  }
+  const qualitySort = (a, b) =>
+    Number(b.bookCount || 0) - Number(a.bookCount || 0) ||
+    Number(b.marketQuality || 0) - Number(a.marketQuality || 0);
+  const picked = [];
+  const seen = new Set();
+  const keyOf = (p) =>
+    [
+      String(p.player || p.playerName || "").toLowerCase(),
+      normalizePropTypeV1(p.propType || p.stat) || "",
+      p.line,
+      String(p.side || "").toUpperCase(),
+    ].join("|");
+  for (const pt of ["POINTS", "REBOUNDS", "ASSISTS"]) {
+    const list = [...buckets[pt]].sort(qualitySort);
+    const take = diagnosticSoftCap ? list.slice(0, perMarket) : list;
+    for (const prop of take) {
+      const k = keyOf(prop);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      picked.push({
+        ...prop,
+        propType: pt,
+        canonicalPropType: pt,
+        stat:
+          prop.stat ||
+          (pt === "REBOUNDS" ? "Rebounds" : pt === "ASSISTS" ? "Assists" : "Points"),
+      });
+    }
+  }
+  if (diagnosticSoftCap && picked.length < maxTotal) {
+    const rest = [...(Array.isArray(propsAll) ? propsAll : [])]
+      .sort(qualitySort)
+      .filter((p) => !seen.has(keyOf(p)));
+    for (const prop of rest) {
+      if (picked.length >= maxTotal) break;
+      const pt = normalizePropTypeV1(prop.propType || prop.stat);
+      if (!pt) continue;
+      const k = keyOf(prop);
+      seen.add(k);
+      picked.push({
+        ...prop,
+        propType: pt,
+        canonicalPropType: pt,
+      });
+    }
+  }
+  if (diagnosticSoftCap) return picked.slice(0, maxTotal);
+  return picked;
+}
+
 async function buildPicksForDay(daysAhead = 0, league = "NBA") {
   const gamesRaw = await fetchOddsGameCards(league, daysAhead);
   const isSlimRefresh = process.env.COURTEDGE_REFRESH_SLIM !== "false";
@@ -1892,16 +1990,11 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       ["player_points", "player_rebounds", "player_assists"]
     );
     const propsAll = buildConsensusPlayerProps(rawProps);
-    // Cap analyzed consensus props per game to keep Render refresh under
-    // memory/lifetime limits while still leaving ?6 playable candidates when
-    // markets support it. Prefer higher bookCount / marketQuality.
-    const props = [...propsAll]
-      .sort(
-        (a, b) =>
-          Number(b.bookCount || 0) - Number(a.bookCount || 0) ||
-          Number(b.marketQuality || 0) - Number(a.marketQuality || 0)
-      )
-      .slice(0, 6);
+    // V3: all valid PTS/REB/AST consensus markets enter Full Predictions.
+    // No per-stat / maxTotal production quotas.
+    const props = selectMultiStatAnalyzedPropsPerGame(propsAll, {
+      diagnosticSoftCap: false,
+    });
     const gameSpread = await fetchConsensusGameSpread(oddsEvent.id, league);
     const wnbaGameContext =
       league === "WNBA" && isCourteEdgeWnbaV1Enabled()
@@ -3949,8 +4042,10 @@ app.get("/health", (req, res) => {
       build: CONTROL_PLANE_BUILD,
       ...CONTROL_PLANE_CONTRACT,
       highPolicy: HIGH_POLICY,
-      officialBoardMin: OFFICIAL_BOARD_MIN,
+      officialBoardMin: 0,
       officialBoardMax: OFFICIAL_BOARD_MAX,
+      decisionAuthority: "DECISION_ENGINE_V2",
+      legacyOfficialBoardMin: OFFICIAL_BOARD_MIN,
     },
     empiricalSafePropV2: {
       enabled: EMPIRICAL_SAFE_PROP_V2 === true,
@@ -3979,10 +4074,10 @@ app.get("/health", (req, res) => {
       role: "SIDE_CHOICE_ONLY",
       directionMode: "EDUCATED_GUESS",
       directionAdmissions: ["PRIMARY", "BEST_GUESS"],
-      pipelineOrder: "INTEGRITY_DIRECTION_C2_SAFEST_2_TO_6",
+      pipelineOrder: "INTEGRITY_DIRECTION_C2_FEATURE_DECISION_ENGINE_V2",
       directionNoBetBlocksOfficial: false,
-      boardSizePolicy: "SAFEST_2_TO_6",
-      officialBoardMin: OFFICIAL_BOARD_MIN,
+      boardSizePolicy: "DECISION_ENGINE_V2_QUALITY_RANK_NO_MINIMUM",
+      officialBoardMin: 0,
       officialBoardMax: OFFICIAL_BOARD_MAX,
       noTuning: true,
     },
@@ -4044,10 +4139,25 @@ app.get("/picks", async (req, res) => {
   try {
     // Read-only: do not fetch providers / mutate tracking on screen open.
     const board = getReadOnlyBoard();
+    const todayDate = getTodayLocalDate();
+    // V3: Product Truth Home is authoritative even when legacy board cache is empty
+    // (fixes Local board vs Render "No saved board yet" silent divergence).
+    let homeTruth = null;
+    try {
+      homeTruth = getHomeProductTruthBoard({ todayLocalDate: todayDate });
+    } catch (err) {
+      homeTruth = { ok: false, error: err?.message || String(err) };
+    }
     if (!board) {
       return res.json({
         ok: true,
-        message: "No saved board yet ? waiting for scheduled or manual refresh",
+        message:
+          homeTruth?.ok &&
+          ((homeTruth.todayFullPredictions || []).length > 0 ||
+            (homeTruth.todayOfficial || []).length > 0 ||
+            (homeTruth.homeTodayBestAvailable || []).length > 0)
+            ? "Legacy board cache empty — Product Truth Home available"
+            : "No saved board yet ? waiting for scheduled or manual refresh",
         serverBuild: SERVER_BUILD,
         readOnly: true,
         games: [],
@@ -4058,41 +4168,22 @@ app.get("/picks", async (req, res) => {
         bestSixNBA: [],
         bestSixDisplayWNBA: [],
         bestSixDisplayNBA: [],
+        bestSixDisplayTodayWNBA: homeTruth?.homeTodayDisplayOfficial || [],
+        bestSixDisplayTomorrowWNBA: homeTruth?.tomorrowOfficial || [],
+        productTruthHome: homeTruth,
+        membershipSource: "product-truth-v1",
         lastUpdated: null,
       });
     }
 
-    // Overlay Official sealed snapshot membership when board-cache omitted it.
-    // Does not reseal â€” reads existing slate-snapshots only.
-    const todayDate = getTodayLocalDate();
+    // Product Truth UI cutover: Home Official membership comes from
+    // /product-truth (CT calendar). Legacy selectedPropsTodayWNBA /
+    // controlledBestBoard / officialMembership are forensic mirrors only.
     const sealedSnap = getLockedSnapshot(todayDate);
     const sealedProps = Array.isArray(sealedSnap?.props) ? sealedSnap.props : [];
-    const boardWithSeal =
-      sealedProps.length > 0
-        ? {
-            ...board,
-            officialMembership: sealedProps,
-            selectedPropsTodayWNBA: sealedProps,
-            controlledBestBoard: sealedProps,
-            membershipSource:
-              board.membershipSource ||
-              sealedSnap?.membershipModel ||
-              "controlled-best-board-v2",
-            selectionBuildId:
-              board.selectionBuildId ||
-              sealedSnap?.selectionBuildId ||
-              sealedProps[0]?.selectionBuildId ||
-              null,
-            sealBuildId:
-              board.sealBuildId ||
-              sealedSnap?.selectionBuildId ||
-              null,
-            variableBoardSize: true,
-          }
-        : board;
 
     const sanitized = sanitizePropTypeDisplayOnBoard(
-      sanitizeHomeBoardForLifecycle(boardWithSeal, {
+      sanitizeHomeBoardForLifecycle(board, {
         todayLocalDate: todayDate,
         trackedProps: getTrackedProps(),
         reports: getRawDailySlateReports(),
@@ -4100,16 +4191,22 @@ app.get("/picks", async (req, res) => {
         lockedSlates: getLockedSlatesRegistry().slates || [],
       })
     );
+    const cutover = downgradeLegacyMembershipToForensic(
+      {
+        ...sanitized,
+        // Keep raw sealed today props only as forensic debug payload.
+        forensicSealedTodayProps: sealedProps,
+      },
+      homeTruth
+    );
     return res.json({
-      ...sanitized,
+      ...cutover,
       readOnly: true,
       serverBuild: SERVER_BUILD,
       boardSchemaVersion: BOARD_SCHEMA_VERSION,
       sealedOfficialTodayCount: sealedProps.length,
-      officialMembership: sanitized.officialMembership || sealedProps,
-      controlledBestBoard: sanitized.controlledBestBoard || sealedProps,
-      selectedPropsTodayWNBA:
-        sanitized.selectedPropsTodayWNBA || sealedProps,
+      productTruthUiCutoverBuild: PRODUCT_TRUTH_UI_CUTOVER_BUILD,
+      singleProductTruthBuild: SINGLE_PRODUCT_TRUTH_BUILD,
     });
   } catch (error) {
     console.log("GET PICKS ERROR:", error.message);
@@ -4967,6 +5064,138 @@ app.get("/tracked-props/analytics", (req, res) => {
     count: scopedProps.length,
     scope: "completed_lab_history_only",
   });
+});
+
+app.get("/product-truth", (req, res) => {
+  try {
+    const slateDateCt = String(req.query.slateDate || req.query.date || "").slice(0, 10);
+    const membership = req.query.membership
+      ? String(req.query.membership).toUpperCase()
+      : null;
+    const board = getProductTruthBoard({
+      slateDateCt: /^\d{4}-\d{2}-\d{2}$/.test(slateDateCt) ? slateDateCt : null,
+      membership,
+    });
+    res.json({
+      ...board,
+      singleProductTruthBuild: SINGLE_PRODUCT_TRUTH_BUILD,
+      productTruthUiCutoverBuild: PRODUCT_TRUTH_UI_CUTOVER_BUILD,
+      identityOwner: identityOwnershipReport(),
+    });
+  } catch (error) {
+    console.error("GET /product-truth error:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get("/product-truth/home", (req, res) => {
+  try {
+    res.json(getHomeProductTruthBoard());
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get("/product-truth/results", (req, res) => {
+  try {
+    const slateDateCt = String(req.query.slateDate || req.query.date || "").slice(0, 10);
+    res.json(
+      getResultsProductTruthBoard({
+        slateDateCt: /^\d{4}-\d{2}-\d{2}$/.test(slateDateCt) ? slateDateCt : null,
+      })
+    );
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post("/product-truth/grade-aug12-research", async (req, res) => {
+  try {
+    const result = await gradeAug12ResearchCandidates();
+    res.json(result);
+  } catch (error) {
+    console.error("POST /product-truth/grade-aug12-research error:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get("/product-truth/copy-report", (req, res) => {
+  try {
+    const slateDateCt = String(req.query.slateDate || AUG12_SLATE).slice(0, 10);
+    const board = getProductTruthBoard({ slateDateCt });
+    const cohort = String(req.query.cohort || "official").toLowerCase();
+    const cards = cohort === "research" ? board.research : board.official;
+    res.type("text/plain").send(
+      formatCopyReportFromCanonical(cards, {
+        title: cohort === "research" ? "Research" : "Official",
+        slateDateCt,
+      })
+    );
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post("/product-truth/bootstrap-aug12", (req, res) => {
+  try {
+    const boot = bootstrapAug12ProductTruth();
+    const admit = admitCanonicalOfficialToResults(AUG12_SLATE, {
+      reconstructionConfidence: "FORENSIC",
+    });
+    res.json({ ok: boot.ok && admit.ok, boot, admit });
+  } catch (error) {
+    console.error("POST /product-truth/bootstrap-aug12 error:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+/** Ingest frozen full slate → track RESEARCH → ESPN grade → Home ranked board. */
+app.post("/product-truth/bootstrap-full-slate", async (req, res) => {
+  try {
+    const slateDateCt = String(
+      req.body?.slateDate || req.query?.slateDate || getTodayLocalDate()
+    ).slice(0, 10);
+    const boot = await bootstrapFullSlateHome(slateDateCt, {
+      persistTracked: true,
+    });
+    // Also run tracked-prop resolve so Lab/Results grades stay in sync.
+    let resolveSummary = null;
+    try {
+      const resolved = await resolveTrackedProps({
+        slateDateFilter: slateDateCt,
+        requireLikelyFinished: false,
+      });
+      resolveSummary = resolved?.summary || null;
+    } catch (err) {
+      resolveSummary = { error: err?.message || String(err) };
+    }
+    res.json({ ...boot, resolveSummary });
+  } catch (error) {
+    console.error("POST /product-truth/bootstrap-full-slate error:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get("/product-truth/decision-learning/:slateDate", (req, res) => {
+  try {
+    const slateDateCt = String(req.params.slateDate || "").slice(0, 10);
+    res.json({
+      ok: true,
+      build: SINGLE_PRODUCT_TRUTH_BUILD,
+      report: buildDailyDecisionLearningReport(slateDateCt),
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post("/product-truth/reconstruct-aug12", (req, res) => {
+  try {
+    const recon = reconstructAug12ForensicCohorts({ persist: true });
+    res.json(recon);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.post("/resolve-tracked-props", async (req, res) => {

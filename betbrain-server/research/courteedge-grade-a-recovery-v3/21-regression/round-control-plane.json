@@ -1,0 +1,22 @@
+﻿{
+  "fail": 0,
+  "pass": 3,
+  "tests": [
+    {
+      "exitCode": 0,
+      "pass": true,
+      "name": "testCourtEdgeGradeARecoveryV3.js"
+    },
+    {
+      "exitCode": 0,
+      "pass": true,
+      "name": "testCourtEdgeDecisionEngineV2.js"
+    },
+    {
+      "exitCode": 0,
+      "pass": true,
+      "name": "testCanonicalEpermAtomicWriteV1.js"
+    }
+  ],
+  "notes": "2026-08-14: All three regression scripts PASSED (exit 0). Grade-A Recovery V3: Trusted/Best Available/Full sections, incomplete packet Trusted gate, Official selector, no weave/balance, odds-only blocked. Decision Engine V2: separate stat models, no min board, incomplete odds-only, walk-forward, Aug12 autopsy, V2 force flag, live gate. Canonical EPERM atomic write: open-reader handle safe + batchAppendCanonicalResults export."
+}

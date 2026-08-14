@@ -44,6 +44,13 @@ import {
   syncKeyToDurableFireAndForget,
 } from "./courtEdgeDurableStoreV1.js";
 import {
+  buildCanonicalPropId,
+  buildCanonicalTrackedKey,
+  resolveCanonicalPropType,
+  stampCanonicalIdentity,
+} from "./courtEdgeCanonicalPropIdV1.js";
+import { propTypeStatLabel } from "../engines/wnba/propTypeV1.js";
+import {
   recordGradedPropCalibration,
   attachProfileLabFieldsToTracked,
 } from "../engines/wnba/playerIntelligence/index.js";
@@ -1833,11 +1840,29 @@ function normalizeFairSide(side = "") {
 }
 
 export function getStableTrackedPropKey(pick = {}) {
+  const typeRes = resolveCanonicalPropType(pick);
+  const propType = typeRes.propType;
+  const canonicalKey = propType
+    ? buildCanonicalTrackedKey({
+        ...pick,
+        propType,
+        slateDate:
+          pick.slateDate ||
+          getSlateDateCT(pick.commenceTime || pick.time) ||
+          getGameDate(pick),
+      })
+    : null;
+  if (canonicalKey) return canonicalKey;
+
+  // Incomplete identity — keep legacy shape but never invent Points over a known market.
   const slateDate =
     pick.slateDate ||
     getSlateDateCT(pick.commenceTime || pick.time) ||
     getGameDate(pick);
   const currentEngineSide = normalizeEngineSide(pick.side || pick.pick);
+  const statLabel = propType
+    ? propTypeStatLabel(propType)
+    : pick.stat || pick.propType || "UNKNOWN_STAT";
 
   return [
     slateDate,
@@ -1845,7 +1870,8 @@ export function getStableTrackedPropKey(pick = {}) {
     pick.player || "",
     pick.team || "",
     pick.opponent || "",
-    pick.stat || "Points",
+    statLabel,
+    pick.line ?? pick.officialLine ?? "",
     currentEngineSide,
   ]
     .map(clean)
@@ -2161,7 +2187,15 @@ function mapPickToTrackedFields(pick = {}) {
     playerId: pick.playerId || pick.playerState?.playerId || "",
     team: pick.team || "",
     opponent: pick.opponent || "",
-    stat: pick.stat || "Points",
+    propType: resolveCanonicalPropType(pick).propType || pick.propType || null,
+    canonicalPropType:
+      resolveCanonicalPropType(pick).propType || pick.canonicalPropType || null,
+    stat: (() => {
+      const pt = resolveCanonicalPropType(pick).propType;
+      if (pt) return propTypeStatLabel(pt);
+      return pick.stat || pick.propType || null;
+    })(),
+    canonicalPropId: buildCanonicalPropId(pick).canonicalPropId || pick.canonicalPropId || null,
     side: currentEngineSide || pick.side || pick.pick || "",
     pick: currentEngineSide || pick.pick || pick.side || "",
     line: num(pick.line ?? pick.sportsbookLine),
@@ -4004,6 +4038,33 @@ export async function resolveTrackedProps(options = {}) {
 
   const reportedGradedCount = verified ? gradedCount : 0;
 
+  let decisionLearningV2 = null;
+  if (reportedGradedCount > 0) {
+    try {
+      const { buildDailyLearningReportV2 } = await import(
+        "./courtEdgeDecisionEngineV2.js"
+      );
+      const slateDates = [
+        ...new Set(
+          persistedProps
+            .filter((p) => isResolvedStatus(p.status))
+            .map((p) =>
+              String(getResultsPropSlateDate(p) || p.slateDate || "").slice(0, 10)
+            )
+            .filter(Boolean)
+        ),
+      ];
+      decisionLearningV2 = {};
+      for (const d of slateDates.slice(-5)) {
+        decisionLearningV2[d] = buildDailyLearningReportV2(d, { persist: true });
+      }
+    } catch (err) {
+      decisionLearningV2 = {
+        error: err?.message || String(err),
+      };
+    }
+  }
+
   return {
     props: persistedProps,
     summary: {
@@ -4013,6 +4074,7 @@ export async function resolveTrackedProps(options = {}) {
       gradedCount: reportedGradedCount,
       reconciliation,
       persistenceVerification: persistResult.verification || null,
+      decisionLearningV2,
     },
   };
 }

@@ -4,26 +4,38 @@
  * One owner per decision. Immutable product contract — not env-switched.
  */
 export const CONTROL_PLANE_BUILD =
-  "courteedge-single-machine-control-plane-v1-safer-side";
+  "courteedge-result-driven-decision-engine-v2";
 
 export const CONTROL_PLANE_CONTRACT = Object.freeze({
   pipeline: [
     "INTEGRITY",
     "DIRECTION_CHOOSE_SIDE",
-    "C2_RISK",
-    "SAFEST_2_TO_6_SELECTOR",
+    "C2_RISK_AS_FEATURE",
+    "DECISION_ENGINE_V2_RANK",
     "SEAL",
   ],
   directionMode: "EDUCATED_GUESS",
   directionAdmissions: ["PRIMARY", "BEST_GUESS"],
   /** On Direction NO_BET: C2 both sides, keep safer tier/rank. */
   bestGuessSidePolicy: "DUAL_C2_SAFER_SIDE",
-  c2Role: "RISK_AND_RANKING",
+  c2Role: "FEATURE_ONLY_NOT_MEMBERSHIP_AUTHORITY",
   c2Freeze: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
-  officialPolicy: "SAFEST_2_TO_6",
-  highPolicy: "MINIMUM_2_FILL_ONLY",
-  /** BEST_GUESS+HIGH only fills min-2 after PRIMARY HIGH is exhausted. */
-  highFillAdmissionPreference: "PRIMARY_BEFORE_BEST_GUESS",
+  /** Live Official membership authority after holdout promotion. */
+  officialPolicy: "DECISION_ENGINE_V2_QUALITY_RANK_NO_MINIMUM",
+  highPolicy: "NO_HIGH_MINIMUM_FILL",
+  /** Labels are diagnostics/features only — not membership authority. */
+  labelsRemovedFromAuthority: [
+    "HIGH_MINIMUM_FILL",
+    "SAFEST_2_TO_6",
+    "BOARD_ONLY",
+    "TRACK",
+    "WATCHLIST",
+    "PREMIUM",
+    "PLAYABLE",
+    "LEAN",
+    "DIRECTION_BEST_GUESS",
+    "PRIMARY",
+  ],
   legacyBestSixAuthority: false,
   teamQuota: false,
   sideQuota: false,
@@ -31,18 +43,22 @@ export const CONTROL_PLANE_CONTRACT = Object.freeze({
   trackingTypes: ["OFFICIAL", "RESEARCH"],
 });
 
-/** Hard-coded Official board bounds — not env-tunable. */
+/** Legacy rollback bounds (SAFEST_2_TO_6). Live V2 uses min=0. */
 export const OFFICIAL_BOARD_MIN = 2;
 export const OFFICIAL_BOARD_MAX = 6;
+/** Live Decision Engine V2 floor — never force fill to this count. */
+export const OFFICIAL_BOARD_MIN_V2 = 0;
 
-export const HIGH_POLICY = "MINIMUM_2_FILL_ONLY";
+export const HIGH_POLICY = "NO_HIGH_MINIMUM_FILL";
 
 export function getOfficialBoardSizePolicy() {
   return {
-    min: OFFICIAL_BOARD_MIN,
+    min: OFFICIAL_BOARD_MIN_V2,
     max: OFFICIAL_BOARD_MAX,
-    policy: "SAFEST_2_TO_6",
+    policy: "DECISION_ENGINE_V2_QUALITY_RANK_NO_MINIMUM",
     highPolicy: HIGH_POLICY,
+    legacyMin: OFFICIAL_BOARD_MIN,
+    legacyPolicy: "SAFEST_2_TO_6",
   };
 }
 

@@ -32,6 +32,45 @@ export function slimForecastPacketForPersist(pkt = {}) {
   const fairLine = sidePkt?.fairLine ?? pkt.overPacket?.fairLine;
   const v2Risk = pkt.risk?.risk ?? null;
   const v1Risk = pkt.riskV1Legacy?.risk ?? null;
+  // Market identity MUST persist — without propType, reload defaults everything
+  // to POINTS and destroys REB/AST boards.
+  const propTypeRaw =
+    pkt.propType ||
+    pkt.canonicalPropType ||
+    pkt.stat ||
+    pkt.marketType ||
+    pkt.market?.marketType ||
+    sidePkt?.propType ||
+    null;
+  const propTypeUpper = String(propTypeRaw || "").toUpperCase();
+  const propType = propTypeUpper.includes("ASSIST")
+    ? "ASSISTS"
+    : propTypeUpper.includes("REBOUND")
+      ? "REBOUNDS"
+      : propTypeUpper.includes("POINT") || propTypeUpper === "PTS"
+        ? "POINTS"
+        : propTypeRaw
+          ? String(propTypeRaw).toUpperCase()
+          : null;
+  const marketType =
+    pkt.marketType ||
+    pkt.market?.marketKey ||
+    (propType === "REBOUNDS"
+      ? "player_rebounds"
+      : propType === "ASSISTS"
+        ? "player_assists"
+        : propType === "POINTS"
+          ? "player_points"
+          : null);
+  const stat =
+    pkt.stat ||
+    (propType === "REBOUNDS"
+      ? "Rebounds"
+      : propType === "ASSISTS"
+        ? "Assists"
+        : propType === "POINTS"
+          ? "Points"
+          : null);
   return {
     playerName: pkt.playerName || pkt.player,
     playerId: pkt.playerId || null,
@@ -40,6 +79,11 @@ export function slimForecastPacketForPersist(pkt = {}) {
     game: `${pkt.team || "?"} vs ${pkt.opponent || "?"}`,
     eventId: pkt.eventId,
     canonicalSlateDateCT: pkt.canonicalSlateDateCT,
+    // Canonical multi-stat identity
+    propType,
+    canonicalPropType: propType,
+    stat,
+    marketType,
     selectedSide: pkt.selectedSide,
     side: pkt.selectedSide,
     line,

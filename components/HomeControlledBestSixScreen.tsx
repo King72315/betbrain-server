@@ -16,16 +16,21 @@ import CopyReportButton from "./CopyReportButton";
 import LoadErrorBanner from "./LoadErrorBanner";
 import { LEAGUE_THEME, type SupportedLeague } from "./leagueBestSixTheme";
 import {
+  ensureActiveBackend,
+  fetchProductTruthHome,
   fetchSavedPicks,
   savePick,
 } from "../services/api";
+import {
+  formatProductTruthCopyLine,
+  toProductTruthView,
+} from "../utils/courtEdgeProductTruthV1";
 import { formatApiLoadError } from "../utils/apiLoadError";
 import {
   BEST_SIX_LIMIT,
   HOME_DATE_VIEW,
   HOME_SECONDARY_DATE_VIEW,
   SUPPORTED_LEAGUES,
-  buildHomeControlledBestSixReportText,
   buildLeagueBestSixBoard,
   formatDateViewLabel,
   resolveHomeControlledDateView,
@@ -84,7 +89,7 @@ function LeagueDateSection({
           {league} -- {viewLabel}
         </Text>
         <Text style={styles.leagueSubtext}>
-          Official Board · variable membership · POINTS / REBOUNDS / ASSISTS
+          Trusted / Official · Best Available separate · Full Predictions for learning
         </Text>
       </View>
 
@@ -176,14 +181,14 @@ function LeagueDateSection({
       {!loading && !loadError && bestSixCards.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>
-            No {league} Official Board for {viewLabel}.
+            Trusted / Official: 0 for {league} · {viewLabel}
           </Text>
           <Text style={styles.emptyText}>
             {alternateLeagueHasProps
-              ? `No ${league} lines for ${viewLabel.toLowerCase()}. Switch league tab or date.`
+              ? `No ${league} Trusted props for ${viewLabel.toLowerCase()}. Switch league tab or date. Best Available / Full Predictions may still exist.`
               : dateView === "today"
-                ? "Refresh picks to generate today's slate, or check Tomorrow."
-                : "Refresh picks to generate tomorrow's slate, or check Today."}
+                ? "Zero Trusted is valid. Refresh only if Full Predictions are also missing."
+                : "Zero Trusted is valid for this date. Check Today or Full Predictions."}
           </Text>
         </View>
       ) : null}
@@ -219,6 +224,15 @@ function buildBoardForView(
       controlledBestBoard: picksData.controlledBestBoard,
       officialCount: picksData.officialMembership?.length,
       selectionBuildId: payload.selectionBuildId || picksData.selectionBuildId,
+      productTruthUiCutover: payload.productTruthUiCutover === true,
+      homeTodayIsPriorDayFallback: Boolean(
+        payload.homeTodayIsPriorDayFallback ??
+          picksData?.productTruthHome?.homeTodayIsPriorDayFallback
+      ),
+      homeTodayDisplaySlateDate:
+        payload.homeTodayDisplaySlateDate ||
+        picksData?.productTruthHome?.homeTodayDisplaySlateDate ||
+        null,
     },
   });
 }
@@ -235,13 +249,71 @@ export default function HomeControlledBestSixScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
-  // Core slate loads anonymously -- no login / token required (GET /picks).
+  // Product-truth authority: Official membership from /product-truth/home.
+  // GET /picks may still supply forensic mirrors / lastUpdated only.
   const loadPicks = useCallback(async (mode: "full" | "quiet" = "full") => {
     try {
       if (mode === "full") setLoading(true);
-      const data = await fetchSavedPicks();
-      setPicksData(data);
-      setLoadError(formatApiLoadError(data));
+      // Re-probe LOCAL on each full Home load so a prior Render fallback
+      // session does not stick after the API comes back / .env changes.
+      if (mode === "full") {
+        await ensureActiveBackend({ forceReselect: true });
+      }
+      const [data, homeTruth] = await Promise.all([
+        fetchSavedPicks(),
+        fetchProductTruthHome(),
+      ]);
+      // Prefer dedicated /product-truth/home; fall back to productTruthHome
+      // embedded in GET /picks (same authority). Render may 404 the route
+      // while a current local /picks payload still carries Official.
+      const fromRoute =
+        homeTruth?.ok === true ? homeTruth : null;
+      const fromPicks =
+        data?.productTruthHome?.ok === true ||
+        Array.isArray(data?.productTruthHome?.homeTodayDisplayOfficial)
+          ? data.productTruthHome
+          : null;
+      const home = fromRoute || fromPicks || null;
+      const todayOfficial =
+        home?.homeTodayDisplayOfficial ||
+        data?.bestSixDisplayTodayWNBA ||
+        [];
+      const tomorrowOfficial =
+        home?.tomorrowOfficial ||
+        data?.bestSixDisplayTomorrowWNBA ||
+        [];
+      const hasOfficialMembership =
+        (Array.isArray(todayOfficial) && todayOfficial.length > 0) ||
+        (Array.isArray(tomorrowOfficial) && tomorrowOfficial.length > 0);
+      const productTruthOk = Boolean(home?.ok === true);
+      const merged = {
+        ...data,
+        productTruthHome: home || data?.productTruthHome || null,
+        bestSixDisplayTodayWNBA: Array.isArray(todayOfficial)
+          ? todayOfficial
+          : [],
+        bestSixDisplayTomorrowWNBA: Array.isArray(tomorrowOfficial)
+          ? tomorrowOfficial
+          : [],
+        membershipSource: "product-truth-v1",
+        boardVersion: "product-truth-v1",
+        productTruthUiCutover: Boolean(home),
+      };
+      setPicksData(merged);
+      setLoadError(
+        formatApiLoadError(
+          data?.ok === false
+            ? data
+            : !productTruthOk && !hasOfficialMembership
+              ? {
+                  ok: false,
+                  error:
+                    homeTruth?.error ||
+                    "Product truth unavailable. Use LOCAL API (not Render) — set EXPO_PUBLIC_LOCAL_API_URL to your PC LAN IP and restart Expo.",
+                }
+              : { ok: true }
+        )
+      );
       hasLoadedRef.current = true;
     } catch (err) {
       console.log("LOAD HOME PROPS ERROR:", err);
@@ -325,36 +397,32 @@ export default function HomeControlledBestSixScreen() {
     }
   };
 
-  const getReportText = () =>
-    buildHomeControlledBestSixReportText({
-      dateView,
-      lastUpdated: picksData?.lastUpdated || null,
-      loading,
-      wnbaToday: {
-        bestSixCards: boardsByView.today.WNBA.bestSixCards,
-        summary: boardsByView.today.WNBA.summary,
-        games: resolveLeaguePicksPayload(picksData || {}, "WNBA").games,
-        dateView: "today",
-      },
-      wnbaTomorrow: {
-        bestSixCards: boardsByView.tomorrow.WNBA.bestSixCards,
-        summary: boardsByView.tomorrow.WNBA.summary,
-        games: resolveLeaguePicksPayload(picksData || {}, "WNBA").games,
-        dateView: "tomorrow",
-      },
-      nbaToday: {
-        bestSixCards: boardsByView.today.NBA.bestSixCards,
-        summary: boardsByView.today.NBA.summary,
-        games: resolveLeaguePicksPayload(picksData || {}, "NBA").games,
-        dateView: "today",
-      },
-      nbaTomorrow: {
-        bestSixCards: boardsByView.tomorrow.NBA.bestSixCards,
-        summary: boardsByView.tomorrow.NBA.summary,
-        games: resolveLeaguePicksPayload(picksData || {}, "NBA").games,
-        dateView: "tomorrow",
-      },
-    });
+  const getReportText = () => {
+    const home = picksData?.productTruthHome;
+    const slateDate =
+      home?.homeTodayDisplaySlateDate ||
+      home?.todayLocalDate ||
+      getTodayLocalDate();
+    const cards =
+      dateView === "tomorrow"
+        ? boardsByView.tomorrow[activeLeague].bestSixCards
+        : boardsByView.today[activeLeague].bestSixCards;
+    const lines = [
+      "CourtEdge Product Truth — Home Official",
+      `Build: product-truth-v1`,
+      `Slate: ${slateDate}`,
+      home?.homeTodayIsPriorDayFallback
+        ? `Note: CT Today (${home?.todayLocalDate}) has no Official props; showing prior-day Official ${slateDate}.`
+        : null,
+      `League: ${activeLeague}`,
+      `View: ${dateView}`,
+      "",
+      ...cards.map((pick: any) =>
+        formatProductTruthCopyLine(toProductTruthView(pick))
+      ),
+    ].filter(Boolean);
+    return lines.join("\n");
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -370,14 +438,23 @@ export default function HomeControlledBestSixScreen() {
           <Text style={styles.powered}>Powered by BetBrain</Text>
           <Text style={styles.motto}>We Don&apos;t Guess. We Calculate. We Cash.</Text>
           <Text style={styles.dateLine}>Date: {todayLabel}</Text>
+          {picksData?.productTruthHome?.homeTodayDisplaySlateDate ? (
+            <Text style={styles.lastUpdated}>
+              Official slate:{" "}
+              {formatSlateMessageDate(
+                picksData.productTruthHome.homeTodayDisplaySlateDate
+              )}
+              {picksData.productTruthHome.homeTodayIsPriorDayFallback
+                ? " (prior day — CT Today empty)"
+                : ""}
+            </Text>
+          ) : null}
           {picksData?.lastUpdated ? (
             <Text style={styles.lastUpdated}>
               Last updated: {formatTime(picksData.lastUpdated)}
             </Text>
           ) : null}
-          {picksData?.controlledBestSixVersion ? (
-            <Text style={styles.versionLine}>Engine: {picksData.controlledBestSixVersion}</Text>
-          ) : null}
+          <Text style={styles.versionLine}>Authority: product-truth-v1</Text>
           <CopyReportButton getReportText={getReportText} />
           <BackendSourceBadge />
         </View>

@@ -165,21 +165,19 @@ export default function PropCard({
   if (variant === "bestSix") {
     const rank = pick.bestSixRank || pick.controlledBestSixRank || index + 1;
     const trackDecision = "OFFICIAL";
-    const displayTrueRisk = String(
-      membershipRiskOwner
-        ? canonical.risk ||
-            pick.v2Risk ||
-            pick.displayTrueRisk ||
-            pick.trueRisk ||
-            trueRisk ||
-            "—"
-        : canonical.risk ||
-            pick.displayTrueRisk ||
-            pick.decisionIntelligence?.trueRisk ||
-            trueRisk ||
-            pick.trueRisk ||
-            "—"
-    ).toUpperCase();
+    const modelWinPct = (() => {
+      const raw =
+        pick.modelWinProbability ??
+        pick.decisionScoreV2 ??
+        pick.calibratedWinProbability ??
+        null;
+      if (raw == null || raw === "") return confidence;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return confidence;
+      return Math.round(n > 1 ? n : n * 100);
+    })();
+    const projectionDisplay =
+      pick.correctedProjection ?? pick.projection ?? canonical.projection ?? null;
     const sameTeamFlip = Boolean(
       pick.sameTeamArbitrationFlip ||
         pick.sameTeamArbitration?.applied ||
@@ -196,7 +194,7 @@ export default function PropCard({
     const whyTextRaw =
       pick.displayWhy || decisionExplanation || wnbaTrackingReason || "";
     const whyText = String(whyTextRaw)
-      .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?|NO_DECISIVE_RESCUE|UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+)\b/gi, "")
+      .replace(/\b(BOARD_ONLY|NO_BET|SHADOW_ONLY|NATURAL_TRACK|READER_UNCERTAIN(?:_TEST)?|NO_DECISIVE_RESCUE|UNDER_GAP_BELOW_[A-Z0-9_]+|OVER_GAP_BELOW_[A-Z0-9_]+|DANGER_STACK_[A-Z0-9_]+|DANGER_GATE_STACK_[A-Z0-9_]+|HIGH_MINIMUM_FILL|SAFEST_2_TO_6|PREMIUM|PLAYABLE|WATCHLIST|LEAN)\b/gi, "")
       .replace(/\bdanger[\s_-]*gates?\b/gi, "risk factors")
       .replace(/\bgap[\s_-]*floors?\b/gi, "projection threshold")
       .replace(/prior gate:\s*/gi, "")
@@ -241,36 +239,38 @@ export default function PropCard({
         <View style={styles.pickTopRow}>
           <View style={styles.badgeRow}>
             <Text style={styles.bestSixBadge}>#{rank}</Text>
-            {pick.topPickLabel ? (
-              <Text style={styles.topPickBadge}>{pick.topPickLabel}</Text>
-            ) : null}
-            <Text style={[styles.decisionBadge, getDecisionStyle(trackDecision)]}>
-              {trackDecision}
-            </Text>
           </View>
           <Text style={styles.confidenceText}>
-            {confidence == null ? "—" : `${confidence}%`}
+            Model {modelWinPct == null ? "—" : `${modelWinPct}%`}
           </Text>
         </View>
 
         <Text style={styles.playerName}>{pick.player}</Text>
-        <Text style={styles.teamText}>
-          {formatTeam(team)} · {gameLabel}
-        </Text>
+        <Text style={styles.teamText}>{gameLabel}</Text>
         {startTimeDisplay ? (
           <Text style={styles.metaText}>{startTimeDisplay}</Text>
         ) : null}
 
         <View style={styles.pickLineBox}>
           <Text style={styles.pickSide}>
-            {side} {safeDisplay(line)} {displayStat}
+            {displayStat} {String(side || "").toUpperCase()} {safeDisplay(line)}
           </Text>
         </View>
 
         <View style={styles.bestSixMetricRow}>
-          <Metric label="Risk" value={displayTrueRisk} />
-          <Metric label="Decision" value={trackDecision} />
-          <Metric label="Data" value={dataIntegrityLabel} />
+          <Metric
+            label="Projection"
+            value={
+              projectionDisplay == null
+                ? "—"
+                : Number(projectionDisplay).toFixed(1)
+            }
+          />
+          <Metric
+            label="Model"
+            value={modelWinPct == null ? "—" : `${modelWinPct}%`}
+          />
+          <Metric label="Game" value={formatTeam(team)} />
         </View>
 
         {sameTeamFlip ? (

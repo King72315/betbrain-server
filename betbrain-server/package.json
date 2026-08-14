@@ -21,7 +21,9 @@
     "test:courtedge-home-restart-durability": "node scripts/testCourtEdgeHomeRestartDurabilityV1.js",
     "test:courtedge-pra-multistat": "node scripts/testCourtEdgePraMultistatV1.js",
     "test:courtedge-reb-ast-calib": "node scripts/testCourtEdgeRebAstHistoricalCalibrationV1.js",
-    "test:matchup-engine-v2": "node scripts/testMatchupEngineV2.js"
+    "test:matchup-engine-v2": "node scripts/testMatchupEngineV2.js",
+    "test:courtedge-decision-engine-v2": "node scripts/testCourtEdgeDecisionEngineV2.js",
+    "validate:courtedge-decision-engine-v2": "node scripts/runCourtEdgeDecisionEngineV2Validation.js"
   },
   "engines": {
     "node": ">=18"

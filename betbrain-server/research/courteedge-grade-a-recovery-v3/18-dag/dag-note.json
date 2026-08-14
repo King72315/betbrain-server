@@ -1,0 +1,18 @@
+{
+  "desiredDag": [
+    "inputs/stamps → projection + fairLine",
+    "projection/fairLine + market → side packets (predictedSide, Safety, riskV2)",
+    "side packets → predictedProbability calibration",
+    "calibrated packet → officialRankScore / decisionScoreV2",
+    "complete packet gate → Trusted membership",
+    "non-trusted Full → Best Available (global quality rank)",
+    "Home sections present Trusted / Best Available / Full"
+  ],
+  "oneWay": true,
+  "note": "Desired authority is a one-way DAG: forecast packet fields feed ranking; ranking feeds membership; membership feeds Home sections. No reverse writes from Home/UI into packet truth.",
+  "oddsOnlyPath": {
+    "blockedFromProductionTrusted": true,
+    "gate": "hasCompleteTrustedPacketV3 / selectOfficialMembershipV2",
+    "reason": "Incomplete odds-only packets fail Trusted completeness (projection/fairLine/Safety/risk) and remain Full or Best Available only"
+  }
+}

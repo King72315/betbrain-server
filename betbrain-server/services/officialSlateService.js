@@ -30,6 +30,12 @@ import {
 import { assertNoDuplicateMembership } from "../engines/topProps/variableTeamBoardHomeHistoryLockV1.js";
 import { buildCompletePregameSnapshot } from "./pregameSnapshotBuilder.js";
 import { attachCanonicalSealedProp } from "./canonicalSealedProp.js";
+import {
+  buildCanonicalOfficialPropId,
+  buildCanonicalPropId,
+  stampCanonicalIdentity,
+} from "./courtEdgeCanonicalPropIdV1.js";
+import { propTypeStatLabel } from "../engines/wnba/propTypeV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,12 +92,28 @@ function normalizeSide(side = "") {
 
 /** Immutable Official Prop ID — stable for Home → Results → Lab → History. */
 export function buildOfficialPropId(pick = {}, slateDate = "") {
+  const canonical = buildCanonicalOfficialPropId(
+    {
+      ...pick,
+      player: pick.player || pick.playerName,
+      league: pick.league || "WNBA",
+    },
+    { slateDate: slateDate || pick.slateDate }
+  );
+  if (canonical) return canonical;
+
+  // Incomplete identity fallback — still refuse silent Points when propType exists.
   const date = String(slateDate || pick.slateDate || "").trim();
   const league = String(pick.league || "WNBA").toUpperCase();
-  const player = clean(pick.player);
+  const player = clean(pick.player || pick.playerName);
   const team = clean(pick.team);
   const opponent = clean(pick.opponent);
-  const stat = clean(pick.stat || pick.market || "points") || "points";
+  const identity = buildCanonicalPropId(pick, { slateDate: date });
+  const stat = clean(
+    identity.propType
+      ? propTypeStatLabel(identity.propType)
+      : pick.stat || pick.market || pick.propType || "unknown"
+  ) || "unknown";
   const side = normalizeSide(pick.side || pick.pick || pick.lockedSide);
   const line = Number(pick.officialLine ?? pick.line ?? pick.pickLine ?? pick.currentLine);
   const lineKey = Number.isFinite(line) ? String(line) : "na";
@@ -144,9 +166,33 @@ export function freezeOfficialProp(pick = {}, options = {}) {
   const flip = pregameSnapshot.flipFirst?.raw || pick.flipFirstDecision || null;
   const profile = pregameSnapshot.playerIntelligenceProfile || pick.playerRoleProfile || null;
 
+  const identitySeed = stampCanonicalIdentity(
+    {
+      ...pick,
+      player: pick.player || pick.playerName,
+      propType: pick.propType || pick.canonicalPropType || pick.stat,
+      line,
+      side,
+      slateDate,
+      officialPropId,
+    },
+    { slateDate }
+  );
+  const canonicalPropId =
+    identitySeed.canonicalPropId ||
+    buildCanonicalPropId(identitySeed, { slateDate }).canonicalPropId ||
+    null;
+
   const frozen = {
     ...pick,
+    ...identitySeed,
     officialPropId,
+    canonicalPropId,
+    propType: identitySeed.propType || pick.propType || null,
+    canonicalPropType: identitySeed.propType || pick.canonicalPropType || null,
+    stat:
+      identitySeed.stat ||
+      (identitySeed.propType ? propTypeStatLabel(identitySeed.propType) : pick.stat),
     officialSlateId: slateDate,
     slateDate,
     resultsSlateDate: slateDate,

@@ -1,0 +1,11 @@
+{
+  "phase": "03-cap-removal",
+  "productionChange": "Removed default perMarket/maxTotal quotas from selectMultiStatAnalyzedPropsPerGame; all valid proven propType markets flow to Full.",
+  "files": [
+    "betbrain-server/server.js",
+    "betbrain-server/scripts/regenerateMultiStatHomeSlate.js"
+  ],
+  "before": "regenerate selectPerGame top-5 → 15/15/15; live perMarket:4 maxTotal:12",
+  "after": "live diagnosticSoftCap:false (no cap); odds-only script blocked from production and no longer truncates when diagnostic allowed",
+  "rejectionPolicy": "Missing/invalid propType excluded; no POINTS default"
+}

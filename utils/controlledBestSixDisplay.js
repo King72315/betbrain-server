@@ -868,51 +868,54 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     return resolvePickSlateDateForHome({ commenceTime: commence }) === tomorrow;
   });
 
-  // Canonical V2/V3: prefer controlledBestBoard / selectedPropsToday only when
-  // those rows are calendar-aligned to Chicago Today. Stale controlled boards
-  // (e.g. July props still hanging on the payload) must not blank Home Today
-  // when bestSixDisplayTodayWNBA has a fresh Official slate.
-  const controlledTodayAligned = filterCalendarTodayHomePool(
-    dedupeControlledBoardPicks(
-      isWNBA && Array.isArray(data.controlledBestBoard)
-        ? data.controlledBestBoard
-        : []
-    ),
-    today
-  );
-  const selectedTodayAligned = filterCalendarTodayHomePool(
-    dedupeControlledBoardPicks(
-      isWNBA && Array.isArray(data.selectedPropsTodayWNBA)
-        ? data.selectedPropsTodayWNBA
-        : []
-    ),
-    today
-  );
-  const canonicalToday = controlledTodayAligned.length
-    ? controlledTodayAligned
-    : selectedTodayAligned.length
-      ? selectedTodayAligned
-      : null;
+  // PRODUCT TRUTH CUTOVER: Official membership is ONLY from product-truth
+  // arrays (bestSixDisplayToday* / productTruthHome). Legacy
+  // selectedPropsTodayWNBA / controlledBestBoard / officialMembership are
+  // forensic mirrors and must NOT control Home membership.
+  const leagueMatch = (p) => {
+    const lg = String(p.league || (isWNBA ? "WNBA" : "NBA")).toUpperCase();
+    return lg === leagueCode;
+  };
+  const productTruthToday = (() => {
+    const home = data.productTruthHome;
+    if (home && Array.isArray(home.homeTodayDisplayOfficial)) {
+      return dedupeControlledBoardPicks(
+        home.homeTodayDisplayOfficial.filter(leagueMatch)
+      );
+    }
+    if (Array.isArray(explicitToday) && explicitToday.length) {
+      return dedupeControlledBoardPicks(explicitToday);
+    }
+    return [];
+  })();
+  const productTruthTomorrow = (() => {
+    const home = data.productTruthHome;
+    if (home && Array.isArray(home.tomorrowOfficial)) {
+      return dedupeControlledBoardPicks(
+        home.tomorrowOfficial.filter(leagueMatch)
+      );
+    }
+    if (Array.isArray(explicitTomorrow) && explicitTomorrow.length) {
+      return dedupeControlledBoardPicks(explicitTomorrow);
+    }
+    return [];
+  })();
+
+  // Intentionally ignore legacy controlledBestBoard / selectedPropsTodayWNBA
+  // even if they arrive as arrays (forensic should be objects after cutover).
+  void data.controlledBestBoard;
+  void data.selectedPropsTodayWNBA;
+  void data.officialMembership;
+
+  const bestSixDisplayToday = productTruthToday.length
+    ? productTruthToday
+    : [];
+  const bestSixDisplayTomorrow = productTruthTomorrow.length
+    ? productTruthTomorrow
+    : [];
+  const canonicalToday = bestSixDisplayToday;
   const canonicalIsBalanced =
     canonicalToday && isTeamBalancedFourPropBoard(canonicalToday);
-
-  // Control-plane V1: never rebuild Official from allGeneratedCandidates.
-  // Server-sealed selectedProps / display arrays are the only Official source.
-  const legacyToday = dedupeControlledBoardPicks(
-    Array.isArray(explicitToday) && explicitToday.length
-      ? explicitToday
-      : filterBestSixByDateView(display.length ? display : bestSix, "today")
-  );
-  const legacyTomorrow = dedupeControlledBoardPicks(
-    Array.isArray(explicitTomorrow) && explicitTomorrow.length
-      ? explicitTomorrow
-      : filterBestSixByDateView(display.length ? display : bestSix, "tomorrow")
-  );
-
-  const bestSixDisplayToday = canonicalToday?.length
-    ? canonicalToday
-    : legacyToday;
-  const bestSixDisplayTomorrow = legacyTomorrow;
   const combinedDisplay = dedupeControlledBoardPicks(
     display.length && isTeamBalancedFourPropBoard(display)
       ? display
@@ -933,13 +936,15 @@ export function resolveLeaguePicksPayload(data = {}, league = "WNBA") {
     variableBoardSize:
       isVariableControlledBoard(data, bestSixDisplayToday) ||
       isTeamBalancedFourPropBoard(bestSixDisplayToday),
-    membershipSource:
-      data.membershipSource ||
-      (canonicalToday?.length && !canonicalIsBalanced
-        ? "controlled-best-board-unbalanced"
-        : null),
+    membershipSource: data.membershipSource || "product-truth-v1",
     selectionBuildId: data.selectionBuildId || null,
-    boardVersion: data.boardVersion || null,
+    boardVersion: data.boardVersion || "product-truth-v1",
+    productTruthUiCutover: true,
+    homeTodayDisplaySlateDate:
+      data.productTruthHome?.homeTodayDisplaySlateDate || null,
+    homeTodayIsPriorDayFallback: Boolean(
+      data.productTruthHome?.homeTodayIsPriorDayFallback
+    ),
     boardSelectionSource: bestSixDisplayToday[0]?.boardSelectionSource || null,
   };
 }
@@ -963,13 +968,23 @@ export function buildLeagueBestSixBoard({
   const hasExplicitTomorrow =
     Array.isArray(bestSixDisplayTomorrow) && bestSixDisplayTomorrow.length > 0;
   const meta = boardMeta || {};
+  // Explicit product-truth Today arrays are membership authority — including
+  // prior-day Official fallback (slateDate = yesterday). Do not strip them
+  // with a CT-calendar filter; that filter is only for mixed/legacy pools.
+  const todaySource = hasExplicitToday
+    ? bestSixDisplayToday
+    : filterBestSixByDateView(displayPool, "today");
   const todayUncapped = dedupeControlledBoardPicks(
-    filterCalendarTodayHomePool(
-      hasExplicitToday
-        ? bestSixDisplayToday
-        : filterBestSixByDateView(displayPool, "today"),
-      today
-    )
+    hasExplicitToday &&
+      (meta.homeTodayIsPriorDayFallback ||
+        meta.productTruthUiCutover ||
+        todaySource.some(
+          (p) =>
+            p?.productTruthAuthority === true ||
+            String(p?.dayBucket || "").toUpperCase() === "PRIOR_OFFICIAL"
+        ))
+      ? todaySource
+      : filterCalendarTodayHomePool(todaySource, today)
   );
   const todayCap = resolveControlledBoardCap(todayUncapped, bestSixLimit, {
     ...meta,

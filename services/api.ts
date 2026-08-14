@@ -505,6 +505,78 @@ export const getBackendMode = (): BackendMode => {
   return "CUSTOM";
 };
 
+export const fetchProductTruthHome = async () => {
+  try {
+    const res = await fetch(`${await resolveActiveApiBaseUrl()}/product-truth/home`);
+    const data = await safeJson(res);
+    if (data._nonJson) {
+      return { ok: false, error: nonJsonBackendError() };
+    }
+    return {
+      ok: res.ok && (data.ok ?? false),
+      ...data,
+      error: data.error || (!res.ok ? `HTTP ${res.status}` : undefined),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+};
+
+export const fetchProductTruthResults = async (slateDate?: string) => {
+  try {
+    const q = slateDate ? `?slateDate=${encodeURIComponent(slateDate)}` : "";
+    const res = await fetch(
+      `${await resolveActiveApiBaseUrl()}/product-truth/results${q}`
+    );
+    const data = await safeJson(res);
+    if (data._nonJson) {
+      return { ok: false, props: [], official: [], research: [], error: nonJsonBackendError() };
+    }
+    return {
+      ok: res.ok && (data.ok ?? false),
+      ...data,
+      props: Array.isArray(data.props) ? data.props : [],
+      official: Array.isArray(data.official) ? data.official : [],
+      research: Array.isArray(data.research) ? data.research : [],
+      availableSlateDates: Array.isArray(data.availableSlateDates)
+        ? data.availableSlateDates
+        : [],
+      error: data.error || (!res.ok ? `HTTP ${res.status}` : undefined),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      props: [],
+      official: [],
+      research: [],
+      availableSlateDates: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+};
+
+export const fetchProductTruthDecisionReport = async (slateDate: string) => {
+  try {
+    const res = await fetch(
+      `${await resolveActiveApiBaseUrl()}/product-truth/decision-learning/${encodeURIComponent(slateDate)}`
+    );
+    const data = await safeJson(res);
+    return {
+      ok: res.ok && (data.ok ?? false),
+      ...data,
+      error: data.error || (!res.ok ? `HTTP ${res.status}` : undefined),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+};
+
 export const fetchTrackedProps = async () => {
   try {
     const res = await fetch(`${await resolveActiveApiBaseUrl()}/tracked-props`);

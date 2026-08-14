@@ -1,0 +1,132 @@
+{
+  "purpose": "Prospective freeze ledger for Grade-A recovery — track FULL / BEST_AVAILABLE / TRUSTED by PTS / REB / AST.",
+  "freezePolicy": "BEST_AVAILABLE_AND_TRUSTED_ONLY_FOR_CLAIMS; FULL is observational",
+  "status": "PLAN_ONLY_NOT_SEALED",
+  "metrics": [
+    "PTS",
+    "REB",
+    "AST"
+  ],
+  "ledgers": [
+    "FULL",
+    "BEST_AVAILABLE",
+    "TRUSTED"
+  ],
+  "ledgerTemplate": {
+    "FULL": {
+      "PTS": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "REB": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "AST": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "ALL": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      }
+    },
+    "BEST_AVAILABLE": {
+      "PTS": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "REB": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "AST": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "ALL": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      }
+    },
+    "TRUSTED": {
+      "PTS": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "REB": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "AST": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      },
+      "ALL": {
+        "n": null,
+        "wins": null,
+        "losses": null,
+        "hitRate": null,
+        "brier": null,
+        "mae": null
+      }
+    }
+  },
+  "fields": {
+    "n": "graded count",
+    "wins": "WIN count",
+    "losses": "LOSS count",
+    "hitRate": "wins / (wins+losses)",
+    "brier": "mean squared error of predictedProbability vs outcome",
+    "mae": "projection MAE when actual available"
+  },
+  "notes": [
+    "Trusted may be 0 on a slate (no forced fill).",
+    "Odds-only packets cannot populate TRUSTED.",
+    "Populate cells only after prospective freeze grades land."
+  ]
+}

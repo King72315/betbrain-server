@@ -1,0 +1,12 @@
+{
+  "phase": "04-weave-removal",
+  "productionChange": "Removed market_balanced_v2_home_weave as Home membership authority",
+  "files": [
+    "betbrain-server/services/courtEdgeProductTruthUiCutoverV1.js",
+    "betbrain-server/services/courtEdgeHomeProductTruthSectionsV3.js",
+    "betbrain-server/services/courtEdgeDecisionEngineV2.js (selectHomeBoardCrossMarketV2 demoted to global quality)"
+  ],
+  "before": "Home filled via PTS/REB/AST round-robin weave to MAX_HOME_PROPS=10",
+  "after": "TRUSTED=Official only (may be 0); BEST_AVAILABLE=global quality non-trusted; FULL=all; no forced volume; no forced stat balance",
+  "moduleRetainedAsDiagnostic": "courtEdgeHomeMarketWeaveV1.js (not wired to Product Truth)"
+}

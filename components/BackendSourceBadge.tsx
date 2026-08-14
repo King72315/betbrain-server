@@ -17,7 +17,7 @@ export default function BackendSourceBadge() {
   useEffect(() => {
     if (typeof __DEV__ !== "undefined" && !__DEV__) return;
     let cancelled = false;
-    ensureActiveBackend()
+    ensureActiveBackend({ forceReselect: true })
       .then((next) => {
         if (!cancelled) setDiag(next);
       })

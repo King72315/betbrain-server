@@ -1,0 +1,55 @@
+{
+  "note": "One primary writer per field based on canonicalPlayerForecastPacketV1 + courtEdgeDecisionEngineV2 + home product-truth sections.",
+  "fields": {
+    "projection": {
+      "writer": "engines/probabilitySafetyV1/canonicalPlayerForecastPacketV1.js",
+      "function": "buildCanonicalPlayerForecastPacketV1 (stamped.projection / finalProjection)",
+      "role": "Canonical expected-value stamp into side packets"
+    },
+    "fairLine": {
+      "writer": "engines/probabilitySafetyV1/canonicalPlayerForecastPacketV1.js",
+      "function": "buildCanonicalPlayerForecastPacketV1 (stamped.fairLine / fair_line)",
+      "role": "Canonical fair-line stamp into side packets"
+    },
+    "predictedSide": {
+      "writer": "engines/probabilitySafetyV1/canonicalPlayerForecastPacketV1.js",
+      "function": "buildCanonicalPlayerForecastPacketV1 → selectedSide / direction.decision (research alias predictedSide)",
+      "role": "Direction / board side authority after C2 safer-side selection"
+    },
+    "predictedProbability": {
+      "writer": "engines/probabilitySafetyV1/predictedProbabilityCalibrationV1.js (owned via canonical packet)",
+      "function": "applyPredictedProbabilityCalibrationV1 → predictedProbability on buildCanonicalPlayerForecastPacketV1",
+      "role": "Calibrated win probability for ranking and Trusted gate"
+    },
+    "Safety": {
+      "writer": "engines/probabilitySafetyV1/propSafetyEnvironmentV2.js (default) / propSafetyEngineV1.js (legacy)",
+      "function": "buildPropSafetyEnvironmentV2 / buildPropSafetyEngineV1 via buildCanonicalPlayerForecastPacketV1",
+      "role": "Evidence-environment stability score (finalSafetyScore)"
+    },
+    "riskV2": {
+      "writer": "engines/probabilitySafetyV1/canonicalPlayerForecastPacketV1.js (+ empiricalSafePropV2 pathway)",
+      "function": "selected.risk.risk stamped as riskV2 on packet / computeOfficialRankScoreV1 input",
+      "role": "C2 / safe-pathway risk code for Official display and rank inputs"
+    },
+    "signal": {
+      "writer": "services/courtEdgeEngineSignalsV1.js (attachCourtEdgeEngineSignals); display meta sets signalOwner null",
+      "function": "buildCourtEdgeEngineSignalsV1 / applyEngineSignalAdjustments",
+      "role": "Engine expansion signal attachment (not Official display authority)"
+    },
+    "recommendationTier": {
+      "writer": "services/courtEdgeHomeProductTruthSectionsV3.js (+ research gold mapping)",
+      "function": "buildHomeProductTruthSectionsV3 homeMembershipSection TRUSTED | BEST_AVAILABLE | FULL",
+      "role": "Product-facing tier / membership presentation (not a separate score writer)"
+    },
+    "officialRankScore": {
+      "writer": "engines/wnba/officialRankScoreV1.js via canonical packet; decisionEngineV2 may use decisionScoreV2 for membership ranking",
+      "function": "computeOfficialRankScoreV1 / scoreRowFeatures → decisionScoreV2",
+      "role": "Canonical rank score stamp; V2 board selection ranks by decisionScoreV2"
+    },
+    "TrustedMembership": {
+      "writer": "services/courtEdgeDecisionEngineV2.js gated by services/courtEdgeHomeProductTruthSectionsV3.js",
+      "function": "selectOfficialMembershipV2 + hasCompleteTrustedPacketV3",
+      "role": "Quality-gated Official/Trusted membership; incomplete/odds-only packets fail closed"
+    }
+  }
+}

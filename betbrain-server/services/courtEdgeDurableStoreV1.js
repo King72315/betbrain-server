@@ -22,6 +22,8 @@ export const DURABLE_KEYS = Object.freeze({
   SCHEDULER_STATE: "scheduler-state",
   CANONICAL_SLATES: "canonical-slates",
   TRACKED_PROPS: "tracked-props",
+  CANONICAL_PREDICTIONS: "canonical-predictions",
+  DECISION_LEARNING_WAREHOUSE: "decision-learning-warehouse",
   THREE_SLATE_BLOCKS: "three-slate-blocks",
   LIFECYCLE_JOURNAL: "lifecycle-journal",
   STATE_LOCKS: "state-locks",
@@ -36,6 +38,8 @@ const FILE_MAP = Object.freeze({
   [DURABLE_KEYS.SCHEDULER_STATE]: "courtedge-scheduler-state-v1.json",
   [DURABLE_KEYS.CANONICAL_SLATES]: "canonical-slates-v1.json",
   [DURABLE_KEYS.TRACKED_PROPS]: "tracked-props.json",
+  [DURABLE_KEYS.CANONICAL_PREDICTIONS]: "canonical-predictions-v1.json",
+  [DURABLE_KEYS.DECISION_LEARNING_WAREHOUSE]: "decision-learning-warehouse-v1.json",
   [DURABLE_KEYS.THREE_SLATE_BLOCKS]: "three-slate-blocks-v2.json",
   [DURABLE_KEYS.LIFECYCLE_JOURNAL]: "lifecycle-transition-journal-v1.json",
   [DURABLE_KEYS.STATE_LOCKS]: "state-integrity-locks-v1.json",
@@ -43,6 +47,19 @@ const FILE_MAP = Object.freeze({
   [DURABLE_KEYS.WATCHDOG]: "courtedge-watchdog-state-v1.json",
   [DURABLE_KEYS.LAB_POINTER]: "courtedge-lab-pointer-v1.json",
   [DURABLE_KEYS.DAILY_SLATE_REPORTS]: "daily-slate-reports.json",
+});
+
+/** Compact product-truth rows hydrate even when legacy tracked-props is oversized. */
+export const DURABLE_KEY_MAX_BYTES = Object.freeze({
+  [DURABLE_KEYS.TRACKED_PROPS]: Number(
+    process.env.COURTEDGE_TRACKED_PROPS_MAX_BYTES || 64_000_000
+  ),
+  [DURABLE_KEYS.CANONICAL_PREDICTIONS]: Number(
+    process.env.COURTEDGE_CANONICAL_PREDICTIONS_MAX_BYTES || 16_000_000
+  ),
+  [DURABLE_KEYS.DECISION_LEARNING_WAREHOUSE]: Number(
+    process.env.COURTEDGE_LEARNING_WAREHOUSE_MAX_BYTES || 16_000_000
+  ),
 });
 
 let pgPool = null;
@@ -366,7 +383,10 @@ export function getDurableStoreHealthSync() {
 
 export async function durableGet(key, options = {}) {
   const maxBytes = Number(
-    options.maxBytes || process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000
+    options.maxBytes ||
+      DURABLE_KEY_MAX_BYTES[key] ||
+      process.env.COURTEDGE_HYDRATE_MAX_BYTES ||
+      4_000_000
   );
   const skipOversized = options.skipOversized === true;
   const pool = await ensurePg();
@@ -625,30 +645,35 @@ export async function withDurableLock(lockKey, fn, options = {}) {
  */
 export async function hydrateWorkingFilesFromDurableStore(options = {}) {
   const keys = options.keys || Object.values(DURABLE_KEYS);
-  const maxFileBytes = Number(
+  const defaultMaxFileBytes = Number(
     options.maxFileBytes || process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000
   );
   const actions = [];
   const pool = await ensurePg();
 
-  function fileTooLarge(file) {
+  function maxBytesForKey(key) {
+    return Number(DURABLE_KEY_MAX_BYTES[key] || defaultMaxFileBytes);
+  }
+
+  function fileTooLarge(file, key) {
     try {
       if (!file || !fs.existsSync(file)) return false;
-      return fs.statSync(file).size > maxFileBytes;
+      return fs.statSync(file).size > maxBytesForKey(key);
     } catch {
       return false;
     }
   }
 
   for (const key of keys) {
+    const maxFileBytes = maxBytesForKey(key);
     // Yield so /health can answer during multi-file hydrate on free-tier CPUs.
     await new Promise((resolve) => setImmediate(resolve));
     const localPath = filePathForKey(key);
     const mirrorFile = mirrorPathForKey(key);
-    if (fileTooLarge(localPath) || fileTooLarge(mirrorFile)) {
+    if (fileTooLarge(localPath, key) || fileTooLarge(mirrorFile, key)) {
       const bytes = Math.max(
-        fileTooLarge(localPath) ? fs.statSync(localPath).size : 0,
-        fileTooLarge(mirrorFile) ? fs.statSync(mirrorFile).size : 0
+        fileTooLarge(localPath, key) ? fs.statSync(localPath).size : 0,
+        fileTooLarge(mirrorFile, key) ? fs.statSync(mirrorFile).size : 0
       );
       if (key === DURABLE_KEYS.DAILY_SLATE_REPORTS) {
         try {

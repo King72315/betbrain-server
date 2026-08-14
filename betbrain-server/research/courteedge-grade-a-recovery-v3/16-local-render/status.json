@@ -1,0 +1,6 @@
+{
+  "diagnosis": "GET /picks now returns productTruthHome even when legacy board cache empty",
+  "fix": "server.js /picks empty-board branch",
+  "remaining": "Render deploy of this commit not verified in this session",
+  "status": "CODE_FIXED_DEPLOY_PENDING"
+}

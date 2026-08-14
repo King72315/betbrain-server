@@ -12,6 +12,10 @@
     "test:courtedge-nav-cleanup": "node ./scripts/testCourtEdgeNavigationCleanupV1.js",
     "test:courtedge-local-render-fallback": "node ./scripts/testCourtEdgeLocalRenderFallbackV1.mjs",
     "test:courtedge-proptype-identity": "node ./scripts/testCourtEdgePropTypeIdentityFixV1.mjs",
+    "test:courtedge-decision-intelligence-single-truth": "node ./scripts/testCourtEdgeDecisionIntelligenceSingleTruthV1.mjs",
+    "test:courtedge-product-truth-ui-cutover": "node ./scripts/testCourtEdgeProductTruthUiCutoverV1.mjs",
+    "test:courtedge-decision-engine-v2": "node ./betbrain-server/scripts/testCourtEdgeDecisionEngineV2.js",
+    "validate:courtedge-decision-engine-v2": "node ./betbrain-server/scripts/runCourtEdgeDecisionEngineV2Validation.js",
     "build:android:private": "eas build --platform android --profile preview",
     "update:ota": "eas update --branch preview --message \"CourtEdge update\"",
     "postinstall": "npm install --prefix betbrain-server"

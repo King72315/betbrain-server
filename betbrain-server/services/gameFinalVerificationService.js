@@ -198,6 +198,19 @@ function getPickQueryDates(savedPick = {}) {
     if (normalized) dates.add(normalized);
   }
 
+  // Canonical CT slate date must participate in Final lookups (many research
+  // rows only carry slateDate / resultsSlateDate without commenceTime).
+  for (const key of [
+    "slateDate",
+    "slateDateCt",
+    "canonicalSlateDateCT",
+    "resultsSlateDate",
+    "cohortSlateDate",
+  ]) {
+    const raw = String(savedPick[key] || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) dates.add(raw);
+  }
+
   const commence = savedPick.commenceTime || savedPick.time || "";
   if (commence) {
     const ctDate = getSlateDateCT(commence);

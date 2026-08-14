@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "reason": null,
+  "pass": true,
+  "build": "courteedge-result-driven-decision-engine-v2",
+  "trainThroughDate": "2026-08-03",
+  "holdoutDates": [
+    "2026-08-05",
+    "2026-08-07",
+    "2026-08-08",
+    "2026-08-09",
+    "2026-08-10",
+    "2026-08-11",
+    "2026-08-12",
+    "2026-08-13"
+  ],
+  "holdoutDatesLength": 8,
+  "trainDatesLength": 17,
+  "projectionCalibration": {
+    "maeBefore": 6.1127,
+    "maeAfter": 5.8342
+  },
+  "probabilityCalibration": {
+    "currentOfficialBrier": 0.5605,
+    "v2BoardBrier": 0.233,
+    "holdoutAllCandidatesBrier": 0.2523
+  },
+  "boardComparison": {
+    "currentOfficial": {
+      "n": 4,
+      "hitRate": 0.25,
+      "wins": 1,
+      "losses": 3
+    },
+    "decisionEngineV2": {
+      "n": 42,
+      "hitRate": 0.6429,
+      "wins": 27,
+      "losses": 15
+    }
+  },
+  "topKHitRates": {
+    "decisionEngineV2": {
+      "top1": 0,
+      "top1N": 1,
+      "top2": 0.5,
+      "top2N": 2,
+      "top3": 0.6667,
+      "top3N": 3,
+      "top4": 0.75,
+      "top4N": 4,
+      "top5": 0.6,
+      "top5N": 5,
+      "top6": 0.5,
+      "top6N": 6
+    },
+    "currentSelectorProxy": {
+      "top1": 0,
+      "top1N": 1,
+      "top2": 0.5,
+      "top2N": 2,
+      "top3": 0.3333,
+      "top3N": 3,
+      "top4": 0.25,
+      "top4N": 4,
+      "top5": 0.2,
+      "top5N": 5,
+      "top6": 0.1667,
+      "top6N": 6
+    }
+  },
+  "promotion": {
+    "liveAuthority": true,
+    "reason": "HOLDOUT_IMPROVED_VS_CURRENT_SELECTOR"
+  },
+  "aggregateHitRates": {
+    "currentOfficial": 0.25,
+    "decisionEngineV2": 0.6429,
+    "topKDecisionEngineV2": {
+      "top1": 0,
+      "top1N": 1,
+      "top2": 0.5,
+      "top2N": 2,
+      "top3": 0.6667,
+      "top3N": 3,
+      "top4": 0.75,
+      "top4N": 4,
+      "top5": 0.6,
+      "top5N": 5,
+      "top6": 0.5,
+      "top6N": 6
+    },
+    "topKCurrentSelectorProxy": {
+      "top1": 0,
+      "top1N": 1,
+      "top2": 0.5,
+      "top2N": 2,
+      "top3": 0.3333,
+      "top3N": 3,
+      "top4": 0.25,
+      "top4N": 4,
+      "top5": 0.2,
+      "top5N": 5,
+      "top6": 0.1667,
+      "top6N": 6
+    }
+  },
+  "slateComparisonsN": 7
+}

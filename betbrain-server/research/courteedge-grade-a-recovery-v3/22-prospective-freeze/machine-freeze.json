@@ -1,0 +1,12 @@
+{
+  "freeze": "COURTEDGE_GRADE_A_RECOVERY_V3_MACHINE_FREEZE",
+  "frozenAt": null,
+  "policy": [
+    "No daily retune of probability/Safety/Risk/rank weights without King",
+    "Do not optimize against 8/13 shadow W-L",
+    "New WNBA slates are prospective evidence only",
+    "Trusted may be 0; Best Available must stay honestly labeled",
+    "Track FULL / BEST_AVAILABLE / TRUSTED x POINTS / REBOUNDS / ASSISTS"
+  ],
+  "status": "PENDING_AFTER_FIRST_FULL_STACK_SLATE"
+}

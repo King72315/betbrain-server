@@ -1312,8 +1312,17 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     pathwayScore: risk.pathwayScore ?? 0,
     pathwayEvidence: risk.pathwayEvidence ?? [],
     pathwayWarnings: risk.pathwayWarnings ?? [],
-    calibratedWinProbability: null,
-    probabilityCalibrationStatus: "INSUFFICIENT_SAMPLE",
+    calibratedWinProbability:
+      packet.modelWinProbability ?? packet.decisionScoreV2 ?? null,
+    modelWinProbability:
+      packet.modelWinProbability ?? packet.decisionScoreV2 ?? null,
+    decisionScoreV2: packet.decisionScoreV2 ?? packet.modelWinProbability ?? null,
+    normalizedProjectionStrength: packet.normalizedProjectionStrength ?? null,
+    decisionAuthority: packet.decisionAuthority || null,
+    probabilityCalibrationStatus:
+      packet.modelWinProbability != null
+        ? "DECISION_ENGINE_V2"
+        : "INSUFFICIENT_SAMPLE",
     conflictIndex: packet.uncertainty?.conflictIndex,
     minutesStabilityScore: packet.minutesModel?.minutesStabilityScore,
     roleStabilityScore: packet.roleModel?.roleStabilityScore,
@@ -1361,11 +1370,23 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     trackingType: "OFFICIAL",
     finalDecision: "OFFICIAL",
     recordType: "OFFICIAL",
-    // Single owners: Direction×C2 confidence, C2 risk.
-    displayConfidence: display.displayConfidence,
-    confidence: display.displayConfidence,
-    finalConfidence: display.displayConfidence,
-    winProbability: display.displayConfidence,
+    // Decision Engine V2: modelWinProbability is display authority when present.
+    displayConfidence:
+      packet.modelWinProbability != null
+        ? Math.round(Number(packet.modelWinProbability) * 100)
+        : display.displayConfidence,
+    confidence:
+      packet.modelWinProbability != null
+        ? Math.round(Number(packet.modelWinProbability) * 100)
+        : display.displayConfidence,
+    finalConfidence:
+      packet.modelWinProbability != null
+        ? Math.round(Number(packet.modelWinProbability) * 100)
+        : display.displayConfidence,
+    winProbability:
+      packet.modelWinProbability != null
+        ? Math.round(Number(packet.modelWinProbability) * 100)
+        : display.displayConfidence,
     signalStrength: null,
     signalLevel: null,
     directionDecision: selectedSide,
@@ -1380,23 +1401,29 @@ function decorateOfficialProp(packet, sidePacket, index, opts = {}) {
     educatedGuess: directionAdmission === "BEST_GUESS",
     rescuePathway: null,
     blockedByDirectionNoBet: false,
-    pipelineOrder: "INTEGRITY_DIRECTION_C2_SAFEST_2_TO_6",
+    pipelineOrder: "INTEGRITY_DIRECTION_C2_FEATURE_DECISION_ENGINE_V2",
     controlPlaneBuild: CONTROL_PLANE_BUILD,
-    confidenceOwner: "probabilitySafetyV1.direction_x_c2",
-    riskOwner: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2",
+    confidenceOwner:
+      packet.modelWinProbability != null
+        ? "decisionEngineV2.modelWinProbability"
+        : "probabilitySafetyV1.direction_x_c2",
+    riskOwner: "EMPIRICAL_SAFE_PROP_V2_CALIBRATION_2_FEATURE_ONLY",
     signalOwner: null,
     forcedSide: false,
     noFixedSix: true,
-    noMinimumBoard: false,
+    noMinimumBoard: true,
     noTeamQuota: true,
     whyNotLow: risk.whyNotLow || [],
     riskExplanation: risk.explanation || null,
     membershipQualificationStatus:
-      riskCode === "LOW"
-        ? "QUALIFIED_LOW_RISK"
-        : riskCode === "MEDIUM"
-          ? "QUALIFIED_MEDIUM_RISK"
-          : "HIGH_MINIMUM_FILL",
+      packet.membershipQualificationStatus ||
+      (packet.decisionAuthority
+        ? "DECISION_ENGINE_V2_RANK"
+        : riskCode === "LOW"
+          ? "QUALIFIED_LOW_RISK"
+          : riskCode === "MEDIUM"
+            ? "QUALIFIED_MEDIUM_RISK"
+            : "LEGACY_HIGH_RISK_DIAGNOSTIC"),
   };
 }
 

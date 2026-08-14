@@ -1,0 +1,87 @@
+{
+  "label": "SHADOW_NOT_HISTORICAL_PRODUCT_TRUTH",
+  "slateDateCt": "2026-08-13",
+  "note": "Original 8/13 freezes preserved. This is counterfactual membership under V3 rules.",
+  "original": {
+    "candidateCount": 45,
+    "byType": {
+      "POINTS": 15,
+      "REBOUNDS": 15,
+      "ASSISTS": 15
+    },
+    "fullWl": {
+      "WIN": 26,
+      "LOSS": 19,
+      "n": 45,
+      "hit": 0.5778,
+      "record": "26-19"
+    },
+    "homeWeaveWl": {
+      "WIN": 5,
+      "LOSS": 5,
+      "n": 10,
+      "hit": 0.5,
+      "record": "5-5"
+    },
+    "officialCount": 0,
+    "officialWl": {
+      "WIN": 0,
+      "LOSS": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    }
+  },
+  "v3Shadow": {
+    "candidateCount": 45,
+    "byTypeUnchanged": {
+      "POINTS": 15,
+      "REBOUNDS": 15,
+      "ASSISTS": 15
+    },
+    "note": "Candidate count unchanged because 8/13 freeze already truncated; V3 removes future truncation only.",
+    "trustedCount": 0,
+    "trustedWl": {
+      "WIN": 0,
+      "LOSS": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    },
+    "bestAvailableWl": {
+      "WIN": 5,
+      "LOSS": 5,
+      "n": 10,
+      "hit": 0.5,
+      "record": "5-5"
+    },
+    "fullWl": {
+      "WIN": 26,
+      "LOSS": 19,
+      "n": 45,
+      "hit": 0.5778,
+      "record": "26-19"
+    },
+    "globalTop10Wl": {
+      "WIN": 5,
+      "LOSS": 5,
+      "n": 10,
+      "hit": 0.5,
+      "record": "5-5"
+    },
+    "completeTrustedPacketN": 0,
+    "incompleteReasons": {
+      "MISSING_PROJECTION": 45,
+      "MISSING_FAIR_LINE": 45,
+      "MISSING_SAFETY": 45
+    },
+    "marketBalancedWeave": false,
+    "forcedHomeFill": false
+  },
+  "interpretation": [
+    "Original Official=0 remains 0 under V3 because odds-only packets fail complete Trusted gate.",
+    "Best Available shows honest non-trusted top quality (not labeled Official).",
+    "Weave no longer production authority; global Top10 W-L remains 5-5 on this slate (ranking still weak on odds-implied scores).",
+    "Do not treat any W-L change here as Grade-A proof."
+  ]
+}

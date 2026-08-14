@@ -15,6 +15,11 @@ import {
   LAB_SIX_PROP_LEARNING_TRACK_START_DATE,
   isLabSixPropLearningTrackDate,
 } from "./courtEdgeLabV2Constants.js";
+import {
+  applyResultsPointerUnblockPolicy,
+  isLifecycleQuarantinedProp,
+  isResolvedLikeStatus,
+} from "./courtEdgeLifecycleUnblockV1.js";
 /** First slate date included in clean collectible Lab/History/report era. */
 export const CLEAN_DATA_CUTOFF = "2026-06-19";
 
@@ -1013,7 +1018,32 @@ export function pickActiveResultsSlateDate(
     reports,
     today
   );
-  if (blockingSlate) return blockingSlate;
+
+  const unresolvedOfficialByDate = {};
+  let todayOfficialCount = 0;
+  for (const prop of trackedProps || []) {
+    if (isLifecycleQuarantinedProp(prop)) continue;
+    if (!isResultsCohortProp(prop)) continue;
+    if (prop.homeStaged === true) continue;
+    const d = getResultsPropSlateDate(prop);
+    if (!d) continue;
+    if (d === today) todayOfficialCount += 1;
+    if (!isResolvedLikeStatus(prop.status)) {
+      unresolvedOfficialByDate[d] = (unresolvedOfficialByDate[d] || 0) + 1;
+    }
+  }
+
+  const unblocked = applyResultsPointerUnblockPolicy({
+    today,
+    yesterday: getYesterdayLocalDate(today),
+    legacyBlockingSlateDate: blockingSlate,
+    todayOfficialCount,
+    unresolvedOfficialByDate,
+  });
+
+  if (unblocked.activeResultsSlateDate) {
+    return unblocked.activeResultsSlateDate;
+  }
 
   return isTodayResultsCohortOpen(trackedProps, today) ? today : null;
 }

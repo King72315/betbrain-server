@@ -1,6 +1,8 @@
 /**
- * One Official membership selector.
- * Only this module writes officialSelected=true.
+ * Official membership selector — production authority.
+ *
+ * Decision Engine V2 (when promoted): single sort by decisionScoreV2 / modelWinProbability.
+ * Legacy SAFEST_2_TO_6 retained only as rollback path when V2 gate is off.
  */
 import {
   OFFICIAL_BOARD_MIN,
@@ -13,6 +15,11 @@ import {
   CONTROL_PLANE_BUILD,
   HIGH_POLICY,
 } from "./contract.js";
+import {
+  selectOfficialMembershipV2,
+  isDecisionEngineV2LiveEnabled,
+  DECISION_ENGINE_V2_BUILD,
+} from "../../services/courtEdgeDecisionEngineV2.js";
 
 function riskTier(packet = {}) {
   const raw =
@@ -44,7 +51,6 @@ function compareWithinTier(a, b) {
   const adm = admissionRank(b) - admissionRank(a);
   if (adm !== 0) return adm;
 
-  // Cross-stat comparable quality — no propType bonus/penalty.
   const rankA = Number(a.officialRankScore);
   const rankB = Number(b.officialRankScore);
   if (Number.isFinite(rankA) && Number.isFinite(rankB) && rankB !== rankA) {
@@ -73,7 +79,6 @@ function compareWithinTier(a, b) {
 function isBoardCandidate(packet = {}) {
   if (packet.boardCandidate === true) return true;
   if (packet.membership?.boardCandidate === true) return true;
-  // Temporary bridge while packets migrate stages.
   if (
     packet.membership?.analysisEligible !== false &&
     (packet.selectedSide === "OVER" || packet.selectedSide === "UNDER") &&
@@ -89,10 +94,9 @@ function isBoardCandidate(packet = {}) {
 }
 
 /**
- * Rank boardCandidates and select Official membership (2–6).
- * HIGH only fills when LOW+MEDIUM < 2.
+ * Legacy SAFEST_2_TO_6 — rollback only when Decision Engine V2 gate is off.
  */
-export function selectOfficialMembershipV1(packets = [], options = {}) {
+function selectOfficialMembershipLegacyV1(packets = [], options = {}) {
   const sizePolicy = getOfficialBoardSizePolicy();
   const pool = (Array.isArray(packets) ? packets : [])
     .filter((p) => isBoardCandidate(p))
@@ -118,7 +122,6 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
   } else {
     selected = lowMed.slice();
     const need = Math.max(0, OFFICIAL_BOARD_MIN - selected.length);
-    // HIGH fill: PRIMARY first. BEST_GUESS+HIGH only if still below min-2.
     const highPrimary = high.filter((p) => admissionRank(p) === 1);
     const highGuess = high.filter((p) => admissionRank(p) !== 1);
     let highPool = highPrimary.slice();
@@ -128,7 +131,6 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
     const highTake = highPool.slice(0, need);
     highFillCount = highTake.length;
     selected = [...selected, ...highTake];
-    // Genuine thin slate: fewer than 2 valid markets total.
     if (pool.length < OFFICIAL_BOARD_MIN) {
       selected = pool.sort(compareWithinTier).slice(0, pool.length);
       thinSlate = true;
@@ -142,7 +144,6 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
     return {
       ...p,
       officialSelected,
-      // Compat: officialEligible means on-board only after selection.
       officialEligible: officialSelected,
       membership: {
         ...(p.membership || {}),
@@ -183,5 +184,26 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
     boardCandidates: withFlags,
     teamQuota: false,
     sideQuota: false,
+    decisionAuthority: "LEGACY_SAFEST_2_TO_6",
   };
 }
+
+/**
+ * Rank board candidates and select Official membership.
+ * Live authority is Decision Engine V2 after chronological holdout promotion.
+ */
+export function selectOfficialMembershipV1(packets = [], options = {}) {
+  const forceV2 = options.forceDecisionEngineV2 === true;
+  const forceLegacy = options.forceLegacySelector === true;
+  if (!forceLegacy && (forceV2 || isDecisionEngineV2LiveEnabled())) {
+    const result = selectOfficialMembershipV2(packets, options);
+    return {
+      ...result,
+      controlPlaneBuild: result.controlPlaneBuild || DECISION_ENGINE_V2_BUILD,
+      legacyRollbackAvailable: true,
+    };
+  }
+  return selectOfficialMembershipLegacyV1(packets, options);
+}
+
+export { selectOfficialMembershipLegacyV1, selectOfficialMembershipV2 };

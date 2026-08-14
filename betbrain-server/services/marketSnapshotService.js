@@ -38,7 +38,8 @@ export function resolveSnapshotStatLabel({
   if (fromProp) return propTypeStatLabel(fromProp);
   const fromStat = normalizePropTypeV1(stat);
   if (fromStat) return propTypeStatLabel(fromStat);
-  return "Points";
+  // Never invent Points for multistat identity — caller must supply propType/stat.
+  return null;
 }
 
 function ensureSnapshotsFile() {
@@ -173,7 +174,15 @@ export function appendMarketSnapshot({
 } = {}) {
   const snapshots = readSnapshots();
   const statLabel = resolveSnapshotStatLabel({ propType, stat });
-  const propTypeCanon = normalizePropTypeV1(propType || statLabel) || "POINTS";
+  const propTypeCanon = normalizePropTypeV1(propType || statLabel);
+  if (!statLabel || !propTypeCanon) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "MISSING_PROPTYPE_IDENTITY",
+      message: "Market snapshot refused — propType/stat required (no Points default)",
+    };
+  }
   const key = buildSnapshotKey({
     league,
     gameDate,
