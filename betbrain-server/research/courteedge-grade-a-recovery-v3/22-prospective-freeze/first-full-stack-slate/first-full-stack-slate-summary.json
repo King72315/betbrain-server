@@ -1,0 +1,44 @@
+{
+    "attemptedAt":  "2026-08-14T08:22:27.031Z",
+    "completedAt":  "2026-08-14T08:26:23.0455298Z",
+    "league":  "WNBA",
+    "refreshBody":  {
+                        "scope":  "all",
+                        "includeNba":  false,
+                        "chainTomorrow":  true
+                    },
+    "refreshStarted":  true,
+    "refreshAsync":  true,
+    "refreshOutcome":  "INTERRUPTED_BY_SERVER_RESTART",
+    "blocker":  "Render process restarted mid-refresh (refresh startedAt 2026-08-14T08:22:27.031Z; serverStartedAt 2026-08-14T08:24:32.080Z). Status lost; boardPresent=false; no second Odds refresh attempted.",
+    "boardPresentAfter":  false,
+    "slateDate":  "2026-08-14",
+    "trustedCount":  0,
+    "bestAvailableCount":  0,
+    "fullCount":  0,
+    "byPropType":  {
+                       "trusted":  {
+
+                                   },
+                       "bestAvailable":  {
+
+                                         },
+                       "full":  {
+
+                                }
+                   },
+    "sampleTrusted":  [
+
+                      ],
+    "sampleBestAvailable":  [
+
+                            ],
+    "trustedProjectionNonNull":  null,
+    "marketBalancedWeave":  false,
+    "homeRankAuthority":  "global_quality_v3",
+    "productTruthBuild":  "courteedge-product-truth-ui-cutover-v3",
+    "serverBuild":  "courteedge-grade-a-recovery-v3",
+    "deployedCommit":  "f65c707",
+    "oddsRefreshCalls":  1,
+    "note":  "Do not spend extra Odds calls; one refresh already consumed."
+}

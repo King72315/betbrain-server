@@ -1,6 +1,6 @@
 {
   "freeze": "COURTEDGE_GRADE_A_RECOVERY_V3_MACHINE_FREEZE",
-  "frozenAt": null,
+  "frozenAt": "2026-08-14T08:26:23.0455298Z",
   "policy": [
     "No daily retune of probability/Safety/Risk/rank weights without King",
     "Do not optimize against 8/13 shadow W-L",
@@ -8,5 +8,231 @@
     "Trusted may be 0; Best Available must stay honestly labeled",
     "Track FULL / BEST_AVAILABLE / TRUSTED x POINTS / REBOUNDS / ASSISTS"
   ],
-  "status": "PENDING_AFTER_FIRST_FULL_STACK_SLATE"
+  "status": "MACHINE_FROZEN_PROSPECTIVE_PENDING",
+  "deployedCommit": "f65c707",
+  "serverBuild": "courteedge-grade-a-recovery-v3",
+  "firstFullStackSlate": {
+    "attemptedAt": "2026-08-14T08:27:41.145Z",
+    "completedAt": "2026-08-14T08:30:54.372Z",
+    "league": "WNBA",
+    "refreshBody": {
+      "scope": "all",
+      "includeNba": false,
+      "chainTomorrow": false
+    },
+    "refreshStarted": true,
+    "refreshAsync": true,
+    "refreshOutcome": "INTERRUPTED_BY_SERVER_RESTART",
+    "blocker": "Render process restarted mid-refresh (~2m after kick). Health/status returned Render 502 HTML during outage; post-restart health startedAt=2026-08-14T08:29:57.189Z (was 2026-08-14T08:24:32.080Z). Refresh status cleared (inFlight=false, startedAt=null, finishedAt=null, boardPresent=false). STOP — no third attempt per runbook.",
+    "boardPresentAfter": false,
+    "slateDate": "2026-08-14",
+    "trustedCount": 0,
+    "bestAvailableCount": 0,
+    "fullCount": 0,
+    "byPropType": {
+      "trusted": {},
+      "bestAvailable": {},
+      "full": {}
+    },
+    "sampleTrusted": [],
+    "sampleBestAvailable": [],
+    "trustedProjectionNonNull": null,
+    "marketBalancedWeave": null,
+    "homeRankAuthority": null,
+    "productTruthBuild": "courteedge-decision-intelligence-single-truth-v1",
+    "serverBuild": "courteedge-grade-a-recovery-v3",
+    "deployedCommit": "f65c707",
+    "oddsRefreshCalls": 2,
+    "note": "Render board mint blocked by free-tier OOM; local prospective slate is the evidence source until Render memory path fixed without reintroducing quotas. Do not retune models; do not touch 8/13.",
+    "attempt": 2,
+    "priorAttempt": {
+      "attemptedAt": "2026-08-14T08:22:27.031Z",
+      "refreshBody": {
+        "scope": "all",
+        "includeNba": false,
+        "chainTomorrow": true
+      },
+      "refreshOutcome": "INTERRUPTED_BY_SERVER_RESTART"
+    },
+    "byMarket": null,
+    "sampleFull": [],
+    "projectionNonNullFull": null,
+    "render": {
+      "refreshOutcome": "INTERRUPTED_BY_SERVER_RESTART",
+      "attemptedAt": "2026-08-14T08:27:41.145Z",
+      "completedAt": "2026-08-14T08:30:54.372Z",
+      "attempt": 2,
+      "blocker": "Render process restarted mid-refresh (~2m after kick). Health/status returned Render 502 HTML during outage; post-restart health startedAt=2026-08-14T08:29:57.189Z (was 2026-08-14T08:24:32.080Z). Refresh status cleared (inFlight=false, startedAt=null, finishedAt=null, boardPresent=false). STOP — no third attempt per runbook.",
+      "boardPresentAfter": false,
+      "note": "Render board mint blocked by free-tier OOM; kept as INTERRUPTED_BY_SERVER_RESTART."
+    },
+    "refreshOutcomeRender": "INTERRUPTED_BY_SERVER_RESTART",
+    "local": {
+      "flag": "FULL_STACK_OK",
+      "capturedAt": "2026-08-14T08:40:25.119Z",
+      "refresh": {
+        "scope": "today",
+        "includeNba": false,
+        "chainTomorrow": false,
+        "startedAt": "2026-08-14T08:33:41.642Z",
+        "finishedAt": "2026-08-14T08:35:59.852Z",
+        "error": null,
+        "boardPresent": true,
+        "serverBuild": "courteedge-grade-a-recovery-v3"
+      },
+      "bootstrap": {
+        "endpoint": "/product-truth/bootstrap-full-slate",
+        "slateDate": "2026-08-14",
+        "ingested": 50,
+        "tracked": 50,
+        "note": "Required after refresh so Home Full/Best/Trusted read canonical RESEARCH from frozen packets."
+      },
+      "trustedCount": 0,
+      "bestAvailableCount": 10,
+      "fullCount": 50,
+      "byPropType": {
+        "trusted": {},
+        "bestAvailable": {
+          "REBOUNDS": 4,
+          "ASSISTS": 5,
+          "POINTS": 1
+        },
+        "full": {
+          "REBOUNDS": 17,
+          "ASSISTS": 14,
+          "POINTS": 19
+        }
+      },
+      "projectionNonNull": {
+        "trusted": 0,
+        "bestAvailable": 10,
+        "full": 50
+      },
+      "fairLineNonNull": {
+        "trusted": 0,
+        "bestAvailable": 10,
+        "full": 50
+      },
+      "fullWithProjectionAndFairLine": 50,
+      "homeRankAuthority": "global_quality_v3",
+      "marketBalancedWeave": false,
+      "sampleTrusted": [],
+      "sampleBestAvailable": [
+        {
+          "player": "Bridget Carleton",
+          "propType": "REBOUNDS",
+          "side": "OVER",
+          "line": 4.5,
+          "projection": 7.1,
+          "fairLine": 7.2,
+          "p": 0.896461,
+          "safety": 73,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "propType": "ASSISTS",
+          "side": "OVER",
+          "line": 4.5,
+          "projection": 5.9,
+          "fairLine": 6,
+          "p": 0.83387,
+          "safety": 72,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Kelsey Mitchell",
+          "propType": "POINTS",
+          "side": "OVER",
+          "line": 24.5,
+          "projection": 27.8,
+          "fairLine": 28.2,
+          "p": 0.7132,
+          "safety": 76,
+          "risk": "MEDIUM"
+        },
+        {
+          "player": "Aliyah Boston",
+          "propType": "REBOUNDS",
+          "side": "OVER",
+          "line": 8.5,
+          "projection": 9.3,
+          "fairLine": 9.4,
+          "p": 0.60895,
+          "safety": 67,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Aliyah Boston",
+          "propType": "ASSISTS",
+          "side": "OVER",
+          "line": 3.5,
+          "projection": 4.3,
+          "fairLine": 4.4,
+          "p": 0.680023,
+          "safety": 66,
+          "risk": "HIGH"
+        }
+      ],
+      "sampleFull": [
+        {
+          "player": "Bridget Carleton",
+          "propType": "REBOUNDS",
+          "side": "OVER",
+          "line": 4.5,
+          "projection": 7.1,
+          "fairLine": 7.2,
+          "p": 0.896461,
+          "safety": 73,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Natisha Hiedeman",
+          "propType": "ASSISTS",
+          "side": "OVER",
+          "line": 4.5,
+          "projection": 5.9,
+          "fairLine": 6,
+          "p": 0.83387,
+          "safety": 72,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Kelsey Mitchell",
+          "propType": "POINTS",
+          "side": "OVER",
+          "line": 24.5,
+          "projection": 27.8,
+          "fairLine": 28.2,
+          "p": 0.7132,
+          "safety": 76,
+          "risk": "MEDIUM"
+        },
+        {
+          "player": "Aliyah Boston",
+          "propType": "REBOUNDS",
+          "side": "OVER",
+          "line": 8.5,
+          "projection": 9.3,
+          "fairLine": 9.4,
+          "p": 0.60895,
+          "safety": 67,
+          "risk": "HIGH"
+        },
+        {
+          "player": "Aliyah Boston",
+          "propType": "ASSISTS",
+          "side": "OVER",
+          "line": 3.5,
+          "projection": 4.3,
+          "fairLine": 4.4,
+          "p": 0.680023,
+          "safety": 66,
+          "risk": "HIGH"
+        }
+      ],
+      "artifact": "first-full-stack-slate/local-result.json"
+    }
+  },
+  "updatedAt": "2026-08-14T08:40:25.121Z"
 }

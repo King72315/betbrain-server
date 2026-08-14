@@ -15,15 +15,19 @@ import {
   buildCanonicalPredictionRecord,
   upsertCanonicalPredictionRecords,
   getCanonicalRecordsBySlate,
+  loadCanonicalPredictionStore,
+  saveCanonicalPredictionStore,
 } from "./courtEdgeCanonicalPredictionRecordV1.js";
 import {
   scoreCandidateV2,
   buildDailyLearningReportV2,
+  selectOfficialMembershipV2,
 } from "./courtEdgeDecisionEngineV2.js";
 import {
   materializeResearchTrackedPropsFromBoardCandidates,
   addTrackedProps,
 } from "./trackedPropService.js";
+import { hasCompleteTrustedPacketV3 } from "./courtEdgeHomeProductTruthSectionsV3.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -211,10 +215,111 @@ export async function gradeFullSlateCanonical(slateDateCt, options = {}) {
 }
 
 /**
- * End-to-end: ingest → track materialize → grade → daily learning V2.
+ * Apply ONE Official/Trusted membership pass on the Full pool.
+ * Does not invent volume — selectOfficialMembershipV2 quality cliff only.
+ * Zero Official is valid.
+ */
+export function applyOfficialMembershipFromFullPool(slateDateCt, options = {}) {
+  const store = loadCanonicalPredictionStore();
+  const slate = String(slateDateCt || "").slice(0, 10);
+  const pool = (store.records || []).filter(
+    (r) => String(r.slateDateCt || "").slice(0, 10) === slate
+  );
+  if (!pool.length) {
+    return {
+      ok: true,
+      slateDateCt: slate,
+      officialCount: 0,
+      promoted: 0,
+      reason: "NO_CANONICAL_ROWS",
+    };
+  }
+
+  const membership = selectOfficialMembershipV2(pool, {
+    engine: options.engine,
+    qualityProbFloor: options.qualityProbFloor,
+    // Production Trusted requires complete packets (default).
+    allowMissingEnvironmentFields: options.allowMissingEnvironmentFields === true,
+  });
+
+  const selectedIds = new Set(
+    (membership.selectedPackets || []).map((p) => p.canonicalPropId).filter(Boolean)
+  );
+  // Fallback match when scoreCandidate clones lack canonicalPropId.
+  const selectedKeys = new Set(
+    (membership.selectedPackets || []).map((p) =>
+      [
+        String(p.playerName || p.player || "")
+          .toLowerCase()
+          .replace(/\s+/g, "-"),
+        p.propType,
+        p.line,
+        String(p.selectedSide || p.side || "").toUpperCase(),
+      ].join("|")
+    )
+  );
+
+  let promoted = 0;
+  const nextRecords = (store.records || []).map((r) => {
+    if (String(r.slateDateCt || "").slice(0, 10) !== slate) return r;
+    const key = [
+      String(r.playerName || r.player || "")
+        .toLowerCase()
+        .replace(/\s+/g, "-"),
+      r.propType,
+      r.line,
+      String(r.side || "").toUpperCase(),
+    ].join("|");
+    const earn =
+      selectedIds.has(r.canonicalPropId) || selectedKeys.has(key);
+    if (!earn) {
+      // Keep RESEARCH; never demote historical OFFICIAL on other paths here.
+      if (r.membership === "OFFICIAL" && options.demoteNonSelected === true) {
+        return {
+          ...r,
+          membership: "RESEARCH",
+          officialSelected: false,
+          membershipQualificationStatus: "BELOW_V2_QUALITY_CLIFF",
+        };
+      }
+      return r;
+    }
+    if (r.membership === "OFFICIAL" && r.officialSelected === true) return r;
+    promoted += 1;
+    const gate = hasCompleteTrustedPacketV3(r);
+    return {
+      ...r,
+      membership: "OFFICIAL",
+      officialSelected: true,
+      membershipQualificationStatus: gate.ok
+        ? "DECISION_ENGINE_V2_RANK"
+        : "DECISION_ENGINE_V2_RANK_INCOMPLETE_PACKET",
+      decisionScoreV2: r.decisionScoreV2,
+      officialRankScore: r.officialRankScore ?? r.decisionScoreV2,
+    };
+  });
+
+  saveCanonicalPredictionStore({ ...store, records: nextRecords });
+  return {
+    ok: true,
+    slateDateCt: slate,
+    officialCount: selectedIds.size || selectedKeys.size,
+    promoted,
+    qualityProbFloor: membership.qualityProbFloor,
+    boardSizePolicy: membership.boardSizePolicy,
+    decisionAuthority: membership.decisionAuthority,
+  };
+}
+
+/**
+ * End-to-end: ingest → Official quality pass → track → grade → learning V2.
  */
 export async function bootstrapFullSlateHome(slateDateCt, options = {}) {
   const ingest = ingestFullSlateToCanonical(slateDateCt, { persist: true });
+  const officialPass =
+    options.applyOfficial !== false
+      ? applyOfficialMembershipFromFullPool(slateDateCt, options)
+      : { ok: true, skipped: true, officialCount: 0, promoted: 0 };
   const trackedMat = materializeFullSlateTrackedResearch(slateDateCt);
   let trackedAdd = null;
   if (options.persistTracked !== false && trackedMat.tracked.length) {
@@ -225,7 +330,7 @@ export async function bootstrapFullSlateHome(slateDateCt, options = {}) {
   }
   const grade = await gradeFullSlateCanonical(slateDateCt, {
     ingest: false,
-    includeOfficial: options.includeOfficial === true,
+    includeOfficial: options.includeOfficial !== false,
     ...options,
   });
   let learningV2 = null;
@@ -259,6 +364,7 @@ export async function bootstrapFullSlateHome(slateDateCt, options = {}) {
     build: FULL_SLATE_HOME_BUILD,
     slateDateCt,
     ingest,
+    officialPass,
     trackedCount: trackedMat.trackedCount,
     trackedAdd,
     grade: {
