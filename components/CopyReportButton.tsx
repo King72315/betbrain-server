@@ -15,6 +15,7 @@ type CopyReportButtonProps = {
   label?: string;
   style?: ViewStyle;
   slateDate?: string | null;
+  compact?: boolean;
 };
 
 export default function CopyReportButton({
@@ -22,6 +23,7 @@ export default function CopyReportButton({
   label = "Copy Page Report",
   style,
   slateDate,
+  compact = false,
 }: CopyReportButtonProps) {
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -38,8 +40,12 @@ export default function CopyReportButton({
 
   return (
     <View style={[styles.wrap, style]}>
-      <TouchableOpacity style={styles.button} onPress={handleCopy} activeOpacity={0.85}>
-        <Text style={styles.buttonText}>{label}</Text>
+      <TouchableOpacity
+        style={[styles.button, compact && styles.buttonCompact]}
+        onPress={handleCopy}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.buttonText, compact && styles.buttonTextCompact]}>{label}</Text>
       </TouchableOpacity>
       {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
     </View>
@@ -59,10 +65,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#475569",
   },
+  buttonCompact: {
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginRight: 8,
+  },
   buttonText: {
     color: "#e2e8f0",
     fontSize: 13,
     fontWeight: "900",
+  },
+  buttonTextCompact: {
+    fontSize: 11,
   },
   feedback: {
     color: "#86efac",

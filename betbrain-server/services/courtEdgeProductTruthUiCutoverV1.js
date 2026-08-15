@@ -100,6 +100,28 @@ export function cardToDisplayPick(card = {}, options = {}) {
     officialRankScore:
       card.officialRankScore ?? modelWinProbability,
     frozenScorePreserved: storedScore != null,
+    frozenAt: card.frozenAt || card.freezeTimestamp || null,
+    freezeTimestamp: card.freezeTimestamp || card.frozenAt || null,
+    frozenPredictionFields: card.frozenPredictionFields || null,
+    pOver: card.pOver ?? null,
+    pUnder: card.pUnder ?? null,
+    expectedMinutes: card.expectedMinutes ?? card.minutesModel?.expectedMinutes ?? null,
+    safetyVersion: card.safetyVersion || null,
+    riskVersion: card.riskVersion || null,
+    probabilityCalibrationVersion: card.probabilityCalibrationVersion || null,
+    membershipQualificationStatus: card.membershipQualificationStatus || null,
+    bookCount: card.bookCount ?? card.market?.bookCount ?? null,
+    marketQuality: card.marketQuality || null,
+    openingLine: card.openingLine ?? null,
+    currentLine: card.currentLine ?? card.sealedLine ?? card.line ?? null,
+    projectionGap: card.projectionGap ?? null,
+    trustedMembership: card.membership === "OFFICIAL",
+    bestAvailableMembership: card.homeMembershipSection === "BEST_AVAILABLE",
+    fullMembership: true,
+    homeMembershipSection: card.homeMembershipSection || null,
+    fullRank: card.fullRank ?? null,
+    bestAvailableRank: card.bestAvailableRank ?? null,
+    officialRank: card.officialRank ?? null,
     membership: card.membership,
     officialSelected: card.membership === "OFFICIAL",
     immutableOfficial: card.membership === "OFFICIAL",
@@ -330,6 +352,49 @@ export function getResultsProductTruthBoard(options = {}) {
     // Explicitly ignore legacy activeResultsSlateDate for display membership.
     legacyActiveSlatePointerIgnored: true,
   };
+}
+
+/**
+ * READ-ONLY copy export from the same canonical board Home/Results use.
+ * Does not rescore. Does not mutate Product Truth.
+ */
+export function getProductTruthCopyReport(options = {}) {
+  const slateDateCt = String(options.slateDateCt || options.slateDate || "").slice(
+    0,
+    10
+  );
+  const board = getProductTruthBoard({ slateDateCt });
+  const official = board.official || [];
+  const research = board.research || [];
+  const full = [...official, ...research];
+  const sections = buildHomeProductTruthSectionsV3({
+    trusted: official,
+    full,
+    bestAvailableDisplayMax: BEST_AVAILABLE_DISPLAY_MAX_DEFAULT,
+  });
+  const cohort = String(options.cohort || "trusted").toLowerCase();
+  let cards = official;
+  let title = "TRUSTED/OFFICIAL";
+  if (cohort === "research") {
+    cards = research;
+    title = "RESEARCH";
+  } else if (cohort === "best" || cohort === "best_available") {
+    cards = sections.bestAvailable || [];
+    title = "BEST_AVAILABLE";
+  } else if (cohort === "full") {
+    cards = sections.fullPredictions || [];
+    title = "FULL_PREDICTIONS";
+  } else if (cohort === "all" || cohort === "entire" || cohort === "slate") {
+    cards = sections.fullPredictions || [];
+    title = "ENTIRE_PRODUCT_TRUTH_SLATE";
+  }
+  return formatCopyReportFromCanonical(cards, {
+    title,
+    slateDateCt,
+    mode: cohort,
+    summary: options.summary === true,
+    league: options.league || "WNBA",
+  });
 }
 
 /**

@@ -1,7 +1,4 @@
-/**
- * Client single-product-truth helpers.
- * Display-only: never recompute actual / grade / propType / side / line.
- */
+import { formatFullPropDetailPacket } from "./courtEdgeFullPropDetailCopyV1.js";
 
 export const PRODUCT_TRUTH_CLIENT_BUILD =
   "courteedge-decision-intelligence-single-truth-v1";
@@ -28,8 +25,8 @@ export function toProductTruthView(pick = {}) {
     result.grade || pick.grade || pick.status || "PENDING"
   ).toUpperCase();
   const modelWinProbability = (() => {
-    // Prefer Decision Engine V2 — do not fall back to legacy sealed priors
-    // (those can read 97% and mislead the primary copy line).
+    // Prefer Decision Engine V2 stored score for ranking/display Model %.
+    // Do not fall back to legacy sealed priors (those can read 97%).
     const raw =
       pick.modelWinProbability ??
       pick.decisionScoreV2 ??
@@ -40,15 +37,24 @@ export function toProductTruthView(pick = {}) {
     if (!Number.isFinite(n)) return null;
     return n > 1 ? n / 100 : n;
   })();
+  const storedPredicted = (() => {
+    const raw = pick.predictedProbability;
+    if (raw == null || raw === "") return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return n > 1 ? n / 100 : n;
+  })();
   return {
+    ...pick,
     canonicalPropId: pick.canonicalPropId || null,
     player: pick.player || pick.playerName || null,
     propType,
     side: String(pick.side || pick.pick || "").toUpperCase() || null,
     line: pick.line ?? pick.sealedLine ?? pick.officialLine ?? null,
-    projection: pick.projection ?? pick.correctedProjection ?? null,
+    projection: pick.projection ?? null,
     modelWinProbability,
-    predictedProbability: modelWinProbability,
+    predictedProbability: storedPredicted,
+    decisionScoreV2: pick.decisionScoreV2 ?? modelWinProbability,
     safetyScore: pick.safetyScore ?? pick.SafetyScore ?? null,
     risk: pick.risk || pick.trueRisk || pick.c2Risk || null,
     membership:
@@ -65,20 +71,7 @@ export function toProductTruthView(pick = {}) {
 }
 
 export function formatProductTruthCopyLine(view = {}) {
-  const actual =
-    view.actual != null ? `Actual ${view.actual} ${view.propType}` : "Actual —";
-  const modelPct =
-    view.modelWinProbability == null
-      ? "—"
-      : `${Math.round(Number(view.modelWinProbability) * 100)}%`;
-  return [
-    view.player,
-    `${view.propType} ${view.side} ${view.line}`,
-    `Projection=${view.projection ?? "—"}`,
-    `Model=${modelPct}`,
-    view.grade || "PENDING",
-    actual,
-  ].join(" | ");
+  return formatFullPropDetailPacket(view, 1);
 }
 
 export function assertClientBackendParity(backendCard = {}, clientPick = {}) {

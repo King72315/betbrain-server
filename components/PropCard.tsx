@@ -11,18 +11,8 @@ import {
   formatGateLabel,
 } from "../utils/pointStrengthLedger";
 
-type PropCardProps = {
-  pick: any;
-  index?: number;
-  game?: any;
-  onSave?: () => void;
-  onDelete?: () => void;
-  showSaveHint?: boolean;
-  showDelete?: boolean;
-  compact?: boolean;
-  variant?: "default" | "bestSix";
-  playType?: "Official" | "Test";
-};
+import { copyTextToClipboard } from "../utils/copyReport";
+import { formatFullPropDetailPacket } from "../utils/courtEdgeFullPropDetailCopyV1.js";
 
 export default function PropCard({
   pick,
@@ -37,6 +27,7 @@ export default function PropCard({
   playType,
 }: PropCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
 
   const [roleExpanded, setRoleExpanded] = useState(false);
   const [fairLineExpanded, setFairLineExpanded] = useState(false);
@@ -318,6 +309,26 @@ export default function PropCard({
             <Text style={styles.bestSixWhyTitle}>Why</Text>
             <Text style={styles.bestSixWhyText}>{whyText}</Text>
           </View>
+        ) : null}
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={(e) => {
+            e?.stopPropagation?.();
+            void (async () => {
+              const ok = await copyTextToClipboard(
+                formatFullPropDetailPacket(pick, index + 1)
+              );
+              setCopiedFeedback(ok ? "Copied full detail" : "Copy failed");
+              setTimeout(() => setCopiedFeedback(null), 1800);
+            })();
+          }}
+          style={styles.copyDetailsButton}
+        >
+          <Text style={styles.copyDetailsText}>Copy details</Text>
+        </TouchableOpacity>
+        {copiedFeedback ? (
+          <Text style={styles.copyDetailsFeedback}>{copiedFeedback}</Text>
         ) : null}
 
         <TouchableOpacity
@@ -986,6 +997,26 @@ export default function PropCard({
           ))}
         </View>
       )}
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={(e) => {
+          e?.stopPropagation?.();
+          void (async () => {
+            const ok = await copyTextToClipboard(
+              formatFullPropDetailPacket(pick, index + 1)
+            );
+            setCopiedFeedback(ok ? "Copied full detail" : "Copy failed");
+            setTimeout(() => setCopiedFeedback(null), 1800);
+          })();
+        }}
+        style={styles.copyDetailsButton}
+      >
+        <Text style={styles.copyDetailsText}>Copy details</Text>
+      </TouchableOpacity>
+      {copiedFeedback ? (
+        <Text style={styles.copyDetailsFeedback}>{copiedFeedback}</Text>
+      ) : null}
 
       <TouchableOpacity
         onPress={() => setExpanded((value) => !value)}
@@ -1994,6 +2025,27 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginTop: 12,
     textAlign: "right",
+  },
+  copyDetailsButton: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#475569",
+    backgroundColor: "#0f172a",
+  },
+  copyDetailsText: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  copyDetailsFeedback: {
+    color: "#86efac",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 4,
   },
   deleteButton: {
     marginTop: 10,

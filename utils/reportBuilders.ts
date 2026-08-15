@@ -1,6 +1,7 @@
 import { formatTime, safeDisplay } from "../components/PropCard";
 import { getApiBaseUrl, getBackendMode } from "../services/api";
 import { buildPageReport, bulletList, joinLines } from "./copyReport";
+import { formatFullPropDetailPacket } from "./courtEdgeFullPropDetailCopyV1";
 import { formatPointStrengthLedgerBlock } from "./pointStrengthLedger";
 import {
   formatRecordLine,
@@ -455,34 +456,7 @@ export function buildSavedPicksReport(input: {
 }
 
 function formatHistoryPickLine(pick: any, index: number) {
-  const status = getPickStatus(pick);
-  const actual =
-    pick.actualPoints ??
-    pick.finalPoints ??
-    pick.actualStat ??
-    pick.resultMeta?.points ??
-    null;
-  const officialLine = pick.officialLine ?? pick.line ?? pick.sportsbookLine;
-  const latestLine = pick.latestLine ?? pick.currentLine ?? officialLine;
-
-  return joinLines([
-    `[${index + 1}] ${pick.player || "Unknown"} (${pick.league || "—"}) — ${status}`,
-    `  ${pick.side || pick.pick || pick.currentEngineSide || "—"} ${safeDisplay(officialLine)} ${pick.stat || "Points"}`,
-    latestLine !== undefined &&
-    officialLine !== undefined &&
-    Number(latestLine) !== Number(officialLine)
-      ? `  Line: official ${safeDisplay(officialLine)} → latest ${safeDisplay(latestLine)}`
-      : null,
-    `  Confidence: ${safeDisplay(pick.confidence ?? pick.winProbability)}% | Risk: ${pick.riskLabel || "—"} | Tier: ${String(pick.tier || "WATCHLIST").toUpperCase()}`,
-    actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
-    pick.resultMargin !== undefined || pick.margin !== undefined
-      ? `  Margin: ${safeDisplay(pick.resultMargin ?? pick.margin)}`
-      : null,
-    pick.pendingReason ? `  Pending reason: ${pick.pendingReason}` : null,
-    pick.bookCount !== undefined ? `  Books: ${safeDisplay(pick.bookCount)}` : null,
-    pick.dataMode ? `  Data Mode: ${pick.dataMode}` : null,
-    pick.gameLabel || pick.game ? `  Game: ${pick.gameLabel || pick.game}` : null,
-  ]);
+  return formatFullPropDetailPacket(pick, index + 1);
 }
 
 export function buildHistoryReport(input: {
@@ -524,7 +498,6 @@ export function buildHistoryReport(input: {
 
     if (!entry.hasGradedPerformance) {
       const bundleLines = (entry.picks || [])
-        .slice(0, 50)
         .map((pick, index) => formatHistoryPickLine(pick, index));
       return joinLines([
         header,
@@ -533,7 +506,6 @@ export function buildHistoryReport(input: {
     }
 
     const pickLines = (entry.picks || [])
-      .slice(0, 50)
       .map((pick, index) => formatHistoryPickLine(pick, index));
 
     const engine = entry.reportSummary?.engineScorecard || entry.reportSummary?.sections?.G;
@@ -629,23 +601,11 @@ export function buildResultsReport(input: {
   const activeSlateDate = input.visibleSlates[0]?.slateDate || todayLocalDate;
   const activeSlateLabel = formatSlateMessageDate(activeSlateDate);
 
-  const formatResultPropLine = (prop: any, index: number) => {
-    const status = getTrackedPropStatus(prop);
-    const actual = prop.actualStat ?? prop.actualPoints ?? prop.finalPoints ?? null;
-
-    return joinLines([
-      `[${index + 1}] ${prop.player || "Unknown"} (${prop.league || "—"}) — ${status.toUpperCase()}`,
-      `  ${prop.currentEngineSide || prop.side || "—"} ${safeDisplay(prop.line)} ${prop.stat || "Points"}`,
-      `  Game: ${formatTrackedPropGameLabel(prop)}`,
-      `  Confidence: ${safeDisplay(prop.confidence)}% | Risk: ${prop.riskLabel || "—"} | Tier: ${String(prop.tier || "—").toUpperCase()}`,
-      actual !== null && actual !== undefined ? `  Actual: ${safeDisplay(actual)}` : null,
-      prop.resultMargin !== undefined ? `  Margin: ${safeDisplay(prop.resultMargin)}` : null,
-      prop.pendingReason ? `  Pending Reason: ${prop.pendingReason}` : null,
-    ]);
-  };
+  const formatResultPropLine = (prop: any, index: number) =>
+    formatFullPropDetailPacket(prop, index + 1);
 
   const slateSections = input.filteredSlates.map((slate) => {
-    const slateProps = slate.props.slice(0, 40);
+    const slateProps = slate.props;
     const gameState = groupResultsPropsByGameState(slateProps);
 
     const formatGameStateBlock = (
@@ -1208,8 +1168,7 @@ export function buildPropLabV2Report(input: {
   });
 
   const bestSixLines = (lab.officialBestSixResults || []).map(
-    (row: any, i: number) =>
-      `[${i + 1}] B6#${row.bestSixRank || "N/A"} ${row.player} · ${row.finalSide} ${row.sealedLine} · ${String(row.result || "").toUpperCase()} · margin ${formatLabNum(row.resultMargin)} · conf ${formatLabNum(row.confidence, 0)} · risk ${row.risk || "N/A"} · CLV ${formatLabClv(row.clvMetric ?? row.clv)}`
+    (row: any, i: number) => formatFullPropDetailPacket(row, i + 1)
   );
 
   const suggestionLines = (lab.adjustmentReview?.suggestions || []).map(

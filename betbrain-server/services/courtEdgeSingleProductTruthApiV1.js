@@ -18,6 +18,7 @@ import {
   buildDailyDecisionLearningReport,
 } from "./courtEdgeDecisionLearningWarehouseV1.js";
 import { buildDailyLearningReportV2 } from "./courtEdgeDecisionEngineV2.js";
+import { formatFullPropDetailCopyReport } from "../../utils/courtEdgeFullPropDetailCopyV1.js";
 
 export const SINGLE_PRODUCT_TRUTH_BUILD =
   "courteedge-decision-intelligence-single-truth-v1";
@@ -43,38 +44,50 @@ export function getProductTruthBoard({ slateDateCt, membership = null } = {}) {
 }
 
 export function formatCopyReportFromCanonical(cards = [], options = {}) {
-  const lines = [];
-  lines.push(`CourtEdge Product Truth${options.title ? ` — ${options.title}` : ""}`);
-  lines.push(`Build: ${SINGLE_PRODUCT_TRUTH_BUILD}`);
-  if (options.slateDateCt) lines.push(`Slate: ${options.slateDateCt}`);
-  lines.push("");
-  for (const card of cards) {
-    const grade = card.grade || card.result?.grade || "PENDING";
-    const actual =
-      card.actual != null
-        ? `Actual ${card.actual} ${card.propType}`
-        : card.result?.actual != null
-          ? `Actual ${card.result.actual} ${card.propType}`
-          : "Actual —";
-    const model =
-      card.modelWinProbability ?? card.predictedProbability ?? null;
-    const modelPct =
-      model == null
-        ? "—"
-        : `${Math.round(Number(model) > 1 ? Number(model) : Number(model) * 100)}%`;
+  if (options.summary === true) {
+    const lines = [];
     lines.push(
-      [
-        card.player,
-        `${card.propType} ${card.side} ${card.line}`,
-        `Projection=${card.projection ?? "—"}`,
-        `Model=${modelPct}`,
-        grade,
-        actual,
-        card.canonicalPropId,
-      ].join(" | ")
+      `CourtEdge Product Truth${options.title ? ` — ${options.title}` : ""}`
     );
+    lines.push(`Build: ${SINGLE_PRODUCT_TRUTH_BUILD}`);
+    if (options.slateDateCt) lines.push(`Slate: ${options.slateDateCt}`);
+    lines.push("");
+    for (const card of cards) {
+      const grade = card.grade || card.result?.grade || "PENDING";
+      const actual =
+        card.actual != null
+          ? `Actual ${card.actual} ${card.propType}`
+          : card.result?.actual != null
+            ? `Actual ${card.result.actual} ${card.propType}`
+            : "Actual —";
+      const predicted = card.predictedProbability;
+      const predictedPct =
+        predicted == null || predicted === ""
+          ? "—"
+          : `${(Number(predicted) > 1 ? Number(predicted) : Number(predicted) * 100).toFixed(1)}%`;
+      lines.push(
+        [
+          card.player,
+          `${card.propType} ${card.side} ${card.line}`,
+          `Projection=${card.projection ?? "—"}`,
+          `PredictedProbability=${predictedPct}`,
+          grade,
+          actual,
+          card.canonicalPropId,
+        ].join(" | ")
+      );
+    }
+    return lines.join("\n");
   }
-  return lines.join("\n");
+  return formatFullPropDetailCopyReport({
+    cards,
+    title: options.title || "Product Truth",
+    slateDateCt: options.slateDateCt,
+    league: options.league || "WNBA",
+    build: SINGLE_PRODUCT_TRUTH_BUILD,
+    architecture: "Product Truth V1 + Decision Engine V2",
+    mode: options.mode || options.title || "full-detail",
+  });
 }
 
 export function assertSurfaceParity(surfaces = {}) {

@@ -401,6 +401,7 @@ import {
   downgradeLegacyMembershipToForensic,
   getHomeProductTruthBoard,
   getResultsProductTruthBoard,
+  getProductTruthCopyReport,
   PRODUCT_TRUTH_UI_CUTOVER_BUILD,
 } from "./services/courtEdgeProductTruthUiCutoverV1.js";
 import { gradeAug12ResearchCandidates } from "./services/courtEdgeAug12ResearchGradingV1.js";
@@ -5122,15 +5123,16 @@ app.post("/product-truth/grade-aug12-research", async (req, res) => {
 app.get("/product-truth/copy-report", (req, res) => {
   try {
     const slateDateCt = String(req.query.slateDate || AUG12_SLATE).slice(0, 10);
-    const board = getProductTruthBoard({ slateDateCt });
     const cohort = String(req.query.cohort || "official").toLowerCase();
-    const cards = cohort === "research" ? board.research : board.official;
-    res.type("text/plain").send(
-      formatCopyReportFromCanonical(cards, {
-        title: cohort === "research" ? "Research" : "Official",
-        slateDateCt,
-      })
-    );
+    const summary = String(req.query.summary || "") === "1";
+    const mapped =
+      cohort === "official" || cohort === "trusted" ? "trusted" : cohort;
+    const text = getProductTruthCopyReport({
+      slateDateCt,
+      cohort: mapped,
+      summary,
+    });
+    res.type("text/plain").send(text);
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }

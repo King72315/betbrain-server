@@ -21,11 +21,8 @@ import {
   fetchSavedPicks,
   savePick,
 } from "../services/api";
-import {
-  formatProductTruthCopyLine,
-  toProductTruthView,
-} from "../utils/courtEdgeProductTruthV1";
 import { formatApiLoadError } from "../utils/apiLoadError";
+import { formatFullPropDetailCopyReport } from "../utils/courtEdgeFullPropDetailCopyV1";
 import {
   BEST_SIX_LIMIT,
   HOME_DATE_VIEW,
@@ -397,32 +394,70 @@ export default function HomeControlledBestSixScreen() {
     }
   };
 
-  const getReportText = () => {
+  const homeCopyMeta = () => {
     const home = picksData?.productTruthHome;
     const slateDate =
-      home?.homeTodayDisplaySlateDate ||
-      home?.todayLocalDate ||
-      getTodayLocalDate();
-    const cards =
       dateView === "tomorrow"
-        ? boardsByView.tomorrow[activeLeague].bestSixCards
-        : boardsByView.today[activeLeague].bestSixCards;
-    const lines = [
-      "CourtEdge Product Truth — Home Official",
-      `Build: product-truth-v1`,
-      `Slate: ${slateDate}`,
-      home?.homeTodayIsPriorDayFallback
-        ? `Note: CT Today (${home?.todayLocalDate}) has no Official props; showing prior-day Official ${slateDate}.`
-        : null,
-      `League: ${activeLeague}`,
-      `View: ${dateView}`,
-      "",
-      ...cards.map((pick: any) =>
-        formatProductTruthCopyLine(toProductTruthView(pick))
-      ),
-    ].filter(Boolean);
-    return lines.join("\n");
+        ? home?.tomorrowLocalDate || getTodayLocalDate()
+        : home?.homeTodayDisplaySlateDate ||
+          home?.todayLocalDate ||
+          getTodayLocalDate();
+    return { home, slateDate };
   };
+
+  const cardsForCopyMode = (mode: "trusted" | "best" | "full" | "entire") => {
+    const { home } = homeCopyMeta();
+    const trusted =
+      dateView === "tomorrow"
+        ? home?.tomorrowOfficial ||
+          boardsByView.tomorrow[activeLeague].bestSixCards
+        : home?.homeTodayTrusted ||
+          home?.homeTodayDisplayOfficial ||
+          boardsByView.today[activeLeague].bestSixCards;
+    const best =
+      dateView === "tomorrow"
+        ? home?.tomorrowBestAvailable || []
+        : home?.homeTodayBestAvailable || home?.todayBestAvailable || [];
+    const full =
+      dateView === "tomorrow"
+        ? home?.tomorrowFullPredictions || []
+        : home?.homeTodayFullPredictions || home?.todayFullPredictions || [];
+    if (mode === "trusted") return trusted || [];
+    if (mode === "best") return best || [];
+    if (mode === "full") return full || [];
+    const byId = new Map();
+    for (const row of [...(trusted || []), ...(best || []), ...(full || [])]) {
+      const id =
+        row?.canonicalPropId ||
+        `${row?.player}|${row?.propType}|${row?.side}|${row?.line}`;
+      if (!byId.has(id)) byId.set(id, row);
+    }
+    return [...byId.values()];
+  };
+
+  const getReportTextFor = (mode: "trusted" | "best" | "full" | "entire") => {
+    const { home, slateDate } = homeCopyMeta();
+    return formatFullPropDetailCopyReport({
+      cards: cardsForCopyMode(mode),
+      title:
+        mode === "trusted"
+          ? "TRUSTED/OFFICIAL"
+          : mode === "best"
+            ? "BEST_AVAILABLE"
+            : mode === "full"
+              ? "FULL_PREDICTIONS"
+              : "ENTIRE_PRODUCT_TRUTH_SLATE",
+      slateDateCt: slateDate,
+      league: activeLeague,
+      build: "product-truth-v1",
+      architecture: "Product Truth V1 + Decision Engine V2",
+      mode,
+    }) + (home?.homeTodayIsPriorDayFallback && dateView === "today"
+      ? `\nNote: CT Today (${home?.todayLocalDate}) has no Official props; showing prior-day Official ${slateDate}.\n`
+      : "");
+  };
+
+  const getReportText = () => getReportTextFor("trusted");
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -455,7 +490,30 @@ export default function HomeControlledBestSixScreen() {
             </Text>
           ) : null}
           <Text style={styles.versionLine}>Authority: product-truth-v1</Text>
-          <CopyReportButton getReportText={getReportText} />
+          <CopyReportButton
+            getReportText={getReportText}
+            label="Copy Full Detail (Trusted)"
+          />
+          <View style={styles.copyModeRow}>
+            <CopyReportButton
+              compact
+              getReportText={() => getReportTextFor("best")}
+              label="Copy Best"
+              style={styles.copyModeItem}
+            />
+            <CopyReportButton
+              compact
+              getReportText={() => getReportTextFor("full")}
+              label="Copy Full"
+              style={styles.copyModeItem}
+            />
+            <CopyReportButton
+              compact
+              getReportText={() => getReportTextFor("entire")}
+              label="Copy Entire Slate"
+              style={styles.copyModeItem}
+            />
+          </View>
           <BackendSourceBadge />
         </View>
 
@@ -633,6 +691,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   refreshText: { color: "white", fontWeight: "900", fontSize: 16, textAlign: "center" },
+  copyModeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  copyModeItem: {
+    marginTop: 8,
+    marginRight: 8,
+  },
   loadingText: { color: "white", fontSize: 18, fontWeight: "800", marginBottom: 12 },
   leagueSection: { marginBottom: 28 },
   leagueHeader: {
