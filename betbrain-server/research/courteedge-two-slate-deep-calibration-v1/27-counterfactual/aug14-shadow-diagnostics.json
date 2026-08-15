@@ -1,0 +1,85 @@
+{
+  "label": "SHADOW_NOT_PRODUCT_TRUTH",
+  "actualTrusted": {
+    "WIN": 7,
+    "LOSS": 8,
+    "PUSH": 0,
+    "n": 15,
+    "hit": 0.4667,
+    "record": "7-8"
+  },
+  "qualityFloor58": {
+    "officialCount": 6,
+    "record": {
+      "WIN": 3,
+      "LOSS": 3,
+      "PUSH": 0,
+      "n": 6,
+      "hit": 0.5,
+      "record": "3-3"
+    },
+    "sides": {
+      "OVER": 6,
+      "UNDER": 0
+    },
+    "note": "DIAGNOSTIC only — raising qualityProbFloor to 0.58; not deployed from this alone"
+  },
+  "exposureAware": {
+    "n": 4,
+    "sides": {
+      "OVER": 4,
+      "UNDER": 0
+    },
+    "record": {
+      "WIN": 2,
+      "LOSS": 2,
+      "PUSH": 0,
+      "n": 4,
+      "hit": 0.5,
+      "record": "2-2"
+    },
+    "picks": [
+      {
+        "player": "Bridget Carleton",
+        "propType": "REBOUNDS",
+        "side": "OVER",
+        "line": 4.5,
+        "p": 0.7062,
+        "risk": "HIGH",
+        "safety": 73,
+        "grade": "WIN"
+      },
+      {
+        "player": "Natisha Hiedeman",
+        "propType": "ASSISTS",
+        "side": "OVER",
+        "line": 4.5,
+        "p": 0.6735,
+        "risk": "HIGH",
+        "safety": 72,
+        "grade": "WIN"
+      },
+      {
+        "player": "Kelsey Mitchell",
+        "propType": "POINTS",
+        "side": "OVER",
+        "line": 24.5,
+        "p": 0.644,
+        "risk": "MEDIUM",
+        "safety": 76,
+        "grade": "LOSS"
+      },
+      {
+        "player": "Carla Leite",
+        "propType": "ASSISTS",
+        "side": "OVER",
+        "line": 6.5,
+        "p": 0.6092,
+        "risk": "HIGH",
+        "safety": 70,
+        "grade": "LOSS"
+      }
+    ],
+    "note": "Diagnostic portfolio-aware selection — not production until historical validation"
+  }
+}

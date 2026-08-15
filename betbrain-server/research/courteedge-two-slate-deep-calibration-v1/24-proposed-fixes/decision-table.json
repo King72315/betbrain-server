@@ -1,0 +1,244 @@
+[
+  {
+    "ISSUE": "Trusted/Best membership all-Over despite balanced Full pool",
+    "EVIDENCE": {
+      "fullSideSplit": {
+        "OVER": 26,
+        "UNDER": 24
+      },
+      "trustedSideSplit": {
+        "OVER": 15,
+        "UNDER": 0
+      },
+      "top15ByDecisionScoreSide": {
+        "OVER": 15,
+        "UNDER": 0,
+        "record": {
+          "WIN": 7,
+          "LOSS": 8,
+          "PUSH": 0,
+          "n": 15,
+          "hit": 0.4667,
+          "record": "7-8"
+        }
+      },
+      "meanP": {
+        "over": 0.5723,
+        "under": 0.383
+      },
+      "meanEdge": {
+        "over": 0.8077,
+        "under": 0.65
+      },
+      "underInTop15": [],
+      "diagnosis": "Trusted membership follows quality-cliff on decisionScoreV2≈P. If Overs occupy top P ranks, Trusted becomes all-Over even when Full pool is side-balanced."
+    },
+    "AUG13_SUPPORT": "Home also underperformed Full; ranking failed lift",
+    "AUG14_SUPPORT": "Trusted 7-8 < Full Unders 14-10; Best Points-Overs 3-7",
+    "HISTORICAL": {
+      "ok": true,
+      "gradedN": 380,
+      "OVER": {
+        "WIN": 98,
+        "LOSS": 80,
+        "PUSH": 0,
+        "n": 178,
+        "hit": 0.5506,
+        "record": "98-80"
+      },
+      "UNDER": {
+        "WIN": 102,
+        "LOSS": 100,
+        "PUSH": 0,
+        "n": 202,
+        "hit": 0.505,
+        "record": "102-100"
+      },
+      "byStatSide": {
+        "POINTS_OVER": {
+          "WIN": 85,
+          "LOSS": 71,
+          "PUSH": 0,
+          "n": 156,
+          "hit": 0.5449,
+          "record": "85-71"
+        },
+        "POINTS_UNDER": {
+          "WIN": 78,
+          "LOSS": 83,
+          "PUSH": 0,
+          "n": 161,
+          "hit": 0.4845,
+          "record": "78-83"
+        },
+        "REBOUNDS_UNDER": {
+          "WIN": 11,
+          "LOSS": 10,
+          "PUSH": 0,
+          "n": 21,
+          "hit": 0.5238,
+          "record": "11-10"
+        },
+        "ASSISTS_UNDER": {
+          "WIN": 13,
+          "LOSS": 7,
+          "PUSH": 0,
+          "n": 20,
+          "hit": 0.65,
+          "record": "13-7"
+        },
+        "REBOUNDS_OVER": {
+          "WIN": 8,
+          "LOSS": 4,
+          "PUSH": 0,
+          "n": 12,
+          "hit": 0.6667,
+          "record": "8-4"
+        },
+        "ASSISTS_OVER": {
+          "WIN": 5,
+          "LOSS": 5,
+          "PUSH": 0,
+          "n": 10,
+          "hit": 0.5,
+          "record": "5-5"
+        }
+      },
+      "walkForward": {
+        "ok": true,
+        "holdoutDates": 8,
+        "currentOfficial": null,
+        "decisionEngineV2": null
+      }
+    },
+    "WINNER_CONTROL": {
+      "nWin": 24,
+      "nLoss": 26,
+      "meanP": {
+        "win": 0.4599,
+        "loss": 0.5014
+      },
+      "meanSafety": {
+        "win": 66.3333,
+        "loss": 62.1923
+      },
+      "meanAbsProjErr": {
+        "win": 1.6167,
+        "loss": 3.6962
+      },
+      "meanEdge": {
+        "win": 0.8125,
+        "loss": 0.6577
+      },
+      "overShare": {
+        "win": 0.4166666666666667,
+        "loss": 0.6153846153846154
+      },
+      "highRiskShare": {
+        "win": 0.9583333333333334,
+        "loss": 0.9615384615384616
+      }
+    },
+    "OVERFIT_RISK": "HIGH if we ban Overs; MEDIUM for floor/exposure",
+    "EXPECTED_BENEFIT": "Reduce shared Over-model-error clusters in Trusted",
+    "OWNER": "selectOfficialMembershipV2 + optional exposure penalty",
+    "PROPOSED_CHANGE": "Raise Trusted qualityProbFloor modestly + soft per-player/game exposure penalty for HIGH-risk; do NOT force Under quota",
+    "ACCEPT": "CONDITIONAL — implement soft exposure + floor after historical check"
+  },
+  {
+    "ISSUE": "14/15 Trusted were HIGH risk",
+    "EVIDENCE": {
+      "LOW": {
+        "WIN": 0,
+        "LOSS": 0,
+        "PUSH": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0",
+        "trustedN": 0
+      },
+      "MEDIUM": {
+        "WIN": 1,
+        "LOSS": 1,
+        "PUSH": 0,
+        "n": 2,
+        "hit": 0.5,
+        "record": "1-1",
+        "trustedN": 1
+      },
+      "HIGH": {
+        "WIN": 23,
+        "LOSS": 25,
+        "PUSH": 0,
+        "n": 48,
+        "hit": 0.4792,
+        "record": "23-25",
+        "trustedN": 14
+      }
+    },
+    "AUG14_SUPPORT": "HIGH admitted freely when P clears floor",
+    "WINNER_CONTROL": {
+      "win": 0.9583333333333334,
+      "loss": 0.9615384615384616
+    },
+    "OVERFIT_RISK": "MEDIUM",
+    "PROPOSED_CHANGE": "Require Safety>=70 for HIGH-risk Trusted OR treat HIGH as soft demotion unless P and Safety both strong",
+    "ACCEPT": "YES — soft gate, not ban"
+  },
+  {
+    "ISSUE": "Same-player multi-prop Trusted (Boston, Mitchell, Carleton, Hiedeman)",
+    "EVIDENCE": {
+      "Aliyah Boston": {
+        "n": 2,
+        "props": [
+          "ASSISTS OVER 3.5",
+          "REBOUNDS OVER 8.5"
+        ],
+        "WIN": 1,
+        "LOSS": 1,
+        "PUSH": 0,
+        "hit": 0.5,
+        "record": "1-1"
+      },
+      "Bridget Carleton": {
+        "n": 2,
+        "props": [
+          "POINTS OVER 16.5",
+          "REBOUNDS OVER 4.5"
+        ],
+        "WIN": 1,
+        "LOSS": 1,
+        "PUSH": 0,
+        "hit": 0.5,
+        "record": "1-1"
+      },
+      "Kelsey Mitchell": {
+        "n": 2,
+        "props": [
+          "ASSISTS OVER 2.5",
+          "POINTS OVER 24.5"
+        ],
+        "WIN": 0,
+        "LOSS": 2,
+        "PUSH": 0,
+        "hit": 0,
+        "record": "0-2"
+      },
+      "Natisha Hiedeman": {
+        "n": 2,
+        "props": [
+          "ASSISTS OVER 4.5",
+          "REBOUNDS OVER 2.5"
+        ],
+        "WIN": 2,
+        "LOSS": 0,
+        "PUSH": 0,
+        "hit": 1,
+        "record": "2-0"
+      }
+    },
+    "OVERFIT_RISK": "MEDIUM",
+    "PROPOSED_CHANGE": "Soft max 1 Trusted prop per player unless second clears higher bar",
+    "ACCEPT": "YES — soft penalty"
+  }
+]

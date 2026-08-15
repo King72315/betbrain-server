@@ -1,0 +1,104 @@
+{
+  "slateDateCt": "2026-08-14",
+  "gradedAt": "2026-08-15T05:03:31.423Z",
+  "build": "courteedge-canonical-slate-grading-v1",
+  "counts": {
+    "full": 50,
+    "trustedOfficial": 15,
+    "research": 35,
+    "best": 10
+  },
+  "Full": {
+    "W": 24,
+    "L": 26,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 50,
+    "record": "24-26-0"
+  },
+  "Trusted": {
+    "W": 7,
+    "L": 8,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 15,
+    "record": "7-8-0"
+  },
+  "Best": {
+    "W": 3,
+    "L": 7,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 10,
+    "record": "3-7-0"
+  },
+  "PTS": {
+    "W": 6,
+    "L": 13,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 19,
+    "record": "6-13-0"
+  },
+  "REB": {
+    "W": 9,
+    "L": 8,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 17,
+    "record": "9-8-0"
+  },
+  "AST": {
+    "W": 9,
+    "L": 5,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 14,
+    "record": "9-5-0"
+  },
+  "OVER": {
+    "W": 10,
+    "L": 16,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 26,
+    "record": "10-16-0"
+  },
+  "UNDER": {
+    "W": 14,
+    "L": 10,
+    "P": 0,
+    "PENDING": 0,
+    "VOID": 0,
+    "UNRESOLVED": 0,
+    "OTHER": 0,
+    "total": 24,
+    "record": "14-10-0"
+  },
+  "espn": {
+    "eventCount": 2,
+    "completedEvents": 2,
+    "scheduledEvents": 0
+  }
+}

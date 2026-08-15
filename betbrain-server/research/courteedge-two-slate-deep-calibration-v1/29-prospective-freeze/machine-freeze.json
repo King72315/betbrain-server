@@ -1,0 +1,31 @@
+{
+  "marker": "courteedge-two-slate-deep-calibration-v1-prospective-freeze",
+  "frozenAt": "2026-08-15T06:00:00.000Z",
+  "verdict": "COURTEDGE_TWO_SLATE_DEEP_CALIBRATION_V1_TECHNICAL_PASS_PROSPECTIVE_PENDING",
+  "doNotDailyRetune": true,
+  "trackProspective": [
+    "Full",
+    "Best",
+    "Trusted",
+    "PTS",
+    "REB",
+    "AST",
+    "OVER",
+    "UNDER",
+    "Risk",
+    "Safety",
+    "probability",
+    "gameExposure",
+    "teamExposure",
+    "playerExposure"
+  ],
+  "engineRepairs": [
+    "reb-ast-prior-preferred-bias",
+    "quality-floor-cap-0.58",
+    "trusted-soft-exposure-penalties"
+  ],
+  "productTruthImmutable": {
+    "2026-08-13": true,
+    "2026-08-14": true
+  }
+}

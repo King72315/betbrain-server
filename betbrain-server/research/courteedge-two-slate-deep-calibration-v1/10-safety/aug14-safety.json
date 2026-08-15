@@ -1,0 +1,42 @@
+{
+  "80+": {
+    "WIN": 0,
+    "LOSS": 4,
+    "PUSH": 0,
+    "n": 4,
+    "hit": 0,
+    "record": "0-4",
+    "meanAbsProjErr": 7.125,
+    "trustedN": 1
+  },
+  "70-79": {
+    "WIN": 12,
+    "LOSS": 5,
+    "PUSH": 0,
+    "n": 17,
+    "hit": 0.7059,
+    "record": "12-5",
+    "meanAbsProjErr": 2.2059,
+    "trustedN": 6
+  },
+  "60-69": {
+    "WIN": 7,
+    "LOSS": 9,
+    "PUSH": 0,
+    "n": 16,
+    "hit": 0.4375,
+    "record": "7-9",
+    "meanAbsProjErr": 2.8312,
+    "trustedN": 6
+  },
+  "<60": {
+    "WIN": 5,
+    "LOSS": 8,
+    "PUSH": 0,
+    "n": 13,
+    "hit": 0.3846,
+    "record": "5-8",
+    "meanAbsProjErr": 1.8154,
+    "trustedN": 2
+  }
+}

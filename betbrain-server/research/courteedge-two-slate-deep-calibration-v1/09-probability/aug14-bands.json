@@ -1,0 +1,226 @@
+{
+  "full": {
+    "50-54.9": {
+      "WIN": 3,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 11,
+      "hit": 0.2727,
+      "record": "3-8",
+      "meanP": 0.5226
+    },
+    "55-59.9": {
+      "WIN": 4,
+      "LOSS": 3,
+      "PUSH": 0,
+      "n": 7,
+      "hit": 0.5714,
+      "record": "4-3",
+      "meanP": 0.5733
+    },
+    "60-64.9": {
+      "WIN": 1,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 6,
+      "hit": 0.1667,
+      "record": "1-5",
+      "meanP": 0.6231
+    },
+    "65-69.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.6735
+    },
+    "70-74.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.7062
+    },
+    "75+": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    }
+  },
+  "trusted": {
+    "50-54.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "55-59.9": {
+      "WIN": 4,
+      "LOSS": 3,
+      "PUSH": 0,
+      "n": 7,
+      "hit": 0.5714,
+      "record": "4-3",
+      "meanP": 0.5733
+    },
+    "60-64.9": {
+      "WIN": 1,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 6,
+      "hit": 0.1667,
+      "record": "1-5",
+      "meanP": 0.6231
+    },
+    "65-69.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.6735
+    },
+    "70-74.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.7062
+    },
+    "75+": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    }
+  },
+  "over": {
+    "50-54.9": {
+      "WIN": 3,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 11,
+      "hit": 0.2727,
+      "record": "3-8",
+      "meanP": 0.5226
+    },
+    "55-59.9": {
+      "WIN": 4,
+      "LOSS": 3,
+      "PUSH": 0,
+      "n": 7,
+      "hit": 0.5714,
+      "record": "4-3",
+      "meanP": 0.5733
+    },
+    "60-64.9": {
+      "WIN": 1,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 6,
+      "hit": 0.1667,
+      "record": "1-5",
+      "meanP": 0.6231
+    },
+    "65-69.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.6735
+    },
+    "70-74.9": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0",
+      "meanP": 0.7062
+    },
+    "75+": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    }
+  },
+  "under": {
+    "50-54.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "55-59.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "60-64.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "65-69.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "70-74.9": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    },
+    "75+": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0",
+      "meanP": null
+    }
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "biasAudit": {
+    "REBOUNDS": {
+      "modelBias": -0.0679,
+      "priorBias": -0.0679,
+      "gradedBetN": 33,
+      "source": "prior-preferred-sparse-corpus"
+    },
+    "ASSISTS": {
+      "modelBias": -0.0168,
+      "priorBias": -0.0168,
+      "gradedBetN": 30,
+      "source": "prior-preferred-sparse-corpus"
+    },
+    "POINTS": {
+      "modelBias": 1.9188,
+      "gradedBetN": 317,
+      "source": "corpus"
+    }
+  },
+  "alannaUnderRepro": {
+    "modelWinProbability": 0.5966,
+    "correctedProjection": 1.6832,
+    "signedGap": 0.8168,
+    "invertedBeforeFix": true,
+    "invertedAfterFix": false
+  },
+  "sideScoreMeans": {
+    "underNewP": 0.5475,
+    "overNewP": 0.554,
+    "underOldP": 0.383,
+    "overOldP": 0.5723,
+    "underPredP": 0.6799,
+    "overPredP": 0.6021
+  },
+  "originalTrusted": {
+    "n": 15,
+    "sideSplit": {
+      "OVER": 15,
+      "UNDER": 0
+    },
+    "record": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    }
+  },
+  "shadowTrusted": {
+    "n": 4,
+    "sideSplit": {
+      "OVER": 3,
+      "UNDER": 1
+    },
+    "record": {
+      "WIN": 3,
+      "LOSS": 1,
+      "PUSH": 0,
+      "n": 4,
+      "hit": 0.75,
+      "record": "3-1"
+    },
+    "qualityProbFloor": 0.58,
+    "highPolicy": "SOFT_HIGH_SAFETY_DEMOTION_NO_BAN",
+    "exposureSoftPenalties": true,
+    "rows": [
+      "Kelsey Mitchell OVER 24.5 POINTS LOSS",
+      "Paige Bueckers UNDER 6.5 ASSISTS WIN",
+      "Bridget Carleton OVER 4.5 REBOUNDS WIN",
+      "Natisha Hiedeman OVER 4.5 ASSISTS WIN"
+    ]
+  },
+  "top15ByNewScore": {
+    "sideSplit": {
+      "OVER": 6,
+      "UNDER": 9
+    },
+    "underCount": 9,
+    "record": {
+      "WIN": 9,
+      "LOSS": 6,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.6,
+      "record": "9-6"
+    },
+    "rows": [
+      {
+        "player": "Bridget Carleton",
+        "propType": "REBOUNDS",
+        "side": "OVER",
+        "line": 4.5,
+        "grade": "WIN",
+        "newP": 0.6886,
+        "oldP": 0.7062
+      },
+      {
+        "player": "Paige Bueckers",
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "line": 6.5,
+        "grade": "WIN",
+        "newP": 0.6662,
+        "oldP": 0.386
+      },
+      {
+        "player": "Odyssey Sims",
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "line": 4.5,
+        "grade": "WIN",
+        "newP": 0.6487,
+        "oldP": 0.3301
+      },
+      {
+        "player": "Natisha Hiedeman",
+        "propType": "ASSISTS",
+        "side": "OVER",
+        "line": 4.5,
+        "grade": "WIN",
+        "newP": 0.6472,
+        "oldP": 0.6735
+      },
+      {
+        "player": "Kelsey Mitchell",
+        "propType": "POINTS",
+        "side": "OVER",
+        "line": 24.5,
+        "grade": "LOSS",
+        "newP": 0.6355,
+        "oldP": 0.644
+      },
+      {
+        "player": "Awa Fam",
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "line": 2.5,
+        "grade": "WIN",
+        "newP": 0.6156,
+        "oldP": 0.3178
+      },
+      {
+        "player": "Emily Engstler",
+        "propType": "REBOUNDS",
+        "side": "UNDER",
+        "line": 5.5,
+        "grade": "WIN",
+        "newP": 0.6075,
+        "oldP": 0.4741
+      },
+      {
+        "player": "Dominique Malonga",
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "line": 2.5,
+        "grade": "LOSS",
+        "newP": 0.6058,
+        "oldP": 0.3185
+      },
+      {
+        "player": "Alanna Smith",
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "line": 2.5,
+        "grade": "WIN",
+        "newP": 0.5966,
+        "oldP": 0.3094
+      },
+      {
+        "player": "Ezi Magbegor",
+        "propType": "REBOUNDS",
+        "side": "UNDER",
+        "line": 4.5,
+        "grade": "LOSS",
+        "newP": 0.5862,
+        "oldP": 0.4499
+      },
+      {
+        "player": "Bridget Carleton",
+        "propType": "POINTS",
+        "side": "OVER",
+        "line": 16.5,
+        "grade": "LOSS",
+        "newP": 0.5857,
+        "oldP": 0.5774
+      },
+      {
+        "player": "Jade Melbourne",
+        "propType": "REBOUNDS",
+        "side": "UNDER",
+        "line": 2.5,
+        "grade": "WIN",
+        "newP": 0.585,
+        "oldP": 0.4486
+      },
+      {
+        "player": "Carla Leite",
+        "propType": "REBOUNDS",
+        "side": "UNDER",
+        "line": 2.5,
+        "grade": "LOSS",
+        "newP": 0.5779,
+        "oldP": 0.4406
+      },
+      {
+        "player": "Jade Melbourne",
+        "propType": "POINTS",
+        "side": "OVER",
+        "line": 9.5,
+        "grade": "WIN",
+        "newP": 0.5779,
+        "oldP": 0.5538
+      },
+      {
+        "player": "Aliyah Boston",
+        "propType": "ASSISTS",
+        "side": "OVER",
+        "line": 3.5,
+        "grade": "LOSS",
+        "newP": 0.5773,
+        "oldP": 0.6351
+      }
+    ]
+  },
+  "rankingLift": {
+    "top1": {
+      "WIN": 1,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 1,
+      "hit": 1,
+      "record": "1-0"
+    },
+    "top3": {
+      "WIN": 3,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 3,
+      "hit": 1,
+      "record": "3-0"
+    },
+    "top5": {
+      "WIN": 4,
+      "LOSS": 1,
+      "PUSH": 0,
+      "n": 5,
+      "hit": 0.8,
+      "record": "4-1"
+    },
+    "top10": {
+      "WIN": 7,
+      "LOSS": 3,
+      "PUSH": 0,
+      "n": 10,
+      "hit": 0.7,
+      "record": "7-3"
+    },
+    "top15": {
+      "WIN": 9,
+      "LOSS": 6,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.6,
+      "record": "9-6"
+    },
+    "full": {
+      "WIN": 24,
+      "LOSS": 26,
+      "PUSH": 0,
+      "n": 50,
+      "hit": 0.48,
+      "record": "24-26"
+    },
+    "shadowTrusted": {
+      "WIN": 3,
+      "LOSS": 1,
+      "PUSH": 0,
+      "n": 4,
+      "hit": 0.75,
+      "record": "3-1"
+    },
+    "originalTrusted": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    }
+  },
+  "membershipDelta": {
+    "kept": [
+      "Kelsey Mitchell OVER 24.5 POINTS LOSS",
+      "Bridget Carleton OVER 4.5 REBOUNDS WIN",
+      "Natisha Hiedeman OVER 4.5 ASSISTS WIN"
+    ],
+    "added": [
+      "Paige Bueckers UNDER 6.5 ASSISTS WIN"
+    ],
+    "removed": [
+      "Alanna Smith OVER 7.5 REBOUNDS LOSS",
+      "Aliyah Boston OVER 3.5 ASSISTS LOSS",
+      "Aliyah Boston OVER 8.5 REBOUNDS WIN",
+      "Arike Ogunbowale OVER 3.5 ASSISTS LOSS",
+      "Caitlin Clark OVER 9.5 ASSISTS WIN",
+      "Kelsey Mitchell OVER 2.5 ASSISTS LOSS",
+      "Lexie Hull OVER 2.5 REBOUNDS LOSS",
+      "Bridget Carleton OVER 16.5 POINTS LOSS",
+      "Carla Leite OVER 6.5 ASSISTS LOSS",
+      "Jade Melbourne OVER 9.5 POINTS WIN",
+      "Megan DiLeo OVER 4.5 REBOUNDS WIN",
+      "Natisha Hiedeman OVER 2.5 REBOUNDS WIN"
+    ]
+  },
+  "productTruthMutated": false
+}

@@ -1,0 +1,19 @@
+{
+  "REBOUNDS": {
+    "modelBias": -0.0679,
+    "priorBias": -0.0679,
+    "gradedBetN": 33,
+    "source": "prior-preferred-sparse-corpus"
+  },
+  "ASSISTS": {
+    "modelBias": -0.0168,
+    "priorBias": -0.0168,
+    "gradedBetN": 30,
+    "source": "prior-preferred-sparse-corpus"
+  },
+  "POINTS": {
+    "modelBias": 1.9188,
+    "gradedBetN": 317,
+    "source": "corpus"
+  }
+}

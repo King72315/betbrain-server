@@ -1,0 +1,37 @@
+{
+  "provenRootCauses": [
+    "REB/AST projectionBias poisoned by thin bet-corpus means (+2.1 / +4.3) overriding gold residual priors (~0). This inverted UNDER residual strength in decisionScoreV2 while predictedProbability stayed side-correct → Unders ranked ~0.31 and never entered Trusted.",
+    "Trusted/Best membership ranked by decisionScoreV2 quality cliff → Overs occupied top ranks → 15/15 Overs / 10/10 Points Overs despite Full 26/24 side balance.",
+    "HIGH Risk admitted freely (14/15 Trusted HIGH); soft Safety gate missing.",
+    "Same-player / same-game multi-prop Trusted clusters created correlated exposure without soft penalty.",
+    "Trusted underperformed Full Unders (7-8 vs 14-10) and failed ranking lift vs Full (48%)."
+  ],
+  "provenNonCauses": [
+    "Forced market weave (OFF on 8/14)",
+    "15/15/15 per-stat cap (8/14 was 19/17/14)",
+    "Sportsbook line shopping (prior audit)",
+    "Mutation of frozen prediction fields (immutability PASS)",
+    "Overs being inherently bad historically (historical OVER ~55% vs UNDER ~50.5%)",
+    "HIGH Risk alone as automatic ban (winners also mostly HIGH)"
+  ],
+  "productionFixes": [
+    "fitStatProjectionModels: prefer gold REB/AST residual prior bias when corpus sample <100 (prior-preferred-sparse-corpus)",
+    "qualityProbFloor capped at 0.58",
+    "Trusted soft exposure penalties: same-player, same-game, side concentration, HIGH+Safety<70 demotion — no hard quotas"
+  ],
+  "shadowAug14After": {
+    "trustedN": 4,
+    "sideSplit": { "OVER": 3, "UNDER": 1 },
+    "record": "3-1",
+    "top15Sides": { "OVER": 6, "UNDER": 9 },
+    "top10Hit": 0.7,
+    "fullHit": 0.48,
+    "productTruthMutated": false
+  },
+  "provisional": [
+    "POINTS corpus bias ~+1.9 may still modestly favor Overs — needs more clean prospective PTS gold",
+    "Soft exposure penalty magnitudes (0.045/0.03/0.05) need more prospective cohorts",
+    "Whether Best Available POINTS concentration fully resolves after new ingest scores"
+  ],
+  "verdict": "COURTEDGE_TWO_SLATE_DEEP_CALIBRATION_V1_TECHNICAL_PASS_PROSPECTIVE_PENDING"
+}

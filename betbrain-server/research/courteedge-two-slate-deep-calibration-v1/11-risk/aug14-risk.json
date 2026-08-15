@@ -1,0 +1,29 @@
+{
+  "LOW": {
+    "WIN": 0,
+    "LOSS": 0,
+    "PUSH": 0,
+    "n": 0,
+    "hit": null,
+    "record": "0-0",
+    "trustedN": 0
+  },
+  "MEDIUM": {
+    "WIN": 1,
+    "LOSS": 1,
+    "PUSH": 0,
+    "n": 2,
+    "hit": 0.5,
+    "record": "1-1",
+    "trustedN": 1
+  },
+  "HIGH": {
+    "WIN": 23,
+    "LOSS": 25,
+    "PUSH": 0,
+    "n": 48,
+    "hit": 0.4792,
+    "record": "23-25",
+    "trustedN": 14
+  }
+}

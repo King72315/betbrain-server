@@ -170,6 +170,84 @@ test("incomplete odds-only packet cannot become Trusted", () => {
   );
 });
 
+test("sparse REB/AST bias prefers gold residual prior (no n=1 poison)", () => {
+  assert.ok(Math.abs(engine.statModels.ASSISTS.projectionBias) < 0.5, {
+    bias: engine.statModels.ASSISTS.projectionBias,
+  });
+  assert.ok(Math.abs(engine.statModels.REBOUNDS.projectionBias) < 0.5, {
+    bias: engine.statModels.REBOUNDS.projectionBias,
+  });
+  const under = scoreCandidateV2(
+    {
+      propType: "ASSISTS",
+      selectedSide: "UNDER",
+      line: 2.5,
+      projection: 1.7,
+      rawWinProbability: 0.75,
+      risk: "HIGH",
+    },
+    engine
+  );
+  assert.ok(
+    under.correctedProjection < 3,
+    `corrected=${under.correctedProjection} must stay near projection`
+  );
+  assert.ok(
+    under.modelWinProbability >= 0.55,
+    `UNDER strong edge must not invert; P=${under.modelWinProbability}`
+  );
+  assert.ok(under.signedGap > 0, `signedGap=${under.signedGap}`);
+});
+
+test("soft exposure penalties exist without hard quotas", () => {
+  const mem = selectOfficialMembershipV2(
+    [
+      completeTrustedFixture({
+        playerName: "Multi A",
+        propType: "POINTS",
+        selectedSide: "OVER",
+        line: 20.5,
+        projection: 26,
+        boardCandidate: true,
+        rawWinProbability: 0.7,
+        risk: { risk: "HIGH" },
+        safetyScore: 80,
+        gameId: "g1",
+      }),
+      completeTrustedFixture({
+        playerName: "Multi A",
+        propType: "ASSISTS",
+        selectedSide: "OVER",
+        line: 4.5,
+        projection: 6,
+        boardCandidate: true,
+        rawWinProbability: 0.68,
+        risk: { risk: "HIGH" },
+        safetyScore: 55,
+        gameId: "g1",
+      }),
+      completeTrustedFixture({
+        playerName: "Other",
+        propType: "REBOUNDS",
+        selectedSide: "UNDER",
+        line: 7.5,
+        projection: 5.5,
+        boardCandidate: true,
+        rawWinProbability: 0.66,
+        risk: { risk: "MEDIUM" },
+        safetyScore: 72,
+        gameId: "g2",
+      }),
+    ],
+    { engine, qualityProbFloor: 0.5 }
+  );
+  assert.strictEqual(mem.playerQuota, false);
+  assert.strictEqual(mem.gameQuota, false);
+  assert.strictEqual(mem.sideQuota, false);
+  assert.strictEqual(mem.exposureSoftPenalties, true);
+  assert.strictEqual(mem.highPolicy, "SOFT_HIGH_SAFETY_DEMOTION_NO_BAN");
+});
+
 test("normalized strength differs by residual scale", () => {
   const pts = scoreCandidateV2(
     {

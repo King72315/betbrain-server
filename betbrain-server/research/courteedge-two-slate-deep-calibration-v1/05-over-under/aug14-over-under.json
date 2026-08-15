@@ -1,0 +1,86 @@
+{
+  "aug14": {
+    "fullOver": {
+      "WIN": 10,
+      "LOSS": 16,
+      "PUSH": 0,
+      "n": 26,
+      "hit": 0.3846,
+      "record": "10-16"
+    },
+    "fullUnder": {
+      "WIN": 14,
+      "LOSS": 10,
+      "PUSH": 0,
+      "n": 24,
+      "hit": 0.5833,
+      "record": "14-10"
+    },
+    "trustedOver": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    },
+    "trustedUnder": {
+      "WIN": 0,
+      "LOSS": 0,
+      "PUSH": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    },
+    "byStatSide": {
+      "POINTS_OVER": {
+        "WIN": 4,
+        "LOSS": 10,
+        "PUSH": 0,
+        "n": 14,
+        "hit": 0.2857,
+        "record": "4-10"
+      },
+      "POINTS_UNDER": {
+        "WIN": 2,
+        "LOSS": 3,
+        "PUSH": 0,
+        "n": 5,
+        "hit": 0.4,
+        "record": "2-3"
+      },
+      "REBOUNDS_OVER": {
+        "WIN": 4,
+        "LOSS": 2,
+        "PUSH": 0,
+        "n": 6,
+        "hit": 0.6667,
+        "record": "4-2"
+      },
+      "REBOUNDS_UNDER": {
+        "WIN": 5,
+        "LOSS": 6,
+        "PUSH": 0,
+        "n": 11,
+        "hit": 0.4545,
+        "record": "5-6"
+      },
+      "ASSISTS_OVER": {
+        "WIN": 2,
+        "LOSS": 4,
+        "PUSH": 0,
+        "n": 6,
+        "hit": 0.3333,
+        "record": "2-4"
+      },
+      "ASSISTS_UNDER": {
+        "WIN": 7,
+        "LOSS": 1,
+        "PUSH": 0,
+        "n": 8,
+        "hit": 0.875,
+        "record": "7-1"
+      }
+    }
+  }
+}

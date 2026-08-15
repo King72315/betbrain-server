@@ -94,6 +94,67 @@ function stableId(packet = {}) {
   );
 }
 
+/** Safety on 0–100 scale when present (accepts 0–1 fractions). */
+function safetyScore100(packet = {}) {
+  const s =
+    num(packet.safetyScore) ??
+    num(packet.SafetyScore) ??
+    num(packet.safety) ??
+    num(packet.environmentSafety);
+  if (s == null) return null;
+  return s > 1 ? s : s * 100;
+}
+
+function playerClusterKey(packet = {}) {
+  return String(packet.playerName || packet.player || "")
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+}
+
+function gameClusterKey(packet = {}) {
+  return String(packet.gameId || packet.eventId || "")
+    .trim()
+    .toLowerCase() ||
+    [
+      String(packet.team || "").toLowerCase(),
+      String(packet.opponent || "").toLowerCase(),
+    ]
+      .filter(Boolean)
+      .sort()
+      .join("@");
+}
+
+/**
+ * Soft shared-failure / environment penalties for Trusted selection.
+ * Continuous demotions — NOT hard per-game / per-player quotas.
+ * Evidence: 8/14 Trusted 15/15 OVER + 14/15 HIGH + multi-prop clusters;
+ * Full Unders outperformed Trusted Overs.
+ */
+function trustedExposureAdjustedScore(packet = {}, boardContext = {}) {
+  let score = num(packet.decisionScoreV2) ?? num(packet.modelWinProbability) ?? 0;
+  const playerKey = playerClusterKey(packet);
+  const gameKey = gameClusterKey(packet);
+  const playerN = boardContext.playerCounts?.get(playerKey) || 0;
+  const gameN = boardContext.gameCounts?.get(gameKey) || 0;
+  const side = normSide(packet.selectedSide || packet.side || packet.pick);
+  const sideN = boardContext.sideCounts?.get(side) || 0;
+
+  // Same-player multi-prop: second+ seat needs stronger independent evidence.
+  if (playerN >= 1) score -= 0.045 * playerN;
+  // Same-game concentration: soft after 2 already Trusted from that game.
+  if (gameN >= 2) score -= 0.03 * (gameN - 1);
+  // Side concentration: only soft demote after a heavy one-side Trusted board.
+  if (side && sideN >= 4) score -= 0.015 * (sideN - 3);
+
+  const risk = riskCode(packet);
+  const safety = safetyScore100(packet);
+  // HIGH Risk is allowed, but weak Safety environments get a soft demotion.
+  if (risk === "HIGH" && (safety == null || safety < 70)) {
+    score -= 0.05;
+  }
+  return clamp01(score);
+}
+
 function riskCode(packet = {}) {
   const raw =
     (typeof packet.risk === "string" ? packet.risk : null) ||
@@ -130,18 +191,55 @@ export function fitStatProjectionModels(rows = [], residualPriors = {}) {
     let residualStd = std(errors);
     let n = errors.length;
     let source = "corpus";
+    const corpusErrorN = errors.length;
 
-    // Never borrow across stats. Only fill sparse REB/AST from same-stat prior.
-    if ((n < 30 || residualStd == null || residualStd < 0.25) && prior) {
-      biasEst = Number.isFinite(biasEst) ? biasEst : num(prior.bias);
-      maeEst = Number.isFinite(maeEst) ? maeEst : num(prior.mae);
-      rmseEst = Number.isFinite(rmseEst) ? rmseEst : num(prior.rmse);
+    // Never borrow across stats. Gold REB/AST residual warehouses (n≈3419) are the
+    // bias authority until a large clean same-stat bet sample exists.
+    // 8/14 root cause: thin/contaminated bet-corpus means (bias +2 to +4) inverted
+    // UNDER residual strength while predictedProbability stayed side-correct.
+    if (prior && Number.isFinite(num(prior.bias)) && num(prior.n) >= 500) {
+      const priorBias = num(prior.bias);
+      const priorMae = num(prior.mae);
+      const priorRmse = num(prior.rmse);
+      if (corpusErrorN < 100) {
+        biasEst = priorBias;
+        source = corpusErrorN > 0 ? "prior-preferred-sparse-corpus" : "prior";
+      } else {
+        const w = Math.min(0.7, corpusErrorN / 400);
+        biasEst = w * (Number.isFinite(biasEst) ? biasEst : priorBias) + (1 - w) * priorBias;
+        source = "corpus+prior-shrink";
+      }
+      if (!Number.isFinite(maeEst)) maeEst = priorMae;
+      if (!Number.isFinite(rmseEst)) rmseEst = priorRmse;
+      // Prefer warehouse RMSE for residual scale when corpus std is thin/unstable.
+      if (!(Number.isFinite(residualStd) && residualStd >= 0.25 && corpusErrorN >= 100)) {
+        residualStd = priorRmse || priorMae || residualStd || 1.5;
+      }
+      n = Math.max(corpusErrorN, num(prior.n) || 0);
+    } else if (
+      (corpusErrorN < 30 || residualStd == null || residualStd < 0.25) &&
+      prior
+    ) {
+      const priorBias = num(prior.bias);
+      const priorMae = num(prior.mae);
+      const priorRmse = num(prior.rmse);
+      if (Number.isFinite(priorBias)) {
+        if (corpusErrorN < 10) biasEst = priorBias;
+        else if (Number.isFinite(biasEst)) {
+          const w = corpusErrorN / 30;
+          biasEst = w * biasEst + (1 - w) * priorBias;
+        } else biasEst = priorBias;
+      } else if (!Number.isFinite(biasEst)) {
+        biasEst = 0;
+      }
+      maeEst = Number.isFinite(maeEst) ? maeEst : priorMae;
+      rmseEst = Number.isFinite(rmseEst) ? rmseEst : priorRmse;
       residualStd =
         Number.isFinite(residualStd) && residualStd >= 0.25
           ? residualStd
-          : num(prior.rmse) || num(prior.mae) || 1.5;
-      n = Math.max(n, num(prior.n) || 0);
-      source = n > errors.length ? "corpus+prior" : "prior";
+          : priorRmse || priorMae || 1.5;
+      n = Math.max(corpusErrorN, num(prior.n) || 0);
+      source = corpusErrorN > 0 && n > corpusErrorN ? "corpus+prior" : "prior";
     }
 
     // POINTS fallback if corpus empty
@@ -325,6 +423,7 @@ export function trainDecisionEngineV2(options = {}) {
     .map((r) => ({ ...r, ...scoreRowFeatures(r, statModels, probModel) }))
     .sort((a, b) => b.decisionScoreV2 - a.decisionScoreV2);
   let qualityProbFloor = DEFAULT_QUALITY_PROB_FLOOR;
+  const QUALITY_PROB_FLOOR_CAP = 0.58; // modest ceiling — 8/14 forensics; avoid empty Trusted from overfit floor
   if (scored.length >= 20) {
     // Use P at which cumulative precision from top ranks stays >= 0.55 when possible.
     let wins = 0;
@@ -334,7 +433,7 @@ export function trainDecisionEngineV2(options = {}) {
       if (i >= 3 && prec < 0.55) {
         qualityProbFloor = Math.max(
           DEFAULT_QUALITY_PROB_FLOOR,
-          scored[i].modelWinProbability
+          Math.min(QUALITY_PROB_FLOOR_CAP, scored[i].modelWinProbability)
         );
         break;
       }
@@ -595,23 +694,63 @@ export function selectOfficialMembershipV2(packets = [], options = {}) {
   }
 
   const selected = [];
-  for (const p of unique) {
-    if (selected.length >= maxBoard) break;
-    // Incomplete packets stay Full/Best Available — never Trusted.
-    if (!p.trustedPacketComplete) continue;
-    // Quality cliff: first seat can be alone; later seats need floor.
-    if (selected.length === 0) {
-      if (p.modelWinProbability < qualityFloor) break;
-      selected.push(p);
-      continue;
+  const playerCounts = new Map();
+  const gameCounts = new Map();
+  const sideCounts = new Map();
+  const remaining = [...unique];
+
+  const boardContext = () => ({ playerCounts, gameCounts, sideCounts });
+
+  while (remaining.length && selected.length < maxBoard) {
+    // Greedy: pick highest exposure-adjusted score among remaining complete packets.
+    let bestIdx = -1;
+    let bestAdj = -Infinity;
+    let bestRaw = null;
+    for (let i = 0; i < remaining.length; i++) {
+      const p = remaining[i];
+      if (!p.trustedPacketComplete) continue;
+      const adj = trustedExposureAdjustedScore(p, boardContext());
+      if (adj > bestAdj + 1e-12) {
+        bestAdj = adj;
+        bestIdx = i;
+        bestRaw = p;
+      } else if (Math.abs(adj - bestAdj) <= 1e-12 && bestRaw) {
+        if (stableId(p).localeCompare(stableId(bestRaw)) < 0) {
+          bestIdx = i;
+          bestRaw = p;
+        }
+      }
     }
-    if (p.modelWinProbability < qualityFloor) break;
-    // Material drop-off vs previous rank.
-    const prev = selected[selected.length - 1];
-    if (prev.modelWinProbability - p.modelWinProbability > 0.12 && p.modelWinProbability < 0.58) {
-      break;
+    if (bestIdx < 0 || !bestRaw) break;
+
+    const p = bestRaw;
+    const adj = bestAdj;
+    // Quality cliff on exposure-adjusted score (still one Trusted authority).
+    if (adj < qualityFloor) break;
+    if (selected.length > 0) {
+      const prevStored = num(selected[selected.length - 1].trustedAdjustedScore);
+      if (
+        prevStored != null &&
+        prevStored - adj > 0.12 &&
+        adj < 0.58
+      ) {
+        break;
+      }
     }
+
+    p.trustedAdjustedScore = Number(adj.toFixed(4));
+    p.exposureSoftPenalty = Number(
+      (Math.max(0, (p.decisionScoreV2 || 0) - adj)).toFixed(4)
+    );
     selected.push(p);
+    remaining.splice(bestIdx, 1);
+
+    const pk = playerClusterKey(p);
+    const gk = gameClusterKey(p);
+    const sk = normSide(p.selectedSide || p.side || p.pick);
+    if (pk) playerCounts.set(pk, (playerCounts.get(pk) || 0) + 1);
+    if (gk) gameCounts.set(gk, (gameCounts.get(gk) || 0) + 1);
+    if (sk) sideCounts.set(sk, (sideCounts.get(sk) || 0) + 1);
   }
 
   const selectedIds = new Set(selected.map((p) => stableId(p)));
@@ -639,12 +778,16 @@ export function selectOfficialMembershipV2(packets = [], options = {}) {
 
   const selectedPackets = withFlags
     .filter((p) => p.officialSelected)
-    .sort((a, b) => b.decisionScoreV2 - a.decisionScoreV2);
+    .sort(
+      (a, b) =>
+        (num(b.trustedAdjustedScore) ?? b.decisionScoreV2) -
+        (num(a.trustedAdjustedScore) ?? a.decisionScoreV2)
+    );
 
   return {
     controlPlaneBuild: DECISION_ENGINE_V2_BUILD,
     boardSizePolicy: "QUALITY_RANK_NO_MINIMUM",
-    highPolicy: "NO_HIGH_MINIMUM_FILL",
+    highPolicy: "SOFT_HIGH_SAFETY_DEMOTION_NO_BAN",
     officialBoardMin: 0,
     officialBoardMax: maxBoard,
     boardCandidateCount: unique.length,
@@ -659,6 +802,9 @@ export function selectOfficialMembershipV2(packets = [], options = {}) {
     boardCandidates: withFlags,
     teamQuota: false,
     sideQuota: false,
+    playerQuota: false,
+    gameQuota: false,
+    exposureSoftPenalties: true,
     decisionAuthority: DECISION_ENGINE_V2_BUILD,
     labelsRemovedFromAuthority: [
       "HIGH_MINIMUM_FILL",

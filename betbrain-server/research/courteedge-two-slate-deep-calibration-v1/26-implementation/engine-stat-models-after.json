@@ -1,0 +1,86 @@
+{
+  "trainedAt": "2026-08-15T05:15:29.272Z",
+  "qualityProbFloor": 0.58,
+  "statModels": {
+    "POINTS": {
+      "propType": "POINTS",
+      "n": 320,
+      "gradedBetN": 317,
+      "projectionBias": 1.9188,
+      "projectionMAE": 5.6269,
+      "projectionRMSE": 7.2885,
+      "residualStd": 7.0424,
+      "source": "corpus"
+    },
+    "REBOUNDS": {
+      "propType": "REBOUNDS",
+      "n": 3419,
+      "gradedBetN": 33,
+      "projectionBias": -0.0679,
+      "projectionMAE": 4.303,
+      "projectionRMSE": 5.9362,
+      "residualStd": 2.3009,
+      "source": "prior-preferred-sparse-corpus"
+    },
+    "ASSISTS": {
+      "propType": "ASSISTS",
+      "n": 3419,
+      "gradedBetN": 30,
+      "projectionBias": -0.0168,
+      "projectionMAE": 2.9,
+      "projectionRMSE": 3.5129,
+      "residualStd": 1.7149,
+      "source": "prior-preferred-sparse-corpus"
+    }
+  },
+  "probModel": {
+    "intercept": 0,
+    "slope": 0.75,
+    "priorWeight": 0,
+    "brier": 0.23844211649999983,
+    "trainN": 380,
+    "trainBrier": 0.2384,
+    "calibrationCurve": [
+      {
+        "bin": "0.1-0.2",
+        "n": 6,
+        "hitRate": 0.5
+      },
+      {
+        "bin": "0.2-0.3",
+        "n": 8,
+        "hitRate": 0.5
+      },
+      {
+        "bin": "0.3-0.4",
+        "n": 15,
+        "hitRate": 0.4667
+      },
+      {
+        "bin": "0.4-0.5",
+        "n": 112,
+        "hitRate": 0.375
+      },
+      {
+        "bin": "0.5-0.6",
+        "n": 153,
+        "hitRate": 0.5556
+      },
+      {
+        "bin": "0.6-0.7",
+        "n": 70,
+        "hitRate": 0.6571
+      },
+      {
+        "bin": "0.7-0.8",
+        "n": 14,
+        "hitRate": 0.8571
+      },
+      {
+        "bin": "0.8-0.9",
+        "n": 2,
+        "hitRate": 0.5
+      }
+    ]
+  }
+}

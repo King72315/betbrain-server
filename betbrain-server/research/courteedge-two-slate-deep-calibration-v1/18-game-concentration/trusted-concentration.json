@@ -1,0 +1,72 @@
+{
+  "trustedPerGame": {
+    "39bf012a0015d3c6753cc0b21100866e": {
+      "n": 8,
+      "WIN": 2,
+      "LOSS": 6,
+      "PUSH": 0,
+      "hit": 0.25,
+      "record": "2-6"
+    },
+    "6b4f25c1f4c4acebd21a5e1e465343c9": {
+      "n": 7,
+      "WIN": 5,
+      "LOSS": 2,
+      "PUSH": 0,
+      "hit": 0.7143,
+      "record": "5-2"
+    }
+  },
+  "trustedPerPlayer": {
+    "Aliyah Boston": {
+      "n": 2,
+      "props": [
+        "ASSISTS OVER 3.5",
+        "REBOUNDS OVER 8.5"
+      ],
+      "WIN": 1,
+      "LOSS": 1,
+      "PUSH": 0,
+      "hit": 0.5,
+      "record": "1-1"
+    },
+    "Bridget Carleton": {
+      "n": 2,
+      "props": [
+        "POINTS OVER 16.5",
+        "REBOUNDS OVER 4.5"
+      ],
+      "WIN": 1,
+      "LOSS": 1,
+      "PUSH": 0,
+      "hit": 0.5,
+      "record": "1-1"
+    },
+    "Kelsey Mitchell": {
+      "n": 2,
+      "props": [
+        "ASSISTS OVER 2.5",
+        "POINTS OVER 24.5"
+      ],
+      "WIN": 0,
+      "LOSS": 2,
+      "PUSH": 0,
+      "hit": 0,
+      "record": "0-2"
+    },
+    "Natisha Hiedeman": {
+      "n": 2,
+      "props": [
+        "ASSISTS OVER 4.5",
+        "REBOUNDS OVER 2.5"
+      ],
+      "WIN": 2,
+      "LOSS": 0,
+      "PUSH": 0,
+      "hit": 1,
+      "record": "2-0"
+    }
+  },
+  "multiPropPlayers": 4,
+  "note": "14/15 Trusted were HIGH risk; all Overs; multi-prop same-player clusters present"
+}

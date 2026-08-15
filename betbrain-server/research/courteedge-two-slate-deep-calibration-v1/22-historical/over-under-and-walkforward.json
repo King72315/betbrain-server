@@ -1,0 +1,76 @@
+{
+  "ok": true,
+  "gradedN": 380,
+  "OVER": {
+    "WIN": 98,
+    "LOSS": 80,
+    "PUSH": 0,
+    "n": 178,
+    "hit": 0.5506,
+    "record": "98-80"
+  },
+  "UNDER": {
+    "WIN": 102,
+    "LOSS": 100,
+    "PUSH": 0,
+    "n": 202,
+    "hit": 0.505,
+    "record": "102-100"
+  },
+  "byStatSide": {
+    "POINTS_OVER": {
+      "WIN": 85,
+      "LOSS": 71,
+      "PUSH": 0,
+      "n": 156,
+      "hit": 0.5449,
+      "record": "85-71"
+    },
+    "POINTS_UNDER": {
+      "WIN": 78,
+      "LOSS": 83,
+      "PUSH": 0,
+      "n": 161,
+      "hit": 0.4845,
+      "record": "78-83"
+    },
+    "REBOUNDS_UNDER": {
+      "WIN": 11,
+      "LOSS": 10,
+      "PUSH": 0,
+      "n": 21,
+      "hit": 0.5238,
+      "record": "11-10"
+    },
+    "ASSISTS_UNDER": {
+      "WIN": 13,
+      "LOSS": 7,
+      "PUSH": 0,
+      "n": 20,
+      "hit": 0.65,
+      "record": "13-7"
+    },
+    "REBOUNDS_OVER": {
+      "WIN": 8,
+      "LOSS": 4,
+      "PUSH": 0,
+      "n": 12,
+      "hit": 0.6667,
+      "record": "8-4"
+    },
+    "ASSISTS_OVER": {
+      "WIN": 5,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 10,
+      "hit": 0.5,
+      "record": "5-5"
+    }
+  },
+  "walkForward": {
+    "ok": true,
+    "holdoutDates": 8,
+    "currentOfficial": null,
+    "decisionEngineV2": null
+  }
+}

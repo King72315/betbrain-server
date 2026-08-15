@@ -1,0 +1,128 @@
+{
+  "storedTarget": 0.3094,
+  "storedContext": {
+    "integrityKey": "alanna-smith|ASSISTS|UNDER|2.5",
+    "predictedProbability": 0.750219,
+    "modelWinProbability": 0.3094,
+    "decisionScoreV2": 0.3094,
+    "projection": 1.7,
+    "line": 2.5,
+    "side": "UNDER",
+    "risk": "HIGH"
+  },
+  "inputs": {
+    "playerName": "Alanna Smith",
+    "propType": "ASSISTS",
+    "line": 2.5,
+    "projection": 1.7,
+    "risk": "HIGH"
+  },
+  "cases": [
+    {
+      "label": "UNDER_raw_0.750219",
+      "packet": {
+        "playerName": "Alanna Smith",
+        "propType": "ASSISTS",
+        "line": 2.5,
+        "projection": 1.7,
+        "risk": "HIGH",
+        "selectedSide": "UNDER",
+        "rawWinProbability": 0.750219
+      },
+      "scored": {
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "correctedProjection": 6,
+        "signedGap": -3.5,
+        "normalizedProjectionStrength": -1.6,
+        "rawNormalizedStrength": -2.0409,
+        "modelWinProbability": 0.3094,
+        "decisionScoreV2": 0.3094,
+        "residualStd": 1.7149,
+        "enginePrior": 0.750219,
+        "sparseStat": true,
+        "projection": 1.7,
+        "line": 2.5,
+        "decisionAuthority": "courteedge-result-driven-decision-engine-v2"
+      }
+    },
+    {
+      "label": "OVER_raw_0.750219",
+      "packet": {
+        "playerName": "Alanna Smith",
+        "propType": "ASSISTS",
+        "line": 2.5,
+        "projection": 1.7,
+        "risk": "HIGH",
+        "selectedSide": "OVER",
+        "rawWinProbability": 0.750219
+      },
+      "scored": {
+        "propType": "ASSISTS",
+        "side": "OVER",
+        "correctedProjection": 6,
+        "signedGap": 3.5,
+        "normalizedProjectionStrength": 1.6,
+        "rawNormalizedStrength": 2.0409,
+        "modelWinProbability": 0.6437,
+        "decisionScoreV2": 0.6437,
+        "residualStd": 1.7149,
+        "enginePrior": 0.750219,
+        "sparseStat": true,
+        "projection": 1.7,
+        "line": 2.5,
+        "decisionAuthority": "courteedge-result-driven-decision-engine-v2"
+      }
+    },
+    {
+      "label": "UNDER_raw_0.25",
+      "packet": {
+        "playerName": "Alanna Smith",
+        "propType": "ASSISTS",
+        "line": 2.5,
+        "projection": 1.7,
+        "risk": "HIGH",
+        "selectedSide": "UNDER",
+        "rawWinProbability": 0.25
+      },
+      "scored": {
+        "propType": "ASSISTS",
+        "side": "UNDER",
+        "correctedProjection": 6,
+        "signedGap": -3.5,
+        "normalizedProjectionStrength": -1.6,
+        "rawNormalizedStrength": -2.0409,
+        "modelWinProbability": 0.1843,
+        "decisionScoreV2": 0.1843,
+        "residualStd": 1.7149,
+        "enginePrior": 0.25,
+        "sparseStat": true,
+        "projection": 1.7,
+        "line": 2.5,
+        "decisionAuthority": "courteedge-result-driven-decision-engine-v2"
+      }
+    }
+  ],
+  "matchAnalysis": {
+    "note": "Stored freeze packet also has risk=HIGH and predictedProbability=0.750219 on Alanna ASSISTS UNDER 2.5 / proj 1.7.",
+    "withoutRiskField_UNDER_0_750219": 0.3146,
+    "withRiskHigh_UNDER_0_750219": 0.3094,
+    "under_raw_0_750219_nearest": [
+      "modelWinProbability",
+      0.3094
+    ],
+    "over_raw_0_750219_nearest": [
+      "modelWinProbability",
+      0.6437
+    ],
+    "under_raw_0_25_nearest": [
+      "enginePrior",
+      0.25
+    ],
+    "matchingCall": "UNDER_raw_0.750219",
+    "matchingField": "modelWinProbability",
+    "matchingValue": 0.3094,
+    "deltaVsStored": 0
+  },
+  "explanation": "The stored 0.3094 is the Decision Engine V2 calibrated score (modelWinProbability/decisionScoreV2) for the UNDER side with raw/prior win probability 0.750219 (and risk HIGH on the freeze packet). It is NOT the OVER call (≈0.65) and NOT UNDER with raw 0.25 (≈0.19). Current cached engine reproduces ≈0.3094 on that UNDER+0.750219 call (exact match when risk=HIGH is included)."
+}

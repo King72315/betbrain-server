@@ -1,0 +1,32 @@
+{
+  "fullSideSplit": {
+    "OVER": 26,
+    "UNDER": 24
+  },
+  "trustedSideSplit": {
+    "OVER": 15,
+    "UNDER": 0
+  },
+  "top15ByDecisionScoreSide": {
+    "OVER": 15,
+    "UNDER": 0,
+    "record": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    }
+  },
+  "meanP": {
+    "over": 0.5723,
+    "under": 0.383
+  },
+  "meanEdge": {
+    "over": 0.8077,
+    "under": 0.65
+  },
+  "underInTop15": [],
+  "diagnosis": "Trusted membership follows quality-cliff on decisionScoreV2≈P. If Overs occupy top P ranks, Trusted becomes all-Over even when Full pool is side-balanced."
+}

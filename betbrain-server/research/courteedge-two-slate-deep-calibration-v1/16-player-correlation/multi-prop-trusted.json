@@ -1,0 +1,50 @@
+{
+  "Aliyah Boston": {
+    "n": 2,
+    "props": [
+      "ASSISTS OVER 3.5",
+      "REBOUNDS OVER 8.5"
+    ],
+    "WIN": 1,
+    "LOSS": 1,
+    "PUSH": 0,
+    "hit": 0.5,
+    "record": "1-1"
+  },
+  "Bridget Carleton": {
+    "n": 2,
+    "props": [
+      "POINTS OVER 16.5",
+      "REBOUNDS OVER 4.5"
+    ],
+    "WIN": 1,
+    "LOSS": 1,
+    "PUSH": 0,
+    "hit": 0.5,
+    "record": "1-1"
+  },
+  "Kelsey Mitchell": {
+    "n": 2,
+    "props": [
+      "ASSISTS OVER 2.5",
+      "POINTS OVER 24.5"
+    ],
+    "WIN": 0,
+    "LOSS": 2,
+    "PUSH": 0,
+    "hit": 0,
+    "record": "0-2"
+  },
+  "Natisha Hiedeman": {
+    "n": 2,
+    "props": [
+      "ASSISTS OVER 4.5",
+      "REBOUNDS OVER 2.5"
+    ],
+    "WIN": 2,
+    "LOSS": 0,
+    "PUSH": 0,
+    "hit": 1,
+    "record": "2-0"
+  }
+}

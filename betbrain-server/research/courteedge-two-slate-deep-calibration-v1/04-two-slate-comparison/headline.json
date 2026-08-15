@@ -1,0 +1,125 @@
+{
+  "aug13": {
+    "era": "PRE_V3_INCOMPLETE_ODDS",
+    "full": {
+      "WIN": 26,
+      "LOSS": 19,
+      "PUSH": 0,
+      "n": 45,
+      "hit": 0.5778,
+      "record": "26-19"
+    },
+    "POINTS": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    },
+    "REBOUNDS": {
+      "WIN": 10,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.6667,
+      "record": "10-5"
+    },
+    "ASSISTS": {
+      "WIN": 9,
+      "LOSS": 6,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.6,
+      "record": "9-6"
+    },
+    "OVER": {
+      "WIN": 10,
+      "LOSS": 9,
+      "PUSH": 0,
+      "n": 19,
+      "hit": 0.5263,
+      "record": "10-9"
+    },
+    "UNDER": {
+      "WIN": 16,
+      "LOSS": 10,
+      "PUSH": 0,
+      "n": 26,
+      "hit": 0.6154,
+      "record": "16-10"
+    },
+    "projectionPresent": 45,
+    "official": 0,
+    "note": "Home weave was 5-5 historically; Official 0"
+  },
+  "aug14": {
+    "era": "V3_FULL_STACK",
+    "full": {
+      "WIN": 24,
+      "LOSS": 26,
+      "PUSH": 0,
+      "n": 50,
+      "hit": 0.48,
+      "record": "24-26"
+    },
+    "POINTS": {
+      "WIN": 6,
+      "LOSS": 13,
+      "PUSH": 0,
+      "n": 19,
+      "hit": 0.3158,
+      "record": "6-13"
+    },
+    "REBOUNDS": {
+      "WIN": 9,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 17,
+      "hit": 0.5294,
+      "record": "9-8"
+    },
+    "ASSISTS": {
+      "WIN": 9,
+      "LOSS": 5,
+      "PUSH": 0,
+      "n": 14,
+      "hit": 0.6429,
+      "record": "9-5"
+    },
+    "OVER": {
+      "WIN": 10,
+      "LOSS": 16,
+      "PUSH": 0,
+      "n": 26,
+      "hit": 0.3846,
+      "record": "10-16"
+    },
+    "UNDER": {
+      "WIN": 14,
+      "LOSS": 10,
+      "PUSH": 0,
+      "n": 24,
+      "hit": 0.5833,
+      "record": "14-10"
+    },
+    "trusted": {
+      "WIN": 7,
+      "LOSS": 8,
+      "PUSH": 0,
+      "n": 15,
+      "hit": 0.4667,
+      "record": "7-8"
+    },
+    "best": {
+      "WIN": 3,
+      "LOSS": 7,
+      "PUSH": 0,
+      "n": 10,
+      "hit": 0.3,
+      "record": "3-7"
+    },
+    "projectionPresent": 50
+  },
+  "architectureNotComparableDirectly": true
+}

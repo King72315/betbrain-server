@@ -1,0 +1,28 @@
+{
+  "nWin": 24,
+  "nLoss": 26,
+  "meanP": {
+    "win": 0.4599,
+    "loss": 0.5014
+  },
+  "meanSafety": {
+    "win": 66.3333,
+    "loss": 62.1923
+  },
+  "meanAbsProjErr": {
+    "win": 1.6167,
+    "loss": 3.6962
+  },
+  "meanEdge": {
+    "win": 0.8125,
+    "loss": 0.6577
+  },
+  "overShare": {
+    "win": 0.4166666666666667,
+    "loss": 0.6153846153846154
+  },
+  "highRiskShare": {
+    "win": 0.9583333333333334,
+    "loss": 0.9615384615384616
+  }
+}
