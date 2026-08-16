@@ -1,0 +1,183 @@
+{
+  "ok": true,
+  "ingested16": true,
+  "graded16": false,
+  "remintedOdds": false,
+  "packetFile": "C:\\Users\\nicho\\BetBrain\\betbrain-server\\research\\empirical-safe-prop-v2\\frozen-research-packets\\2026-08-16__LATEST.json",
+  "packetHash": "4d50303f9b3f8bfb3ad0847ad39714063a8734176e2dec9dfab0e35da512a640",
+  "canonicalHashBefore": "a863dbcc7556346d92c2c409f01d15fe5d7042ea4a6a0a23f14125c8ecd7e8ca",
+  "canonicalHashAfter": "6dec3a6df541fb888b511baa813fd69651dbe079ab1a349f3197c53e862dfa1e",
+  "storeBeforeN": 113,
+  "storeAfterN": 202,
+  "identity13Unchanged": true,
+  "identity14Unchanged": true,
+  "before16n": 0,
+  "ingest": {
+    "packetCount": 89,
+    "ingested": 89,
+    "inserted": 89,
+    "updated": 0
+  },
+  "official": {
+    "ok": true,
+    "slateDateCt": "2026-08-16",
+    "officialCount": 6,
+    "promoted": 6,
+    "qualityProbFloor": 0.58,
+    "boardSizePolicy": "QUALITY_RANK_NO_MINIMUM",
+    "decisionAuthority": "courteedge-result-driven-decision-engine-v2"
+  },
+  "summary16": {
+    "slateDateCt": "2026-08-16",
+    "architectureEra": "PRODUCT_TRUTH_V1_DECISION_ENGINE_V2",
+    "n": 89,
+    "full": {
+      "W": 0,
+      "L": 0,
+      "P": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    },
+    "best": {
+      "W": 0,
+      "L": 0,
+      "P": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    },
+    "trusted": {
+      "W": 0,
+      "L": 0,
+      "P": 0,
+      "n": 0,
+      "hit": null,
+      "record": "0-0"
+    },
+    "fullN": 89,
+    "bestN": 10,
+    "trustedN": 6,
+    "gradedN": 0,
+    "fullyGraded": false,
+    "byStat": {
+      "POINTS": {
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0"
+      },
+      "REBOUNDS": {
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0"
+      },
+      "ASSISTS": {
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0"
+      }
+    },
+    "bySide": {
+      "OVER": {
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0"
+      },
+      "UNDER": {
+        "W": 0,
+        "L": 0,
+        "P": 0,
+        "n": 0,
+        "hit": null,
+        "record": "0-0"
+      }
+    },
+    "provenance": "CANONICAL_PREDICTIONS_V1",
+    "build": "courteedge-product-truth-lifecycle-v1"
+  },
+  "sections": {
+    "full": 89,
+    "best": 10,
+    "trusted": 6
+  },
+  "trustedRows": [
+    {
+      "player": "Flau'jae Johnson",
+      "propType": "ASSISTS",
+      "side": "UNDER",
+      "line": 3.5,
+      "projection": 2.4,
+      "predictedProbability": 0.795262,
+      "decisionScoreV2": 0.6237,
+      "safetyScore": 71,
+      "risk": "HIGH"
+    },
+    {
+      "player": "Natasha Cloud",
+      "propType": "ASSISTS",
+      "side": "OVER",
+      "line": 5.5,
+      "projection": 7.3,
+      "predictedProbability": 0.895584,
+      "decisionScoreV2": 0.692,
+      "safetyScore": 75,
+      "risk": "HIGH"
+    },
+    {
+      "player": "Bridget Carleton",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 5.5,
+      "projection": 8.2,
+      "predictedProbability": 0.902018,
+      "decisionScoreV2": 0.7024,
+      "safetyScore": 75,
+      "risk": "HIGH"
+    },
+    {
+      "player": "DeWanna Bonner",
+      "propType": "REBOUNDS",
+      "side": "OVER",
+      "line": 6.5,
+      "projection": 8,
+      "predictedProbability": 0.756069,
+      "decisionScoreV2": 0.6205,
+      "safetyScore": 75,
+      "risk": "HIGH"
+    },
+    {
+      "player": "Jordin Canada",
+      "propType": "ASSISTS",
+      "side": "UNDER",
+      "line": 8.5,
+      "projection": 6.1,
+      "predictedProbability": 0.925124,
+      "decisionScoreV2": 0.7303,
+      "safetyScore": 74,
+      "risk": "HIGH"
+    },
+    {
+      "player": "Rhyne Howard",
+      "propType": "POINTS",
+      "side": "OVER",
+      "line": 17.5,
+      "projection": 20.6,
+      "predictedProbability": 0.7672,
+      "decisionScoreV2": 0.6421,
+      "safetyScore": 84,
+      "risk": "MEDIUM"
+    }
+  ]
+}

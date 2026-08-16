@@ -117,10 +117,25 @@ function packetToCanonicalSeed(packet, slateDateCt) {
     projection: packet.projection,
     fairLine: packet.fairLine,
     predictedProbability: packet.rawWinProbability ?? packet.reliabilityProbability,
-    modelWinProbability: v2?.modelWinProbability ?? null,
-    decisionScoreV2: v2?.decisionScoreV2 ?? null,
-    normalizedProjectionStrength: v2?.normalizedProjectionStrength ?? null,
-    SafetyScore: packet.SafetyScore,
+    // Prefer scores already frozen on the packet. Rescore only when absent.
+    modelWinProbability:
+      packet.modelWinProbability ??
+      packet.decisionScoreV2 ??
+      v2?.modelWinProbability ??
+      null,
+    decisionScoreV2:
+      packet.decisionScoreV2 ??
+      packet.modelWinProbability ??
+      v2?.decisionScoreV2 ??
+      null,
+    normalizedProjectionStrength:
+      packet.normalizedProjectionStrength ??
+      v2?.normalizedProjectionStrength ??
+      null,
+    pOver: packet.overPacket?.rawWinProbability ?? packet.pOver ?? null,
+    pUnder: packet.underPacket?.rawWinProbability ?? packet.pUnder ?? null,
+    frozenAt: packet.frozenAt || packet.pregameTimestamp || null,
+    SafetyScore: packet.SafetyScore ?? packet.safetyScore,
     risk: packet.v2Risk || packet.c2Risk || packet.risk,
     riskScore: packet.c2RankScore,
     confidence:

@@ -5930,7 +5930,7 @@ app.get("/history-archives", (req, res) => {
     archives,
     trackedProps,
     reports: getRawDailySlateReports(),
-    persist: true,
+    persist: false,
   });
   const withIntegrity = (archives || []).map((a) => {
     const date = a.slateDate || a.date;
@@ -5955,7 +5955,14 @@ app.get("/history-archives", (req, res) => {
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
     historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_V2,
-    historyThreeSlateGroups,
+    historyThreeSlateGroups: {
+      version: HISTORY_THREE_SLATE_GROUPS_V2,
+      omitted: true,
+      reason: "HISTORY_LIST_COMPACT_PAYLOAD",
+      groupCount: Array.isArray(historyThreeSlateGroups?.groups)
+        ? historyThreeSlateGroups.groups.length
+        : 0,
+    },
     membershipIntegrityBuild: MEMBERSHIP_INTEGRITY_BUILD,
   });
 });

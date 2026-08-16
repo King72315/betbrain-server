@@ -456,6 +456,33 @@ export function clearLabPhaseArchiveFiles(options = {}) {
   return { deleted, skipped };
 }
 
+function slimHistoryArchiveReport(report, extra = {}) {
+  if (!report || typeof report !== "object") return null;
+  const A = report.sections?.A || {};
+  return {
+    slateDate: report.slateDate || extra.slateDate || null,
+    status: report.status || null,
+    final: report.final ?? null,
+    record: report.record || extra.record || null,
+    sections: {
+      A: {
+        slateDate: A.slateDate || report.slateDate || extra.slateDate || null,
+        leagues: A.leagues || extra.leagues || ["WNBA"],
+        wins: A.wins ?? 0,
+        losses: A.losses ?? 0,
+        pushes: A.pushes ?? 0,
+        graded: A.graded ?? 0,
+        totalOfficialProps: A.totalOfficialProps ?? extra.propCount ?? 0,
+        overallWinRate: A.overallWinRate ?? null,
+        pending: A.pending ?? 0,
+        productTruthFull: A.productTruthFull || null,
+        productTruthBest: A.productTruthBest || null,
+        productTruthTrusted: A.productTruthTrusted || null,
+      },
+    },
+  };
+}
+
 export function getAllHistoryArchives() {
   ensureDirs();
   if (!fs.existsSync(HISTORY_ARCHIVE_DIR)) return [];
@@ -478,9 +505,7 @@ export function getAllHistoryArchives() {
         full.report?.sections?.A?.leagues ||
         (full.report?.league ? [full.report.league] : null) ||
         (full.productTruthCompact ? ["WNBA"] : []);
-      const keepCompactProps =
-        full.productTruthCompact === true ||
-        (propCount > 0 && propCount <= 80 && (full.bytes == null || Number(full.bytes) < 500_000));
+      const keepCompactProps = full.productTruthCompact === true;
       return {
         slateDate: full.slateDate,
         phase: full.phase,
@@ -490,7 +515,12 @@ export function getAllHistoryArchives() {
         // Empty array keeps `.filter`/`.map` callers safe; length signal via propCount.
         // Compact Product Truth archives stay intact so History can render frozen packets.
         props: keepCompactProps && Array.isArray(full.props) ? full.props : [],
-        report: full.report || null,
+        report: slimHistoryArchiveReport(full.report, {
+          slateDate: full.slateDate,
+          leagues,
+          record: full.record,
+          propCount,
+        }),
         record: full.record || full.report?.record || null,
         leagues: Array.isArray(leagues) ? leagues : [],
         architectureEra: full.architectureEra || null,

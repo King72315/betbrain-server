@@ -206,8 +206,20 @@ test("25 Full research pool can still reach Lab/History", () => {
   assert.ok(merged.filter((p) => p.slateDate === "2026-08-13").length === 45);
 });
 
-test("8/16 Product Truth remains uningested (not reminted)", () => {
-  assert.equal(recs16.length, 0);
+test("8/16 freeze ingest is Full membership; 8/13 and 8/14 identities stay frozen", () => {
+  const recs16 = getCanonicalRecordsBySlate("2026-08-16");
+  const recs14 = getCanonicalRecordsBySlate("2026-08-14");
+  const recs13 = getCanonicalRecordsBySlate("2026-08-13");
+  if (recs16.length === 0) {
+    assert.equal(recs16.length, 0, "pre-ingest empty is valid until freeze hop");
+    return;
+  }
+  assert.ok(recs16.length >= 80);
+  assert.equal(recs14.length, 50);
+  assert.equal(recs13.length, 45);
+  assert.ok(recs16.every((r) => r.side && r.line != null && r.projection != null));
+  const ids14 = new Set(recs14.map((r) => r.canonicalPropId));
+  assert.ok(recs16.every((r) => !ids14.has(r.canonicalPropId)));
 });
 
 test("lifecycle build stamped", () => {
