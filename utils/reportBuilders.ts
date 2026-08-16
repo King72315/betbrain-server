@@ -536,7 +536,7 @@ export function buildHistoryReport(input: {
   return buildPageReport({
     page: "History",
     leagueFilter: input.filter,
-    dataSource: "GET /saved-picks, /daily-slate-reports, /tracked-props, /history-archives (read-only)",
+    dataSource: "GET /saved-picks, /daily-slate-reports, /tracked-props, /history-archives (Product Truth compact + legacy archives)",
     extraContext: {
       "Archive Entries": input.entries.length,
       "Visible After Filter": input.filteredEntries.length,
@@ -1180,6 +1180,16 @@ export function buildPropLabV2Report(input: {
     "=== 1. Current Completed Slate Summary ===",
     `Props ${current.totalProps ?? 0} · graded ${current.graded ?? 0} · pending ${current.pending ?? 0}`,
     `W-L-P ${current.record || "0-0-0"} · win rate ${formatLabPct(current.winRateMetric ?? current.winRate)}`,
+    current.architectureEra ? `Era ${current.architectureEra}` : null,
+    current.productTruthFull
+      ? `Product Truth Full ${current.productTruthFull.n ?? "—"} · ${current.productTruthFull.record || "N/A"}`
+      : null,
+    current.productTruthBest
+      ? `Best ${current.productTruthBest.n ?? "—"} · ${current.productTruthBest.record || "N/A"}`
+      : null,
+    current.productTruthTrusted
+      ? `Trusted ${current.productTruthTrusted.n ?? "—"} · ${current.productTruthTrusted.record || "N/A"}`
+      : null,
     `Avg margin ${formatLabNum(current.avgMargin)} · |proj err| ${formatLabNum(current.avgAbsProjectionErrorMetric ?? current.avgAbsProjectionError)} · CLV ${formatLabClv(current.avgClvMetric ?? current.avgClv)}`,
     `Over ${current.overRecord?.record || "N/A"} · Under ${current.underRecord?.record || "N/A"}`,
     `NBA ${current.nbaRecord?.record || "N/A"} · WNBA ${current.wnbaRecord?.record || "N/A"}`,

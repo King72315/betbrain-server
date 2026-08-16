@@ -490,6 +490,27 @@ export default function PropLabScreen() {
               <MetricRow label="Official props" value={String(current.totalProps ?? 0)} />
               <MetricRow label="Graded / Pending" value={`${current.graded ?? 0} / ${current.pending ?? 0}`} />
               <MetricRow label="W-L-P" value={formatRecord(current)} />
+              {current.architectureEra ? (
+                <MetricRow label="Architecture era" value={String(current.architectureEra)} />
+              ) : null}
+              {current.productTruthFull ? (
+                <MetricRow
+                  label="Full"
+                  value={`${current.productTruthFull.n ?? current.totalProps ?? 0} · ${current.productTruthFull.record || formatRecord(current)}`}
+                />
+              ) : null}
+              {current.productTruthBest ? (
+                <MetricRow
+                  label="Best Available"
+                  value={`${current.productTruthBest.n ?? 0} · ${current.productTruthBest.record || "N/A"}`}
+                />
+              ) : null}
+              {current.productTruthTrusted ? (
+                <MetricRow
+                  label="Trusted"
+                  value={`${current.productTruthTrusted.n ?? 0} · ${current.productTruthTrusted.record || "0-0"}`}
+                />
+              ) : null}
               <MetricRow label="Win rate" value={formatPct(current.winRateMetric ?? current.winRate)} />
               <MetricRow label="Avg margin" value={formatNum(current.avgResultMargin ?? current.avgMargin)} />
               <MetricRow label="Avg proj error" value={formatNum(current.avgProjectionError)} />

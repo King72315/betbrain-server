@@ -471,6 +471,16 @@ export function getAllHistoryArchives() {
       const propCount = Array.isArray(full.props)
         ? full.props.length
         : Number(full.propCount || 0) || 0;
+      const leagues =
+        (Array.isArray(full.leagues) && full.leagues.length
+          ? full.leagues
+          : null) ||
+        full.report?.sections?.A?.leagues ||
+        (full.report?.league ? [full.report.league] : null) ||
+        (full.productTruthCompact ? ["WNBA"] : []);
+      const keepCompactProps =
+        full.productTruthCompact === true ||
+        (propCount > 0 && propCount <= 80 && (full.bytes == null || Number(full.bytes) < 500_000));
       return {
         slateDate: full.slateDate,
         phase: full.phase,
@@ -478,10 +488,14 @@ export function getAllHistoryArchives() {
         updatedAt: full.updatedAt,
         propCount,
         // Empty array keeps `.filter`/`.map` callers safe; length signal via propCount.
-        props: [],
+        // Compact Product Truth archives stay intact so History can render frozen packets.
+        props: keepCompactProps && Array.isArray(full.props) ? full.props : [],
         report: full.report || null,
         record: full.record || full.report?.record || null,
-        _archivePropsOmited: propCount > 0,
+        leagues: Array.isArray(leagues) ? leagues : [],
+        architectureEra: full.architectureEra || null,
+        productTruthCompact: Boolean(full.productTruthCompact),
+        _archivePropsOmited: propCount > 0 && !(keepCompactProps && Array.isArray(full.props) && full.props.length),
       };
     })
     .filter(Boolean)

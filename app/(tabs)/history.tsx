@@ -265,7 +265,7 @@ export default function History() {
       setArchives(archiveData.archives || []);
       setTrackedProps(trackedData.props || []);
       setRotationMeta({
-        currentLabSlateDate: reportData.currentLabSlateDate || null,
+        currentLabSlateDate: reportData.currentLabSlateDate || archiveData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
       });
       setHistoryThreeSlateGroups(
@@ -295,7 +295,7 @@ export default function History() {
       setArchives(archiveData.archives || []);
       setTrackedProps(trackedData.props || []);
       setRotationMeta({
-        currentLabSlateDate: reportData.currentLabSlateDate || null,
+        currentLabSlateDate: reportData.currentLabSlateDate || archiveData.currentLabSlateDate || null,
         historySlateDates: reportData.historySlateDates || [],
       });
       setHistoryThreeSlateGroups(

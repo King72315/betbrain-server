@@ -181,12 +181,22 @@ function buildEntryFromArchive(archive: any): HistoryEntry | null {
   const hasGradedPerformance =
     Boolean(report && isCompletedSlate(report)) || graded > 0;
 
+  const inferredLeagues = ((): string[] => {
+    if ((sectionA.leagues || []).length) return sectionA.leagues;
+    if (Array.isArray(archive.leagues) && archive.leagues.length) return archive.leagues;
+    const fromProps = [
+      ...new Set(slateProps.map((prop: any) => prop.league).filter(Boolean)),
+    ] as string[];
+    if (fromProps.length) return fromProps;
+    return ["WNBA"];
+  })();
+
   if (!hasProps && hasReport) {
     return {
       id: `official-${slateDate}`,
       type: "official-slate",
       slateDate,
-      leagues: (sectionA.leagues || []).length ? sectionA.leagues : [],
+      leagues: inferredLeagues,
       wins: Number(sectionA.wins ?? 0),
       losses: Number(sectionA.losses ?? 0),
       pushes: Number(sectionA.pushes ?? 0),
@@ -199,7 +209,7 @@ function buildEntryFromArchive(archive: any): HistoryEntry | null {
           : null,
       netUnits: Number(sectionA.wins ?? 0) - Number(sectionA.losses ?? 0),
       status: archive.phase === "ARCHIVED" ? "ARCHIVED LAB" : "ARCHIVED LAB",
-      hasGradedPerformance: false,
+      hasGradedPerformance: graded > 0 || Number(sectionA.wins ?? 0) + Number(sectionA.losses ?? 0) > 0,
       emptyLabel: `${slateDate} archive metadata found but prop bundle is missing`,
       topLesson: slateLesson?.headline || slateLesson?.body || null,
       archiveLabel:
@@ -214,9 +224,7 @@ function buildEntryFromArchive(archive: any): HistoryEntry | null {
     id: `official-${slateDate}`,
     type: "official-slate",
     slateDate,
-    leagues: (sectionA.leagues || []).length
-      ? sectionA.leagues
-      : [...new Set(slateProps.map((prop: any) => prop.league).filter(Boolean))],
+    leagues: inferredLeagues,
     wins: Number(sectionA.wins ?? 0),
     losses: Number(sectionA.losses ?? 0),
     pushes: Number(sectionA.pushes ?? 0),
@@ -297,7 +305,9 @@ function buildOfficialSlateEntries(
       slateDate,
       leagues: (sectionA.leagues || []).length
         ? sectionA.leagues
-        : [...new Set(slateProps.map((prop) => prop.league).filter(Boolean))],
+        : [...new Set(slateProps.map((prop) => prop.league).filter(Boolean))].length
+          ? [...new Set(slateProps.map((prop) => prop.league).filter(Boolean))]
+          : ["WNBA"],
       wins: Number(sectionA.wins ?? 0),
       losses: Number(sectionA.losses ?? 0),
       pushes: Number(sectionA.pushes ?? 0),
@@ -346,6 +356,13 @@ export function buildHistoryEntries(
     ? options.historySlateDates
     : null;
 
+  const archivePhaseByDate = new Map(
+    archives.map((archive) => [
+      String(archive?.slateDate || ""),
+      String(archive?.phase || "").toUpperCase(),
+    ])
+  );
+
   const officialEntries = buildOfficialSlateEntries(
     historySlates,
     trackedProps,
@@ -368,20 +385,18 @@ export function buildHistoryEntries(
     const allowed = new Set(historySlateDates);
     entries = entries.filter((entry) => {
       if (entry.type === "saved-picks") return true;
+      // Permanent ARCHIVED Product Truth / Lab files must stay visible after
+      // rotation moves on. Rotation dates still admit in-progress official slates.
+      if (archivePhaseByDate.get(entry.slateDate) === "ARCHIVED") return true;
       return allowed.has(entry.slateDate);
     });
   }
 
-  const archivePhaseByDate = new Map(
-    archives.map((archive) => [
-      String(archive?.slateDate || ""),
-      String(archive?.phase || "").toUpperCase(),
-    ])
-  );
-
   entries = entries.filter((entry) => {
     if (entry.type !== "official-slate") return true;
-    return archivePhaseByDate.get(entry.slateDate) === "ARCHIVED";
+    const phase = archivePhaseByDate.get(entry.slateDate);
+    if (phase === "ARCHIVED") return true;
+    return false;
   });
 
   return entries.sort((a, b) => {
@@ -399,7 +414,11 @@ export function filterHistoryEntriesByLeague(
     return entries.filter((entry) => entry.leagues.includes("NBA"));
   }
   if (league === "WNBA") {
-    return entries.filter((entry) => entry.leagues.includes("WNBA"));
+    return entries.filter(
+      (entry) =>
+        entry.leagues.includes("WNBA") ||
+        !entry.leagues.length
+    );
   }
   return entries;
 }

@@ -194,18 +194,15 @@ export function reclaimOversizedDailySlateReportsFile(options = {}) {
     if (bytes <= maxBytes) {
       return { ok: true, action: "ok", bytes };
     }
-    try {
-      fs.unlinkSync(REPORTS_FILE);
-    } catch {
-      // fall through to overwrite
-    }
-    writeJSON(REPORTS_FILE, []);
+    // Never wipe authentic reports. Oversized files may OOM on Render, but
+    // emptying them destroys Lab/History rotation. Product Truth now feeds
+    // Lab/History without requiring this file as prediction owner.
     console.log(
-      `STARTUP RECLAIM OVERSIZED daily-slate-reports.json (${bytes} bytes > ${maxBytes}); wrote empty array. tracked-props untouched.`
+      `STARTUP PRESERVE OVERSIZED daily-slate-reports.json (${bytes} bytes > ${maxBytes}); not wiping.`
     );
     return {
       ok: true,
-      action: "reclaimed_empty",
+      action: "preserved_oversized",
       bytes,
       maxBytes,
     };

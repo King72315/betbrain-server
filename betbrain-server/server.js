@@ -393,6 +393,14 @@ import {
 } from "./services/courtEdgeSingleProductTruthApiV1.js";
 import { admitCanonicalOfficialToResults } from "./services/courtEdgeOfficialCanonicalAdmitV1.js";
 import {
+  assembleHistoryArchives,
+  attachProductTruthLab,
+  mergeCanonicalIntoTrackedProps,
+  resolveProductTruthLabSlateDate,
+  listProductTruthHistoryArchives,
+  PRODUCT_TRUTH_LIFECYCLE_BUILD,
+} from "./services/courtEdgeProductTruthLifecycleV1.js";
+import {
   reconstructAug12ForensicCohorts,
   AUG12_SLATE,
 } from "./services/courtEdgeAug12ForensicReconstructionV1.js";
@@ -553,7 +561,7 @@ const BUILD_BRANCH = (() => {
 const SERVER_STARTED_AT = new Date().toISOString();
 const EMPTY_BOARD_GUARD_VERSION = "courteedge-home-restart-durability-v1";
 const BOARD_SCHEMA_VERSION = "courtedge-board-schema-v2";
-const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v2";
+const LAB_LIFECYCLE_COMPAT_VERSION = "courteedge-lab-lifecycle-compat-v3-product-truth";
 const LAB_STABILITY_AUDIT_VERSION = "courteedge-lab-stability-audit-v1";
 const STATE_INTEGRITY_VERSION = "courteedge-home-restart-durability-v1";
 const TAB_FLOW_REPAIR_VERSION = TAB_FLOW_REPAIR_BUILD;
@@ -5625,9 +5633,14 @@ app.post("/admin/runtime-state-import", requireAdminSecret, (req, res) => {
 app.get("/daily-slate-reports", (req, res) => {
   const rawReports = getRawDailySlateReports();
   const trackedProps = getTrackedProps();
-  const archives = getAllHistoryArchives();
-  const lockedSlates = getLockedSlatesRegistry().slates || [];
   const today = getTodayLocalDate();
+  const productTruthLabDate = resolveProductTruthLabSlateDate({ excludeDate: today });
+  const archives = assembleHistoryArchives({
+    diskArchives: getAllHistoryArchives(),
+    currentLabSlateDate: productTruthLabDate,
+    today,
+  });
+  const lockedSlates = getLockedSlatesRegistry().slates || [];
   const viewedSlateDate = req.query?.viewedSlateDate
     ? String(req.query.viewedSlateDate)
     : null;
@@ -5637,6 +5650,7 @@ app.get("/daily-slate-reports", (req, res) => {
     getRotationRuntimeContext({ trackedProps, archives, lockedSlates, today }),
     viewedSlateDate
   );
+  const currentLabSlateDate = productTruthLabDate || rotation.currentLabSlateDate;
 
   const reports = getLifecycleDeliverableReports({
     rotation,
@@ -5657,13 +5671,18 @@ app.get("/daily-slate-reports", (req, res) => {
 
   let labV2 = null;
   try {
-    labV2 = buildCourtEdgeLabV2({
-      slateDate: rotation.currentLabSlateDate || viewedSlateDate,
-      trackedProps,
-      archives,
-      reports: rawReports,
-      persistThreeSlate: true,
-    });
+    const mergedTracked = mergeCanonicalIntoTrackedProps(trackedProps);
+    labV2 = attachProductTruthLab(
+      buildCourtEdgeLabV2({
+        slateDate: currentLabSlateDate || viewedSlateDate,
+        trackedProps: mergedTracked,
+        archives,
+        reports: rawReports,
+        persistThreeSlate: false,
+        currentLabSlateDate,
+      }),
+      { excludeDate: today }
+    );
   } catch (err) {
     console.error("LAB_V2_BUILD_FAILED", err?.message || err);
   }
@@ -5681,7 +5700,8 @@ app.get("/daily-slate-reports", (req, res) => {
     labV2,
     labV2Version: LAB_V2_VERSION,
     labV2Build: LAB_V2_BUILD,
-    currentLabSlateDate: rotation.currentLabSlateDate,
+    productTruthLifecycleBuild: PRODUCT_TRUTH_LIFECYCLE_BUILD,
+    currentLabSlateDate: labV2?.slateDate || currentLabSlateDate,
     activeResultsSlateDate: rotation.activeResultsSlateDate,
     viewedSlateDate: rotation.viewedSlateDate,
     viewingHistorical: rotation.viewingHistorical,
@@ -5726,7 +5746,7 @@ app.get("/daily-slate-reports/:slateDate", (req, res) => {
           trackedProps,
           archives,
           reports: [report],
-          persistThreeSlate: true,
+          persistThreeSlate: false,
         });
 
   res.json({
@@ -5898,7 +5918,13 @@ app.get("/slates/locked", (req, res) => {
 });
 
 app.get("/history-archives", (req, res) => {
-  const archives = getAllHistoryArchives();
+  const today = getTodayLocalDate();
+  const currentLabSlateDate = resolveProductTruthLabSlateDate({ excludeDate: today });
+  const archives = assembleHistoryArchives({
+    diskArchives: getAllHistoryArchives(),
+    currentLabSlateDate,
+    today,
+  });
   const trackedProps = getTrackedProps();
   const historyThreeSlateGroups = buildHistoryThreeSlateGroupsV2({
     archives,
@@ -5924,6 +5950,8 @@ app.get("/history-archives", (req, res) => {
     ok: true,
     archives: withIntegrity,
     count: withIntegrity.length,
+    currentLabSlateDate,
+    productTruthLifecycleBuild: PRODUCT_TRUTH_LIFECYCLE_BUILD,
     serverBuild: SERVER_BUILD,
     signalPerformanceVersion: SIGNAL_PERFORMANCE_VERSION,
     historyThreeSlateGroupsVersion: HISTORY_THREE_SLATE_GROUPS_V2,
@@ -5934,22 +5962,33 @@ app.get("/history-archives", (req, res) => {
 
 app.get("/courtedge/lab", (req, res) => {
   try {
-    const trackedProps = getTrackedProps();
-    const archives = getAllHistoryArchives();
+    const today = getTodayLocalDate();
+    const trackedProps = mergeCanonicalIntoTrackedProps(getTrackedProps());
+    const productTruthLabDate = resolveProductTruthLabSlateDate({ excludeDate: today });
+    const archives = assembleHistoryArchives({
+      diskArchives: [],
+      currentLabSlateDate: productTruthLabDate,
+      today,
+    });
     const reports = getRawDailySlateReports();
     const slateDate = req.query?.slateDate ? String(req.query.slateDate) : null;
     const rotation = computeSlateRotation(reports, getRotationRuntimeContext({ trackedProps }));
-    const labV2 = buildCourtEdgeLabV2({
-      slateDate,
-      trackedProps,
-      archives,
-      reports,
-      persistThreeSlate: true,
-      currentLabSlateDate: rotation?.currentLabSlateDate || null,
-      rawPage: Number(req.query?.page || 1),
-      rawPageSize: Number(req.query?.pageSize || 100),
-      includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
-    });
+    const currentLabSlateDate =
+      productTruthLabDate || rotation?.currentLabSlateDate || null;
+    const labV2 = attachProductTruthLab(
+      buildCourtEdgeLabV2({
+        slateDate,
+        trackedProps,
+        archives,
+        reports,
+        persistThreeSlate: false,
+        currentLabSlateDate,
+        rawPage: Number(req.query?.page || 1),
+        rawPageSize: Number(req.query?.pageSize || 100),
+        includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
+      }),
+      { excludeDate: today }
+    );
     res.json({
       ok: true,
       labV2,
@@ -5958,7 +5997,8 @@ app.get("/courtedge/lab", (req, res) => {
       labV2Build: LAB_V2_BUILD,
       labLifecycleCompat: LAB_LIFECYCLE_COMPAT_VERSION,
       labStabilityAudit: LAB_STABILITY_AUDIT_VERSION,
-      currentLabSlateDate: rotation?.currentLabSlateDate || labV2.slateDate || null,
+      productTruthLifecycleBuild: PRODUCT_TRUTH_LIFECYCLE_BUILD,
+      currentLabSlateDate: labV2.slateDate || currentLabSlateDate,
     });
   } catch (error) {
     console.log("COURTEDGE LAB V2 ERROR:", error.message);
@@ -5973,21 +6013,30 @@ app.get("/courtedge/lab", (req, res) => {
 
 app.get("/courtedge/lab/:slateDate", (req, res) => {
   try {
-    const trackedProps = getTrackedProps();
-    const archives = getAllHistoryArchives();
+    const today = getTodayLocalDate();
+    const trackedProps = mergeCanonicalIntoTrackedProps(getTrackedProps());
+    const productTruthLabDate = resolveProductTruthLabSlateDate({ excludeDate: today });
+    const archives = assembleHistoryArchives({
+      diskArchives: [],
+      currentLabSlateDate: productTruthLabDate,
+      today,
+    });
     const reports = getRawDailySlateReports();
     const rotation = computeSlateRotation(reports, getRotationRuntimeContext({ trackedProps }));
-    const labV2 = buildCourtEdgeLabV2({
-      slateDate: String(req.params.slateDate),
-      trackedProps,
-      archives,
-      reports,
-      persistThreeSlate: true,
-      currentLabSlateDate: rotation?.currentLabSlateDate || null,
-      rawPage: Number(req.query?.page || 1),
-      rawPageSize: Number(req.query?.pageSize || 100),
-      includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
-    });
+    const labV2 = attachProductTruthLab(
+      buildCourtEdgeLabV2({
+        slateDate: String(req.params.slateDate),
+        trackedProps,
+        archives,
+        reports,
+        persistThreeSlate: false,
+        currentLabSlateDate: productTruthLabDate || rotation?.currentLabSlateDate || null,
+        rawPage: Number(req.query?.page || 1),
+        rawPageSize: Number(req.query?.pageSize || 100),
+        includeAllRawRows: String(req.query?.includeAllRawRows || "") === "true",
+      }),
+      { excludeDate: today, pinnedSlateDate: String(req.params.slateDate) }
+    );
     res.json({
       ok: true,
       slateDate: String(req.params.slateDate),
@@ -6011,7 +6060,15 @@ app.get("/courtedge/lab/:slateDate", (req, res) => {
 });
 
 function sendHistoryArchiveByDate(req, res) {
-  const archive = getHistoryArchive(req.params.slateDate);
+  const date = String(req.params.slateDate || "").slice(0, 10);
+  let archive = getHistoryArchive(date);
+  if (!archive) {
+    const today = getTodayLocalDate();
+    archive =
+      listProductTruthHistoryArchives({ today }).find(
+        (a) => String(a.slateDate).slice(0, 10) === date
+      ) || null;
+  }
 
   if (!archive) {
     return res.status(404).json({
