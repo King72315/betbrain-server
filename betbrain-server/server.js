@@ -5,6 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { CONFIG, checkConfig } from "./config.js";
+import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
+import { getWinnerSlate, officialWinnersForResults } from "./services/wnbaWinnerStoreV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3992,6 +3994,18 @@ async function refreshAllPicks(options = {}) {
 // Boot phase for ops diagnosis. /health stays sync and answers as soon as
  // the port is bound ? even while deferred hydrate is still running.
 let bootPhase = "starting";
+
+app.get("/courtedge/wnba-winners", (req, res) => {
+  const date = String(req.query.date || "").trim();
+  const slate = date ? getWinnerSlate(date) : null;
+  res.json({
+    ok: true,
+    additive: true,
+    sgo: getSgoHealth(),
+    slate: slate || null,
+    official: date ? officialWinnersForResults(date) : [],
+  });
+});
 
 app.get("/health", (req, res) => {
   // Sync-only: never await external stores here. Keep Render health cheap.
