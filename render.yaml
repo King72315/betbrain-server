@@ -22,6 +22,10 @@ services:
         sync: false
       - key: BALLDONTLIE_KEY
         sync: false
+      - key: SPORTSGAMEODDS_KEY
+        sync: false
+      - key: SGO_KEY
+        sync: false
       - key: ADMIN_SECRET
         sync: false
       - key: COURTEDGE_SCHEDULER_TOKEN

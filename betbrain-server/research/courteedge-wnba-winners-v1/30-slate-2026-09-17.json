@@ -1,0 +1,2224 @@
+{
+  "slateDateCT": "2026-09-17",
+  "todayAuthority": "2026-09-17",
+  "providers": {
+    "oddsApi": {
+      "configured": true,
+      "network": "UNREACHABLE",
+      "auth": "UNKNOWN",
+      "wnbaEventsFound": 0
+    },
+    "balldontlie": {
+      "configured": true,
+      "network": "UNREACHABLE",
+      "auth": "UNKNOWN"
+    },
+    "sgo": {
+      "configured": false,
+      "network": "UNKNOWN",
+      "auth": "UNKNOWN",
+      "state": "NOT_CONFIGURED",
+      "wnbaEventsFound": 0,
+      "moneylineEvents": 0,
+      "capabilities": {
+        "events": 0,
+        "startTimes": 0,
+        "homeAway": 0,
+        "moneyline": 0,
+        "spread": 0,
+        "total": 0,
+        "fairOdds": 0,
+        "bookOdds": 0,
+        "bookNames": [],
+        "timestamps": 0,
+        "finalScore": 0
+      },
+      "health": {
+        "version": "courtedge-sgo-client-v1",
+        "configured": false,
+        "state": "NOT_CONFIGURED",
+        "lastStatus": null,
+        "requests": 0,
+        "retries": 0,
+        "cacheHits": 0
+      }
+    }
+  },
+  "historical": {
+    "generatedAt": "2026-09-17T07:00:11.362Z",
+    "slateDateCT": "2026-09-17",
+    "productTruthHash": "fc69b0ecf159510d00284ee8ab18932297c4ad84d8cf43017898e6354f3885a9",
+    "productTruthLocked": true,
+    "games": {
+      "all": 567,
+      "y2025": 288,
+      "y2026": 279
+    },
+    "homeCourt": {
+      "homeWinRate": 0.5583,
+      "hfaElo": 40.7,
+      "intercept": 0.2343
+    },
+    "baselines": {
+      "HOME": {
+        "n": 567,
+        "wl": "316-251",
+        "hit": 0.5573,
+        "brier": 0.2467,
+        "logLoss": 0.6866
+      },
+      "BETTER_RECORD": {
+        "n": 567,
+        "wl": "360-207",
+        "hit": 0.6349,
+        "brier": 0.237,
+        "logLoss": 0.6671
+      },
+      "POINT_DIFF": {
+        "n": 567,
+        "wl": "372-195",
+        "hit": 0.6561,
+        "brier": 0.2241,
+        "logLoss": 0.6412
+      },
+      "ELO": {
+        "n": 567,
+        "wl": "367-200",
+        "hit": 0.6473,
+        "brier": 0.2384,
+        "logLoss": 0.7273
+      },
+      "BEST_SIMPLE_BLEND": {
+        "n": 567,
+        "wl": "371-196",
+        "hit": 0.6543,
+        "brier": 0.2222,
+        "logLoss": 0.6359
+      },
+      "WINNER_V1": {
+        "n": 567,
+        "wl": "364-203",
+        "hit": 0.642,
+        "brier": 0.2245,
+        "logLoss": 0.6541
+      }
+    },
+    "winnerV1_2026": {
+      "n": 279,
+      "wl": "179-100",
+      "hit": 0.6416,
+      "brier": 0.2311,
+      "logLoss": 0.6833
+    },
+    "top1": {
+      "n": 201,
+      "wl": "144-57",
+      "hit": 0.7164
+    },
+    "top2": {
+      "n": 376,
+      "wl": "255-121",
+      "hit": 0.6782
+    },
+    "top3": {
+      "n": 491,
+      "wl": "324-167",
+      "hit": 0.6599
+    },
+    "bands": {
+      "50-54.9": {
+        "n": 58,
+        "wl": "26-32",
+        "hit": 0.4483,
+        "brier": 0.252,
+        "logLoss": 0.6972
+      },
+      "55-59.9": {
+        "n": 75,
+        "wl": "40-35",
+        "hit": 0.5333,
+        "brier": 0.2543,
+        "logLoss": 0.702
+      },
+      "60-64.9": {
+        "n": 72,
+        "wl": "42-30",
+        "hit": 0.5833,
+        "brier": 0.243,
+        "logLoss": 0.679
+      },
+      "65-69.9": {
+        "n": 47,
+        "wl": "24-23",
+        "hit": 0.5106,
+        "brier": 0.2746,
+        "logLoss": 0.7455
+      },
+      "70-74.9": {
+        "n": 60,
+        "wl": "37-23",
+        "hit": 0.6167,
+        "brier": 0.2495,
+        "logLoss": 0.6968
+      },
+      "75+": {
+        "n": 249,
+        "wl": "191-58",
+        "hit": 0.7671,
+        "brier": 0.1875,
+        "logLoss": 0.5936
+      }
+    },
+    "windows": {
+      "1-5": {
+        "n": 50,
+        "wl": "27-23",
+        "hit": 0.54,
+        "brier": 0.2284,
+        "logLoss": 0.645
+      },
+      "6-10": {
+        "n": 38,
+        "wl": "25-13",
+        "hit": 0.6579,
+        "brier": 0.2056,
+        "logLoss": 0.5939
+      },
+      "11-20": {
+        "n": 74,
+        "wl": "41-33",
+        "hit": 0.5541,
+        "brier": 0.2554,
+        "logLoss": 0.7124
+      },
+      "20+": {
+        "n": 411,
+        "wl": "275-136",
+        "hit": 0.6691,
+        "brier": 0.2207,
+        "logLoss": 0.6513
+      }
+    }
+  },
+  "officialPromotion": "INSUFFICIENT",
+  "productionMode": "TEST_ONLY",
+  "gameCount": 5,
+  "slate": {
+    "version": "courtedge-wnba-winner-v1",
+    "slateDateCT": "2026-09-17",
+    "officialPromotion": false,
+    "productionMode": "TEST_ONLY",
+    "fullSlate": [
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857190|CON|ATL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857190",
+        "startCT": "6:30 PM",
+        "commenceTime": "2026-09-17T23:30Z",
+        "homeTeam": "ATL",
+        "awayTeam": "CON",
+        "homeName": "Atlanta Dream",
+        "awayName": "Connecticut Sun",
+        "pHome": 0.9921,
+        "pAway": 0.0079,
+        "selectedWinnerId": "ATL",
+        "selectedWinnerName": "Atlanta Dream",
+        "selectedProbability": 0.9921,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 99.2,
+            "reasons": [
+              "Chronological Elo leans home (99.9%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 0.8,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.9921,
+          "pAway": 0.0079,
+          "selectedTeamId": "ATL",
+          "selectedTeamName": "Atlanta Dream",
+          "caseMargin": 0.9841,
+          "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Connecticut Sun trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1992.0183236228372,
+          "awayElo": 810.210813623304,
+          "homeRecord": "54-28",
+          "awayRecord": "21-59",
+          "components": {
+            "pElo": 0.999,
+            "pSeason": 0.7849614127388987,
+            "pRecent": 0.8660721116759263,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857190",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857191|WAS|CHI",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857191",
+        "startCT": "7:00 PM",
+        "commenceTime": "2026-09-18T00:00Z",
+        "homeTeam": "CHI",
+        "awayTeam": "WAS",
+        "homeName": "Chicago Sky",
+        "awayName": "Washington Mystics",
+        "pHome": 0.183,
+        "pAway": 0.817,
+        "selectedWinnerId": "WAS",
+        "selectedWinnerName": "Washington Mystics",
+        "selectedProbability": 0.817,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 18.3,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 81.7,
+            "reasons": [
+              "Chronological Elo leans away (90.7%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.183,
+          "pAway": 0.817,
+          "selectedTeamId": "WAS",
+          "selectedTeamName": "Washington Mystics",
+          "caseMargin": 0.6341,
+          "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Chicago Sky trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 921.0201863407002,
+          "awayElo": 1357.6948013516408,
+          "homeRecord": "23-58",
+          "awayRecord": "38-43",
+          "components": {
+            "pElo": 0.09284237038299592,
+            "pSeason": 0.40547198636166903,
+            "pRecent": 0.3172006139065875,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857191",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857192|LAS|DAL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857192",
+        "startCT": "7:00 PM",
+        "commenceTime": "2026-09-18T00:00Z",
+        "homeTeam": "DAL",
+        "awayTeam": "LAS",
+        "homeName": "Dallas Wings",
+        "awayName": "Los Angeles Sparks",
+        "pHome": 0.6487,
+        "pAway": 0.3513,
+        "selectedWinnerId": "DAL",
+        "selectedWinnerName": "Dallas Wings",
+        "selectedProbability": 0.6487,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 72,
+        "risk": "MEDIUM",
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 64.9,
+            "reasons": [
+              "Chronological Elo leans home (66.2%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 35.1,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.6487,
+          "pAway": 0.3513,
+          "selectedTeamId": "DAL",
+          "selectedTeamName": "Dallas Wings",
+          "caseMargin": 0.2974,
+          "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Los Angeles Sparks trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1311.9642717735385,
+          "awayElo": 1235.854745436828,
+          "homeRecord": "33-49",
+          "awayRecord": "35-47",
+          "components": {
+            "pElo": 0.6620425178583401,
+            "pSeason": 0.5390463502217735,
+            "pRecent": 0.6437474649788022,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857192",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857193|PHO|POR",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857193",
+        "startCT": "9:00 PM",
+        "commenceTime": "2026-09-18T02:00Z",
+        "homeTeam": "POR",
+        "awayTeam": "PHO",
+        "homeName": "Portland Fire",
+        "awayName": "Phoenix Mercury",
+        "pHome": 0.4523,
+        "pAway": 0.5477,
+        "selectedWinnerId": "PHO",
+        "selectedWinnerName": "Phoenix Mercury",
+        "selectedProbability": 0.5477,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 64,
+        "risk": "HIGH",
+        "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 45.2,
+            "reasons": [
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 54.8,
+            "reasons": [
+              "Chronological Elo leans away (59.1%)",
+              "Season point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.4523,
+          "pAway": 0.5477,
+          "selectedTeamId": "PHO",
+          "selectedTeamName": "Phoenix Mercury",
+          "caseMargin": 0.0955,
+          "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Portland Fire trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1362.794197454847,
+          "awayElo": 1467.7635482347464,
+          "homeRecord": "15-22",
+          "awayRecord": "39-41",
+          "components": {
+            "pElo": 0.4085496908390431,
+            "pSeason": 0.42403033424152825,
+            "pRecent": 0.5415704832167999,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857193",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857194|LVA|SEA",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857194",
+        "startCT": "9:00 PM",
+        "commenceTime": "2026-09-18T02:00Z",
+        "homeTeam": "SEA",
+        "awayTeam": "LVA",
+        "homeName": "Seattle Storm",
+        "awayName": "Las Vegas Aces",
+        "pHome": 0.0323,
+        "pAway": 0.9677,
+        "selectedWinnerId": "LVA",
+        "selectedWinnerName": "Las Vegas Aces",
+        "selectedProbability": 0.9677,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 3.2,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 96.8,
+            "reasons": [
+              "Chronological Elo leans away (99.5%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.0323,
+          "pAway": 0.9677,
+          "selectedTeamId": "LVA",
+          "selectedTeamName": "Las Vegas Aces",
+          "caseMargin": 0.9354,
+          "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Seattle Storm trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 915.6888596337487,
+          "awayElo": 1875.8310191345502,
+          "homeRecord": "38-78",
+          "awayRecord": "54-27",
+          "components": {
+            "pElo": 0.005002838038035801,
+            "pSeason": 0.3584432843407464,
+            "pRecent": 0.25445338587359734,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857194",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      }
+    ],
+    "topWinners": [],
+    "testWinners": [
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857190|CON|ATL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857190",
+        "startCT": "6:30 PM",
+        "commenceTime": "2026-09-17T23:30Z",
+        "homeTeam": "ATL",
+        "awayTeam": "CON",
+        "homeName": "Atlanta Dream",
+        "awayName": "Connecticut Sun",
+        "pHome": 0.9921,
+        "pAway": 0.0079,
+        "selectedWinnerId": "ATL",
+        "selectedWinnerName": "Atlanta Dream",
+        "selectedProbability": 0.9921,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 99.2,
+            "reasons": [
+              "Chronological Elo leans home (99.9%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 0.8,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.9921,
+          "pAway": 0.0079,
+          "selectedTeamId": "ATL",
+          "selectedTeamName": "Atlanta Dream",
+          "caseMargin": 0.9841,
+          "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Connecticut Sun trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1992.0183236228372,
+          "awayElo": 810.210813623304,
+          "homeRecord": "54-28",
+          "awayRecord": "21-59",
+          "components": {
+            "pElo": 0.999,
+            "pSeason": 0.7849614127388987,
+            "pRecent": 0.8660721116759263,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857190",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857191|WAS|CHI",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857191",
+        "startCT": "7:00 PM",
+        "commenceTime": "2026-09-18T00:00Z",
+        "homeTeam": "CHI",
+        "awayTeam": "WAS",
+        "homeName": "Chicago Sky",
+        "awayName": "Washington Mystics",
+        "pHome": 0.183,
+        "pAway": 0.817,
+        "selectedWinnerId": "WAS",
+        "selectedWinnerName": "Washington Mystics",
+        "selectedProbability": 0.817,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 18.3,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 81.7,
+            "reasons": [
+              "Chronological Elo leans away (90.7%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.183,
+          "pAway": 0.817,
+          "selectedTeamId": "WAS",
+          "selectedTeamName": "Washington Mystics",
+          "caseMargin": 0.6341,
+          "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Chicago Sky trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 921.0201863407002,
+          "awayElo": 1357.6948013516408,
+          "homeRecord": "23-58",
+          "awayRecord": "38-43",
+          "components": {
+            "pElo": 0.09284237038299592,
+            "pSeason": 0.40547198636166903,
+            "pRecent": 0.3172006139065875,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857191",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857192|LAS|DAL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857192",
+        "startCT": "7:00 PM",
+        "commenceTime": "2026-09-18T00:00Z",
+        "homeTeam": "DAL",
+        "awayTeam": "LAS",
+        "homeName": "Dallas Wings",
+        "awayName": "Los Angeles Sparks",
+        "pHome": 0.6487,
+        "pAway": 0.3513,
+        "selectedWinnerId": "DAL",
+        "selectedWinnerName": "Dallas Wings",
+        "selectedProbability": 0.6487,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 72,
+        "risk": "MEDIUM",
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 64.9,
+            "reasons": [
+              "Chronological Elo leans home (66.2%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 35.1,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.6487,
+          "pAway": 0.3513,
+          "selectedTeamId": "DAL",
+          "selectedTeamName": "Dallas Wings",
+          "caseMargin": 0.2974,
+          "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Los Angeles Sparks trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1311.9642717735385,
+          "awayElo": 1235.854745436828,
+          "homeRecord": "33-49",
+          "awayRecord": "35-47",
+          "components": {
+            "pElo": 0.6620425178583401,
+            "pSeason": 0.5390463502217735,
+            "pRecent": 0.6437474649788022,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857192",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857193|PHO|POR",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857193",
+        "startCT": "9:00 PM",
+        "commenceTime": "2026-09-18T02:00Z",
+        "homeTeam": "POR",
+        "awayTeam": "PHO",
+        "homeName": "Portland Fire",
+        "awayName": "Phoenix Mercury",
+        "pHome": 0.4523,
+        "pAway": 0.5477,
+        "selectedWinnerId": "PHO",
+        "selectedWinnerName": "Phoenix Mercury",
+        "selectedProbability": 0.5477,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 64,
+        "risk": "HIGH",
+        "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 45.2,
+            "reasons": [
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 54.8,
+            "reasons": [
+              "Chronological Elo leans away (59.1%)",
+              "Season point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.4523,
+          "pAway": 0.5477,
+          "selectedTeamId": "PHO",
+          "selectedTeamName": "Phoenix Mercury",
+          "caseMargin": 0.0955,
+          "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Portland Fire trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1362.794197454847,
+          "awayElo": 1467.7635482347464,
+          "homeRecord": "15-22",
+          "awayRecord": "39-41",
+          "components": {
+            "pElo": 0.4085496908390431,
+            "pSeason": 0.42403033424152825,
+            "pRecent": 0.5415704832167999,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857193",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857194|LVA|SEA",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857194",
+        "startCT": "9:00 PM",
+        "commenceTime": "2026-09-18T02:00Z",
+        "homeTeam": "SEA",
+        "awayTeam": "LVA",
+        "homeName": "Seattle Storm",
+        "awayName": "Las Vegas Aces",
+        "pHome": 0.0323,
+        "pAway": 0.9677,
+        "selectedWinnerId": "LVA",
+        "selectedWinnerName": "Las Vegas Aces",
+        "selectedProbability": 0.9677,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 3.2,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 96.8,
+            "reasons": [
+              "Chronological Elo leans away (99.5%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.0323,
+          "pAway": 0.9677,
+          "selectedTeamId": "LVA",
+          "selectedTeamName": "Las Vegas Aces",
+          "caseMargin": 0.9354,
+          "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Seattle Storm trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 915.6888596337487,
+          "awayElo": 1875.8310191345502,
+          "homeRecord": "38-78",
+          "awayRecord": "54-27",
+          "components": {
+            "pElo": 0.005002838038035801,
+            "pSeason": 0.3584432843407464,
+            "pRecent": 0.25445338587359734,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857194",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      }
+    ],
+    "officialWinners": [],
+    "packets": [
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857190|CON|ATL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857190",
+        "homeTeam": "ATL",
+        "awayTeam": "CON",
+        "pHome": 0.9921,
+        "pAway": 0.0079,
+        "selectedWinnerId": "ATL",
+        "selectedWinnerName": "Atlanta Dream",
+        "selectedProbability": 0.9921,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 99.2,
+            "reasons": [
+              "Chronological Elo leans home (99.9%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 0.8,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.9921,
+          "pAway": 0.0079,
+          "selectedTeamId": "ATL",
+          "selectedTeamName": "Atlanta Dream",
+          "caseMargin": 0.9841,
+          "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Connecticut Sun trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1992.0183236228372,
+          "awayElo": 810.210813623304,
+          "homeRecord": "54-28",
+          "awayRecord": "21-59",
+          "components": {
+            "pElo": 0.999,
+            "pSeason": 0.7849614127388987,
+            "pRecent": 0.8660721116759263,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857190",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857191|WAS|CHI",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857191",
+        "homeTeam": "CHI",
+        "awayTeam": "WAS",
+        "pHome": 0.183,
+        "pAway": 0.817,
+        "selectedWinnerId": "WAS",
+        "selectedWinnerName": "Washington Mystics",
+        "selectedProbability": 0.817,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 18.3,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 81.7,
+            "reasons": [
+              "Chronological Elo leans away (90.7%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.183,
+          "pAway": 0.817,
+          "selectedTeamId": "WAS",
+          "selectedTeamName": "Washington Mystics",
+          "caseMargin": 0.6341,
+          "winningReason": "Washington Mystics leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Chicago Sky trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 921.0201863407002,
+          "awayElo": 1357.6948013516408,
+          "homeRecord": "23-58",
+          "awayRecord": "38-43",
+          "components": {
+            "pElo": 0.09284237038299592,
+            "pSeason": 0.40547198636166903,
+            "pRecent": 0.3172006139065875,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857191",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857192|LAS|DAL",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857192",
+        "homeTeam": "DAL",
+        "awayTeam": "LAS",
+        "pHome": 0.6487,
+        "pAway": 0.3513,
+        "selectedWinnerId": "DAL",
+        "selectedWinnerName": "Dallas Wings",
+        "selectedProbability": 0.6487,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 72,
+        "risk": "MEDIUM",
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 64.9,
+            "reasons": [
+              "Chronological Elo leans home (66.2%)",
+              "Season point differential supports home",
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 35.1,
+            "reasons": [],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.6487,
+          "pAway": 0.3513,
+          "selectedTeamId": "DAL",
+          "selectedTeamName": "Dallas Wings",
+          "caseMargin": 0.2974,
+          "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Los Angeles Sparks trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1311.9642717735385,
+          "awayElo": 1235.854745436828,
+          "homeRecord": "33-49",
+          "awayRecord": "35-47",
+          "components": {
+            "pElo": 0.6620425178583401,
+            "pSeason": 0.5390463502217735,
+            "pRecent": 0.6437474649788022,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857192",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857193|PHO|POR",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857193",
+        "homeTeam": "POR",
+        "awayTeam": "PHO",
+        "pHome": 0.4523,
+        "pAway": 0.5477,
+        "selectedWinnerId": "PHO",
+        "selectedWinnerName": "Phoenix Mercury",
+        "selectedProbability": 0.5477,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 64,
+        "risk": "HIGH",
+        "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 45.2,
+            "reasons": [
+              "Recent point differential supports home",
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 54.8,
+            "reasons": [
+              "Chronological Elo leans away (59.1%)",
+              "Season point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.4523,
+          "pAway": 0.5477,
+          "selectedTeamId": "PHO",
+          "selectedTeamName": "Phoenix Mercury",
+          "caseMargin": 0.0955,
+          "winningReason": "Phoenix Mercury leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Portland Fire trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 1362.794197454847,
+          "awayElo": 1467.7635482347464,
+          "homeRecord": "15-22",
+          "awayRecord": "39-41",
+          "components": {
+            "pElo": 0.4085496908390431,
+            "pSeason": 0.42403033424152825,
+            "pRecent": 0.5415704832167999,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857193",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      },
+      {
+        "version": "courtedge-wnba-winner-v1",
+        "winnerPredictionId": "WNBA|WINNER|2026-09-17|wnba:espn:401857194|LVA|SEA",
+        "league": "WNBA",
+        "season": "2026",
+        "seasonPhase": "REGULAR_SEASON",
+        "slateDateCT": "2026-09-17",
+        "eventId": "wnba:espn:401857194",
+        "homeTeam": "SEA",
+        "awayTeam": "LVA",
+        "pHome": 0.0323,
+        "pAway": 0.9677,
+        "selectedWinnerId": "LVA",
+        "selectedWinnerName": "Las Vegas Aces",
+        "selectedProbability": 0.9677,
+        "qualityScore": 68,
+        "winnerRank": null,
+        "winnerTrackingType": "TEST",
+        "confidence": 84,
+        "risk": "MEDIUM",
+        "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "winnerReaderAudit": {
+          "version": "courtedge-wnba-winner-reader-v1",
+          "homeCase": {
+            "score": 3.2,
+            "reasons": [
+              "WNBA home-court intercept applied from historical fit"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "awayCase": {
+            "score": 96.8,
+            "reasons": [
+              "Chronological Elo leans away (99.5%)",
+              "Season point differential supports away",
+              "Recent point differential supports away"
+            ],
+            "predictiveSignals": [
+              "CHRONOLOGICAL_ELO",
+              "SEASON_POINT_DIFF",
+              "RECENT_POINT_DIFF",
+              "WNBA_HOME_COURT"
+            ]
+          },
+          "pHome": 0.0323,
+          "pAway": 0.9677,
+          "selectedTeamId": "LVA",
+          "selectedTeamName": "Las Vegas Aces",
+          "caseMargin": 0.9354,
+          "winningReason": "Las Vegas Aces leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+          "rejectedReason": "Seattle Storm trails the same blend; market favorite was not used as a shortcut.",
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ],
+          "confidenceRiskSignals": [],
+          "labOnlySignals": [],
+          "noiseSignals": [],
+          "missingData": [],
+          "dataQualityWarnings": [],
+          "evidenceDependency": "PARTIALLY_DEPENDENT"
+        },
+        "marketSnapshot": {
+          "homeMoneyline": null,
+          "awayMoneyline": null,
+          "impliedHome": null,
+          "impliedAway": null,
+          "noVigHome": null,
+          "noVigAway": null,
+          "spread": null,
+          "total": null,
+          "sgoFairHome": null,
+          "sgoFairAway": null,
+          "books": [],
+          "bookCount": 0,
+          "bookSources": [],
+          "providerSources": [],
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "marketFailoverUsed": false,
+          "marketQuality": 0,
+          "fetchedAt": "2026-09-17T07:00:19.850Z",
+          "pMarketHome": null,
+          "pMarketAway": null,
+          "homeMarketEdge": null,
+          "awayMarketEdge": null,
+          "modelMarketDisagreement": false
+        },
+        "featureSnapshot": {
+          "homeElo": 915.6888596337487,
+          "awayElo": 1875.8310191345502,
+          "homeRecord": "38-78",
+          "awayRecord": "54-27",
+          "components": {
+            "pElo": 0.005002838038035801,
+            "pSeason": 0.3584432843407464,
+            "pRecent": 0.25445338587359734,
+            "eloW": 0.6,
+            "seasonW": 0.25,
+            "recentW": 0.15
+          }
+        },
+        "provenance": {
+          "eventSource": "ESPN",
+          "moneylineSource": null,
+          "secondaryMarketSources": [],
+          "providerEventIds": {
+            "espn": "wnba:espn:401857194",
+            "oddsApi": null,
+            "sgo": null
+          },
+          "providerFetchedAt": "2026-09-17T07:00:19.850Z",
+          "bookSources": [],
+          "marketFailoverUsed": false
+        },
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "frozenAt": "2026-09-17T07:00:19.850Z"
+      }
+    ],
+    "topIds": [],
+    "frozen": true,
+    "persistedAt": "2026-09-17T07:00:19.877Z"
+  },
+  "productTruthHash": "fc69b0ecf159510d00284ee8ab18932297c4ad84d8cf43017898e6354f3885a9",
+  "productTruthUnchanged": true
+}
