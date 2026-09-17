@@ -1,0 +1,17 @@
+{
+  "mission": "courtedge-wnba-winners-v1",
+  "recordedAt": "2026-09-17T06:55:00-05:00",
+  "timezone": "America/Chicago",
+  "branch": "research/courteedge-nba-engine-v1",
+  "HEAD": "6bb756a55a92abe9d8ffd6bbf0a8a0b5a87804b1",
+  "HEADMessage": "Ingest authentic 8/16 freeze into Product Truth and compact History payloads.",
+  "SERVER_BUILD": "courteedge-grade-a-recovery-v3",
+  "courtEdgeBuild": "courteedge-grade-a-recovery-v3",
+  "wnbaPropProductTruthFingerprint": "fc69b0ecf159510d00284ee8ab18932297c4ad84d8cf43017898e6354f3885a9",
+  "wnbaPropOwnerVersion": "courteedge-bidirectional-decision-v1",
+  "resultsQualityGateVersion": "wnba-tracking-gate-v2-live",
+  "topBestSelectorVersion": "controlled-best-board-canonical-sealing-path-v3",
+  "sideSelectionAuditVersion": "side-selection-audit-v1",
+  "rollback": "git checkout 6bb756a55a92abe9d8ffd6bbf0a8a0b5a87804b1 -- <winner-only-paths>",
+  "note": "Working tree already contains unrelated prior-mission dirt. Winner V1 is additive. Do not remint Product Truth. Do not commit canonical-predictions-v1.json."
+}

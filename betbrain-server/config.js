@@ -17,6 +17,11 @@ export const CONFIG = {
   SPORTS_KEY: process.env.SPORTS_KEY || "",
   ODDS_KEY: process.env.ODDS_KEY || "",
   BALLDONTLIE_KEY: process.env.BALLDONTLIE_KEY || "",
+  SPORTSGAMEODDS_KEY:
+    process.env.SPORTSGAMEODDS_KEY ||
+    process.env.SGO_KEY ||
+    process.env.TENNIS_SPORTSGAMEODDS_KEY ||
+    "",
 
   CACHE_MINUTES: num(process.env.CACHE_MINUTES, 30),
 
@@ -90,6 +95,7 @@ export function checkConfig() {
     sportsKeyLoaded: CONFIG.SPORTS_KEY ? "YES" : "NO",
     oddsKeyLoaded: CONFIG.ODDS_KEY ? "YES" : "NO",
     ballKeyLoaded: CONFIG.BALLDONTLIE_KEY ? "YES" : "NO",
+    sgoKeyConfigured: Boolean(CONFIG.SPORTSGAMEODDS_KEY),
 
     cacheMinutes: CONFIG.CACHE_MINUTES,
     topPropLimit: CONFIG.TOP_PROP_LIMIT,
