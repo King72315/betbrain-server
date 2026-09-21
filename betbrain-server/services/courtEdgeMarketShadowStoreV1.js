@@ -55,10 +55,16 @@ export function persistShadowBoards({ slateDateCT, packets = [], fetchedAt = new
   })).digest("hex");
   payload.freezeHash = freezeHash;
   const store = readStore();
-  if (store.slates[slateDateCT]?.freezeHash && store.slates[slateDateCT].immutable === true) {
-    return store.slates[slateDateCT];
+  const existing = store.slates[slateDateCT];
+  const incomingEmpty = (boards.reb.analyzed || 0) + (boards.ast.analyzed || 0) === 0;
+  if (existing?.freezeHash && existing.immutable === true) {
+    const existingEmpty = (existing.reb?.analyzed || 0) + (existing.ast?.analyzed || 0) === 0;
+    if (!existingEmpty || incomingEmpty) return existing;
   }
-  store.slates[slateDateCT] = { ...payload, immutable: true };
+  store.slates[slateDateCT] = {
+    ...payload,
+    immutable: !incomingEmpty,
+  };
   atomicWrite(FILE, store);
   return store.slates[slateDateCT];
 }

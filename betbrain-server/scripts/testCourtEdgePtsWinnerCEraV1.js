@@ -8,6 +8,7 @@ import { buildFullWinnerSlate, rankTopWinners } from "../engines/wnba/winnersV1/
 import { TRACKING } from "../engines/wnba/winnersV1/constants.js";
 import { selectOfficialMembershipV1 } from "../engines/courtEdgeControlPlaneV1/selectOfficialMembershipV1.js";
 import { buildShadowBoards } from "../engines/wnba/shadow/rebAstShadowBoardV1.js";
+import { persistShadowBoards, getShadowSlate } from "../services/courtEdgeMarketShadowStoreV1.js";
 import { COURTEDGE_WINNER_C_PRODUCTION_V1 } from "../engines/courtEdgeEraV1.js";
 import { isOfficialTrackingPick } from "../services/trackedPropService.js";
 
@@ -105,6 +106,20 @@ test("Official membership demotes REB/AST without PTS refill", () => {
   assert.ok(result.selectedPackets.every((p) => p.propType === "POINTS"));
   assert.equal(result.selectedPackets.length, 2);
   assert.ok(result.shadowDemotedCount >= 1);
+});
+
+test("empty shadow freeze is not immutable so a later complete board can persist", () => {
+  const date = "2099-01-01";
+  const empty = persistShadowBoards({ slateDateCT: date, packets: [], fetchedAt: "2026-09-21T00:00:00Z" });
+  assert.equal(empty.immutable, false);
+  const filled = persistShadowBoards({
+    slateDateCT: date,
+    packets: [{ propType: "ASSISTS", playerName: "Z", line: 4.5, side: "OVER", projection: 5, last5: [{ minutes: 30, assists: 5 }] }],
+    fetchedAt: "2026-09-21T00:01:00Z",
+  });
+  assert.equal(filled.ast.analyzed, 1);
+  assert.equal(filled.immutable, true);
+  assert.equal(getShadowSlate(date).ast.analyzed, 1);
 });
 
 test("shadow boards never mark official", () => {
