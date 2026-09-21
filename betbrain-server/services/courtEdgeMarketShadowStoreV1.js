@@ -69,9 +69,16 @@ export function persistShadowBoards({
   payload.ast.freezeHash = crypto.createHash("sha256").update(JSON.stringify(payload.ast.rows.map((r) => [r.player, r.line, r.side]))).digest("hex");
   const store = readStore();
   const existing = store.slates[slateDateCT];
-  const incomingEmpty = (boards.reb.analyzed || 0) + (boards.ast.analyzed || 0) === 0;
+  const incomingEmpty =
+    (boards.reb.analyzed || 0) + (boards.ast.analyzed || 0) === 0 ||
+    ![...(boards.reb.rows || []), ...(boards.ast.rows || [])].some(
+      (r) => Number(r.projection) > 0 || r.last5Count > 0 || r.player?.n > 0
+    );
   if (existing?.freezeHash && existing.immutable === true) {
-    const existingEmpty = (existing.reb?.analyzed || 0) + (existing.ast?.analyzed || 0) === 0;
+    const existingRows = [...(existing.reb?.rows || []), ...(existing.ast?.rows || [])];
+    const existingEmpty =
+      existingRows.length === 0 ||
+      !existingRows.some((r) => Number(r.projection) > 0 || r.last5Count > 0);
     if (!existingEmpty || incomingEmpty) return existing;
   }
   store.slates[slateDateCT] = {
