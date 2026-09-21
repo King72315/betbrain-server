@@ -730,6 +730,11 @@ export async function fetchPlayerStats(playerName, league = "NBA", options = {})
     return statsCache.get(key);
   }
 
+  if (league === "WNBA") {
+    const espnFirst = await fetchEspnHistoryFallback(playerName, options);
+    if (espnFirst.length) return espnFirst;
+  }
+
   const player = await findBallPlayer(playerName, league);
 
   if (!player?.id) {
@@ -1128,6 +1133,12 @@ export async function resolveWnbaPlayerTeamForGame(playerName, game = {}) {
     game.awayTeam || game.away_team || game.away || game.rawAwayTeam || ""
   );
 
+  const rosterHit = resolveTeamFromTonightRoster(playerName, game);
+  if (rosterHit?.teamId) {
+    console.log("WNBA TEAM FROM TONIGHT ROSTER:", playerName, "=>", rosterHit.teamId);
+    return rosterHit.teamId;
+  }
+
   const direct = await getBallPlayerTeam(playerName, "WNBA");
   if (direct) {
     if (!homeId && !awayId) return direct;
@@ -1184,12 +1195,6 @@ export async function resolveWnbaPlayerTeamForGame(playerName, game = {}) {
         resolveWnbaTeamId(pool[0].team) || normalizeTeamName(pool[0].team) || ""
       );
     }
-  }
-
-  const rosterHit = resolveTeamFromTonightRoster(playerName, game);
-  if (rosterHit?.teamId) {
-    console.log("WNBA TEAM FROM TONIGHT ROSTER:", playerName, "=>", rosterHit.teamId);
-    return rosterHit.teamId;
   }
 
   return direct || "";
