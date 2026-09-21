@@ -25,6 +25,29 @@ import {
   isCourtEdgePtsWinnerCEra,
   isShadowPropMarket,
 } from "../courtEdgeEraV1.js";
+import { shouldBlockOfficialPtsPublication } from "../courtEdgePtsHistoryGateV1.js";
+
+function applyPtsHistoryIntegrityFilter(result) {
+  const demote = (p) => {
+    if (!p?.officialSelected) return p;
+    if (!shouldBlockOfficialPtsPublication(p)) return p;
+    return {
+      ...p,
+      officialSelected: false,
+      officialEligible: false,
+      trackingType: "NO_BET",
+      integrityBlock: "BLOCKED_MISSING_PLAYER_HISTORY",
+    };
+  };
+  const boardCandidates = (result.boardCandidates || []).map(demote);
+  const selectedPackets = boardCandidates.filter((p) => p.officialSelected);
+  return {
+    ...result,
+    boardCandidates,
+    selectedPackets,
+    officialCount: selectedPackets.length,
+  };
+}
 
 function applyPtsOnlyOfficialFilter(result, options = {}) {
   const slateDate =
@@ -246,13 +269,17 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
   const forceLegacy = options.forceLegacySelector === true;
   if (!forceLegacy && (forceV2 || isDecisionEngineV2LiveEnabled())) {
     const result = selectOfficialMembershipV2(packets, options);
-    return applyPtsOnlyOfficialFilter({
-      ...result,
-      controlPlaneBuild: result.controlPlaneBuild || DECISION_ENGINE_V2_BUILD,
-      legacyRollbackAvailable: true,
-    }, options);
+    return applyPtsHistoryIntegrityFilter(
+      applyPtsOnlyOfficialFilter({
+        ...result,
+        controlPlaneBuild: result.controlPlaneBuild || DECISION_ENGINE_V2_BUILD,
+        legacyRollbackAvailable: true,
+      }, options)
+    );
   }
-  return applyPtsOnlyOfficialFilter(selectOfficialMembershipLegacyV1(packets, options), options);
+  return applyPtsHistoryIntegrityFilter(
+    applyPtsOnlyOfficialFilter(selectOfficialMembershipLegacyV1(packets, options), options)
+  );
 }
 
 export { selectOfficialMembershipLegacyV1, selectOfficialMembershipV2 };

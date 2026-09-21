@@ -6,8 +6,9 @@ import { fileURLToPath } from "url";
 
 import { CONFIG, checkConfig } from "./config.js";
 import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
-import { getWinnerSlate, officialWinnersForResults } from "./services/wnbaWinnerStoreV1.js";
+import { getWinnerSlate, officialWinnersForResults, hydrateWinnerStoreFromDurable } from "./services/wnbaWinnerStoreV1.js";
 import { registerCourtEdgeEraRoutes } from "./services/courtEdgeEraRoutesV1.js";
+import { persistShadowBoardsFromGames } from "./services/courtEdgeMarketShadowStoreV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2939,6 +2940,15 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       rejectedSample: rejectedPicks.slice(0, 5),
     });
 
+    const shadowLinePackets = (propsAll || []).filter((p) => {
+      const t = String(p.propType || p.stat || "").toUpperCase();
+      return t.includes("REB") || t.includes("AST") || t.includes("ASSIST");
+    });
+    const rawCounts = { POINTS: 0, REBOUNDS: 0, ASSISTS: 0 };
+    for (const p of rawProps || []) {
+      const t = String(p.propType || "").toUpperCase();
+      if (rawCounts[t] != null) rawCounts[t] += 1;
+    }
     gameCards.push({
       ...rankedGame,
       allGeneratedCandidates: builtPicks.map((pick) => ({ ...pick })),
@@ -2946,6 +2956,25 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       consensusPropCount: props.length,
       rejectedPickCount: rejectedPicks.length,
       rejectedSample: rejectedPicks.slice(0, 12),
+      rejectedPicks,
+      consensusPlayerProps: propsAll || [],
+      shadowLinePackets,
+      shadowMarketAudit: {
+        provider: "ODDS_API",
+        marketsRequested: ["player_points", "player_rebounds", "player_assists"],
+        rawCounts,
+        consensusCounts: {
+          POINTS: (propsAll || []).filter((p) => String(p.propType).toUpperCase() === "POINTS").length,
+          REBOUNDS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "REBOUNDS").length,
+          ASSISTS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "ASSISTS").length,
+        },
+        dropReason:
+          rawProps.length === 0
+            ? "PROVIDER_RETURNED_ZERO"
+            : shadowLinePackets.length === 0
+              ? "PROVIDER_RETURNED_ZERO_REB_AST"
+              : null,
+      },
     });
     // Free-tier Render: yield between games so /health can answer and GC can run.
     await yieldBetweenGames();
@@ -3106,7 +3135,10 @@ async function refreshAllPicks(options = {}) {
       ]);
       const interimGames = [...interimTodayGames, ...priorTomorrowGames];
       if (interimTodayGames.length) {
-        const interimSelection = buildTopPropsFromSelector(interimGames);
+        const interimSelection = buildTopPropsFromSelector(interimGames, {
+          skipShadowPersist: true,
+          progressivePersist: true,
+        });
         const priorTomBestSixWnba =
           previousBoard?.bestSixDisplayTomorrowWNBA || [];
         const priorTomBestSixNba =
@@ -3783,6 +3815,16 @@ async function refreshAllPicks(options = {}) {
   const lifecycleValidation = validateOfficialSlateLifecycle(resultsSlateDate, {
     trackedProps: getTrackedProps(),
   });
+
+  try {
+    persistShadowBoardsFromGames({
+      slateDateCT: calendarToday,
+      games,
+      fetchedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.log("SHADOW PERSIST FROM GAMES ERROR:", err.message);
+  }
 
   const generatedProps = trackingCohort;
   const boardCappedProps = collectAllGeneratedProps(games);
@@ -7688,9 +7730,16 @@ if (process.env.RUN_AUDIT === "1") {
           "three-slate-blocks",
           "lifecycle-journal",
           "state-locks",
+          "wnba-winners",
+          "shadow-reb-ast",
         ],
         maxFileBytes: Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000),
       });
+      try {
+        await hydrateWinnerStoreFromDurable();
+      } catch (err) {
+        console.log("STARTUP WINNER DURABLE HYDRATE ERROR:", err.message);
+      }
       console.log(
         "STARTUP DURABLE STORE HYDRATE:",
         JSON.stringify({

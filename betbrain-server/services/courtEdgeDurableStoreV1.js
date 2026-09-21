@@ -31,6 +31,8 @@ export const DURABLE_KEYS = Object.freeze({
   WATCHDOG: "watchdog-state",
   LAB_POINTER: "lab-pointer",
   DAILY_SLATE_REPORTS: "daily-slate-reports",
+  WNBA_WINNERS: "wnba-winners",
+  SHADOW_REB_AST: "shadow-reb-ast",
 });
 
 const FILE_MAP = Object.freeze({
@@ -47,6 +49,8 @@ const FILE_MAP = Object.freeze({
   [DURABLE_KEYS.WATCHDOG]: "courtedge-watchdog-state-v1.json",
   [DURABLE_KEYS.LAB_POINTER]: "courtedge-lab-pointer-v1.json",
   [DURABLE_KEYS.DAILY_SLATE_REPORTS]: "daily-slate-reports.json",
+  [DURABLE_KEYS.WNBA_WINNERS]: path.join("data", "wnba-winners-v1.json"),
+  [DURABLE_KEYS.SHADOW_REB_AST]: path.join("data", "courtedge-shadow-reb-ast-v1.json"),
 });
 
 /** Compact product-truth rows hydrate even when legacy tracked-props is oversized. */
@@ -780,6 +784,11 @@ export async function hydrateWorkingFilesFromDurableStore(options = {}) {
     backend: backendType || (pool ? "postgres" : "filesystem"),
   };
   return lastStartupRecovery;
+}
+
+export function writeDurableMirrorSync(key, value) {
+  const dest = mirrorPathForKey(key);
+  atomicWriteJson(dest, value);
 }
 
 export function syncKeyToDurableFireAndForget(key, value, options = {}) {

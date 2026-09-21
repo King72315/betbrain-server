@@ -1158,6 +1158,8 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
           slateDateCT,
           packets: researchPackets,
           fetchedAt: new Date().toISOString(),
+          skipShadowPersist:
+            options.skipShadowPersist === true || options.progressivePersist === true,
         });
       } catch {
         // shadow persist must never break Official selection

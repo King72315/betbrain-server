@@ -46,6 +46,10 @@ import {
 } from "../../services/courtEdgeEngineSignalsV1.js";
 import { AVAILABILITY_STATE } from "../courtEdgeExpansion/availabilityRosterEngine.js";
 import { PROVIDER_FALLBACK_POLICY } from "../../services/providerFallbackPolicy.js";
+import {
+  BLOCKED_MISSING_PLAYER_HISTORY,
+  inspectPtsHistoryInputs,
+} from "../courtEdgePtsHistoryGateV1.js";
 
 export const WNBA_ENGINE_HANDLED = "WNBA_V2";
 const CONFIDENCE_BLEND_VERSION = "v2-data-directional-side-symmetry";
@@ -257,6 +261,26 @@ export async function evaluateWnbaPropDecision(context = {}) {
 
   const projection = dataCard.projection?.projection || 0;
   const reader = readWnbaProp(dataCard);
+  const propType = String(prop.propType || prop.stat || "POINTS").toUpperCase();
+  const ptsHistory = inspectPtsHistoryInputs({
+    last5,
+    seasonAverage,
+    playerState,
+  });
+  if ((propType === "POINTS" || propType.includes("PT")) && !ptsHistory.hydrated) {
+    return {
+      accepted: false,
+      engineHandled: WNBA_ENGINE_HANDLED,
+      dataCard,
+      reader,
+      rejection: {
+        player: playerName,
+        line: prop.line,
+        reason: BLOCKED_MISSING_PLAYER_HISTORY,
+        details: ptsHistory,
+      },
+    };
+  }
 
   if (reader.decision === "NO_BET" || !reader.finalSide) {
     return {

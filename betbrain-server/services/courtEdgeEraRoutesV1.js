@@ -32,6 +32,12 @@ export function registerCourtEdgeEraRoutes(app) {
         official: false,
         label: "NOT OFFICIAL / RESEARCH ONLY",
       },
+      stores: {
+        officialPts: "/picks + tracked-props + durable board-cache",
+        winnerC: "durable wnba-winners + data/wnba-winners-v1.json",
+        shadowRebAst: "durable shadow-reb-ast + data/courtedge-shadow-reb-ast-v1.json",
+        productTruth: "historical locked corpus — not reminted for 2026-09-21+",
+      },
     });
   });
 

@@ -8,9 +8,20 @@ import { buildFullWinnerSlate, rankTopWinners } from "../engines/wnba/winnersV1/
 import { TRACKING } from "../engines/wnba/winnersV1/constants.js";
 import { selectOfficialMembershipV1 } from "../engines/courtEdgeControlPlaneV1/selectOfficialMembershipV1.js";
 import { buildShadowBoards } from "../engines/wnba/shadow/rebAstShadowBoardV1.js";
-import { persistShadowBoards, getShadowSlate } from "../services/courtEdgeMarketShadowStoreV1.js";
+import { persistShadowBoards, getShadowSlate, persistShadowBoardsFromGames } from "../services/courtEdgeMarketShadowStoreV1.js";
 import { COURTEDGE_WINNER_C_PRODUCTION_V1 } from "../engines/courtEdgeEraV1.js";
 import { isOfficialTrackingPick } from "../services/trackedPropService.js";
+import {
+  BLOCKED_MISSING_PLAYER_HISTORY,
+  inspectPtsHistoryInputs,
+  shouldBlockOfficialPtsPublication,
+} from "../engines/courtEdgePtsHistoryGateV1.js";
+import {
+  persistWinnerSlate,
+  getWinnerSlate,
+  computeWinnerFreezeHash,
+} from "../services/wnbaWinnerStoreV1.js";
+import { sanitizeHomeBoardForLifecycle } from "../services/slateScopeService.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TEAM_GAMES = path.join(ROOT, "research/courteedge-wnba-winners-v1/10-team-games.json");
@@ -109,7 +120,13 @@ test("Official membership demotes REB/AST without PTS refill", () => {
 });
 
 test("empty shadow freeze is not immutable so a later complete board can persist", () => {
-  const date = "2099-01-01";
+  const date = "2099-03-01";
+  const shadowFile = path.join(ROOT, "data", "courtedge-shadow-reb-ast-v1.json");
+  if (fs.existsSync(shadowFile)) {
+    const cur = JSON.parse(fs.readFileSync(shadowFile, "utf8"));
+    if (cur.slates) delete cur.slates[date];
+    fs.writeFileSync(shadowFile, JSON.stringify(cur, null, 2));
+  }
   const empty = persistShadowBoards({ slateDateCT: date, packets: [], fetchedAt: "2026-09-21T00:00:00Z" });
   assert.equal(empty.immutable, false);
   const filled = persistShadowBoards({
@@ -155,6 +172,120 @@ test("era REB/AST never enter Official W/L even if officialSelected leaked", () 
     }),
     true
   );
+});
+
+test("missing PTS history blocks Official publication", () => {
+  const miss = inspectPtsHistoryInputs({ last5: [], seasonAverage: 0, playerState: {} });
+  assert.equal(miss.hydrated, false);
+  assert.equal(miss.blockReason, BLOCKED_MISSING_PLAYER_HISTORY);
+  assert.equal(
+    shouldBlockOfficialPtsPublication({
+      propType: "POINTS",
+      last5: [],
+      seasonAverage: 0,
+      last5Average: 0,
+    }),
+    true
+  );
+});
+
+test("populated PTS history is not blocked", () => {
+  const ok = inspectPtsHistoryInputs({
+    last5: [{ points: 14 }, { points: 18 }, { points: 12 }],
+    seasonAverage: 15.2,
+    playerState: { seasonPoints: 15.2 },
+  });
+  assert.equal(ok.hydrated, true);
+  assert.equal(
+    shouldBlockOfficialPtsPublication({
+      propType: "POINTS",
+      last5: [{ points: 14 }],
+      seasonAverage: 15,
+    }),
+    false
+  );
+});
+
+test("Winner-C durable persist restores identical freezeHash after local wipe", () => {
+  const slate = {
+    slateDateCT: "2099-02-01",
+    version: "COURTEDGE_WINNER_C_PRODUCTION_V1",
+    productionMode: "WINNER_C_PRODUCTION",
+    fullSlate: [
+      {
+        winnerPredictionId: "WNBA|WINNER|2099-02-01|x|ATL|NYL",
+        selectedWinnerId: "ATL",
+        selectedWinnerName: "Atlanta Dream",
+        selectedProbability: 0.5326,
+        pHome: 0.4674,
+        pAway: 0.5326,
+        modelVersion: "COURTEDGE_WINNER_C_PRODUCTION_V1",
+        winnerTrackingType: TRACKING.OFFICIAL,
+      },
+    ],
+  };
+  const file = path.join(ROOT, "data", "wnba-winners-v1.json");
+  if (fs.existsSync(file)) {
+    const existing = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (existing.slates) delete existing.slates["2099-02-01"];
+    fs.writeFileSync(file, JSON.stringify(existing, null, 2));
+  }
+  const first = persistWinnerSlate(slate);
+  assert.equal(first.reused, false);
+  assert.ok(first.slate.freezeHash);
+  assert.equal(first.slate.freezeHash, computeWinnerFreezeHash(slate));
+  const store = JSON.parse(fs.readFileSync(file, "utf8"));
+  delete store.slates["2099-02-01"];
+  fs.writeFileSync(file, JSON.stringify(store, null, 2));
+  const mirror = path.join(ROOT, ".durable-mirror-v1", "wnba-winners.json");
+  assert.equal(fs.existsSync(mirror), true);
+  const mirrored = JSON.parse(fs.readFileSync(mirror, "utf8"));
+  fs.writeFileSync(file, JSON.stringify(mirrored, null, 2));
+  const restored = getWinnerSlate("2099-02-01");
+  assert.equal(restored.freezeHash, first.slate.freezeHash);
+  assert.equal(restored.fullSlate[0].selectedWinnerId, "ATL");
+  assert.equal(restored.fullSlate[0].selectedProbability, 0.5326);
+});
+
+test("September 21 display does not inherit August 5 sealed props", () => {
+  const board = sanitizeHomeBoardForLifecycle(
+    {
+      selectedPropsTodayWNBA: [
+        { player: "Rhyne Howard", slateDate: "2026-08-05", officialSelected: true, propType: "POINTS", line: 16.5 },
+      ],
+      officialMembership: [
+        { player: "Rhyne Howard", slateDate: "2026-08-05", officialSelected: true, propType: "POINTS", line: 16.5 },
+      ],
+      games: [],
+      bestSixDisplayTodayWNBA: [],
+    },
+    { todayLocalDate: "2026-09-21", trackedProps: [], reports: [], archives: [], lockedSlates: [] }
+  );
+  const today = board.selectedPropsTodayWNBA || [];
+  assert.ok(today.every((p) => p.slateDate !== "2026-08-05"));
+});
+
+test("PTS-only Official does not suppress REB/AST shadow collection", () => {
+  const persisted = persistShadowBoardsFromGames({
+    slateDateCT: "2099-02-02",
+    games: [
+      {
+        league: "WNBA",
+        shadowLinePackets: [
+          { player: "A", propType: "REBOUNDS", line: 8.5, side: "UNDER", projection: 7.2 },
+          { player: "B", propType: "ASSISTS", line: 4.5, side: "OVER", projection: 5.1 },
+        ],
+        allGeneratedCandidates: [
+          { player: "C", propType: "POINTS", line: 20, side: "UNDER", officialSelected: true },
+        ],
+        shadowMarketAudit: { rawCounts: { POINTS: 4, REBOUNDS: 2, ASSISTS: 2 } },
+      },
+    ],
+  });
+  assert.ok(persisted.reb.analyzed >= 1);
+  assert.ok(persisted.ast.analyzed >= 1);
+  assert.equal(persisted.official, false);
+  assert.equal(persisted.immutable, true);
 });
 
 test("Winner-C rank uses pWinner", () => {

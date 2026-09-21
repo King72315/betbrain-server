@@ -13,6 +13,8 @@ import {
   isShadowPropMarket,
   normalizePropMarket,
 } from "../engines/courtEdgeEraV1.js";
+import { collectShadowUniverseFromGames } from "./courtEdgeShadowMarketCollectV1.js";
+import { DURABLE_KEYS, syncKeyToDurableFireAndForget } from "./courtEdgeDurableStoreV1.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FILE = path.join(ROOT, "data", "courtedge-shadow-reb-ast-v1.json");
@@ -34,7 +36,15 @@ function readStore() {
   }
 }
 
-export function persistShadowBoards({ slateDateCT, packets = [], fetchedAt = new Date().toISOString() } = {}) {
+export function persistShadowBoards({
+  slateDateCT,
+  packets = [],
+  fetchedAt = new Date().toISOString(),
+  coverage = null,
+  skipShadowPersist = false,
+  progressivePersist = false,
+} = {}) {
+  if (skipShadowPersist || progressivePersist) return null;
   if (!isCourtEdgePtsWinnerCEra(slateDateCT)) return null;
   const boards = buildShadowBoards(packets);
   const payload = {
@@ -45,8 +55,9 @@ export function persistShadowBoards({ slateDateCT, packets = [], fetchedAt = new
     frozenAt: fetchedAt,
     predictionTimestampCT: fetchedAt,
     eras: { reb: COURTEDGE_REB_SHADOW_V1, ast: COURTEDGE_AST_SHADOW_V1 },
-    reb: boards.reb,
-    ast: boards.ast,
+    reb: { ...boards.reb, freezeHash: null },
+    ast: { ...boards.ast, freezeHash: null },
+    coverage,
   };
   const freezeHash = crypto.createHash("sha256").update(JSON.stringify({
     slateDateCT,
@@ -54,6 +65,8 @@ export function persistShadowBoards({ slateDateCT, packets = [], fetchedAt = new
     ast: boards.ast.rows.map((r) => [r.player, r.line, r.side, r.projection, r.candidates]),
   })).digest("hex");
   payload.freezeHash = freezeHash;
+  payload.reb.freezeHash = crypto.createHash("sha256").update(JSON.stringify(payload.reb.rows.map((r) => [r.player, r.line, r.side]))).digest("hex");
+  payload.ast.freezeHash = crypto.createHash("sha256").update(JSON.stringify(payload.ast.rows.map((r) => [r.player, r.line, r.side]))).digest("hex");
   const store = readStore();
   const existing = store.slates[slateDateCT];
   const incomingEmpty = (boards.reb.analyzed || 0) + (boards.ast.analyzed || 0) === 0;
@@ -66,7 +79,18 @@ export function persistShadowBoards({ slateDateCT, packets = [], fetchedAt = new
     immutable: !incomingEmpty,
   };
   atomicWrite(FILE, store);
+  syncKeyToDurableFireAndForget(DURABLE_KEYS.SHADOW_REB_AST, store, { recordVersion: 1 });
   return store.slates[slateDateCT];
+}
+
+export function persistShadowBoardsFromGames({ slateDateCT, games = [], fetchedAt = new Date().toISOString() } = {}) {
+  const { packets, coverage } = collectShadowUniverseFromGames(games);
+  return persistShadowBoards({
+    slateDateCT,
+    packets,
+    fetchedAt,
+    coverage,
+  });
 }
 
 export function getShadowSlate(slateDateCT) {

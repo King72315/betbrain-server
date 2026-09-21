@@ -372,7 +372,7 @@ export async function findBallPlayer(playerName, league = "NBA") {
     }
   }
 
-  playerCache.set(key, null);
+  // Do not cache misses. Render cold-start / BDL timeouts must retry.
   return null;
 }
 
@@ -704,8 +704,7 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
   const player = await findBallPlayer(playerName, league);
 
   if (!player?.id) {
-    console.log("BALL STATS NO PLAYER ID:", league, playerName);
-    statsCache.set(key, []);
+    console.log("BALL STATS NO PLAYER ID — NOT CACHING EMPTY:", league, playerName);
     return [];
   }
 

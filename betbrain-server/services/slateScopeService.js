@@ -1466,25 +1466,22 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     asSealedProps(board.controlledBestBoardV2?.selectedProps) ||
     asSealedProps(board.controlledBestBoardV2?.today?.selectedProps) ||
     asSealedProps(board.controlledBestBoard);
-  if (sealedTodayWNBA?.length) {
-    // Never force wrong-date / non-Official rows onto Home Today by restamping.
-    const sealedStamped = sealedTodayWNBA
-      .map((p) => stampPropDay(p))
-      .filter((p) => {
-        const d = p._homeSlateDate || resolveHomeBoardSlateDate(p);
-        if (d !== today) return false;
-        if (p.officialEligible === false) return false;
-        if (p.blockedByDirectionNoBet === true) return false;
-        return true;
-      })
-      .map((p) => ({
-        ...p,
-        dayBucket: "TODAY",
-        dateLabel: "Today",
-      }));
-    if (sealedStamped.length) {
-      bestSixDisplayTodayWNBA = sealedStamped;
-    }
+  const sealedStamped = (sealedTodayWNBA || [])
+    .map((p) => stampPropDay(p))
+    .filter((p) => {
+      const d = p._homeSlateDate || resolveHomeBoardSlateDate(p);
+      if (d !== today) return false;
+      if (p.officialEligible === false) return false;
+      if (p.blockedByDirectionNoBet === true) return false;
+      return true;
+    })
+    .map((p) => ({
+      ...p,
+      dayBucket: "TODAY",
+      dateLabel: "Today",
+    }));
+  if (sealedStamped.length) {
+    bestSixDisplayTodayWNBA = sealedStamped;
   }
 
   const sealedTomorrowWNBA =
@@ -1630,18 +1627,21 @@ export function sanitizeHomeBoardForLifecycle(board = {}, options = {}) {
     bestSixDisplayTomorrowWNBA: withAnalysis(bestSixDisplayTomorrowWNBA),
     bestSixDisplayTomorrowNBA: withAnalysis(bestSixDisplayTomorrowNBA),
     // Preserve / restore Official sealed membership for Home equality.
-    controlledBestBoard: sealedTodayWNBA?.length
-      ? sealedTodayWNBA
+    controlledBestBoard: sealedStamped?.length
+      ? sealedStamped
       : board.controlledBestBoard || null,
     controlledBestBoardV2: board.controlledBestBoardV2 || null,
-    selectedPropsTodayWNBA: sealedTodayWNBA?.length
-      ? sealedTodayWNBA
-      : board.selectedPropsTodayWNBA || bestSixDisplayTodayWNBA,
+    selectedPropsTodayWNBA: sealedStamped?.length
+      ? sealedStamped
+      : (board.selectedPropsTodayWNBA || []).filter((p) => {
+          const d = p.slateDate || p.canonicalSlateDateCT || p._homeSlateDate;
+          return !d || d === today;
+        }) || bestSixDisplayTodayWNBA,
     selectedPropsTomorrowWNBA: sealedTomorrowWNBA?.length
       ? sealedTomorrowWNBA
       : board.selectedPropsTomorrowWNBA || bestSixDisplayTomorrowWNBA,
-    officialMembership: sealedTodayWNBA?.length
-      ? sealedTodayWNBA
+    officialMembership: sealedStamped?.length
+      ? sealedStamped
       : board.officialMembership || bestSixDisplayTodayWNBA,
     membershipSource:
       board.membershipSource ||
