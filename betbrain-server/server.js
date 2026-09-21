@@ -4591,7 +4591,8 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
       lastRefreshFinishedAt = new Date().toISOString();
       lastRefreshError = error?.message || String(error);
       console.log("ASYNC REFRESH ERROR:", lastRefreshError);
-      throw error;
+      // Do not rethrow. An unhandled rejection recycles the Render process
+      // and wipes the in-flight board / Winner-C memory.
     })
     .finally(() => {
       refreshInFlight = null;
