@@ -1,0 +1,31 @@
+{
+  "createdAt": "2026-09-21T07:20:00-05:00",
+  "era": "COURTEDGE_PTS_WINNERC_PRODUCTION_V1",
+  "host": "Render (betbrain-server-1.onrender.com) — not Railway",
+  "productionBranch": "betbrain-v2-rebuild",
+  "preDeploymentCommit": "35084447de14683b28bafcc17071bd007dbc2d60",
+  "preDeploymentMessage": "Expose additive /courtedge/wnba-winners route.",
+  "rollbackTag": "rollback/courteedge-pre-pts-winnerc-production-v1",
+  "rollbackCommit": "35084447de14683b28bafcc17071bd007dbc2d60",
+  "architectureBefore": {
+    "pts": "CURRENT Official POINTS — unchanged",
+    "reb": "CURRENT Official-eligible (to be demoted to shadow)",
+    "ast": "CURRENT Official-eligible (to be demoted to shadow)",
+    "winner": "Winner V1 TEST (unadjusted Elo)",
+    "officialSelector": "Decision Engine V2 + legacy SAFEST_2_TO_6"
+  },
+  "architectureAfter": {
+    "eraStartCT": "2026-09-21",
+    "pts": "CURRENT Official POINTS — unchanged",
+    "winner": "COURTEDGE_WINNER_C_PRODUCTION_V1 (WNBA only)",
+    "reb": "COURTEDGE_REB_SHADOW_V1",
+    "ast": "COURTEDGE_AST_SHADOW_V1",
+    "officialSelector": "Decision Engine V2 then PTS-only post-filter (no refill)",
+    "performanceEras": {
+      "production": "COURTEDGE_PRODUCTION_PTS_WINNERC_ERA_V1",
+      "shadow": "COURTEDGE_SHADOW_REB_AST_ERA_V1"
+    }
+  },
+  "historicalFreezesImmutable": true,
+  "productTruthHashLocked": "fc69b0ecf159510d00284ee8ab18932297c4ad84d8cf43017898e6354f3885a9"
+}

@@ -1,6 +1,7 @@
 export const WNBA_WINNER_VERSION = "courtedge-wnba-winner-v1";
 export const WNBA_WINNER_READER_VERSION = "courtedge-wnba-winner-reader-v1";
 export const WNBA_WINNER_MODEL_VERSION = "courtedge-wnba-winner-model-v1";
+export const WNBA_WINNER_C_VERSION = "COURTEDGE_WINNER_C_PRODUCTION_V1";
 
 export const TRACKING = Object.freeze({
   OFFICIAL: "OFFICIAL",
@@ -31,7 +32,9 @@ export const TEAM_ALIASES = {
   min: "MIN", minnesota: "MIN", "minnesotalynx": "MIN", lynx: "MIN",
   ny: "NYL", nyl: "NYL", newyork: "NYL", "newyorkliberty": "NYL", liberty: "NYL",
   pho: "PHO", phx: "PHO", phoenix: "PHO", "phoenixmercury": "PHO", mercury: "PHO",
+  por: "POR", portland: "POR", "portlandfire": "POR",
   sea: "SEA", seattle: "SEA", "seattlestorm": "SEA", storm: "SEA",
+  tor: "TOR", toronto: "TOR", "torontotempo": "TOR", tempo: "TOR",
   wsh: "WAS", was: "WAS", washington: "WAS", "washingtonmystics": "WAS", mystics: "WAS",
 };
 
@@ -49,15 +52,15 @@ export function normalizeWnbaTeam(value = "") {
   const cleaned = cleanTeam(raw);
   if (TEAM_ALIASES[cleaned]) return TEAM_ALIASES[cleaned];
   const upper = raw.toUpperCase();
-  if (["ATL", "CHI", "CON", "DAL", "GSV", "IND", "LAS", "LVA", "MIN", "NYL", "NY", "PHO", "SEA", "WAS", "WSH"].includes(upper)) {
+  if (["ATL", "CHI", "CON", "DAL", "GSV", "IND", "LAS", "LVA", "MIN", "NYL", "NY", "PHO", "POR", "SEA", "TOR", "WAS", "WSH"].includes(upper)) {
     if (upper === "NY") return "NYL";
     if (upper === "WSH") return "WAS";
     return upper;
   }
-  for (const [alias, id] of Object.entries(TEAM_ALIASES)) {
-    if (cleaned.includes(alias) || alias.includes(cleaned)) return id;
-  }
-  return raw.slice(0, 12);
+  const hasTor = cleaned.includes("toronto") || cleaned.includes("tempo");
+  const hasSea = cleaned.includes("seattle") || (cleaned.includes("storm") && !cleaned.includes("tempo"));
+  if (hasTor && hasSea) return null;
+  return null;
 }
 
 export function slateDateCT(iso = new Date()) {

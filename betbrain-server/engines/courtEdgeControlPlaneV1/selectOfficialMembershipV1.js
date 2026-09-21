@@ -20,6 +20,55 @@ import {
   isDecisionEngineV2LiveEnabled,
   DECISION_ENGINE_V2_BUILD,
 } from "../../services/courtEdgeDecisionEngineV2.js";
+import {
+  COURTEDGE_PTS_WINNERC_PRODUCTION_V1,
+  isCourtEdgePtsWinnerCEra,
+  isShadowPropMarket,
+} from "../courtEdgeEraV1.js";
+
+function applyPtsOnlyOfficialFilter(result, options = {}) {
+  const slateDate =
+    options.requestedSlateDate ||
+    options.slateDateCT ||
+    result.selectedPackets?.[0]?.slateDate ||
+    result.selectedPackets?.[0]?.canonicalSlateDateCT ||
+    null;
+  if (!isCourtEdgePtsWinnerCEra(slateDate)) return result;
+
+  const demote = (p) => {
+    if (!p?.officialSelected) return p;
+    const market = p.propType || p.stat || p.market || p.marketKey;
+    if (!isShadowPropMarket(market)) return p;
+    return {
+      ...p,
+      officialSelected: false,
+      officialEligible: false,
+      trackingType: "SHADOW_RESEARCH",
+      shadowMarket: true,
+      shadowReason: "REB_AST_SHADOW_ERA",
+      membership: {
+        ...(p.membership || {}),
+        officialSelected: false,
+        officialEligible: false,
+        shadow: true,
+        shadowReason: "REB_AST_SHADOW_ERA",
+        era: COURTEDGE_PTS_WINNERC_PRODUCTION_V1,
+      },
+    };
+  };
+
+  const boardCandidates = (result.boardCandidates || []).map(demote);
+  const selectedPackets = boardCandidates.filter((p) => p.officialSelected);
+  return {
+    ...result,
+    boardCandidates,
+    selectedPackets,
+    officialCount: selectedPackets.length,
+    shadowDemotedCount: (result.selectedPackets || []).length - selectedPackets.length,
+    officialMarkets: ["POINTS"],
+    era: COURTEDGE_PTS_WINNERC_PRODUCTION_V1,
+  };
+}
 
 function riskTier(packet = {}) {
   const raw =
@@ -197,13 +246,13 @@ export function selectOfficialMembershipV1(packets = [], options = {}) {
   const forceLegacy = options.forceLegacySelector === true;
   if (!forceLegacy && (forceV2 || isDecisionEngineV2LiveEnabled())) {
     const result = selectOfficialMembershipV2(packets, options);
-    return {
+    return applyPtsOnlyOfficialFilter({
       ...result,
       controlPlaneBuild: result.controlPlaneBuild || DECISION_ENGINE_V2_BUILD,
       legacyRollbackAvailable: true,
-    };
+    }, options);
   }
-  return selectOfficialMembershipLegacyV1(packets, options);
+  return applyPtsOnlyOfficialFilter(selectOfficialMembershipLegacyV1(packets, options), options);
 }
 
 export { selectOfficialMembershipLegacyV1, selectOfficialMembershipV2 };

@@ -33,8 +33,12 @@
     "test:courtedge-side-selection-audit-v1": "node scripts/testSideSelectionAuditV1.js",
     "test:courtedge-side-selection-audit-v1.1": "node scripts/testSideSelectionAuditV1_1.js",
     "test:courtedge-wnba-winners-v1": "node scripts/testCourtEdgeWnbaWinnersV1.js",
+    "test:courtedge-pts-winnerc-era-v1": "node scripts/testCourtEdgePtsWinnerCEraV1.js",
+    "run:wnba-winners-0921": "node scripts/runWnbaWinnersSlate0921C.js",
     "run:wnba-winners-0917": "node scripts/runWnbaWinnersSlate0917V1.js",
     "research:wnba-winners-v1": "node scripts/research/evaluateWnbaWinnersV1.js",
+    "research:engine-repair-v1": "node scripts/research/runCourtEdgeEngineRepairV1.js",
+    "test:courtedge-research-candidates-v1": "node scripts/testCourtEdgeResearchCandidatesV1.js",
     "research:side-selection-forensics-v1.1": "node scripts/research/evaluateSideSelectionForensicsV1_1.js",
     "validate:courtedge-decision-engine-v2": "node scripts/runCourtEdgeDecisionEngineV2Validation.js"
   },

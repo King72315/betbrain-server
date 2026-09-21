@@ -29,6 +29,12 @@ import {
   MEMBERSHIP_VERSION_V2,
 } from "../empiricalSafePropV2/versions.js";
 import { persistResearchUniversePacketsV2 } from "../empiricalSafePropV2/researchPacketPersistenceV2.js";
+import { persistShadowBoards } from "../../services/courtEdgeMarketShadowStoreV1.js";
+import {
+  COURTEDGE_PTS_WINNERC_PRODUCTION_V1,
+  isCourtEdgePtsWinnerCEra,
+  isShadowPropMarket,
+} from "../courtEdgeEraV1.js";
 import { annotateSlateRelativeStrengthV1 } from "../empiricalSafePropV2/slateRelativeStrengthV1.js";
 import { buildEmpiricalRiskExplanationV2 } from "../empiricalSafePropV2/explanationsV2.js";
 import { computeCalibrationHashV2 } from "../empiricalSafePropV2/prospectiveSlateFreezeV2.js";
@@ -1021,7 +1027,14 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
     ])
   );
 
-  const membership = selectOfficialMembershipV1(rankedResearch, options);
+  const membership = selectOfficialMembershipV1(rankedResearch, {
+    ...options,
+    requestedSlateDate:
+      options.requestedSlateDate ||
+      candidates[0]?.slateDate ||
+      candidates[0]?.canonicalSlateDateCT ||
+      null,
+  });
 
   const selectedProps = membership.selectedPackets.map((packet, index) => {
     const src =
@@ -1086,19 +1099,31 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
   const selectedIds = new Set(
     membership.selectedPackets.map((p) => stableMarketId(p))
   );
+  const eraSlateDate =
+    options.requestedSlateDate ||
+    candidates[0]?.slateDate ||
+    candidates[0]?.canonicalSlateDateCT ||
+    null;
   const researchPackets = rankedResearch.map((p) => {
     const id = stableMarketId(p);
     const officialSelected = selectedIds.has(id);
+    const shadow =
+      !officialSelected &&
+      isCourtEdgePtsWinnerCEra(eraSlateDate) &&
+      isShadowPropMarket(p.propType || p.stat || p.market);
     return {
       ...p,
       officialSelected,
       officialEligible: officialSelected,
-      trackingType: officialSelected ? "OFFICIAL" : "RESEARCH",
+      trackingType: officialSelected ? "OFFICIAL" : shadow ? "SHADOW_RESEARCH" : "RESEARCH",
+      shadowMarket: shadow || undefined,
       membership: {
         ...(p.membership || {}),
         officialSelected,
         officialEligible: officialSelected,
         boardCandidate: p.membership?.boardCandidate === true,
+        shadow: shadow || undefined,
+        era: shadow ? COURTEDGE_PTS_WINNERC_PRODUCTION_V1 : p.membership?.era,
       },
     };
   });
@@ -1110,11 +1135,7 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
 
   // Freeze all boardCandidates after Official selection stamps officialSelected.
   try {
-    const slateDateCT =
-      options.requestedSlateDate ||
-      candidates[0]?.slateDate ||
-      candidates[0]?.canonicalSlateDateCT ||
-      null;
+    const slateDateCT = eraSlateDate;
     if (slateDateCT && researchPackets.length) {
       persistResearchUniversePacketsV2({
         slateDateCT,
@@ -1132,6 +1153,15 @@ export function selectOfficialBoardFromProbabilitySafetyV1(
           thinSlate: membership.thinSlate,
         },
       });
+      try {
+        persistShadowBoards({
+          slateDateCT,
+          packets: researchPackets,
+          fetchedAt: new Date().toISOString(),
+        });
+      } catch {
+        // shadow persist must never break Official selection
+      }
     }
   } catch {
     // persistence must never break Official selection

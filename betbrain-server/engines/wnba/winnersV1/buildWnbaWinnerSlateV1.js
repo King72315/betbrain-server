@@ -1,6 +1,7 @@
 import {
   MAX_TOP_WINNERS,
   TRACKING,
+  WNBA_WINNER_C_VERSION,
   WNBA_WINNER_MODEL_VERSION,
   WNBA_WINNER_VERSION,
   clampProb,
@@ -10,13 +11,15 @@ import {
   slateDateCT,
 } from "./constants.js";
 import { mergeWinnerMarket } from "./winnerMarketV1.js";
-import { predictWinnerV1, emptyTeamState } from "./winnerModelV1.js";
+import { predictWinnerV1, emptyTeamState, predictPointDiff } from "./winnerModelV1.js";
+import { predictWinnerC } from "./winnerModelC.js";
 import { buildWinnerReaderAudit } from "./winnerReaderAuditV1.js";
 import {
   buildWinnerPredictionId,
   freezeWinnerPrediction,
   toCanonicalPacket,
 } from "./winnerLifecycleV1.js";
+import { isCourtEdgePtsWinnerCEra } from "../../courtEdgeEraV1.js";
 
 export function qualityFromState(homeState, awayState, market, audit) {
   const sample = Math.min(homeState.games || 0, awayState.games || 0);
@@ -38,10 +41,16 @@ export function trackingForWinner({ officialPromotion, quality, missingCore, pWi
   return TRACKING.OFFICIAL;
 }
 
-export function rankTopWinners(rows = []) {
+export function rankTopWinners(rows = [], options = {}) {
+  const byP = options.rankByProbability === true;
   const official = rows
     .filter((r) => r.winnerTrackingType === TRACKING.OFFICIAL)
-    .sort((a, b) => (b.qualityScore - a.qualityScore) || (b.selectedProbability - a.selectedProbability));
+    .sort((a, b) => {
+      if (byP) {
+        return (b.selectedProbability - a.selectedProbability) || (b.qualityScore - a.qualityScore);
+      }
+      return (b.qualityScore - a.qualityScore) || (b.selectedProbability - a.selectedProbability);
+    });
   return official.slice(0, MAX_TOP_WINNERS).map((row, i) => ({ ...row, winnerRank: i + 1 }));
 }
 
@@ -65,13 +74,17 @@ export function buildWinnerRow({
   if (!homeTeam || !awayTeam) missing.push("TEAM_IDENTITY");
   if (!event.eventId) missing.push("EVENT_ID");
 
-  const pred = predictWinnerV1(homeState, awayState, {
+  const winnerCEra = isCourtEdgePtsWinnerCEra(slateDate);
+  const extras = {
     hfaElo: homeCourt.hfaElo,
     homeIntercept: homeCourt.intercept,
     restHome: event.restHome,
     restAway: event.restAway,
-  });
+  };
+  const forensicV1 = predictWinnerV1(homeState, awayState, extras);
+  const pred = winnerCEra ? predictWinnerC(homeState, awayState, extras) : forensicV1;
   const pair = normalizePair(pred.pHome);
+  const pPdHome = predictPointDiff(homeState, awayState, false);
   const market = mergeWinnerMarket({ oddsApi: oddsApiEvent, sgo: sgoEvent, fetchedAt });
   const pMarketHome = market.noVigHome;
   const modelMarketDisagreement =
@@ -92,12 +105,16 @@ export function buildWinnerRow({
   });
   const quality = qualityFromState(homeState, awayState, market, audit);
   const selectedProbability = selectedHome ? pair.pHome : pair.pAway;
-  const tracking = trackingForWinner({
-    officialPromotion,
-    quality,
-    missingCore: missing.includes("TEAM_IDENTITY"),
-    pWinner: selectedProbability,
-  });
+  const tracking = winnerCEra
+    ? missing.includes("TEAM_IDENTITY")
+      ? TRACKING.NO_PICK
+      : TRACKING.OFFICIAL
+    : trackingForWinner({
+        officialPromotion,
+        quality,
+        missingCore: missing.includes("TEAM_IDENTITY"),
+        pWinner: selectedProbability,
+      });
   const confidence = Math.round(50 + (selectedProbability - 0.5) * 80 + Math.min(10, (homeState.games || 0) / 3));
   const risk = selectedProbability >= 0.64 && quality >= 70 ? "LOW" : selectedProbability >= 0.56 ? "MEDIUM" : "HIGH";
 
@@ -146,6 +163,15 @@ export function buildWinnerRow({
       homeRecord: `${homeState.wins}-${homeState.losses}`,
       awayRecord: `${awayState.wins}-${awayState.losses}`,
       components: pred.components,
+      pPdHome,
+      pdBaselinePick: pPdHome >= 0.5 ? homeTeam : awayTeam,
+      pdBaselineProbability: Number((pPdHome >= 0.5 ? pPdHome : 1 - pPdHome).toFixed(4)),
+    },
+    forensicWinnerV1: {
+      modelVersion: WNBA_WINNER_MODEL_VERSION,
+      pHome: Number(forensicV1.pHome.toFixed(4)),
+      selectedWinnerId: forensicV1.pHome >= 0.5 ? homeTeam : awayTeam,
+      selectedProbability: Number((forensicV1.pHome >= 0.5 ? forensicV1.pHome : 1 - forensicV1.pHome).toFixed(4)),
     },
     provenance: {
       eventSource: event.source || market.eventSource || "ESPN",
@@ -159,7 +185,8 @@ export function buildWinnerRow({
       bookSources: market.bookSources,
       marketFailoverUsed: market.marketFailoverUsed === true,
     },
-    modelVersion: WNBA_WINNER_MODEL_VERSION,
+    modelVersion: winnerCEra ? WNBA_WINNER_C_VERSION : WNBA_WINNER_MODEL_VERSION,
+    productionOwner: winnerCEra ? WNBA_WINNER_C_VERSION : WNBA_WINNER_VERSION,
     frozenAt: null,
   };
   return freezeWinnerPrediction(row, fetchedAt);
@@ -181,17 +208,22 @@ export function buildFullWinnerSlate(events = [], context = {}) {
       fetchedAt: context.fetchedAt || new Date().toISOString(),
     })
   );
-  const top = rankTopWinners(rows);
+  const winnerCEra = isCourtEdgePtsWinnerCEra(slateDate);
+  const top = rankTopWinners(rows, { rankByProbability: winnerCEra });
   const topIds = new Set(top.map((r) => r.winnerPredictionId));
   const ranked = rows.map((r) => {
     const hit = top.find((t) => t.winnerPredictionId === r.winnerPredictionId);
     return hit ? { ...r, winnerRank: hit.winnerRank } : r;
   });
   return {
-    version: WNBA_WINNER_VERSION,
+    version: winnerCEra ? WNBA_WINNER_C_VERSION : WNBA_WINNER_VERSION,
     slateDateCT: slateDate,
-    officialPromotion: context.officialPromotion === true,
-    productionMode: context.officialPromotion === true ? "OFFICIAL" : "TEST_ONLY",
+    officialPromotion: winnerCEra ? true : context.officialPromotion === true,
+    productionMode: winnerCEra
+      ? "WINNER_C_PRODUCTION"
+      : context.officialPromotion === true
+        ? "OFFICIAL"
+        : "TEST_ONLY",
     fullSlate: ranked,
     topWinners: top,
     testWinners: ranked.filter((r) => r.winnerTrackingType === TRACKING.TEST),

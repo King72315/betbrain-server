@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import { CONFIG, checkConfig } from "./config.js";
 import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
 import { getWinnerSlate, officialWinnersForResults } from "./services/wnbaWinnerStoreV1.js";
+import { registerCourtEdgeEraRoutes } from "./services/courtEdgeEraRoutesV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4006,6 +4007,8 @@ app.get("/courtedge/wnba-winners", (req, res) => {
     official: date ? officialWinnersForResults(date) : [],
   });
 });
+
+registerCourtEdgeEraRoutes(app);
 
 app.get("/health", (req, res) => {
   // Sync-only: never await external stores here. Keep Render health cheap.

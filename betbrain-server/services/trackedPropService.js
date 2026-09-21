@@ -39,6 +39,8 @@ import {
   syncLockedSlateGradesFromLive,
 } from "./slateLockService.js";
 import { isWnbaOfficialEligiblePick, isCourteEdgeWnbaV1Enabled } from "../engines/wnbaOfficialEngine.js";
+import { isCourtEdgePtsWinnerCEra, isShadowPropMarket } from "../engines/courtEdgeEraV1.js";
+import { appendShadowOutcomeFromTracked } from "./courtEdgeMarketShadowStoreV1.js";
 import {
   DURABLE_KEYS,
   syncKeyToDurableFireAndForget,
@@ -515,11 +517,19 @@ export function isTestTrackingPick(pick = {}) {
 }
 
 export function isOfficialTrackingPick(pick = {}) {
+  const trackingType = String(pick.trackingType || pick.recordType || "").toUpperCase();
+  if (trackingType === "SHADOW_RESEARCH" || pick.shadowMarket === true) return false;
+  const slateDate = pick.slateDate || pick.canonicalSlateDateCT || pick.slateDateCT || pick.dateCT;
+  if (
+    isCourtEdgePtsWinnerCEra(slateDate) &&
+    isShadowPropMarket(pick.propType || pick.stat || pick.market || pick.marketKey || pick.prop)
+  ) {
+    return false;
+  }
   // Control-plane V1: Official W-L only via officialSelected.
   if (pick.officialSelected === true || pick.membership?.officialSelected === true) {
     return true;
   }
-  const trackingType = String(pick.trackingType || pick.recordType || "").toUpperCase();
   if (trackingType === "RESEARCH" || trackingType === "TEST" || trackingType === "NO_BET") {
     return false;
   }
@@ -2661,6 +2671,12 @@ function gradeTrackedProp(tracked, statResult, options = {}) {
     graded = enrichGradedPropForLab(graded);
   } catch {
     /* enrichment optional at grade time — report build also enriches */
+  }
+
+  try {
+    appendShadowOutcomeFromTracked(graded);
+  } catch {
+    /* shadow postgame append must never block Official grading */
   }
 
   return graded;
