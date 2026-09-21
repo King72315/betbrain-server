@@ -22,6 +22,16 @@ import {
   computeWinnerFreezeHash,
 } from "../services/wnbaWinnerStoreV1.js";
 import { sanitizeHomeBoardForLifecycle } from "../services/slateScopeService.js";
+import {
+  matchPlayerOnTonightRoster,
+  parseEspnAthleteGameLog,
+} from "../services/courtEdgeWnbaTonightRosterV1.js";
+import {
+  persistOfficialPtsFreeze,
+  getOfficialPtsSlate,
+  computeOfficialPtsFreezeHash,
+  officialPtsBoardOverlay,
+} from "../services/courtEdgeOfficialPtsStoreV1.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TEAM_GAMES = path.join(ROOT, "research/courteedge-wnba-winners-v1/10-team-games.json");
@@ -286,6 +296,98 @@ test("PTS-only Official does not suppress REB/AST shadow collection", () => {
   assert.ok(persisted.ast.analyzed >= 1);
   assert.equal(persisted.official, false);
   assert.equal(persisted.immutable, true);
+});
+
+test("tonight roster uniquely maps a player when BDL is empty", () => {
+  const players = [
+    { name: "Jonquel Jones", firstName: "Jonquel", lastName: "Jones", teamId: "newyorkliberty", espnAthleteId: "2999101" },
+    { name: "Rhyne Howard", firstName: "Rhyne", lastName: "Howard", teamId: "atlantadream", espnAthleteId: "1" },
+  ];
+  const hit = matchPlayerOnTonightRoster(
+    "Jonquel Jones",
+    players,
+    "newyorkliberty",
+    "atlantadream"
+  );
+  assert.equal(hit.teamId, "newyorkliberty");
+  assert.equal(hit.espnAthleteId, "2999101");
+  const miss = matchPlayerOnTonightRoster("Not On Slate", players, "newyorkliberty", "atlantadream");
+  assert.equal(miss, null);
+});
+
+test("ambiguous roster last-name on both teams does not invent a team", () => {
+  const players = [
+    { name: "Alex Smith", firstName: "Alex", lastName: "Smith", teamId: "newyorkliberty", espnAthleteId: "1" },
+    { name: "Alex Smith", firstName: "Alex", lastName: "Smith", teamId: "atlantadream", espnAthleteId: "2" },
+  ];
+  assert.equal(
+    matchPlayerOnTonightRoster("Alex Smith", players, "newyorkliberty", "atlantadream"),
+    null
+  );
+});
+
+test("ESPN gamelog parser hydrates last5 points", () => {
+  const parsed = parseEspnAthleteGameLog({
+    labels: ["MIN", "PTS", "REB", "AST", "FG", "FT"],
+    events: {
+      a: { gameDate: "2026-09-19T00:00:00.000+00:00", team: { abbreviation: "NY" }, opponent: { abbreviation: "ATL" } },
+    },
+    seasonTypes: [{
+      categories: [{ events: [{ eventId: "a", stats: ["30", "18", "10", "2", "8-17", "1-1"] }] }],
+    }],
+  });
+  assert.equal(parsed[0].points, 18);
+  assert.equal(parsed[0].minutes, 30);
+  assert.equal(parsed[0].fga, 17);
+  assert.equal(inspectPtsHistoryInputs({ last5: parsed, seasonAverage: 18 }).hydrated, true);
+});
+
+test("Official PTS freeze restores identical hash after local wipe", () => {
+  const board = {
+    bestSixDisplayTodayWNBA: [
+      {
+        player: "Jonquel Jones",
+        propType: "POINTS",
+        side: "UNDER",
+        line: 14.5,
+        projection: 16.2,
+        last5: [{ points: 18 }, { points: 11 }],
+        last5Average: 14.5,
+        seasonAverage: 15.1,
+        probability: 0.61,
+        risk: "MEDIUM",
+        officialSelected: true,
+        slateDate: "2099-04-01",
+      },
+    ],
+  };
+  const file = path.join(ROOT, "data", "courtedge-official-pts-v1.json");
+  if (fs.existsSync(file)) {
+    const existing = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (existing.slates) delete existing.slates["2099-04-01"];
+    fs.writeFileSync(file, JSON.stringify(existing, null, 2));
+  }
+  const first = persistOfficialPtsFreeze({ slateDateCT: "2099-04-01", board });
+  assert.equal(first.ok, true);
+  assert.equal(first.reused, false);
+  const hash = first.slate.freezeHash;
+  assert.equal(hash, computeOfficialPtsFreezeHash("2099-04-01", first.slate.cards));
+  if (fs.existsSync(file)) {
+    const existing = JSON.parse(fs.readFileSync(file, "utf8"));
+    delete existing.slates["2099-04-01"];
+    fs.writeFileSync(file, JSON.stringify(existing, null, 2));
+  }
+  const overlay = officialPtsBoardOverlay("2099-04-01");
+  assert.equal(overlay, null);
+  persistOfficialPtsFreeze({ slateDateCT: "2099-04-01", board });
+  const restored = getOfficialPtsSlate("2099-04-01");
+  assert.equal(restored.freezeHash, hash);
+  assert.equal(restored.cards[0].player, "Jonquel Jones");
+  if (fs.existsSync(file)) {
+    const existing = JSON.parse(fs.readFileSync(file, "utf8"));
+    delete existing.slates["2099-04-01"];
+    fs.writeFileSync(file, JSON.stringify(existing, null, 2));
+  }
 });
 
 test("Winner-C rank uses pWinner", () => {

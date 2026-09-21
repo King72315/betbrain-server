@@ -9,6 +9,12 @@ import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
 import { getWinnerSlate, officialWinnersForResults, hydrateWinnerStoreFromDurable } from "./services/wnbaWinnerStoreV1.js";
 import { registerCourtEdgeEraRoutes } from "./services/courtEdgeEraRoutesV1.js";
 import { persistShadowBoardsFromGames } from "./services/courtEdgeMarketShadowStoreV1.js";
+import { prefetchWnbaTonightRosters } from "./services/courtEdgeWnbaTonightRosterV1.js";
+import {
+  persistOfficialPtsFreeze,
+  officialPtsBoardOverlay,
+  hydrateOfficialPtsStoreFromDurable,
+} from "./services/courtEdgeOfficialPtsStoreV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -632,15 +638,27 @@ const AUTO_RESOLVE_INTERVAL_MS = 45 * 60 * 1000;
 let autoResolveRunning = false;
 
 function hydratePicksCacheFromDisk() {
-  if (picksCache?.games?.length) return picksCache;
+  if (picksCache?.games?.length || picksCache?.topProps?.length) return picksCache;
   const cached = loadBoardCache();
-  if (cached && typeof cached === "object") {
+  if (cached && typeof cached === "object" && (cached.games?.length || cached.topProps?.length)) {
     picksCache = cached;
     if (cached.lastUpdated) {
       const ts = Date.parse(cached.lastUpdated);
       if (Number.isFinite(ts)) lastRefreshTime = ts;
     }
+    return picksCache;
   }
+  try {
+    const today = typeof getTodayLocalDate === "function" ? getTodayLocalDate() : "";
+    const overlay = today ? officialPtsBoardOverlay(today) : null;
+    if (overlay?.topProps?.length) {
+      picksCache = overlay;
+      return picksCache;
+    }
+  } catch {
+    /* official PTS overlay is best-effort */
+  }
+  if (cached && typeof cached === "object") picksCache = cached;
   return picksCache;
 }
 
@@ -697,6 +715,15 @@ function persistBoardAfterRefresh(result) {
         homeDurableBuild: HOME_RESTART_DURABILITY_VERSION,
       };
       const saved = saveBoardCache(next);
+      try {
+        persistOfficialPtsFreeze({
+          slateDateCT: getCanonicalSlateDate(),
+          board: saved || next,
+          gamesStarted: (saved || next)?.games?.some((g) => g.isStarted === true) === true,
+        });
+      } catch (err) {
+        console.log("OFFICIAL PTS FREEZE PERSIST ERROR:", err.message);
+      }
       // Awaited durable Home day persist (non-blocking lock body uses sync save;
       // durable write is scheduled and also kicked explicitly).
       Promise.resolve()
@@ -1956,6 +1983,14 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
     slimRefresh: isSlimRefresh,
   });
 
+  if (league === "WNBA" && games[0]?.date) {
+    try {
+      await prefetchWnbaTonightRosters(games[0].date);
+    } catch (err) {
+      console.log("TONIGHT ROSTER PREFETCH ERROR:", err.message);
+    }
+  }
+
   const players = league === "NBA" ? await fetchPlayers() : [];
   const seasonStats = league === "NBA" ? await fetchSeasonStats() : [];
   const projections = league === "NBA" ? await fetchProjections(daysAhead) : [];
@@ -2110,6 +2145,9 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       if (!last5) {
         last5 = await fetchLast5(playerName, league, {
           beforeTime: gameCutoff,
+          slateDate: game.date,
+          homeTeam: game.homeTeam,
+          awayTeam: game.awayTeam,
         });
         last5Cache.set(`${playerKey}|${gameCutoff || ""}`, last5);
         await yieldBetweenGames();
@@ -2117,14 +2155,19 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
 
       let bdlSeasonGamesRaw = [];
       if (league === "WNBA") {
-        if (isSlimRefresh) {
-          // Slim refresh: reuse last5 instead of full-season BDL dumps (OOM source).
-          bdlSeasonGamesRaw = Array.isArray(last5) ? last5 : [];
-        } else if (seasonStatsCache.has(playerKey)) {
+        if (seasonStatsCache.has(playerKey)) {
           bdlSeasonGamesRaw = seasonStatsCache.get(playerKey);
         } else {
-          const raw = await fetchPlayerStats(playerName, league);
-          bdlSeasonGamesRaw = Array.isArray(raw) ? raw.slice(-20) : [];
+          const raw = await fetchPlayerStats(playerName, league, {
+            slateDate: game.date,
+            homeTeam: game.homeTeam,
+            awayTeam: game.awayTeam,
+          });
+          bdlSeasonGamesRaw = Array.isArray(raw)
+            ? raw.slice(0, isSlimRefresh ? 40 : 80)
+            : Array.isArray(last5)
+              ? last5
+              : [];
           seasonStatsCache.set(playerKey, bdlSeasonGamesRaw);
         }
       }
@@ -3375,6 +3418,11 @@ async function refreshAllPicks(options = {}) {
       picksCache = earlyBoard;
       lastRefreshTime = Date.now();
       saveBoardCache(earlyBoard);
+      persistOfficialPtsFreeze({
+        slateDateCT: todayLocal,
+        board: earlyBoard,
+        gamesStarted: earlyGames.some((g) => g.isStarted === true),
+      });
       console.log("EARLY TODAY PERSIST:", {
         games: earlyGames.length,
         top: (earlySelection.topProps || []).length,
@@ -7826,6 +7874,7 @@ if (process.env.RUN_AUDIT === "1") {
           "state-locks",
           "wnba-winners",
           "shadow-reb-ast",
+          "official-pts",
         ],
         maxFileBytes: Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000),
       });
@@ -7833,6 +7882,11 @@ if (process.env.RUN_AUDIT === "1") {
         await hydrateWinnerStoreFromDurable();
       } catch (err) {
         console.log("STARTUP WINNER DURABLE HYDRATE ERROR:", err.message);
+      }
+      try {
+        await hydrateOfficialPtsStoreFromDurable();
+      } catch (err) {
+        console.log("STARTUP OFFICIAL PTS HYDRATE ERROR:", err.message);
       }
       console.log(
         "STARTUP DURABLE STORE HYDRATE:",

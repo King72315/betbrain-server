@@ -6,6 +6,11 @@ import {
 } from "../engines/wnba/wnbaTeamAliasResolver.js";
 import { resolveStableWnbaPlayerId } from "../engines/wnba/wnbaPlayerIdResolver.js";
 import {
+  fetchEspnAthleteGameLog,
+  prefetchWnbaTonightRosters,
+  resolveTeamFromTonightRoster,
+} from "./courtEdgeWnbaTonightRosterV1.js";
+import {
   MATCHUP_LOOKUP_CLASS,
   buildWnbaGamesMatchupUrl,
   buildWnbaPlayerStatsUrl,
@@ -690,7 +695,31 @@ export async function probeWnbaMatchupLookup({
   };
 }
 
-export async function fetchPlayerStats(playerName, league = "NBA") {
+async function fetchEspnHistoryFallback(playerName, options = {}) {
+  const date = String(options.slateDate || options.gameDate || "").slice(0, 10);
+  if (date) {
+    try {
+      await prefetchWnbaTonightRosters(date);
+    } catch (err) {
+      console.log("ESPN ROSTER PREFETCH FOR HISTORY FAILED:", err.message);
+    }
+  }
+  const hit = resolveTeamFromTonightRoster(playerName, {
+    date,
+    homeTeam: options.homeTeam,
+    awayTeam: options.awayTeam,
+  });
+  if (!hit?.espnAthleteId) return [];
+  const rows = await fetchEspnAthleteGameLog(hit.espnAthleteId);
+  if (rows.length) {
+    console.log("ESPN HISTORY FALLBACK:", playerName, rows.length, "games");
+    const key = `WNBA-${getSeasonYear("WNBA")}-${clean(playerName)}`;
+    statsCache.set(key, rows);
+  }
+  return rows;
+}
+
+export async function fetchPlayerStats(playerName, league = "NBA", options = {}) {
   console.log("🔥 FETCH PLAYER STATS FIRED:", league, playerName);
 
   const seasonYear = getSeasonYear(league);
@@ -704,6 +733,10 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
   const player = await findBallPlayer(playerName, league);
 
   if (!player?.id) {
+    if (league === "WNBA") {
+      const espnGames = await fetchEspnHistoryFallback(playerName, options);
+      if (espnGames.length) return espnGames;
+    }
     console.log("BALL STATS NO PLAYER ID — NOT CACHING EMPTY:", league, playerName);
     return [];
   }
@@ -723,7 +756,10 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
       playerName,
       playerId: player.id,
     });
-
+    if (league === "WNBA") {
+      const espnGames = await fetchEspnHistoryFallback(playerName, options);
+      if (espnGames.length) return espnGames;
+    }
     return [];
   }
 
@@ -751,6 +787,11 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
     }))
   );
 
+  if (!games.length && league === "WNBA") {
+    const espnGames = await fetchEspnHistoryFallback(playerName, options);
+    if (espnGames.length) return espnGames;
+  }
+
   statsCache.set(key, games);
 
   return games;
@@ -759,7 +800,7 @@ export async function fetchPlayerStats(playerName, league = "NBA") {
 export async function fetchLast5(playerName, league = "NBA", options = {}) {
   console.log("🔥 FETCH LAST5 FIRED:", league, playerName);
 
-  const games = await fetchPlayerStats(playerName, league);
+  const games = await fetchPlayerStats(playerName, league, options);
   const eligible = filterGamesBeforeCutoff(games, options.beforeTime);
   const last5 = eligible.slice(0, 5);
 
@@ -1143,6 +1184,12 @@ export async function resolveWnbaPlayerTeamForGame(playerName, game = {}) {
         resolveWnbaTeamId(pool[0].team) || normalizeTeamName(pool[0].team) || ""
       );
     }
+  }
+
+  const rosterHit = resolveTeamFromTonightRoster(playerName, game);
+  if (rosterHit?.teamId) {
+    console.log("WNBA TEAM FROM TONIGHT ROSTER:", playerName, "=>", rosterHit.teamId);
+    return rosterHit.teamId;
   }
 
   return direct || "";

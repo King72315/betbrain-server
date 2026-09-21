@@ -2,6 +2,7 @@
  * Era routes: Winner-C production + REB/AST shadow lab (never Official).
  */
 import { getShadowSlate, appendShadowOutcomes } from "./courtEdgeMarketShadowStoreV1.js";
+import { getOfficialPtsSlate } from "./courtEdgeOfficialPtsStoreV1.js";
 import { buildAndPersistWinnerCSlate } from "./wnbaWinnerSlateBuilderC.js";
 import { slateDateCT } from "../engines/wnba/winnersV1/constants.js";
 import {
@@ -33,11 +34,22 @@ export function registerCourtEdgeEraRoutes(app) {
         label: "NOT OFFICIAL / RESEARCH ONLY",
       },
       stores: {
-        officialPts: "/picks + tracked-props + durable board-cache",
+        officialPts: "durable official-pts + data/courtedge-official-pts-v1.json + /picks",
         winnerC: "durable wnba-winners + data/wnba-winners-v1.json",
         shadowRebAst: "durable shadow-reb-ast + data/courtedge-shadow-reb-ast-v1.json",
         productTruth: "historical locked corpus — not reminted for 2026-09-21+",
       },
+    });
+  });
+
+  app.get("/courtedge/official-pts", (req, res) => {
+    const date = String(req.query.date || slateDateCT(new Date())).trim();
+    const slate = getOfficialPtsSlate(date);
+    res.json({
+      ok: true,
+      official: true,
+      slateDateCT: date,
+      slate,
     });
   });
 
