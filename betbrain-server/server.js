@@ -3333,6 +3333,58 @@ async function refreshAllPicks(options = {}) {
   const todayCards = [...todayNba.gameCards, ...todayWnba.gameCards];
   const tomorrowCards = [...tomorrowNba.gameCards, ...tomorrowWnba.gameCards];
 
+  try {
+    persistShadowBoardsFromGames({
+      slateDateCT: todayLocal,
+      games: todayCards,
+      fetchedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.log("EARLY SHADOW PERSIST ERROR:", err.message);
+  }
+
+  if (scope === "today" && todayCards.length) {
+    try {
+      const earlyGames = ensureWnbaGateOnGames(
+        todayCards.map((g) => ({
+          ...g,
+          dateLabel: "Today",
+          dayBucket: "TODAY",
+        }))
+      );
+      const earlySelection = buildTopPropsFromSelector(earlyGames, {
+        skipShadowPersist: true,
+        progressivePersist: true,
+      });
+      const earlyBoard = {
+        ok: true,
+        incomplete: true,
+        progressivePersist: true,
+        serverBuild: SERVER_BUILD,
+        boardSchemaVersion: BOARD_SCHEMA_VERSION,
+        lastUpdated: new Date().toISOString(),
+        games: earlyGames,
+        wnbaGames: earlyGames.filter((g) => g.league === "WNBA"),
+        nbaGames: earlyGames.filter((g) => g.league === "NBA"),
+        topProps: earlySelection.topProps || [],
+        bestSixDisplayTodayWNBA: earlySelection.bestSixDisplayTodayWNBA || [],
+        bestSixDisplayWNBA: earlySelection.bestSixDisplayTodayWNBA || [],
+        bestSixWNBA: earlySelection.bestSixDisplayTodayWNBA || [],
+        todayCandidateCount: earlyGames.length,
+      };
+      picksCache = earlyBoard;
+      lastRefreshTime = Date.now();
+      saveBoardCache(earlyBoard);
+      console.log("EARLY TODAY PERSIST:", {
+        games: earlyGames.length,
+        top: (earlySelection.topProps || []).length,
+        displayToday: (earlySelection.bestSixDisplayTodayWNBA || []).length,
+      });
+    } catch (err) {
+      console.log("EARLY TODAY PERSIST ERROR:", err.message);
+    }
+  }
+
   // Empty/failed odds refresh must not touch Official tracked membership or wipe board.
   // Re-read after progressive Today persist so preserve/LKG see the latest cache.
   const boardForPreserve = getReadOnlyBoard();
@@ -3820,11 +3872,15 @@ async function refreshAllPicks(options = {}) {
 
   const trackingCohort = cohortBundle.trackingCohort;
   const trackingCohortAudit = cohortBundle.trackingCohortAudit;
-  addTrackedProps(trackingCohort, {
-    skipTopPickReferences: true,
-    preFilteredCohort: true,
-    allowLockedBestSixBackfill: false,
-  });
+  try {
+    addTrackedProps(trackingCohort, {
+      skipTopPickReferences: true,
+      preFilteredCohort: true,
+      allowLockedBestSixBackfill: false,
+    });
+  } catch (err) {
+    console.log("TRACKED PROPS APPEND ERROR:", err.message);
+  }
 
   // Control-plane V1: freeze/grade every boardCandidate as RESEARCH (not Official W-L).
   const researchBoardCandidates = [
@@ -3837,12 +3893,16 @@ async function refreshAllPicks(options = {}) {
     { slateDate: calendarToday, requestedSlateDate: calendarToday }
   );
   if (researchTracked.length) {
-    addTrackedProps(researchTracked, {
-      skipTopPickReferences: true,
-      preFilteredCohort: true,
-      allowLockedBestSixBackfill: false,
-      forbidHomeStaging: true,
-    });
+    try {
+      addTrackedProps(researchTracked, {
+        skipTopPickReferences: true,
+        preFilteredCohort: true,
+        allowLockedBestSixBackfill: false,
+        forbidHomeStaging: true,
+      });
+    } catch (err) {
+      console.log("RESEARCH TRACKED APPEND ERROR:", err.message);
+    }
   }
 
   const lifecycleValidation = validateOfficialSlateLifecycle(resultsSlateDate, {
