@@ -1794,7 +1794,15 @@ function trackSideAuditRejection(audit, side, reasons = []) {
     audit.rejectedUnder += 1;
   }
 
-  for (const reason of reasons) {
+  const list = Array.isArray(reasons)
+    ? reasons
+    : reasons == null
+      ? []
+      : typeof reasons === "object"
+        ? Object.values(reasons).filter((v) => typeof v === "string")
+        : [String(reasons)];
+  for (const reason of list) {
+    if (!reason) continue;
     audit.rejectionReasons[reason] = Number(audit.rejectionReasons[reason] || 0) + 1;
   }
 }

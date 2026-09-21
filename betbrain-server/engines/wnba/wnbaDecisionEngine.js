@@ -277,7 +277,8 @@ export async function evaluateWnbaPropDecision(context = {}) {
         player: playerName,
         line: prop.line,
         reason: BLOCKED_MISSING_PLAYER_HISTORY,
-        details: ptsHistory,
+        details: [BLOCKED_MISSING_PLAYER_HISTORY],
+        ptsHistory,
       },
     };
   }
