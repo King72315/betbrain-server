@@ -2104,6 +2104,7 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
           beforeTime: gameCutoff,
         });
         last5Cache.set(`${playerKey}|${gameCutoff || ""}`, last5);
+        await yieldBetweenGames();
       }
 
       let bdlSeasonGamesRaw = [];
@@ -2940,34 +2941,58 @@ async function buildPicksForDay(daysAhead = 0, league = "NBA") {
       rejectedSample: rejectedPicks.slice(0, 5),
     });
 
-    const shadowLinePackets = (propsAll || []).filter((p) => {
-      const t = String(p.propType || p.stat || "").toUpperCase();
-      return t.includes("REB") || t.includes("AST") || t.includes("ASSIST");
+    const slimShadowLine = (p) => ({
+      player: p.player || p.playerName || null,
+      propType: p.propType || p.stat || null,
+      line: p.line ?? p.officialLine ?? null,
+      side: p.side || p.selectedSide || null,
+      projection: p.projection ?? null,
     });
+    const shadowLinePackets = (propsAll || [])
+      .filter((p) => {
+        const t = String(p.propType || p.stat || "").toUpperCase();
+        return t.includes("REB") || t.includes("AST") || t.includes("ASSIST");
+      })
+      .map(slimShadowLine);
     const rawCounts = { POINTS: 0, REBOUNDS: 0, ASSISTS: 0 };
     for (const p of rawProps || []) {
       const t = String(p.propType || "").toUpperCase();
       if (rawCounts[t] != null) rawCounts[t] += 1;
     }
+    const consensusCounts = {
+      POINTS: (propsAll || []).filter((p) => String(p.propType).toUpperCase() === "POINTS").length,
+      REBOUNDS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "REBOUNDS").length,
+      ASSISTS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "ASSISTS").length,
+    };
     gameCards.push({
       ...rankedGame,
-      allGeneratedCandidates: builtPicks.map((pick) => ({ ...pick })),
+      allGeneratedCandidates: builtPicks.map((pick) => ({
+        player: pick.player || pick.playerName || null,
+        propType: pick.propType || pick.stat || null,
+        line: pick.line ?? null,
+        side: pick.side || pick.selectedSide || null,
+        projection: pick.projection ?? null,
+        officialSelected: pick.officialSelected === true,
+      })),
       rawPropCount: rawProps.length,
       consensusPropCount: props.length,
       rejectedPickCount: rejectedPicks.length,
-      rejectedSample: rejectedPicks.slice(0, 12),
-      rejectedPicks,
-      consensusPlayerProps: propsAll || [],
+      rejectedSample: rejectedPicks.slice(0, 12).map((r) => ({
+        player: r.player,
+        reason: r.reason,
+        propType: r.propType || r.stat || null,
+      })),
+      rejectedPicks: rejectedPicks.slice(0, 40).map((r) => ({
+        player: r.player,
+        reason: r.reason,
+        propType: r.propType || r.stat || null,
+      })),
       shadowLinePackets,
       shadowMarketAudit: {
         provider: "ODDS_API",
         marketsRequested: ["player_points", "player_rebounds", "player_assists"],
         rawCounts,
-        consensusCounts: {
-          POINTS: (propsAll || []).filter((p) => String(p.propType).toUpperCase() === "POINTS").length,
-          REBOUNDS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "REBOUNDS").length,
-          ASSISTS: shadowLinePackets.filter((p) => String(p.propType).toUpperCase() === "ASSISTS").length,
-        },
+        consensusCounts,
         dropReason:
           rawProps.length === 0
             ? "PROVIDER_RETURNED_ZERO"
