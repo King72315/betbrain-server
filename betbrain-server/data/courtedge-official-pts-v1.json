@@ -1,0 +1,217 @@
+{
+  "slates": {
+    "2026-09-21": {
+      "slateDateCT": "2026-09-21",
+      "frozen": true,
+      "freezeHash": "92f32c67ec48b183f8d102f1a56aab1dd976f21d16e3c291b4291ce16423b80c",
+      "frozenAt": "2026-09-21T13:53:19.895Z",
+      "gamesStarted": false,
+      "official": true,
+      "version": "COURTEDGE_PTS_WINNERC_PRODUCTION_V1",
+      "cards": [
+        {
+          "player": "Kahleah Copper",
+          "team": "phoenixmercury",
+          "propType": "POINTS",
+          "line": 18.5,
+          "side": "OVER",
+          "projection": 24.4,
+          "last5": [
+            {
+              "date": "2026-08-28",
+              "team": "phoenixmercury",
+              "opponent": "",
+              "opponentTeamId": "",
+              "points": 35,
+              "rebounds": 4,
+              "assists": 1,
+              "minutes": 32,
+              "fga": 22,
+              "fta": 9,
+              "fg3a": 4,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-26",
+              "team": "phoenixmercury",
+              "opponent": "",
+              "opponentTeamId": "",
+              "points": 19,
+              "rebounds": 5,
+              "assists": 2,
+              "minutes": 31,
+              "fga": 16,
+              "fta": 6,
+              "fg3a": 3,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-23",
+              "team": "phoenixmercury",
+              "opponent": "atlantadream",
+              "opponentTeamId": "atlantadream",
+              "points": 38,
+              "rebounds": 1,
+              "assists": 1,
+              "minutes": 37,
+              "fga": 21,
+              "fta": 12,
+              "fg3a": 7,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-16",
+              "team": "phoenixmercury",
+              "opponent": "portlandfire",
+              "opponentTeamId": "portlandfire",
+              "points": 19,
+              "rebounds": 7,
+              "assists": 1,
+              "minutes": 36,
+              "fga": 14,
+              "fta": 6,
+              "fg3a": 4,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-12",
+              "team": "phoenixmercury",
+              "opponent": "losangelessparks",
+              "opponentTeamId": "losangelessparks",
+              "points": 18,
+              "rebounds": 4,
+              "assists": 1,
+              "minutes": 35,
+              "fga": 16,
+              "fta": 4,
+              "fg3a": 5,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            }
+          ],
+          "last5Average": 25.8,
+          "seasonAverage": 20.9,
+          "probability": null,
+          "risk": "MEDIUM",
+          "officialSelected": true,
+          "slateDate": "2026-09-21",
+          "hydrated": true
+        },
+        {
+          "player": "Sabrina Ionescu",
+          "team": "newyorkliberty",
+          "propType": "POINTS",
+          "line": 14.5,
+          "side": "UNDER",
+          "projection": 10.4,
+          "last5": [
+            {
+              "date": "2026-09-20",
+              "team": "newyorkliberty",
+              "opponent": "torontotempo",
+              "opponentTeamId": "torontotempo",
+              "points": 6,
+              "rebounds": 3,
+              "assists": 9,
+              "minutes": 22,
+              "fga": 8,
+              "fta": 4,
+              "fg3a": 4,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-09-18",
+              "team": "newyorkliberty",
+              "opponent": "minnesotalynx",
+              "opponentTeamId": "minnesotalynx",
+              "points": 17,
+              "rebounds": 3,
+              "assists": 6,
+              "minutes": 30,
+              "fga": 15,
+              "fta": 3,
+              "fg3a": 9,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-29",
+              "team": "newyorkliberty",
+              "opponent": "chicagosky",
+              "opponentTeamId": "chicagosky",
+              "points": 2,
+              "rebounds": 5,
+              "assists": 4,
+              "minutes": 23,
+              "fga": 10,
+              "fta": 2,
+              "fg3a": 3,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-28",
+              "team": "newyorkliberty",
+              "opponent": "goldenstatevalkyries",
+              "opponentTeamId": "goldenstatevalkyries",
+              "points": 7,
+              "rebounds": 2,
+              "assists": 4,
+              "minutes": 29,
+              "fga": 12,
+              "fta": 2,
+              "fg3a": 9,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            },
+            {
+              "date": "2026-08-22",
+              "team": "newyorkliberty",
+              "opponent": "indianafever",
+              "opponentTeamId": "indianafever",
+              "points": 12,
+              "rebounds": 3,
+              "assists": 4,
+              "minutes": 32,
+              "fga": 11,
+              "fta": 2,
+              "fg3a": 5,
+              "played": true,
+              "source": "ESPN_GAMELOG"
+            }
+          ],
+          "last5Average": 8.8,
+          "seasonAverage": 15.2,
+          "probability": null,
+          "risk": "MEDIUM",
+          "officialSelected": true,
+          "slateDate": "2026-09-21",
+          "hydrated": true
+        }
+      ],
+      "games": [
+        {
+          "game": "ATLANTADREAM vs NEWYORKLIBERTY",
+          "date": "2026-09-21",
+          "isStarted": false,
+          "homeTeam": "newyorkliberty",
+          "awayTeam": "atlantadream"
+        },
+        {
+          "game": "DALLASWINGS vs PHOENIXMERCURY",
+          "date": "2026-09-21",
+          "isStarted": false,
+          "homeTeam": "phoenixmercury",
+          "awayTeam": "dallaswings"
+        }
+      ]
+    }
+  },
+  "durable": true,
+  "version": "courtedge-official-pts-durable-v1"
+}

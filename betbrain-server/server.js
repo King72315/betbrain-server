@@ -718,8 +718,15 @@ function persistBoardAfterRefresh(result) {
       try {
         persistOfficialPtsFreeze({
           slateDateCT: getCanonicalSlateDate(),
-          board: saved || next,
-          gamesStarted: (saved || next)?.games?.some((g) => g.isStarted === true) === true,
+          board: {
+            ...(saved || next || {}),
+            topProps: result.topProps || saved?.topProps || next?.topProps,
+            topOfficialProps: result.topOfficialProps || saved?.topOfficialProps,
+            bestSixDisplayTodayWNBA:
+              result.bestSixDisplayTodayWNBA || saved?.bestSixDisplayTodayWNBA,
+            games: result.games || saved?.games || next?.games,
+          },
+          gamesStarted: (result.games || saved?.games || []).some((g) => g.isStarted === true) === true,
         });
       } catch (err) {
         console.log("OFFICIAL PTS FREEZE PERSIST ERROR:", err.message);
