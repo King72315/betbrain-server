@@ -1,0 +1,1565 @@
+{
+  "version": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+  "slateDateCT": "2026-09-21",
+  "officialPromotion": true,
+  "productionMode": "WINNER_C_PRODUCTION",
+  "fullSlate": [
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857206",
+      "startCT": "7:00 PM",
+      "commenceTime": "2026-09-22T00:00Z",
+      "homeTeam": "NYL",
+      "awayTeam": "ATL",
+      "homeName": "New York Liberty",
+      "awayName": "Atlanta Dream",
+      "pHome": 0.4674,
+      "pAway": 0.5326,
+      "selectedWinnerId": "ATL",
+      "selectedWinnerName": "Atlanta Dream",
+      "selectedProbability": 0.5326,
+      "qualityScore": 68,
+      "winnerRank": 1,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 63,
+      "risk": "HIGH",
+      "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 46.7,
+          "reasons": [
+            "Chronological Elo leans home (51.8%)",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53.3,
+          "reasons": [
+            "Season point differential supports away",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4674,
+        "pAway": 0.5326,
+        "selectedTeamId": "ATL",
+        "selectedTeamName": "Atlanta Dream",
+        "caseMargin": 0.0652,
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "New York Liberty trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 110,
+        "awayMoneyline": -130,
+        "impliedHome": 0.47619047619047616,
+        "impliedAway": 0.5652173913043478,
+        "noVigHome": 0.4572564612326044,
+        "noVigAway": 0.5427435387673957,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.4572564612326044,
+        "pMarketAway": 0.5427435387673957,
+        "homeMarketEdge": 0.0102,
+        "awayMarketEdge": -0.0102,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1589.5591591572477,
+        "awayElo": 1616.749401658398,
+        "homeRecord": "51-33",
+        "awayRecord": "56-28",
+        "components": {
+          "pElo": 0.5178083671545896,
+          "pSeason": 0.42662490828254857,
+          "pRecent": 0.35434369377420455,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.42662490828254857,
+        "pdBaselinePick": "ATL",
+        "pdBaselineProbability": 0.5734
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4896,
+        "selectedWinnerId": "ATL",
+        "selectedProbability": 0.5104
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857206",
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    },
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857207",
+      "startCT": "9:00 PM",
+      "commenceTime": "2026-09-22T02:00Z",
+      "homeTeam": "PHO",
+      "awayTeam": "DAL",
+      "homeName": "Phoenix Mercury",
+      "awayName": "Dallas Wings",
+      "pHome": 0.4696,
+      "pAway": 0.5304,
+      "selectedWinnerId": "DAL",
+      "selectedWinnerName": "Dallas Wings",
+      "selectedProbability": 0.5304,
+      "qualityScore": 68,
+      "winnerRank": 2,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 62,
+      "risk": "HIGH",
+      "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 47,
+          "reasons": [
+            "Season point differential supports home",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53,
+          "reasons": [
+            "Chronological Elo leans away (59.6%)",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4696,
+        "pAway": 0.5304,
+        "selectedTeamId": "DAL",
+        "selectedTeamName": "Dallas Wings",
+        "caseMargin": 0.0609,
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "Phoenix Mercury trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 184,
+        "awayMoneyline": -220,
+        "impliedHome": 0.352112676056338,
+        "impliedAway": 0.6875,
+        "noVigHome": 0.3386960203217612,
+        "noVigAway": 0.6613039796782388,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.3386960203217612,
+        "pMarketAway": 0.6613039796782388,
+        "homeMarketEdge": 0.1309,
+        "awayMarketEdge": -0.1309,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1419.9113689012,
+        "awayElo": 1526.8279299685398,
+        "homeRecord": "40-42",
+        "awayRecord": "35-49",
+        "components": {
+          "pElo": 0.40427640715633123,
+          "pSeason": 0.5176803915312439,
+          "pRecent": 0.3262929005454786,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.5176803915312439,
+        "pdBaselinePick": "PHO",
+        "pdBaselineProbability": 0.5177
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4393,
+        "selectedWinnerId": "DAL",
+        "selectedProbability": 0.5607
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857207",
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    }
+  ],
+  "topWinners": [
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857206",
+      "startCT": "7:00 PM",
+      "commenceTime": "2026-09-22T00:00Z",
+      "homeTeam": "NYL",
+      "awayTeam": "ATL",
+      "homeName": "New York Liberty",
+      "awayName": "Atlanta Dream",
+      "pHome": 0.4674,
+      "pAway": 0.5326,
+      "selectedWinnerId": "ATL",
+      "selectedWinnerName": "Atlanta Dream",
+      "selectedProbability": 0.5326,
+      "qualityScore": 68,
+      "winnerRank": 1,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 63,
+      "risk": "HIGH",
+      "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 46.7,
+          "reasons": [
+            "Chronological Elo leans home (51.8%)",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53.3,
+          "reasons": [
+            "Season point differential supports away",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4674,
+        "pAway": 0.5326,
+        "selectedTeamId": "ATL",
+        "selectedTeamName": "Atlanta Dream",
+        "caseMargin": 0.0652,
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "New York Liberty trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 110,
+        "awayMoneyline": -130,
+        "impliedHome": 0.47619047619047616,
+        "impliedAway": 0.5652173913043478,
+        "noVigHome": 0.4572564612326044,
+        "noVigAway": 0.5427435387673957,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.4572564612326044,
+        "pMarketAway": 0.5427435387673957,
+        "homeMarketEdge": 0.0102,
+        "awayMarketEdge": -0.0102,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1589.5591591572477,
+        "awayElo": 1616.749401658398,
+        "homeRecord": "51-33",
+        "awayRecord": "56-28",
+        "components": {
+          "pElo": 0.5178083671545896,
+          "pSeason": 0.42662490828254857,
+          "pRecent": 0.35434369377420455,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.42662490828254857,
+        "pdBaselinePick": "ATL",
+        "pdBaselineProbability": 0.5734
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4896,
+        "selectedWinnerId": "ATL",
+        "selectedProbability": 0.5104
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857206",
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    },
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857207",
+      "startCT": "9:00 PM",
+      "commenceTime": "2026-09-22T02:00Z",
+      "homeTeam": "PHO",
+      "awayTeam": "DAL",
+      "homeName": "Phoenix Mercury",
+      "awayName": "Dallas Wings",
+      "pHome": 0.4696,
+      "pAway": 0.5304,
+      "selectedWinnerId": "DAL",
+      "selectedWinnerName": "Dallas Wings",
+      "selectedProbability": 0.5304,
+      "qualityScore": 68,
+      "winnerRank": 2,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 62,
+      "risk": "HIGH",
+      "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 47,
+          "reasons": [
+            "Season point differential supports home",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53,
+          "reasons": [
+            "Chronological Elo leans away (59.6%)",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4696,
+        "pAway": 0.5304,
+        "selectedTeamId": "DAL",
+        "selectedTeamName": "Dallas Wings",
+        "caseMargin": 0.0609,
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "Phoenix Mercury trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 184,
+        "awayMoneyline": -220,
+        "impliedHome": 0.352112676056338,
+        "impliedAway": 0.6875,
+        "noVigHome": 0.3386960203217612,
+        "noVigAway": 0.6613039796782388,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.3386960203217612,
+        "pMarketAway": 0.6613039796782388,
+        "homeMarketEdge": 0.1309,
+        "awayMarketEdge": -0.1309,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1419.9113689012,
+        "awayElo": 1526.8279299685398,
+        "homeRecord": "40-42",
+        "awayRecord": "35-49",
+        "components": {
+          "pElo": 0.40427640715633123,
+          "pSeason": 0.5176803915312439,
+          "pRecent": 0.3262929005454786,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.5176803915312439,
+        "pdBaselinePick": "PHO",
+        "pdBaselineProbability": 0.5177
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4393,
+        "selectedWinnerId": "DAL",
+        "selectedProbability": 0.5607
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857207",
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    }
+  ],
+  "testWinners": [],
+  "officialWinners": [
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857206",
+      "startCT": "7:00 PM",
+      "commenceTime": "2026-09-22T00:00Z",
+      "homeTeam": "NYL",
+      "awayTeam": "ATL",
+      "homeName": "New York Liberty",
+      "awayName": "Atlanta Dream",
+      "pHome": 0.4674,
+      "pAway": 0.5326,
+      "selectedWinnerId": "ATL",
+      "selectedWinnerName": "Atlanta Dream",
+      "selectedProbability": 0.5326,
+      "qualityScore": 68,
+      "winnerRank": 1,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 63,
+      "risk": "HIGH",
+      "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 46.7,
+          "reasons": [
+            "Chronological Elo leans home (51.8%)",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53.3,
+          "reasons": [
+            "Season point differential supports away",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4674,
+        "pAway": 0.5326,
+        "selectedTeamId": "ATL",
+        "selectedTeamName": "Atlanta Dream",
+        "caseMargin": 0.0652,
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "New York Liberty trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 110,
+        "awayMoneyline": -130,
+        "impliedHome": 0.47619047619047616,
+        "impliedAway": 0.5652173913043478,
+        "noVigHome": 0.4572564612326044,
+        "noVigAway": 0.5427435387673957,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.4572564612326044,
+        "pMarketAway": 0.5427435387673957,
+        "homeMarketEdge": 0.0102,
+        "awayMarketEdge": -0.0102,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1589.5591591572477,
+        "awayElo": 1616.749401658398,
+        "homeRecord": "51-33",
+        "awayRecord": "56-28",
+        "components": {
+          "pElo": 0.5178083671545896,
+          "pSeason": 0.42662490828254857,
+          "pRecent": 0.35434369377420455,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.42662490828254857,
+        "pdBaselinePick": "ATL",
+        "pdBaselineProbability": 0.5734
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4896,
+        "selectedWinnerId": "ATL",
+        "selectedProbability": 0.5104
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857206",
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    },
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857207",
+      "startCT": "9:00 PM",
+      "commenceTime": "2026-09-22T02:00Z",
+      "homeTeam": "PHO",
+      "awayTeam": "DAL",
+      "homeName": "Phoenix Mercury",
+      "awayName": "Dallas Wings",
+      "pHome": 0.4696,
+      "pAway": 0.5304,
+      "selectedWinnerId": "DAL",
+      "selectedWinnerName": "Dallas Wings",
+      "selectedProbability": 0.5304,
+      "qualityScore": 68,
+      "winnerRank": 2,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 62,
+      "risk": "HIGH",
+      "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 47,
+          "reasons": [
+            "Season point differential supports home",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53,
+          "reasons": [
+            "Chronological Elo leans away (59.6%)",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4696,
+        "pAway": 0.5304,
+        "selectedTeamId": "DAL",
+        "selectedTeamName": "Dallas Wings",
+        "caseMargin": 0.0609,
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "Phoenix Mercury trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 184,
+        "awayMoneyline": -220,
+        "impliedHome": 0.352112676056338,
+        "impliedAway": 0.6875,
+        "noVigHome": 0.3386960203217612,
+        "noVigAway": 0.6613039796782388,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.3386960203217612,
+        "pMarketAway": 0.6613039796782388,
+        "homeMarketEdge": 0.1309,
+        "awayMarketEdge": -0.1309,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1419.9113689012,
+        "awayElo": 1526.8279299685398,
+        "homeRecord": "40-42",
+        "awayRecord": "35-49",
+        "components": {
+          "pElo": 0.40427640715633123,
+          "pSeason": 0.5176803915312439,
+          "pRecent": 0.3262929005454786,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.5176803915312439,
+        "pdBaselinePick": "PHO",
+        "pdBaselineProbability": 0.5177
+      },
+      "forensicWinnerV1": {
+        "modelVersion": "courtedge-wnba-winner-model-v1",
+        "pHome": 0.4393,
+        "selectedWinnerId": "DAL",
+        "selectedProbability": 0.5607
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857207",
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    }
+  ],
+  "packets": [
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857206",
+      "homeTeam": "NYL",
+      "awayTeam": "ATL",
+      "pHome": 0.4674,
+      "pAway": 0.5326,
+      "selectedWinnerId": "ATL",
+      "selectedWinnerName": "Atlanta Dream",
+      "selectedProbability": 0.5326,
+      "qualityScore": 68,
+      "winnerRank": 1,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 63,
+      "risk": "HIGH",
+      "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 46.7,
+          "reasons": [
+            "Chronological Elo leans home (51.8%)",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53.3,
+          "reasons": [
+            "Season point differential supports away",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4674,
+        "pAway": 0.5326,
+        "selectedTeamId": "ATL",
+        "selectedTeamName": "Atlanta Dream",
+        "caseMargin": 0.0652,
+        "winningReason": "Atlanta Dream leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "New York Liberty trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 110,
+        "awayMoneyline": -130,
+        "impliedHome": 0.47619047619047616,
+        "impliedAway": 0.5652173913043478,
+        "noVigHome": 0.4572564612326044,
+        "noVigAway": 0.5427435387673957,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.4572564612326044,
+        "pMarketAway": 0.5427435387673957,
+        "homeMarketEdge": 0.0102,
+        "awayMarketEdge": -0.0102,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1589.5591591572477,
+        "awayElo": 1616.749401658398,
+        "homeRecord": "51-33",
+        "awayRecord": "56-28",
+        "components": {
+          "pElo": 0.5178083671545896,
+          "pSeason": 0.42662490828254857,
+          "pRecent": 0.35434369377420455,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.42662490828254857,
+        "pdBaselinePick": "ATL",
+        "pdBaselineProbability": 0.5734
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857206",
+          "oddsApi": "2e5bc624d9c65499dad8dcaad7828e0b",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanatics",
+          "fanduel",
+          "draftkings",
+          "betmgm",
+          "betrivers",
+          "mybookieag",
+          "williamhillus",
+          "bovada",
+          "betonlineag",
+          "lowvig"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    },
+    {
+      "version": "courtedge-wnba-winner-v1",
+      "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO",
+      "league": "WNBA",
+      "season": "2026",
+      "seasonPhase": "REGULAR_SEASON",
+      "slateDateCT": "2026-09-21",
+      "eventId": "wnba:espn:401857207",
+      "homeTeam": "PHO",
+      "awayTeam": "DAL",
+      "pHome": 0.4696,
+      "pAway": 0.5304,
+      "selectedWinnerId": "DAL",
+      "selectedWinnerName": "Dallas Wings",
+      "selectedProbability": 0.5304,
+      "qualityScore": 68,
+      "winnerRank": 2,
+      "winnerTrackingType": "OFFICIAL",
+      "confidence": 62,
+      "risk": "HIGH",
+      "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+      "winnerReaderAudit": {
+        "version": "courtedge-wnba-winner-reader-v1",
+        "homeCase": {
+          "score": 47,
+          "reasons": [
+            "Season point differential supports home",
+            "WNBA home-court intercept applied from historical fit"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "awayCase": {
+          "score": 53,
+          "reasons": [
+            "Chronological Elo leans away (59.6%)",
+            "Recent point differential supports away"
+          ],
+          "predictiveSignals": [
+            "CHRONOLOGICAL_ELO",
+            "SEASON_POINT_DIFF",
+            "RECENT_POINT_DIFF",
+            "WNBA_HOME_COURT"
+          ]
+        },
+        "pHome": 0.4696,
+        "pAway": 0.5304,
+        "selectedTeamId": "DAL",
+        "selectedTeamName": "Dallas Wings",
+        "caseMargin": 0.0609,
+        "winningReason": "Dallas Wings leads on independent team-strength blend (Elo + season/recent differential + WNBA home court).",
+        "rejectedReason": "Phoenix Mercury trails the same blend; market favorite was not used as a shortcut.",
+        "predictiveSignals": [
+          "CHRONOLOGICAL_ELO",
+          "SEASON_POINT_DIFF",
+          "RECENT_POINT_DIFF",
+          "WNBA_HOME_COURT"
+        ],
+        "confidenceRiskSignals": [],
+        "labOnlySignals": [],
+        "noiseSignals": [
+          "SPORTSBOOK_FAVORITE_NOT_USED_AS_MODEL"
+        ],
+        "missingData": [],
+        "dataQualityWarnings": [],
+        "evidenceDependency": "PARTIALLY_DEPENDENT"
+      },
+      "marketSnapshot": {
+        "homeMoneyline": 184,
+        "awayMoneyline": -220,
+        "impliedHome": 0.352112676056338,
+        "impliedAway": 0.6875,
+        "noVigHome": 0.3386960203217612,
+        "noVigAway": 0.6613039796782388,
+        "spread": null,
+        "total": null,
+        "sgoFairHome": null,
+        "sgoFairAway": null,
+        "books": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "bookCount": 10,
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "providerSources": [
+          "ODDS_API"
+        ],
+        "eventSource": "ODDS_API",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "marketFailoverUsed": false,
+        "marketQuality": 80,
+        "fetchedAt": "2026-09-21T11:01:07.973Z",
+        "pMarketHome": 0.3386960203217612,
+        "pMarketAway": 0.6613039796782388,
+        "homeMarketEdge": 0.1309,
+        "awayMarketEdge": -0.1309,
+        "modelMarketDisagreement": false
+      },
+      "featureSnapshot": {
+        "homeElo": 1419.9113689012,
+        "awayElo": 1526.8279299685398,
+        "homeRecord": "40-42",
+        "awayRecord": "35-49",
+        "components": {
+          "pElo": 0.40427640715633123,
+          "pSeason": 0.5176803915312439,
+          "pRecent": 0.3262929005454786,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pPdHome": 0.5176803915312439,
+        "pdBaselinePick": "PHO",
+        "pdBaselineProbability": 0.5177
+      },
+      "provenance": {
+        "eventSource": "ESPN",
+        "moneylineSource": "ODDS_API",
+        "secondaryMarketSources": [],
+        "providerEventIds": {
+          "espn": "wnba:espn:401857207",
+          "oddsApi": "fed9526885a35567f78caa67030b71b6",
+          "sgo": null
+        },
+        "providerFetchedAt": "2026-09-21T11:01:07.973Z",
+        "bookSources": [
+          "fanduel",
+          "fanatics",
+          "draftkings",
+          "williamhillus",
+          "betrivers",
+          "betmgm",
+          "betonlineag",
+          "lowvig",
+          "bovada",
+          "mybookieag"
+        ],
+        "marketFailoverUsed": false
+      },
+      "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+      "frozenAt": "2026-09-21T11:01:07.973Z"
+    }
+  ],
+  "topIds": [
+    "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+    "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO"
+  ],
+  "frozen": true,
+  "freezeHash": "0ac7974a197575bd903ba800ec18338c3f13bae535ca681e44cab356072d836a",
+  "frozenAt": "2026-09-21T11:01:07.977Z",
+  "persistedAt": "2026-09-21T11:01:07.977Z",
+  "compact": {
+    "slateDateCT": "2026-09-21",
+    "freezeHash": "0ac7974a197575bd903ba800ec18338c3f13bae535ca681e44cab356072d836a",
+    "frozenAt": "2026-09-21T11:01:07.977Z",
+    "frozen": true,
+    "version": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+    "productionMode": "WINNER_C_PRODUCTION",
+    "officialPromotion": true,
+    "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+    "games": [
+      {
+        "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857206|ATL|NYL",
+        "eventId": "wnba:espn:401857206",
+        "homeTeam": "NYL",
+        "awayTeam": "ATL",
+        "homeName": "New York Liberty",
+        "awayName": "Atlanta Dream",
+        "selectedWinnerId": "ATL",
+        "selectedWinnerName": "Atlanta Dream",
+        "selectedProbability": 0.5326,
+        "pHome": 0.4674,
+        "pAway": 0.5326,
+        "winnerRank": 1,
+        "winnerTrackingType": "OFFICIAL",
+        "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+        "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+        "components": {
+          "pElo": 0.5178083671545896,
+          "pSeason": 0.42662490828254857,
+          "pRecent": 0.35434369377420455,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pdBaselinePick": "ATL",
+        "pdBaselineProbability": 0.5734,
+        "marketP": 0.5427435387673957,
+        "homeMoneyline": 110,
+        "awayMoneyline": -130,
+        "winnerStatus": "PENDING",
+        "actualHomeScore": null,
+        "actualAwayScore": null
+      },
+      {
+        "winnerPredictionId": "WNBA|WINNER|2026-09-21|wnba:espn:401857207|DAL|PHO",
+        "eventId": "wnba:espn:401857207",
+        "homeTeam": "PHO",
+        "awayTeam": "DAL",
+        "homeName": "Phoenix Mercury",
+        "awayName": "Dallas Wings",
+        "selectedWinnerId": "DAL",
+        "selectedWinnerName": "Dallas Wings",
+        "selectedProbability": 0.5304,
+        "pHome": 0.4696,
+        "pAway": 0.5304,
+        "winnerRank": 2,
+        "winnerTrackingType": "OFFICIAL",
+        "modelVersion": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+        "productionOwner": "COURTEDGE_WINNER_C_PRODUCTION_V1",
+        "components": {
+          "pElo": 0.40427640715633123,
+          "pSeason": 0.5176803915312439,
+          "pRecent": 0.3262929005454786,
+          "eloW": 0.28,
+          "seasonW": 0.47,
+          "recentW": 0.25,
+          "temperature": 1.45,
+          "homeIntercept": 0.2278,
+          "kind": "FIXED_ELO_PD_CALIBRATED"
+        },
+        "pdBaselinePick": "PHO",
+        "pdBaselineProbability": 0.5177,
+        "marketP": 0.6613039796782388,
+        "homeMoneyline": 184,
+        "awayMoneyline": -220,
+        "winnerStatus": "PENDING",
+        "actualHomeScore": null,
+        "actualAwayScore": null
+      }
+    ]
+  }
+}

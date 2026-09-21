@@ -12,6 +12,8 @@ import {
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FILE = path.join(ROOT, "data", "wnba-winners-v1.json");
+const PRODUCTION_FREEZES = path.join(ROOT, "data", "wnba-winners-production-freezes-v1.json");
+const BUNDLES_DIR = path.join(ROOT, "active-bundles");
 
 function emptyStore() {
   return { slates: {}, durable: true, version: "courtedge-wnba-winners-durable-v1" };
@@ -93,6 +95,75 @@ export function computeWinnerFreezeHash(slate) {
   })).digest("hex");
 }
 
+function readJsonSafe(file, fallback) {
+  try {
+    if (!fs.existsSync(file)) return fallback;
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return fallback;
+  }
+}
+
+function isProductionFreeze(slate) {
+  return (
+    slate?.frozen === true &&
+    slate?.productionMode !== "TEST_ONLY" &&
+    String(slate?.slateDateCT || "").startsWith("20") &&
+    !String(slate?.slateDateCT || "").startsWith("2099")
+  );
+}
+
+function writeProductionFreezeSnapshot(slate) {
+  if (!isProductionFreeze(slate)) return;
+  const store = readJsonSafe(PRODUCTION_FREEZES, emptyStore());
+  store.slates = store.slates || {};
+  store.slates[slate.slateDateCT] = {
+    ...slate,
+    compact: slate.compact || compactFreeze(slate),
+  };
+  writeLocalTo(PRODUCTION_FREEZES, store);
+  try {
+    const dir = path.join(BUNDLES_DIR, slate.slateDateCT);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "wnba-winners.json"),
+      JSON.stringify(store.slates[slate.slateDateCT], null, 2)
+    );
+  } catch {
+    /* bundle write is best-effort */
+  }
+}
+
+function writeLocalTo(file, store) {
+  const dir = path.dirname(file);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
+  fs.renameSync(tmp, file);
+}
+
+function loadBundledProductionFreezes() {
+  const bundled = {};
+  const fromFile = readJsonSafe(PRODUCTION_FREEZES, { slates: {} });
+  for (const [date, slate] of Object.entries(fromFile.slates || {})) {
+    if (isProductionFreeze(slate) || slate?.freezeHash) bundled[date] = slate;
+  }
+  try {
+    if (fs.existsSync(BUNDLES_DIR)) {
+      for (const name of fs.readdirSync(BUNDLES_DIR)) {
+        const candidate = path.join(BUNDLES_DIR, name, "wnba-winners.json");
+        const slate = readJsonSafe(candidate, null);
+        if (slate?.freezeHash && (slate.fullSlate || slate.compact || slate.games)) {
+          bundled[name] = slate.slateDateCT ? slate : { ...slate, slateDateCT: name };
+        }
+      }
+    }
+  } catch {
+    /* ignore bundle scan */
+  }
+  return bundled;
+}
+
 function persistBoth(store) {
   writeLocal(store);
   try {
@@ -109,6 +180,7 @@ export function persistWinnerSlate(slate) {
   const existing = store.slates[date];
   if (existing?.frozen === true) {
     persistBoth(store);
+    writeProductionFreezeSnapshot(existing);
     return { ok: true, frozen: true, reused: true, slate: existing };
   }
   if (!(slate?.fullSlate || []).length) {
@@ -125,28 +197,53 @@ export function persistWinnerSlate(slate) {
     compact: compactFreeze({ ...slate, freezeHash, frozenAt }),
   };
   persistBoth(store);
+  writeProductionFreezeSnapshot(store.slates[date]);
   return { ok: true, frozen: true, reused: false, slate: store.slates[date] };
+}
+
+function hydrateSlateShape(slate) {
+  if (!slate) return null;
+  if (Array.isArray(slate.fullSlate) && slate.fullSlate.length) return slate;
+  const games = slate.compact?.games || slate.games || [];
+  if (!games.length) return slate;
+  return { ...slate, fullSlate: games };
 }
 
 export function getWinnerSlate(date) {
   const store = readLocal();
-  return store.slates[String(date || "")] || null;
+  const key = String(date || "");
+  const local = hydrateSlateShape(store.slates[key]);
+  if (local?.frozen) return local;
+  const bundled = loadBundledProductionFreezes()[key];
+  return hydrateSlateShape(bundled) || local || null;
 }
 
 export async function hydrateWinnerStoreFromDurable() {
+  const bundled = loadBundledProductionFreezes();
+  let remoteSlates = {};
   try {
     const remote = await durableGet(DURABLE_KEYS.WNBA_WINNERS);
     const value = remote?.value || remote;
-    if (value?.slates && Object.keys(value.slates).length) {
-      const local = readLocal();
-      const merged = { ...emptyStore(), ...local, slates: { ...value.slates, ...local.slates } };
-      writeLocal(merged);
-      return { ok: true, dates: Object.keys(merged.slates) };
-    }
+    remoteSlates = value?.slates || {};
   } catch {
-    /* local file remains authority if durable read fails */
+    /* local + bundled remain authority if durable read fails */
   }
-  return { ok: false, dates: Object.keys(readLocal().slates || {}) };
+  const local = readLocal();
+  const merged = {
+    ...emptyStore(),
+    ...local,
+    slates: {
+      ...remoteSlates,
+      ...bundled,
+      ...local.slates,
+    },
+  };
+  // Frozen production dates always win over empty/test overlays.
+  for (const [date, slate] of Object.entries({ ...bundled, ...remoteSlates, ...local.slates })) {
+    if (isProductionFreeze(slate)) merged.slates[date] = slate;
+  }
+  writeLocal(merged);
+  return { ok: true, dates: Object.keys(merged.slates) };
 }
 
 export async function restoreWinnerSlateAfterRestart(date) {
@@ -159,7 +256,8 @@ export async function restoreWinnerSlateAfterRestart(date) {
 export function officialWinnersForResults(date) {
   const slate = getWinnerSlate(date);
   if (!slate) return [];
-  return (slate.fullSlate || []).filter((r) => r.winnerTrackingType === TRACKING.OFFICIAL);
+  const rows = slate.fullSlate || slate.compact?.games || [];
+  return rows.filter((r) => r.winnerTrackingType === TRACKING.OFFICIAL || r.officialPromotion !== false);
 }
 
 export function labWinnerSlate(date) {
