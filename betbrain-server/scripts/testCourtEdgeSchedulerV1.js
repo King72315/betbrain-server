@@ -814,6 +814,51 @@ await testAsync("pregame idempotent once succeeded for slateDate", async () => {
   );
 });
 
+test("empty Today board during morning window is missed-window catch-up", () => {
+  makeTempDir("in-window-empty-catchup");
+  const now = chicagoAt({ hour: 8, minute: 15, slateDate: "2026-07-13" });
+  const state = loadSchedulerState();
+  const evaluation = evaluateDueJobs(now, state, {
+    getBoard: () => ({ games: [] }),
+  });
+  const morning = evaluation.due.find((d) => d.jobId === JOB_IDS.TODAY_MORNING_REFRESH);
+  assert.ok(morning);
+  assert.equal(morning.trigger, "missed_window_catchup");
+});
+
+await testAsync("in-window empty board queues slim refresh and does not await rebuild", async () => {
+  makeTempDir("in-window-queue");
+  const now = chicagoAt({ hour: 8, minute: 15, slateDate: "2026-07-13" });
+  let refreshCount = 0;
+  let queued = 0;
+  const result = await runScheduledJobs({
+    now,
+    handlers: {
+      getPreviousBoard: () => ({ games: [] }),
+      refreshBoard: async () => {
+        refreshCount += 1;
+        return validBoard("2026-07-13", "TODAY");
+      },
+      queueSlimRefresh: async () => {
+        queued += 1;
+        return { started: true, alreadyRunning: false };
+      },
+      gradeTracked: async () => ({ summary: {} }),
+      runLifecycle: async () => ({ summary: {} }),
+    },
+  });
+  assert.equal(refreshCount, 0);
+  assert.equal(queued, 1);
+  assert.ok(
+    result.jobsRun.some(
+      (j) =>
+        j.jobId === JOB_IDS.TODAY_MORNING_REFRESH &&
+        j.trigger === "missed_window_catchup" &&
+        j.status === "QUEUED"
+    )
+  );
+});
+
 test("evaluateDueJobs wires pregame game-time path", () => {
   makeTempDir("pregame-due-jobs");
   const games = [todayGame({ tipHour: 13, tipMinute: 0 })];

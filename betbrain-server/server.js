@@ -447,7 +447,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-ct-ownership-catchup-v5";
+  "courteedge-ct-ownership-catchup-v6";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -8236,10 +8236,22 @@ if (process.env.RUN_AUDIT === "1") {
       }
     }
 
-    // Delay startup rebuild disabled: auto-refresh was restart-looping Render.
-    // Recover with POST /refresh-picks after health is stable, or seed-board-cache.
+    // Never await a heavy rebuild here (that restart-looped Render). Queue the
+    // same slim Today path POST /refresh-picks uses so an eligible slate is not
+    // left empty until the next clock window.
     if (!picksCache?.games?.length) {
-      console.log("STARTUP: empty board still empty after recovery attempt");
+      const kick = startRefreshAllPicksBackground("startup-empty-board-catchup", {
+        scope: "today",
+        chainTomorrow: false,
+        includeNba: false,
+      });
+      console.log(
+        "STARTUP: queued slim today refresh after empty recovery",
+        JSON.stringify({
+          started: kick?.started === true,
+          alreadyRunning: kick?.alreadyRunning === true,
+        })
+      );
     }
 
     if (rehydrateResult.results?.length) {

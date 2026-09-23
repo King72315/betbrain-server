@@ -992,11 +992,22 @@ export function evaluateDueJobs(now = new Date(), state = loadSchedulerState(), 
 
   const morningId = JOB_IDS.TODAY_MORNING_REFRESH;
   const morningWindow = SCHEDULER_CONFIG.windows[morningId];
-  const morningDue = due.some((item) => item.jobId === morningId);
-  if (!force && !morningDue) {
-    const board = typeof options.getBoard === "function" ? options.getBoard() : null;
-    const boardMissing = !Array.isArray(board?.games) || board.games.length === 0;
-    if (boardMissing) {
+  const morningDueItem = due.find((item) => item.jobId === morningId);
+  const boardInspected = typeof options.getBoard === "function";
+  const board = boardInspected ? options.getBoard() : null;
+  const boardMissing =
+    boardInspected && (!Array.isArray(board?.games) || board.games.length === 0);
+  // An empty Today board must never run refreshAllPicks inside the heartbeat,
+  // including during the 8:00 CT window. That in-process path OOMs Render and
+  // leaves the eligible slate unwritten. Queue the slim Today refresh instead.
+  if (boardMissing) {
+    if (morningDueItem) {
+      morningDueItem.trigger = "missed_window_catchup";
+    } else if (
+      !force &&
+      !options.boardIsCurrentFor?.(morningId, local.slateDate) &&
+      !due.some((item) => item.kind === "refresh")
+    ) {
       due.push({
         jobId: morningId,
         slateDate: local.slateDate,
@@ -1135,10 +1146,11 @@ export async function runScheduledJobs(options = {}) {
     }
 
     try {
-      if (item.kind === "refresh" && item.trigger === "missed_window_catchup") {
-        if (typeof handlers.queueSlimRefresh !== "function") {
-          throw new Error("queueSlimRefresh handler missing");
-        }
+      if (
+        item.kind === "refresh" &&
+        item.trigger === "missed_window_catchup" &&
+        typeof handlers.queueSlimRefresh === "function"
+      ) {
         const queued = await handlers.queueSlimRefresh({
           scope: "today",
           chainTomorrow: false,
