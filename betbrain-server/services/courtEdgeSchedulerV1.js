@@ -990,6 +990,24 @@ export function evaluateDueJobs(now = new Date(), state = loadSchedulerState(), 
     });
   }
 
+  const morningId = JOB_IDS.TODAY_MORNING_REFRESH;
+  const morningWindow = SCHEDULER_CONFIG.windows[morningId];
+  const morningJob = state.jobs?.[morningId];
+  const morningDue = due.some((item) => item.jobId === morningId);
+  if (!force && !morningDue && morningJob && !alreadySucceededToday(morningJob, local.slateDate, local)) {
+    const board = typeof options.getBoard === "function" ? options.getBoard() : null;
+    const boardMissing = !Array.isArray(board?.games) || board.games.length === 0;
+    if (boardMissing) {
+      due.push({
+        jobId: morningId,
+        slateDate: local.slateDate,
+        kind: "refresh",
+        window: morningWindow,
+        trigger: "missed_window_catchup",
+      });
+    }
+  }
+
   return { local, due, skipped };
 }
 

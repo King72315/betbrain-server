@@ -23,31 +23,55 @@ import { COURTEDGE_WINNER_C_PRODUCTION_V1, isCourtEdgePtsWinnerCEra } from "../e
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TEAM_GAMES = path.join(ROOT, "research/courteedge-wnba-winners-v1/10-team-games.json");
 
+export function wnbaEventOwnedBySlate(commenceTime, slateDate) {
+  return slateDateCT(commenceTime) === String(slateDate || "");
+}
+
+function nextCalendarDay(date) {
+  const [y, m, d] = String(date).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + 1);
+  return dt.toISOString().slice(0, 10);
+}
+
 async function fetchEspnSlate(date) {
-  const ymd = date.replace(/-/g, "");
-  const res = await fetch(
-    `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${ymd}`,
-    { headers: { "User-Agent": "CourtEdge-WinnerC-V1" } }
+  const days = [date, nextCalendarDay(date)];
+  const batches = await Promise.all(
+    days.map(async (day) => {
+      const ymd = String(day).replace(/-/g, "");
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates=${ymd}`,
+        { headers: { "User-Agent": "CourtEdge-WinnerC-V1" } }
+      );
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.events || [];
+    })
   );
-  if (!res.ok) return [];
-  const json = await res.json();
-  return (json.events || []).map((ev) => {
+  const seen = new Set();
+  const events = [];
+  for (const ev of batches.flat()) {
+    if (!ev?.id || seen.has(String(ev.id))) continue;
     const comp = ev.competitions?.[0];
+    const commenceTime = ev.date || comp?.date;
+    if (!wnbaEventOwnedBySlate(commenceTime, date)) continue;
+    seen.add(String(ev.id));
     const home = (comp?.competitors || []).find((c) => c.homeAway === "home");
     const away = (comp?.competitors || []).find((c) => c.homeAway === "away");
-    return {
+    events.push({
       eventId: `wnba:espn:${ev.id}`,
       source: "ESPN",
-      date,
-      commenceTime: ev.date || comp?.date,
+      date: slateDateCT(commenceTime),
+      commenceTime,
       homeTeam: normalizeWnbaTeam(home?.team?.displayName || home?.team?.abbreviation),
       awayTeam: normalizeWnbaTeam(away?.team?.displayName || away?.team?.abbreviation),
       homeName: home?.team?.displayName,
       awayName: away?.team?.displayName,
       homeScore: home?.score != null && home.score !== "" ? Number(home.score) : null,
       awayScore: away?.score != null && away.score !== "" ? Number(away.score) : null,
-    };
-  });
+    });
+  }
+  return events;
 }
 
 function toHistoryGame(ev) {

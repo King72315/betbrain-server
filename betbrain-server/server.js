@@ -8,6 +8,7 @@ import { CONFIG, checkConfig } from "./config.js";
 import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
 import { getWinnerSlate, officialWinnersForResults, hydrateWinnerStoreFromDurable } from "./services/wnbaWinnerStoreV1.js";
 import { registerCourtEdgeEraRoutes } from "./services/courtEdgeEraRoutesV1.js";
+import { buildAndPersistWinnerCSlate } from "./services/wnbaWinnerSlateBuilderC.js";
 import { persistShadowBoardsFromGames } from "./services/courtEdgeMarketShadowStoreV1.js";
 import { prefetchWnbaTonightRosters } from "./services/courtEdgeWnbaTonightRosterV1.js";
 import {
@@ -446,7 +447,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-grade-a-recovery-v3";
+  "courteedge-ct-ownership-catchup-v1";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -4178,6 +4179,24 @@ async function refreshAllPicks(options = {}) {
   refreshesTodayCount += 1;
 
   console.log("REFRESH SIDE AUDIT:", result.sideAuditSummary);
+
+  let winnerC = null;
+  try {
+    const today = getTodayLocalDate();
+    const [y, m, d] = today.split("-").map(Number);
+    const next = new Date(Date.UTC(y, m - 1, d));
+    next.setUTCDate(next.getUTCDate() + 1);
+    const tomorrow = next.toISOString().slice(0, 10);
+    const built = [];
+    for (const slateDate of [today, tomorrow]) {
+      built.push(await buildAndPersistWinnerCSlate(slateDate));
+    }
+    winnerC = built;
+  } catch (err) {
+    winnerC = { ok: false, error: String(err.message || err) };
+    console.log("WINNER-C REFRESH BUILD WARNING:", err.message);
+  }
+  result.winnerC = winnerC;
 
   return result;
 }
