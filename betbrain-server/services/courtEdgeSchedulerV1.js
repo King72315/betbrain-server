@@ -994,7 +994,7 @@ export function evaluateDueJobs(now = new Date(), state = loadSchedulerState(), 
   const morningWindow = SCHEDULER_CONFIG.windows[morningId];
   const morningJob = state.jobs?.[morningId];
   const morningDue = due.some((item) => item.jobId === morningId);
-  if (!force && !morningDue && morningJob && !alreadySucceededToday(morningJob, local.slateDate, local)) {
+  if (!force && !morningDue && !(morningJob && alreadySucceededToday(morningJob, local.slateDate, local))) {
     const board = typeof options.getBoard === "function" ? options.getBoard() : null;
     const boardMissing = !Array.isArray(board?.games) || board.games.length === 0;
     if (boardMissing) {
