@@ -447,7 +447,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-ct-ownership-catchup-v4";
+  "courteedge-ct-ownership-catchup-v5";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -4626,6 +4626,41 @@ function getRefreshStatus() {
   };
 }
 
+let winnerCBuildInFlight = false;
+
+function scheduleMissingWinnerC(reason = "guard") {
+  if (winnerCBuildInFlight || refreshInFlight) return false;
+  const date = getTodayLocalDate();
+  const existing = getWinnerSlate(date);
+  if (existing?.frozen === true && (existing.fullSlate || []).length > 0) return false;
+  const board = getReadOnlyBoard();
+  const hasWnba = (board?.games || []).some(
+    (game) => String(game.league || "").toUpperCase() === "WNBA"
+  );
+  if (!hasWnba) return false;
+  winnerCBuildInFlight = true;
+  buildAndPersistWinnerCSlate(date)
+    .then((built) => {
+      console.log(
+        "WINNER-C AFTER TODAY BOARD:",
+        JSON.stringify({
+          reason,
+          ok: built?.ok === true,
+          frozen: built?.frozen === true,
+          reused: built?.reused === true,
+          games: built?.gameCount ?? built?.slate?.fullSlate?.length ?? null,
+        })
+      );
+    })
+    .catch((err) => {
+      console.log("WINNER-C AFTER TODAY BOARD ERROR:", err?.message || err);
+    })
+    .finally(() => {
+      winnerCBuildInFlight = false;
+    });
+  return true;
+}
+
 function startRefreshAllPicksBackground(reason = "manual", options = {}) {
   if (refreshInFlight) {
     return {
@@ -4709,6 +4744,11 @@ function startRefreshAllPicksBackground(reason = "manual", options = {}) {
         tomorrowCandidates: result?.tomorrowCandidateCount,
         todayCandidates: result?.todayCandidateCount,
       });
+      if (result?.blocked !== true && scope !== "tomorrow") {
+        setTimeout(() => {
+          scheduleMissingWinnerC("after-today-board");
+        }, 20000);
+      }
       return result;
     })
     .catch((error) => {
@@ -8268,6 +8308,7 @@ if (process.env.RUN_AUDIT === "1") {
             durableType: result?.durableStore?.type || null,
           })
         );
+        scheduleMissingWinnerC("heartbeat-guard");
       } catch (error) {
         console.log("COURTEDGE SCHEDULER HEARTBEAT ERROR:", error.message);
       } finally {
