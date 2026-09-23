@@ -8,6 +8,7 @@ import { CONFIG, checkConfig } from "./config.js";
 import { getSgoHealth } from "./services/sportsGameOddsClientV1.js";
 import { getWinnerSlate, officialWinnersForResults, hydrateWinnerStoreFromDurable } from "./services/wnbaWinnerStoreV1.js";
 import { registerCourtEdgeEraRoutes } from "./services/courtEdgeEraRoutesV1.js";
+import { buildAndPersistWinnerCSlate } from "./services/wnbaWinnerSlateBuilderC.js";
 import { persistShadowBoardsFromGames } from "./services/courtEdgeMarketShadowStoreV1.js";
 import { prefetchWnbaTonightRosters } from "./services/courtEdgeWnbaTonightRosterV1.js";
 import {
@@ -446,7 +447,7 @@ import {
 // startup hydrates from durable Home store first, then recovery bundle fallback.
 // Past-only LKG (all games PAST vs CT today) is never preserved ? see isPastOnlyLkgBoard.
 const SERVER_BUILD =
-  "courteedge-ct-ownership-catchup-v3";
+  "courteedge-ct-ownership-catchup-v4";
 /** Ceremony hash (Windows-raw) — C2 identity string; do not retune. */
 const C2_CALIBRATION_HASH_CEREMONY =
   "11fe26e8ecea79eab6183cc631d4a349f6dd6f9f4290ac70fafbbe9737d5fb14";
@@ -4900,7 +4901,16 @@ function buildSchedulerHandlers() {
           String(g.date || g.gameDate || "").slice(0, 10) === slateDate
       );
     },
-    refreshBoard: async () => refreshAllPicks(),
+    refreshBoard: async (dayOffset = 0) =>
+      refreshAllPicks({
+        scope: Number(dayOffset) === 1 ? "tomorrow" : "today",
+      }),
+    queueSlimRefresh: (options = {}) =>
+      startRefreshAllPicksBackground(options.reason || "missed_window_catchup", {
+        scope: "today",
+        chainTomorrow: false,
+        includeNba: false,
+      }),
     gradeTracked: async () => {
       // Grade active + all sealed unresolved dates (ignore frozen isStarted).
       const { props, summary } = await resolveTrackedProps({

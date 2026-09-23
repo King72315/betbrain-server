@@ -992,9 +992,8 @@ export function evaluateDueJobs(now = new Date(), state = loadSchedulerState(), 
 
   const morningId = JOB_IDS.TODAY_MORNING_REFRESH;
   const morningWindow = SCHEDULER_CONFIG.windows[morningId];
-  const morningJob = state.jobs?.[morningId];
   const morningDue = due.some((item) => item.jobId === morningId);
-  if (!force && !morningDue && !(morningJob && alreadySucceededToday(morningJob, local.slateDate, local))) {
+  if (!force && !morningDue) {
     const board = typeof options.getBoard === "function" ? options.getBoard() : null;
     const boardMissing = !Array.isArray(board?.games) || board.games.length === 0;
     if (boardMissing) {
@@ -1136,6 +1135,31 @@ export async function runScheduledJobs(options = {}) {
     }
 
     try {
+      if (item.kind === "refresh" && item.trigger === "missed_window_catchup") {
+        if (typeof handlers.queueSlimRefresh !== "function") {
+          throw new Error("queueSlimRefresh handler missing");
+        }
+        const queued = await handlers.queueSlimRefresh({
+          scope: "today",
+          chainTomorrow: false,
+          reason: "missed_window_catchup",
+        });
+        releaseJobLock(state, item.jobId, lock.memKey, JOB_STATUS.SKIPPED, {
+          skipReason: queued?.alreadyRunning
+            ? "refresh_already_running"
+            : "queued_slim_today_refresh",
+          errorType: null,
+          errorMessage: null,
+        });
+        jobsRun.push({
+          jobId: item.jobId,
+          status: queued?.started ? "QUEUED" : "ALREADY_RUNNING",
+          slateDate: item.slateDate,
+          trigger: "missed_window_catchup",
+        });
+        saveSchedulerState(state);
+        continue;
+      }
       if (item.kind === "refresh") {
         if (typeof handlers.refreshBoard !== "function") {
           throw new Error("refreshBoard handler missing");
