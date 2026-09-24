@@ -2158,7 +2158,7 @@ function getRoleChangeScoreBucket(score = 0) {
 }
 
 export function isResolvedStatus(status = "") {
-  return ["win", "loss", "push"].includes(String(status || "").toLowerCase());
+  return ["win", "loss", "push", "void"].includes(String(status || "").toLowerCase());
 }
 
 function mapPickToTrackedFields(pick = {}) {

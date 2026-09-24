@@ -67,6 +67,7 @@ import {
   fetchFinalPlayerStats,
   getCachedStatsForPick,
   getPickDate,
+  attachOfficialPropGrades,
   gradePointsPick,
   isPickGameStarted,
   isPickLikelyFinished,
@@ -4389,16 +4390,21 @@ app.get("/picks", async (req, res) => {
     // controlledBestBoard / officialMembership are forensic mirrors only.
     const sealedSnap = getLockedSnapshot(todayDate);
     const sealedProps = Array.isArray(sealedSnap?.props) ? sealedSnap.props : [];
+    const trackedForGrades = getTrackedProps();
+    const stampGrades = (list) => attachOfficialPropGrades(list, trackedForGrades);
 
     const sanitized = sanitizePropTypeDisplayOnBoard(
       sanitizeHomeBoardForLifecycle(board, {
         todayLocalDate: todayDate,
-        trackedProps: getTrackedProps(),
+        trackedProps: trackedForGrades,
         reports: getRawDailySlateReports(),
         archives: getAllHistoryArchives(),
         lockedSlates: getLockedSlatesRegistry().slates || [],
       })
     );
+    for (const key of ["topWNBAOfficialProps", "topOfficialProps", "bestSixDisplayTodayWNBA", "selectedPropsTodayWNBA"]) {
+      if (Array.isArray(sanitized[key])) sanitized[key] = stampGrades(sanitized[key]);
+    }
     const cutover = downgradeLegacyMembershipToForensic(
       {
         ...sanitized,

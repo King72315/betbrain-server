@@ -813,11 +813,12 @@ export function isCommenceTimeInFuture(savedPick = {}, now = new Date()) {
 export function evaluateGradingBlock(savedPick = {}, now = new Date()) {
   const today = getTodayLocalDate(now);
   const slateDate = getPickSlateDate(savedPick);
-  const gameStarted = isPickGameStarted(savedPick, now);
+  const hasStart = Boolean(getPickStartTime(savedPick));
+  const gameStarted = hasStart ? isPickGameStarted(savedPick, now) : !isFutureSlateDate(slateDate, today);
   const gameLikelyFinished = isPickLikelyFinished(savedPick, now);
   const blockedByFutureGame = isFutureSlateDate(slateDate, today);
   const blockedByCommenceTime = isCommenceTimeInFuture(savedPick, now);
-  const blockedByGameNotStarted = !gameStarted;
+  const blockedByGameNotStarted = hasStart && !gameStarted;
 
   const blocked =
     blockedByFutureGame ||
@@ -841,6 +842,38 @@ export function evaluateGradingBlock(savedPick = {}, now = new Date()) {
     blockedByCommenceTime,
     blockedByGameNotStarted,
   };
+}
+
+export function attachOfficialPropGrades(props = [], tracked = []) {
+  const index = new Map();
+  const keyOf = (row) => {
+    const player = String(row.player || row.playerName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const side = String(row.side || row.selectedSide || row.pick || "").toLowerCase();
+    const line = row.officialLine ?? row.line;
+    const stat = String(row.propType || row.stat || row.market || "").toLowerCase();
+    return `${player}|${side}|${line}|${stat}`;
+  };
+  for (const item of tracked || []) {
+    const raw = String(item.grade || item.status || "").toLowerCase();
+    if (!["win", "loss", "push", "void"].includes(raw)) continue;
+    index.set(keyOf(item), item);
+    if (item.officialPropId) index.set(String(item.officialPropId), item);
+  }
+  return (props || []).map((prop) => {
+    const hit = (prop.officialPropId && index.get(String(prop.officialPropId))) || index.get(keyOf(prop));
+    const source = hit || prop;
+    const raw = String(source.grade || source.status || "").toLowerCase();
+    const grade = raw === "win" ? "WIN" : raw === "loss" ? "LOSS" : raw === "push" ? "PUSH" : raw === "void" ? "VOID" : null;
+    if (!grade) return prop;
+    return {
+      ...prop,
+      grade,
+      gameStatus: "FINAL",
+      actualStat: source.actualStat ?? prop.actualStat ?? null,
+      line: prop.officialLine ?? prop.line,
+      side: prop.side || prop.selectedSide || prop.pick,
+    };
+  });
 }
 
 function getStatDate(stat = {}) {
@@ -1610,6 +1643,22 @@ function getActualPoints(statResult = {}) {
   );
 }
 
+function readVerifiedStat(statResult = {}, propType = "POINTS") {
+  const pt = String(propType || "POINTS").toUpperCase();
+  const keys =
+    pt === "REBOUNDS" || pt === "REB"
+      ? ["rebounds", "reb", "total_rebounds", "actualRebounds"]
+      : pt === "ASSISTS" || pt === "AST"
+        ? ["assists", "ast", "actualAssists"]
+        : ["points", "Points", "pts", "actualPoints"];
+  for (const key of keys) {
+    if (statResult[key] == null || statResult[key] === "") continue;
+    const n = Number(statResult[key]);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
 function getActualStatForPropType(statResult = {}, propType = "POINTS") {
   const pt = String(propType || "POINTS").toUpperCase();
   if (pt === "REBOUNDS" || pt === "REB") {
@@ -1690,7 +1739,29 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
   }
 
   const propType = resolvePickPropType(savedPick);
-  const actualPoints = getActualStatForPropType(statResult, propType);
+  if (statResult.didNotPlay === true || statResult.dnp === true) {
+    return {
+      ...savedPick,
+      status: "void",
+      grade: "VOID",
+      gameStatus: "FINAL",
+      pendingReason: null,
+      actualStat: null,
+      result: null,
+      line: savedPick.officialLine ?? savedPick.line,
+      side: normalizeSide(savedPick) || savedPick.side,
+    };
+  }
+  const actualPoints = readVerifiedStat(statResult, propType);
+  if (actualPoints == null) {
+    return {
+      ...savedPick,
+      status: "pending",
+      pendingReason: "Final player stat was not verified",
+      actualStat: null,
+      result: null,
+    };
+  }
   const line = num(
     savedPick.officialLine ?? savedPick.pickLine ?? savedPick.line ?? savedPick.sportsbookLine
   );
@@ -1772,6 +1843,8 @@ export function gradePointsPick(savedPick, statResult, options = {}) {
     result: actualPoints,
 
     status,
+    grade: status === "win" ? "WIN" : status === "loss" ? "LOSS" : "PUSH",
+    gameStatus: "FINAL",
     hit: status === "win",
     push,
 

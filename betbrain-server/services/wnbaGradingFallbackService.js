@@ -108,6 +108,26 @@ function normalizeWnbaTeam(value = "") {
     fire: "portlandfire",
   };
 
+  const nick = [
+    ["valkyr", "goldenstatevalkyries"],
+    ["liberty", "newyorkliberty"],
+    ["mystics", "washingtonmystics"],
+    ["mercury", "phoenixmercury"],
+    ["sparks", "losangelessparks"],
+    ["dream", "atlantadream"],
+    ["wings", "dallaswings"],
+    ["fever", "indianafever"],
+    ["aces", "lasvegasaces"],
+    ["lynx", "minnesotalynx"],
+    ["storm", "seattlestorm"],
+    ["tempo", "torontotempo"],
+    ["sky", "chicagosky"],
+    ["sun", "connecticutsun"],
+    ["fire", "portlandfire"],
+  ];
+  for (const [needle, canon] of nick) {
+    if (c.includes(needle)) return canon;
+  }
   return wnbaMap[v] || wnbaMap[c] || c;
 }
 
