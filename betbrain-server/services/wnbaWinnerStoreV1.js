@@ -9,6 +9,7 @@ import {
   syncKeyToDurableFireAndForget,
   writeDurableMirrorSync,
 } from "./courtEdgeDurableStoreV1.js";
+import { captureFrozenOfficialSlate } from "./courtEdgeFrozenSlateV1.js";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FILE = path.join(ROOT, "data", "wnba-winners-v1.json");
@@ -199,7 +200,6 @@ export function persistWinnerSlate(slate) {
   persistBoth(store);
   writeProductionFreezeSnapshot(store.slates[date]);
   try {
-    const { captureFrozenOfficialSlate } = await import("./courtEdgeFrozenSlateV1.js");
     captureFrozenOfficialSlate({
       slateDateCT: date,
       winners: store.slates[date].fullSlate || [],
