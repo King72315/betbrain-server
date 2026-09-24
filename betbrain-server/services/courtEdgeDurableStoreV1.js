@@ -34,6 +34,7 @@ export const DURABLE_KEYS = Object.freeze({
   WNBA_WINNERS: "wnba-winners",
   SHADOW_REB_AST: "shadow-reb-ast",
   OFFICIAL_PTS: "official-pts",
+  FROZEN_SLATES: "frozen-slates",
 });
 
 const FILE_MAP = Object.freeze({
@@ -53,6 +54,7 @@ const FILE_MAP = Object.freeze({
   [DURABLE_KEYS.WNBA_WINNERS]: path.join("data", "wnba-winners-v1.json"),
   [DURABLE_KEYS.SHADOW_REB_AST]: path.join("data", "courtedge-shadow-reb-ast-v1.json"),
   [DURABLE_KEYS.OFFICIAL_PTS]: path.join("data", "courtedge-official-pts-v1.json"),
+  [DURABLE_KEYS.FROZEN_SLATES]: path.join("data", "courtedge-frozen-slates-v1.json"),
 });
 
 /** Compact product-truth rows hydrate even when legacy tracked-props is oversized. */

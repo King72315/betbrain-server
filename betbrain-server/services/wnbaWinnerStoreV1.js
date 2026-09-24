@@ -198,6 +198,15 @@ export function persistWinnerSlate(slate) {
   };
   persistBoth(store);
   writeProductionFreezeSnapshot(store.slates[date]);
+  try {
+    const { captureFrozenOfficialSlate } = await import("./courtEdgeFrozenSlateV1.js");
+    captureFrozenOfficialSlate({
+      slateDateCT: date,
+      winners: store.slates[date].fullSlate || [],
+    });
+  } catch {
+    /* freeze file is also written from the board path */
+  }
   return { ok: true, frozen: true, reused: false, slate: store.slates[date] };
 }
 

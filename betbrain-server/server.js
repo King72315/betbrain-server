@@ -16,6 +16,15 @@ import {
   officialPtsBoardOverlay,
   hydrateOfficialPtsStoreFromDurable,
 } from "./services/courtEdgeOfficialPtsStoreV1.js";
+import {
+  captureFrozenOfficialSlate,
+  getFrozenSlate,
+  listFrozenSlates,
+  propsFromBoard,
+  winnersFromSlate,
+  recoverSep23FrozenSlate,
+  reconcilePendingFrozenSlates,
+} from "./services/courtEdgeFrozenSlateV1.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -729,6 +738,12 @@ function persistBoardAfterRefresh(result) {
             games: result.games || saved?.games || next?.games,
           },
           gamesStarted: (result.games || saved?.games || []).some((g) => g.isStarted === true) === true,
+        });
+        const freezeDate = getCanonicalSlateDate();
+        captureFrozenOfficialSlate({
+          slateDateCT: freezeDate,
+          props: propsFromBoard(saved || next || {}, freezeDate),
+          winners: winnersFromSlate(getWinnerSlate(freezeDate)),
         });
       } catch (err) {
         console.log("OFFICIAL PTS FREEZE PERSIST ERROR:", err.message);
@@ -4187,6 +4202,16 @@ async function refreshAllPicks(options = {}) {
 // Boot phase for ops diagnosis. /health stays sync and answers as soon as
  // the port is bound ? even while deferred hydrate is still running.
 let bootPhase = "starting";
+
+app.get("/courtedge/frozen-slates", (_req, res) => {
+  res.json({ ok: true, slates: listFrozenSlates() });
+});
+
+app.get("/courtedge/frozen-slates/:date", (req, res) => {
+  const slate = getFrozenSlate(req.params.date);
+  if (!slate) return res.status(404).json({ ok: false, error: "NO_FROZEN_SLATE" });
+  res.json({ ok: true, slate });
+});
 
 app.get("/courtedge/wnba-winners", (req, res) => {
   const date = String(req.query.date || "").trim();
@@ -7938,6 +7963,7 @@ if (process.env.RUN_AUDIT === "1") {
           "wnba-winners",
           "shadow-reb-ast",
           "official-pts",
+          "frozen-slates",
         ],
         maxFileBytes: Number(process.env.COURTEDGE_HYDRATE_MAX_BYTES || 4_000_000),
       });
@@ -7958,6 +7984,19 @@ if (process.env.RUN_AUDIT === "1") {
           actions: (durableHydrate?.actions || []).length,
         })
       );
+      try {
+        const recovered = recoverSep23FrozenSlate();
+        console.log(
+          "STARTUP SEP23 FROZEN RECOVERY:",
+          JSON.stringify({
+            winners: recovered.slate?.winners?.map((row) => [row.selectedWinnerName, row.grade]),
+            props: recovered.slate?.props?.length || 0,
+            unrecoverable: recovered.slate?.unrecoverable?.map((item) => item.reason) || [],
+          })
+        );
+      } catch (err) {
+        console.log("STARTUP SEP23 FROZEN RECOVERY ERROR:", err.message);
+      }
       const durableHealth = await getDurableStoreHealth();
       console.log(
         "STARTUP DURABLE STORE HEALTH:",
@@ -8280,6 +8319,7 @@ if (process.env.RUN_AUDIT === "1") {
         const { props, summary: trackedSummary } = await resolveTrackedProps({
           requireLikelyFinished: true,
         });
+        await reconcilePendingFrozenSlates();
 
         // Safe auto-build: only when auto-resolve leaves zero still-pending props.
         if (trackedSummary.stillPending === 0) {
