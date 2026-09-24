@@ -59,7 +59,8 @@ export function registerCourtEdgeEraRoutes(app) {
     res.json({
       ok: true,
       official: false,
-      label: "NOT OFFICIAL / RESEARCH ONLY",
+      productTruthUntouched: true,
+      label: slate?.label || "NOT OFFICIAL / RESEARCH ONLY",
       slateDateCT: date,
       slate,
     });

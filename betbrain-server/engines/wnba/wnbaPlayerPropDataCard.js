@@ -34,6 +34,7 @@ import {
   propTypeStatLabel,
 } from "./propTypeV1.js";
 import { buildSharedPlayerGameContextV1 } from "./wnbaSharedPlayerContextV1.js";
+import { avgPresentField } from "./statPresenceV1.js";
 
 function num(value, fallback = 0) {
   const n = Number(value);
@@ -462,21 +463,17 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
   // so OVER/UNDER/Direction/C2 all see the same corrected mean.
   // POINTS keep the upgraded volume model; REB/AST use dedicated projectors.
   if (propType === "REBOUNDS" || propType === "ASSISTS") {
-    const seasonReb = avg(
-      (bdlSeasonGames || []).map((g) => num(g.rebounds)).filter((n) => n > 0)
-    );
-    const recentReb = avg(last5.map((g) => num(g.rebounds)));
-    const seasonAst = avg(
-      (bdlSeasonGames || []).map((g) => num(g.assists)).filter((n) => n > 0)
-    );
-    const recentAst = avg(last5.map((g) => num(g.assists)));
+    const seasonReb = avgPresentField(bdlSeasonGames, ["rebounds", "REB"]);
+    const recentReb = avgPresentField(last5, ["rebounds", "REB"]);
+    const seasonAst = avgPresentField(bdlSeasonGames, ["assists", "AST"]);
+    const recentAst = avgPresentField(last5, ["assists", "AST"]);
     const sharedCtx = buildSharedPlayerGameContextV1({
       playerName,
       playerId: effectivePlayerId,
       team,
       opponent,
       last5,
-      seasonMinutes: effectiveSeasonMinutes,
+      seasonMinutes: effectiveSeasonMinutes > 0 ? effectiveSeasonMinutes : null,
       expectedMinutes: projectionResult.expectedMinutes,
       seasonPoints: effectiveSeasonPoints,
       seasonRebounds: seasonReb,
@@ -490,37 +487,28 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
       roleStabilityScore: playerRoleProfile?.roleStabilityScore,
     });
     const alt = projectWnbaStatByPropTypeV1(propType, {
-      seasonMinutes: effectiveSeasonMinutes,
-      recentMinutes: effectiveRecentMinutes,
+      seasonMinutes: effectiveSeasonMinutes > 0 ? effectiveSeasonMinutes : null,
+      recentMinutes: effectiveRecentMinutes > 0 ? effectiveRecentMinutes : null,
       seasonRebounds: seasonReb,
       recentRebounds: recentReb,
       seasonAssists: seasonAst,
       recentAssists: recentAst,
-      seasonOffRebounds: avg(
-        (bdlSeasonGames || [])
-          .map((g) => num(g.offensiveRebounds, null))
-          .filter((n) => n != null)
-      ),
-      recentOffRebounds: avg(
-        last5.map((g) => num(g.offensiveRebounds, null)).filter((n) => n != null)
-      ),
-      seasonDefRebounds: avg(
-        (bdlSeasonGames || [])
-          .map((g) => num(g.defensiveRebounds, null))
-          .filter((n) => n != null)
-      ),
-      recentDefRebounds: avg(
-        last5.map((g) => num(g.defensiveRebounds, null)).filter((n) => n != null)
-      ),
+      seasonOffRebounds: avgPresentField(bdlSeasonGames, ["offensiveRebounds"]),
+      recentOffRebounds: avgPresentField(last5, ["offensiveRebounds"]),
+      seasonDefRebounds: avgPresentField(bdlSeasonGames, ["defensiveRebounds"]),
+      recentDefRebounds: avgPresentField(last5, ["defensiveRebounds"]),
       pace: sharedCtx.gameContext.pace,
     });
     projectionResult = {
       ...projectionResult,
       ...alt,
       projection: alt.projection,
-      expectedMinutes: alt.expectedMinutes ?? projectionResult.expectedMinutes,
+      expectedMinutes: alt.expectedMinutes ?? null,
       propType,
       sharedPlayerContext: sharedCtx,
+      pointsProjectionCleared: true,
+      invalid: alt.invalid === true || alt.projection == null,
+      invalidReason: alt.invalidReason || (alt.projection == null ? "MISSING_PROJECTION_INPUTS" : null),
     };
   }
 
@@ -555,14 +543,10 @@ export async function buildWnbaPlayerPropDataCard(pick = {}, context = {}) {
     };
   }
 
-  const seasonRebForFair = avg(
-    (bdlSeasonGames || []).map((g) => num(g.rebounds)).filter((n) => n > 0)
-  );
-  const recentRebForFair = avg(last5.map((g) => num(g.rebounds)));
-  const seasonAstForFair = avg(
-    (bdlSeasonGames || []).map((g) => num(g.assists)).filter((n) => n > 0)
-  );
-  const recentAstForFair = avg(last5.map((g) => num(g.assists)));
+  const seasonRebForFair = avgPresentField(bdlSeasonGames, ["rebounds", "REB"]);
+  const recentRebForFair = avgPresentField(last5, ["rebounds", "REB"]);
+  const seasonAstForFair = avgPresentField(bdlSeasonGames, ["assists", "AST"]);
+  const recentAstForFair = avgPresentField(last5, ["assists", "AST"]);
 
   fairLine = buildFairLineForPropTypeV1({
     propType,

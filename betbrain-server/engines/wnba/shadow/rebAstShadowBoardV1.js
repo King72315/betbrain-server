@@ -11,25 +11,28 @@ import {
   isShadowPropMarket,
   normalizePropMarket,
 } from "../../courtEdgeEraV1.js";
+import {
+  avgPresentField,
+  presentStatNumber,
+} from "../statPresenceV1.js";
 
 function num(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-function avg(xs) {
-  const a = (xs || []).map(num).filter((x) => x != null);
-  if (!a.length) return null;
-  return a.reduce((s, x) => s + x, 0) / a.length;
+  return presentStatNumber(v);
 }
 
 function playerFromPacket(p = {}) {
   const last5 = p.last5 || p.dataCard?.last5 || [];
   const seasonMin = num(p.seasonMinutes ?? p.dataCard?.seasonMinutes);
-  const recentMin = avg(last5.map((g) => g.minutes ?? g.min ?? g.MIN)) ?? num(p.recentMinutes);
+  const recentMin =
+    avgPresentField(last5, ["minutes", "min", "MIN"], {
+      treatOmittedAsZeroWhenPlayed: false,
+    }) ?? num(p.recentMinutes);
   const seasonAst = num(p.seasonAssists ?? p.dataCard?.seasonAssists);
-  const recentAst = avg(last5.map((g) => g.assists ?? g.AST)) ?? num(p.recentAssists);
+  const recentAst =
+    avgPresentField(last5, ["assists", "AST"]) ?? num(p.recentAssists);
   const seasonReb = num(p.seasonRebounds ?? p.dataCard?.seasonRebounds);
-  const recentReb = avg(last5.map((g) => g.rebounds ?? g.REB)) ?? num(p.recentRebounds);
+  const recentReb =
+    avgPresentField(last5, ["rebounds", "REB"]) ?? num(p.recentRebounds);
   const starterShare = last5.length
     ? last5.filter((g) => String(g.starterStatus || g.starter || "").toUpperCase().includes("START")).length / last5.length
     : null;
@@ -44,13 +47,18 @@ function playerFromPacket(p = {}) {
     starterShare,
     recentStarterShare: starterShare,
     last5MinCv: null,
-    games: last5.map((g) => ({ MIN: num(g.minutes ?? g.min ?? g.MIN), AST: num(g.assists), REB: num(g.rebounds) })),
+    games: last5.map((g) => ({
+      MIN: num(g.minutes ?? g.min ?? g.MIN),
+      AST: presentStatNumber(g.assists ?? g.AST),
+      REB: presentStatNumber(g.rebounds ?? g.REB),
+    })),
   };
 }
 
-function sideFrom(proj, line, fallback) {
-  if (proj == null || line == null) return fallback || null;
-  if (proj === line) return fallback || null;
+function sideFrom(proj, line) {
+  if (proj == null || line == null) return null;
+  if (!Number.isFinite(Number(proj)) || !Number.isFinite(Number(line))) return null;
+  if (proj === line) return null;
   return proj > line ? "OVER" : "UNDER";
 }
 
@@ -71,8 +79,11 @@ export function buildShadowRow(packet = {}) {
   const market = normalizePropMarket(packet.propType || packet.stat || packet.market);
   if (!isShadowPropMarket(market)) return null;
   const line = num(packet.sealedLine ?? packet.line ?? packet.officialLine);
-  const currentProj = num(packet.projection);
   const player = playerFromPacket(packet);
+  const packetProj = presentStatNumber(packet.projection);
+  const hollowPacket =
+    packetProj == null || (packetProj === 0 && player.n === 0);
+  let currentProj = hollowPacket ? null : packetProj;
   const role = classifyAstRole(player);
   const rebRole = classifyRebRole(player);
   const ctx = {
@@ -91,10 +102,8 @@ export function buildShadowRow(packet = {}) {
     teammateHighReboundOut: false,
     daysSinceLastGame: null,
   };
-  const currentSide = String(packet.selectedSide || packet.side || "").toUpperCase() || sideFrom(currentProj, line);
   const candidates = {};
   if (market === "ASSISTS") {
-    candidates.CURRENT = { projection: currentProj, side: currentSide, version: "CURRENT" };
     candidates["AST-A"] = projectAstA(ctx);
     candidates["AST-B"] = projectAstB(ctx);
     candidates["AST-C"] = projectAstC(ctx);
@@ -103,8 +112,8 @@ export function buildShadowRow(packet = {}) {
       version: "AST_CURRENT_REPLAY",
       formula: "minutes × blended rate (warehouse-style replay on live L5)",
     };
+    if (currentProj == null) currentProj = num(candidates["AST-B"]?.projection);
   } else {
-    candidates.CURRENT = { projection: currentProj, side: currentSide, version: "CURRENT" };
     candidates["REB-A"] = projectRebA(ctx);
     candidates["REB-B"] = projectRebB(ctx);
     candidates["REB-C"] = projectRebC(ctx);
@@ -112,10 +121,19 @@ export function buildShadowRow(packet = {}) {
       projection: num(candidates["REB-B"]?.projection),
       version: "REB_CURRENT_REPLAY",
     };
+    if (currentProj == null) currentProj = num(candidates["REB-B"]?.projection);
   }
+  if (hollowPacket && player.n === 0) currentProj = null;
+  const currentSide = sideFrom(currentProj, line);
+  candidates.CURRENT = {
+    projection: currentProj,
+    side: currentSide,
+    version: "CURRENT",
+    hydratedFromPacket: !hollowPacket,
+  };
   for (const [k, v] of Object.entries(candidates)) {
     if (!v) continue;
-    v.side = v.side || sideFrom(v.projection, line, currentSide);
+    v.side = sideFrom(v.projection, line);
     v.edge = v.projection != null && line != null ? Number((v.projection - line).toFixed(3)) : null;
   }
   const edge = currentProj != null && line != null ? currentProj - line : null;
@@ -132,6 +150,8 @@ export function buildShadowRow(packet = {}) {
     line,
     side: currentSide,
     projection: currentProj,
+    invalid: currentProj == null || currentSide == null,
+    invalidReason: currentProj == null ? "MISSING_PROJECTION" : currentSide == null ? "NO_SIDE" : null,
     projectionEdge: edge,
     predictedProbability: num(packet.predictedProbability ?? packet.rawWinProbability),
     rankScore: num(packet.officialRankScore ?? packet.c2RankScore ?? packet.rankScore),

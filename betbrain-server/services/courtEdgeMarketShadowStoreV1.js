@@ -74,12 +74,9 @@ export function persistShadowBoards({
     ![...(boards.reb.rows || []), ...(boards.ast.rows || [])].some(
       (r) => Number(r.projection) > 0 || r.last5Count > 0 || r.player?.n > 0
     );
+  // Frozen REB/AST slates are independent of PTS refresh. Never replace them.
   if (existing?.freezeHash && existing.immutable === true) {
-    const existingRows = [...(existing.reb?.rows || []), ...(existing.ast?.rows || [])];
-    const existingEmpty =
-      existingRows.length === 0 ||
-      !existingRows.some((r) => Number(r.projection) > 0 || r.last5Count > 0);
-    if (!existingEmpty || incomingEmpty) return existing;
+    return existing;
   }
   store.slates[slateDateCT] = {
     ...payload,

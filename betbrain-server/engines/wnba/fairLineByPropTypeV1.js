@@ -1,9 +1,11 @@
 /**
  * Stat-specific fair lines for POINTS / REBOUNDS / ASSISTS.
  * Do not reuse Points FGA/FTA parameters for REB/AST.
+ * REB/AST: actual 0 RPG/APG is a real average. Do not skip it as missing.
  */
 import { buildFairLine } from "../fairLineEngine.js";
 import { normalizePropTypeV1 } from "./propTypeV1.js";
+import { presentStatNumber } from "./statPresenceV1.js";
 
 function num(v, fb = 0) {
   const n = Number(v);
@@ -14,10 +16,11 @@ function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v));
 }
 
-function blend(recent = 0, season = 0, w = 0.55) {
-  if (recent > 0 && season > 0) return recent * w + season * (1 - w);
-  if (recent > 0) return recent;
-  if (season > 0) return season;
+function fairFromSeasonRecent(season, recent, sportsProjection) {
+  if (season != null && recent != null) return season * 0.85 + recent * 0.15;
+  if (season != null) return season;
+  if (recent != null) return recent;
+  if (sportsProjection != null) return sportsProjection;
   return 0;
 }
 
@@ -42,38 +45,28 @@ export function buildFairLineForPropTypeV1({
   }
 
   const bookLine = num(prop.line ?? playerState.bookLine);
-  const sportsProjection = num(
+  const sportsProjection = presentStatNumber(
     projection ?? playerState.sportsProjection ?? playerState.projection
   );
 
   if (pt === "REBOUNDS") {
-    const season = num(playerState.seasonRebounds);
-    const recent = num(playerState.recentRebounds);
-    // Fair line: season RPG only (or light recent). Projection engine owns
-    // recent-rate × minutes. This avoids near-1.0 projection/fair aliasing.
-    let fairLine =
-      season > 0
-        ? season
-        : recent > 0
-          ? recent
-          : sportsProjection > 0
-            ? sportsProjection
-            : 0;
-    if (season > 0 && recent > 0) {
-      fairLine = season * 0.85 + recent * 0.15;
-    }
+    const season = presentStatNumber(playerState.seasonRebounds);
+    const recent = presentStatNumber(playerState.recentRebounds);
+    let fairLine = fairFromSeasonRecent(season, recent, sportsProjection);
     fairLine = Number(Math.max(0, fairLine).toFixed(1));
     return {
       fairLine,
       fairLineEdge: Number((fairLine - bookLine).toFixed(1)),
       fairLineQuality: clamp(
-        (season > 0 ? 50 : 0) + (recent > 0 ? 30 : 0) + (sportsProjection > 0 ? 20 : 0),
+        (season != null ? 50 : 0) +
+          (recent != null ? 30 : 0) +
+          (sportsProjection != null ? 20 : 0),
         0,
         100
       ),
       fairLineReasons: [
-        `REBOUNDS fair from season RPG (${Number(season || 0).toFixed(1)}) with light recent mix`,
-        sportsProjection > 0
+        `REBOUNDS fair from season RPG (${Number(season ?? 0).toFixed(1)}) with light recent mix`,
+        sportsProjection != null
           ? `Projection ${sportsProjection} kept separate (not blended as primary)`
           : "No projection",
       ],
@@ -85,32 +78,23 @@ export function buildFairLineForPropTypeV1({
     };
   }
 
-  // ASSISTS — season APG fair; projection owns recent assist-rate × minutes
-  const seasonA = num(playerState.seasonAssists);
-  const recentA = num(playerState.recentAssists);
-  let fairA =
-    seasonA > 0
-      ? seasonA
-      : recentA > 0
-        ? recentA
-        : sportsProjection > 0
-          ? sportsProjection
-          : 0;
-  if (seasonA > 0 && recentA > 0) {
-    fairA = seasonA * 0.85 + recentA * 0.15;
-  }
+  const seasonA = presentStatNumber(playerState.seasonAssists);
+  const recentA = presentStatNumber(playerState.recentAssists);
+  let fairA = fairFromSeasonRecent(seasonA, recentA, sportsProjection);
   fairA = Number(Math.max(0, fairA).toFixed(1));
   return {
     fairLine: fairA,
     fairLineEdge: Number((fairA - bookLine).toFixed(1)),
     fairLineQuality: clamp(
-      (seasonA > 0 ? 50 : 0) + (recentA > 0 ? 30 : 0) + (sportsProjection > 0 ? 20 : 0),
+      (seasonA != null ? 50 : 0) +
+        (recentA != null ? 30 : 0) +
+        (sportsProjection != null ? 20 : 0),
       0,
       100
     ),
     fairLineReasons: [
-      `ASSISTS fair from season APG (${Number(seasonA || 0).toFixed(1)}) with light recent mix`,
-      sportsProjection > 0
+      `ASSISTS fair from season APG (${Number(seasonA ?? 0).toFixed(1)}) with light recent mix`,
+      sportsProjection != null
         ? `Projection ${sportsProjection} kept separate (not blended as primary)`
         : "No projection",
     ],
