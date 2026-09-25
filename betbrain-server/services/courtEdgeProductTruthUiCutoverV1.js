@@ -18,6 +18,7 @@ import {
   HOME_PRODUCT_TRUTH_SECTIONS_BUILD,
   BEST_AVAILABLE_DISPLAY_MAX_DEFAULT,
 } from "./courtEdgeHomeProductTruthSectionsV3.js";
+import { withIndependentRebAstHomeBoard } from "./courtEdgeHomeRebAstAttachV1.js";
 
 export const PRODUCT_TRUTH_UI_CUTOVER_BUILD =
   "courteedge-product-truth-ui-cutover-v3";
@@ -241,7 +242,7 @@ export function getHomeProductTruthBoard(options = {}) {
     })
   );
 
-  return {
+  const payload = {
     ok: true,
     build: PRODUCT_TRUTH_UI_CUTOVER_BUILD,
     singleProductTruthBuild: SINGLE_PRODUCT_TRUTH_BUILD,
@@ -258,7 +259,7 @@ export function getHomeProductTruthBoard(options = {}) {
     priorDayOfficial,
     todayOfficialSummary: todayBoard.officialSummary,
     priorDayOfficialSummary: yesterdayBoard.officialSummary,
-    // Backward-compat field: TRUE Trusted/Official only (never research weave).
+    // PTS Official only here; REB/AST are attached below without reminting PTS.
     homeTodayDisplayOfficial: homeTrustedDisplay,
     homeTodayTrusted: homeTrustedDisplay,
     homeTodayBestAvailable: todaySections.bestAvailable,
@@ -284,6 +285,7 @@ export function getHomeProductTruthBoard(options = {}) {
     homeRankAuthority: "global_quality_v3",
     marketBalancedWeave: false,
   };
+  return withIndependentRebAstHomeBoard(payload);
 }
 
 export function getResultsProductTruthBoard(options = {}) {
